@@ -265,7 +265,7 @@ export class MyPuzzlesScreen implements Screen {
             })),
         );
       });
-    const newTile = h('button', { class: 'puzzle-tile new', onclick: () => nav.editor() }, h('div', { class: 'thumb' }, icon(I.plus)), h('div', { class: 'tile-name' }, 'New puzzle'));
+    const newTile = h('button', { class: 'puzzle-tile new', onclick: () => { store.editorDraft = undefined; nav.editor(); } }, h('div', { class: 'thumb' }, icon(I.plus)), h('div', { class: 'tile-name' }, 'New puzzle'));
     this.el.replaceChildren(
       header('My Puzzles', () => nav.collections(), button('Import', () => importCode(nav), 'small', I.download)),
       h('div', { class: 'menu-scroll' },

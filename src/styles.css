@@ -1597,6 +1597,11 @@ button.puzzle-tile:hover {
 .empty-hint.show {
   opacity: 0.9;
 }
+@media (min-width: 761px) {
+  .editor:not(.panel-closed) .empty-hint {
+    left: calc(50% - 160px);
+  }
+}
 .editor .bottom {
   right: calc(320px + var(--safe-r));
   transition: right 0.3s;
