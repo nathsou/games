@@ -35,6 +35,7 @@ export async function openSettings(app: App): Promise<void> {
     toggle('Sound effects', '', 'sound'),
     toggle('Vibration', 'On supported touch devices.', 'haptics'),
     toggle('Left-handed layout', 'Mirror the tool dock.', 'lefty'),
+    segmented('Spin momentum', 'How much the block keeps turning after you let go.', 'momentum', [['off', 'Off'], ['light', 'Light'], ['strong', 'Strong']]),
     toggle('Reduce motion', 'Fewer particles and no auto-spin.', 'reducedMotion'),
     segmented('Theme', '', 'theme', [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]),
     h('button', {

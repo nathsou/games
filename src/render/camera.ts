@@ -2,6 +2,15 @@ import type { Dims } from '../core/grid.ts';
 import { clamp, damp, invert, lookAt, mat4, multiply, perspective, transformPoint, type Vec3 } from './math.ts';
 
 const TAU = Math.PI * 2;
+export type Momentum = 'off' | 'light' | 'strong';
+
+/** Release speed factor and decay rate (per second) for each momentum setting. */
+const MOMENTUM: Record<Momentum, { keep: number; decay: number }> = {
+  off: { keep: 0, decay: 0 },
+  light: { keep: 0.45, decay: 11 },
+  strong: { keep: 1, decay: 4.5 },
+};
+
 export const DEFAULT_YAW = 0.62;
 export const DEFAULT_PITCH = 0.5;
 
@@ -21,6 +30,9 @@ export class OrbitCamera {
   /** Extra distance factor so the model fits the area left free by the UI. */
   viewScale = 1;
 
+  /** How much the block keeps spinning after a drag is released. */
+  momentum: Momentum = 'light';
+  private lastMove = 0;
   private velYaw = 0;
   private velPitch = 0;
   private dragging = false;
@@ -109,11 +121,17 @@ export class OrbitCamera {
       const a = 0.35;
       this.velYaw = this.velYaw * (1 - a) + ((-dx * k) / dt) * a;
       this.velPitch = this.velPitch * (1 - a) + ((dy * k) / dt) * a;
+      this.lastMove = performance.now();
     }
   }
 
   endDrag(): void {
     this.dragging = false;
+    const m = MOMENTUM[this.momentum];
+    // no fling if the pointer had come to rest before release
+    const keep = performance.now() - this.lastMove > 80 ? 0 : m.keep;
+    this.velYaw *= keep;
+    this.velPitch *= keep;
     if (Math.abs(this.velYaw) < 0.3) this.velYaw = 0;
     if (Math.abs(this.velPitch) < 0.3) this.velPitch = 0;
   }
@@ -154,7 +172,7 @@ export class OrbitCamera {
     } else if (!this.dragging) {
       this.yaw += this.velYaw * dt;
       this.pitch = clamp(this.pitch + this.velPitch * dt, -1.45, 1.45);
-      const d = Math.exp(-4.5 * dt);
+      const d = Math.exp(-MOMENTUM[this.momentum].decay * dt);
       this.velYaw *= d;
       this.velPitch *= d;
       if (Math.abs(this.velYaw) < 0.01) this.velYaw = 0;

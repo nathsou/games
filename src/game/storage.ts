@@ -9,6 +9,7 @@ export interface Settings {
   lefty: boolean;
   reducedMotion: boolean;
   theme: 'auto' | 'light' | 'dark';
+  momentum: 'off' | 'light' | 'strong';
 }
 
 export interface PuzzleRecord {
@@ -46,6 +47,7 @@ const defaults = (): Store => ({
     lefty: false,
     reducedMotion: typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches,
     theme: 'auto',
+    momentum: 'light',
   },
   records: {},
   progress: {},

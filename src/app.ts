@@ -1,7 +1,7 @@
 import { gridFor } from './core/grid.ts';
 import { hashString } from './core/rng.ts';
 import type { ModelDef, PuzzleDef } from './core/types.ts';
-import { store, save, maskFromString, maskToString } from './game/storage.ts';
+import { onSettingsChange, store, save, maskFromString, maskToString } from './game/storage.ts';
 import { OrbitCamera } from './render/camera.ts';
 import { hexToRgb } from './render/math.ts';
 import { Renderer, type DrawList } from './render/renderer.ts';
@@ -63,6 +63,9 @@ export class App {
     this.canvas = canvas;
     this.root = root;
     this.renderer = new Renderer(canvas);
+    const syncMomentum = () => (this.camera.momentum = store.settings.reducedMotion ? 'off' : store.settings.momentum);
+    syncMomentum();
+    onSettingsChange(syncMomentum);
     const proxy: GestureTarget = {
       hitTest: (x, y) => this.screen?.gestures?.hitTest(x, y) ?? false,
       strokeStart: (x, y, a) => this.screen?.gestures?.strokeStart(x, y, a),
