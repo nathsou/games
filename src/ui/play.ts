@@ -1,4 +1,5 @@
 import type { App, Screen } from '../app.ts';
+import { ambient } from '../audio/ambient.ts';
 import { haptic, sfx, unlockAudio } from '../audio/sfx.ts';
 import { clueCount, clueKind, describeClue, CIRCLE, SQUARE } from '../core/clues.ts';
 import type { Axis } from '../core/grid.ts';
@@ -80,6 +81,13 @@ export class PlayScreen implements Screen {
   /** Tools held down with the keyboard: A = hammer, D = brush. */
   private keys = new ToolKeys<Tool>({}, () => this.syncTool());
   private orbitFrom: { x: number; y: number; dist: number } | null = null;
+  /** Focus mode: HUD fades while you work on the block and returns near the screen edges. */
+  private pointer = { x: -1, y: -1, t: 0 };
+  private hudHidden = false;
+  private onDocPointer = (e: PointerEvent) => {
+    if (e.pointerType !== 'mouse') return;
+    this.pointer = { x: e.clientX, y: e.clientY, t: performance.now() };
+  };
   private nudgeAt = -1e9;
   private nudges = 0;
   /** Lines to pulse (hints / tutorial). */
@@ -151,8 +159,7 @@ export class PlayScreen implements Screen {
       below(iconButton(I.back, 'Back', () => this.leave())),
       title,
       h('div', { class: 'spacer' }),
-      this.ui.timer,
-      this.ui.strikes,
+      (this.ui.status = h('div', { class: 'status-chip' }, this.ui.timer, this.ui.strikes)),
       below(iconButton(I.help, 'How to play', () => void this.showRules(), '', '?')),
       below(iconButton(I.restart, 'Restart puzzle', () => void this.confirmRestart(), 'hide-sm')),
       below(iconButton(I.gear, 'Settings', () => void openSettings(this.app))),
@@ -350,6 +357,9 @@ export class PlayScreen implements Screen {
     cam.resetZoom();
     cam.snapTo(DEFAULT_YAW, DEFAULT_PITCH, 0.9);
     this.introT = store.settings.reducedMotion ? 10 : 0;
+    document.addEventListener('pointermove', this.onDocPointer);
+    document.body.classList.add('in-play');
+    ambient.start();
     this.opts.hooks?.attach(this);
     if (this.session.solved) {
       this.revealT = 1;
@@ -362,17 +372,40 @@ export class PlayScreen implements Screen {
       setTimeout(() => toast('Tip: the ⓪ button clears every row marked 0 in one go', 'info', 4200), 1400);
   }
 
+  /** Decide whether the HUD should step back (mouse only, while working on the block). */
+  private updateFocusMode(): void {
+    let hide = false;
+    if (store.settings.autoHideHud && FINE_POINTER && !this.session.solved && !this.opts.hooks && this.pointer.x >= 0 && !document.querySelector('.modal-back')) {
+      const top = (this.el.querySelector('.topbar') as HTMLElement).getBoundingClientRect().bottom + 50;
+      let bottom = Infinity;
+      for (const el of this.el.querySelectorAll<HTMLElement>('.bottom > *')) if (el.offsetParent) bottom = Math.min(bottom, el.getBoundingClientRect().top - 50);
+      const nearEdge = this.pointer.y < top || this.pointer.y > bottom;
+      const busy = !!this.stroke || this.orbiting;
+      const idle = performance.now() - this.pointer.t > 1600;
+      hide = !nearEdge && (busy || idle || this.hover >= 0);
+    }
+    if (hide !== this.hudHidden) {
+      this.hudHidden = hide;
+      this.el.classList.toggle('hud-hidden', hide);
+    }
+  }
+
   update(dt: number, time: number): void {
     this.time = time;
     this.introT += dt;
+    this.updateFocusMode();
+    document.body.style.setProperty('--progress', this.session.solved ? '1' : this.session.progress.toFixed(3));
     const s = this.session;
     const cam = this.app.camera;
     // keep the model clear of the HUD (refit every frame: the viewport may change)
     let top = 0;
     let bottom = cam.height;
-    for (const el of this.el.querySelectorAll<HTMLElement>('.topbar, .tutorial-card')) top = Math.max(top, el.getBoundingClientRect().bottom);
-    for (const el of this.el.querySelectorAll<HTMLElement>('.bottom > *, .solved-card.in'))
-      if (el.offsetParent) bottom = Math.min(bottom, el.getBoundingClientRect().top);
+    for (const el of this.el.querySelectorAll<HTMLElement>('.topbar, .tutorial-card')) top = Math.max(top, el.offsetTop + el.offsetHeight);
+    // measure the (untransformed) containers so HUD fades don't shift the framing
+    const dock = this.el.querySelector('.bottom') as HTMLElement;
+    if (dock.offsetHeight) bottom = Math.min(bottom, dock.getBoundingClientRect().top);
+    const card = this.el.querySelector('.solved-card.in') as HTMLElement | null;
+    if (card) bottom = Math.min(bottom, card.getBoundingClientRect().top);
     // leave room for the slicer knobs around the block
     const knobRoom = this.slicer.pill.offsetParent ? 8 : 44;
     cam.frame(top + knobRoom, knobRoom, cam.height - bottom + knobRoom, knobRoom, this.firstFrame ? 0 : dt);
@@ -985,6 +1018,9 @@ export class PlayScreen implements Screen {
   }
 
   exit(): void {
+    document.removeEventListener('pointermove', this.onDocPointer);
+    document.body.classList.remove('in-play');
+    ambient.stop();
     this.flushSweep();
     this.persist(true);
     this.opts.hooks?.detach?.();

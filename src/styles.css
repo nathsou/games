@@ -2334,3 +2334,70 @@ body.in-gallery {
   font-family: var(--serif);
   font-weight: 600;
 }
+
+/* ------------------------------------------------------------ immersive play */
+/* the room warms up as the shape emerges */
+body.in-play {
+  background:
+    radial-gradient(900px 620px at 50% 38%, color-mix(in srgb, #ffe2bd calc(var(--progress, 0) * 70%), transparent), transparent 70%),
+    radial-gradient(1200px 700px at 12% 8%, var(--bg3), transparent 60%),
+    radial-gradient(1000px 800px at 90% 90%, var(--bg2), transparent 60%),
+    var(--bg1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) body.in-play {
+    background:
+      radial-gradient(900px 620px at 50% 38%, color-mix(in srgb, #4a3a66 calc(var(--progress, 0) * 80%), transparent), transparent 70%),
+      radial-gradient(1200px 700px at 12% 8%, var(--bg3), transparent 60%),
+      radial-gradient(1000px 800px at 90% 90%, var(--bg2), transparent 60%),
+      var(--bg1);
+  }
+}
+.status-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+.status-chip .stat {
+  padding: 0;
+}
+.status-chip .timer:not([style*='none']) + .lives:not([style*='none']) {
+  padding-left: 8px;
+  border-left: 1px solid var(--line);
+}
+.play .topbar,
+.play .bottom > *,
+.play .knob-layer {
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+.play.hud-hidden .topbar {
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+}
+.play.hud-hidden .bottom > * {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+.play.hud-hidden .knob-layer:not(.hidden) {
+  opacity: 0.55;
+}
+.coll-icon.exhibit {
+  padding: 0;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--card-solid) 55%, transparent);
+}
+.coll-icon.exhibit img {
+  width: 120%;
+  height: 120%;
+  object-fit: contain;
+}
+.coll-name {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 21px;
+}

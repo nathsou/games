@@ -42,7 +42,8 @@ Tool keys can be rebound in **Settings → Controls**. Row drags lock to the gri
 
 ## Features
 
-- **65 puzzles in 8 collections** (First Steps, Kitchen, Garden, Critters, Toybox, Outer Space, Chess Set, Architecture), plus a seeded **Daily Sculpture**.
+- **65 puzzles in 8 galleries** (First Steps, Kitchen, Garden, Critters, Toybox, Outer Space, Chess Set, Architecture), plus a seeded **Daily Sculpture**. Each gallery is a 3D room of plinths: unsolved puzzles show their block (with your saved progress), solved ones show the finished piece, and a freshly solved piece is revealed on its plinth as a "new acquisition".
+- **Immersive play**: with a mouse, *focus mode* fades the controls while you work on the block (they return near the screen edges); the room warms up as the shape emerges; peeled layers show a hatched cross-section; solving colors the shape in cube by cube and presents a museum plaque. Optional generative ambient music.
 - **Interactive tutorial** (3 short lessons, skippable at any point, replayable from the home screen).
 - **Level editor**: build with add / remove / paint / pick tools, mirror symmetry, resize, shift, rotate and crop. Auto-generate clues at a chosen difficulty, or tap faces to show and hide individual clues while a live solver badge reports whether the puzzle still has a unique solution and highlights ambiguous cubes. Playtest, save to *My Puzzles*, and share as a link (`#p=<code>`).
 - **Clue generator** thins out zero-clues first (they're giveaways, and the game can clear them in one click), then hides further clues while keeping the puzzle uniquely solvable at the chosen difficulty.

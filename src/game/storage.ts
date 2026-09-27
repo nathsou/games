@@ -11,6 +11,9 @@ export interface Settings {
   momentum: 'off' | 'light' | 'strong';
   /** Grey out rows whose clue is satisfied (Picross 3D Round 2 style). */
   greyDone: boolean;
+  /** Mouse: fade the HUD while working on the block. */
+  autoHideHud: boolean;
+  ambient: boolean;
   /** Zen mode: warn instead of breaking a cube of the shape. */
   warnWrongBreaks: boolean;
   keys: KeyBindings;
@@ -64,6 +67,8 @@ const defaults = (): Store => ({
     theme: 'auto',
     momentum: 'light',
     greyDone: true,
+    autoHideHud: true,
+    ambient: false,
     warnWrongBreaks: false,
     keys: { ...DEFAULT_KEYS },
   },

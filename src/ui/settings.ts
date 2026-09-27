@@ -35,6 +35,8 @@ export async function openSettings(app: App): Promise<void> {
     toggle('Grey out finished rows', 'Once a row’s remaining cubes match its clue and are all painted, grey it out.', 'greyDone'),
     toggle('Show timer', '', 'showTimer'),
     toggle('Sound effects', '', 'sound'),
+    toggle('Ambient music', 'A soft generative soundscape while you solve.', 'ambient'),
+    toggle('Focus mode', 'With a mouse, the controls fade while you work on the block and return near the screen edges.', 'autoHideHud'),
     toggle('Vibration', 'On supported touch devices.', 'haptics'),
     toggle('Left-handed layout', 'Mirror the tool dock.', 'lefty'),
     segmented('Spin momentum', 'How much the block keeps turning after you let go.', 'momentum', [['off', 'Off'], ['light', 'Light'], ['strong', 'Strong']]),

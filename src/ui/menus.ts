@@ -186,13 +186,19 @@ export class CollectionsScreen implements Screen {
       const s = collectionStats(c);
       const done = s.solved === s.total;
       return h('button', { class: `coll-card ${done ? 'done' : ''}`, style: `--t1:${c.tint[0]};--t2:${c.tint[1]}`, onclick: () => nav.collection(c) },
-        h('div', { class: 'coll-icon' }, icon(COLLECTION_ICONS[c.icon] ?? I.cube)),
+        (() => {
+          // the collection's latest acquisition stands in for its icon
+          const shown = [...c.puzzles].reverse().find((p) => store.records[p.id]);
+          return shown
+            ? h('div', { class: 'coll-icon exhibit' }, h('img', { src: app.thumbnail(shown, 160), alt: shown.name }))
+            : h('div', { class: 'coll-icon' }, icon(COLLECTION_ICONS[c.icon] ?? I.cube));
+        })(),
         h('div', { class: 'coll-body' },
           h('div', { class: 'coll-name' }, c.name),
           h('div', { class: 'coll-blurb' }, c.blurb),
           h('div', { class: 'coll-meta' },
             h('span', { class: `tag ${c.difficulty}` }, DIFF_LABEL[c.difficulty]),
-            h('span', null, `${s.solved}/${s.total}`),
+            h('span', null, `${s.solved}/${s.total} exhibits`),
             h('span', { class: 'mini-stars' }, icon(I.star, 'on'), `${s.stars}`)),
         ),
         h('div', { class: 'coll-bar' }, h('i', { style: `width:${(s.solved / s.total) * 100}%` })),
@@ -205,35 +211,8 @@ export class CollectionsScreen implements Screen {
       h('div', { class: 'coll-icon' }, icon(I.user)),
       h('div', { class: 'coll-body' }, h('div', { class: 'coll-name' }, 'My Puzzles'), h('div', { class: 'coll-blurb' }, `${store.user.length} made in the editor.`)));
     this.el = h('div', { class: 'menu' },
-      header('Puzzles', () => nav.home(), iconButton(I.gear, 'Settings', () => openSettings(app))),
+      header('Galleries', () => nav.home(), iconButton(I.gear, 'Settings', () => openSettings(app))),
       h('div', { class: 'menu-scroll' }, h('div', { class: 'coll-grid' }, ...cards, daily, mine)),
-    );
-  }
-  update(): void {}
-  draw(): null {
-    return null;
-  }
-}
-
-export class CollectionScreen implements Screen {
-  el: HTMLElement;
-  constructor(app: App, nav: Nav, c: Collection) {
-    const s = collectionStats(c);
-    const tiles = c.puzzles.map((p, i) => {
-      const rec = store.records[p.id];
-      const prog = store.progress[p.id];
-      const thumb = rec ? h('img', { src: app.thumbnail(p), alt: p.name, loading: 'lazy' }) : h('div', { class: 'mystery' }, '?');
-      return h('button', { class: `puzzle-tile ${rec ? 'solved' : ''}`, onclick: () => nav.play(c, i), 'aria-label': rec ? p.name : `Puzzle ${i + 1}` },
-        h('div', { class: 'thumb' }, thumb, prog && !rec ? h('span', { class: 'badge' }, 'In progress') : null),
-        h('div', { class: 'tile-name' }, rec ? p.name : `#${i + 1}`),
-        h('div', { class: 'tile-meta' },
-          h('span', null, p.dims.join('×')),
-          h('span', { class: 'mini-stars' }, ...[1, 2, 3].map((k) => icon(k <= (rec?.stars ?? 0) ? I.star : I.starOutline, k <= (rec?.stars ?? 0) ? 'on' : '')))),
-      );
-    });
-    this.el = h('div', { class: 'menu', style: `--t1:${c.tint[0]};--t2:${c.tint[1]}` },
-      header(c.name, () => nav.collections(), h('div', { class: 'head-stat' }, icon(I.star, 'on'), `${s.stars}/${s.total * 3}`)),
-      h('div', { class: 'menu-scroll' }, h('p', { class: 'menu-blurb' }, c.blurb), h('div', { class: 'tile-grid' }, ...tiles)),
     );
   }
   update(): void {}
