@@ -24,8 +24,9 @@ export function icon(svg: string, cls = ''): HTMLSpanElement {
   return s;
 }
 
-export function iconButton(svg: string, label: string, onClick: (e: MouseEvent) => void, cls = ''): HTMLButtonElement {
-  return h('button', { class: `icon-btn ${cls}`, 'aria-label': label, title: label, onclick: onClick }, icon(svg));
+/** Round icon button with a tooltip (`key` adds a shortcut badge, space-separated). */
+export function iconButton(svg: string, label: string, onClick: (e: MouseEvent) => void, cls = '', key?: string): HTMLButtonElement {
+  return h('button', { class: `icon-btn ${cls}`, 'aria-label': label, 'data-tip': label, 'data-key': key, onclick: onClick }, icon(svg));
 }
 
 export function button(label: string, onClick: (e: MouseEvent) => void, cls = '', svg?: string): HTMLButtonElement {

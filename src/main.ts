@@ -9,6 +9,7 @@ import { solverClient } from './solver/client.ts';
 import { h, toast } from './ui/dom.ts';
 import { CollectionScreen, CollectionsScreen, HomeScreen, MyPuzzlesScreen, type Nav } from './ui/menus.ts';
 import { PlayScreen } from './ui/play.ts';
+import { installTooltips } from './ui/tooltip.ts';
 import { Tutorial } from './ui/tutorial.ts';
 
 function applyTheme(): void {
@@ -19,6 +20,7 @@ function applyTheme(): void {
 }
 applyTheme();
 onSettingsChange(applyTheme);
+installTooltips();
 
 const canvas = h('canvas', { id: 'gl', 'aria-label': '3D puzzle view' });
 const root = h('div', { id: 'ui' });

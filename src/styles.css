@@ -680,21 +680,38 @@ button.puzzle-tile:hover {
   padding: 0 6px;
   color: var(--ink-2);
 }
-.strikes {
+.lives {
   display: flex;
-  gap: 4px;
+  gap: 1px;
+  color: color-mix(in srgb, var(--bad) 45%, transparent);
 }
-.strikes .dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--bad) 60%, transparent);
-  transition: background 0.2s, transform 0.2s;
+.lives .ico {
+  width: 18px;
+  height: 18px;
 }
-.strikes .dot.on {
-  background: var(--bad);
-  border-color: var(--bad);
-  transform: scale(1.1);
+.lives .ico.on {
+  color: var(--bad);
+}
+.lives.hurt {
+  animation: hurt 0.45s ease;
+}
+@keyframes hurt {
+  20% {
+    transform: translateX(-4px) scale(1.08);
+  }
+  45% {
+    transform: translateX(4px);
+  }
+  70% {
+    transform: translateX(-2px);
+  }
+}
+.puzzle-name .dims {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
 .progress {
   position: absolute;
@@ -1677,4 +1694,267 @@ button.puzzle-tile:hover {
   .play:has(.tutorial-card) .hint-msg {
     bottom: calc(196px + var(--safe-b));
   }
+}
+
+/* ------------------------------------------------------------ tooltips */
+.tooltip {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: #1e2130;
+  color: #f3f4fa;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.3;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px) scale(0.97);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.tooltip.below {
+  transform: translateY(-4px) scale(0.97);
+}
+.tooltip.show {
+  opacity: 1;
+  transform: none;
+}
+.tooltip::after {
+  content: '';
+  position: absolute;
+  left: var(--arrow-x, 50%);
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  background: inherit;
+  transform: rotate(45deg);
+  border-radius: 2px;
+}
+.tooltip.below::after {
+  bottom: auto;
+  top: -5px;
+}
+.tooltip kbd {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  min-width: 20px;
+  text-align: center;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+}
+.tooltip kbd:first-of-type {
+  margin-left: 4px;
+}
+
+/* ------------------------------------------------------------ slicer knobs */
+.knob-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none !important;
+  z-index: 1;
+  transition: opacity 0.25s;
+}
+.knob-layer.hidden {
+  opacity: 0;
+}
+.knob-layer.hidden .knob {
+  pointer-events: none;
+}
+.knob {
+  position: absolute;
+  left: -19px;
+  top: -19px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card-solid);
+  border: 3px solid var(--axis);
+  color: var(--axis);
+  box-shadow: 0 3px 10px rgba(30, 20, 60, 0.18);
+  transition: opacity 0.2s, box-shadow 0.15s, background 0.15s;
+  will-change: transform;
+}
+.knob::before {
+  /* larger invisible hit area */
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+}
+.knob:hover {
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--axis) 22%, transparent), 0 3px 10px rgba(30, 20, 60, 0.2);
+}
+.knob.grabbed {
+  cursor: grabbing;
+  background: var(--axis);
+  color: #fff;
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--axis) 25%, transparent), 0 6px 16px rgba(30, 20, 60, 0.25);
+}
+.knob.active {
+  background: var(--axis);
+  color: #fff;
+}
+.knob.off {
+  opacity: 0;
+  pointer-events: none;
+}
+.knob-arrow {
+  display: flex;
+}
+.knob-arrow .ico {
+  width: 20px;
+  height: 20px;
+}
+.knob-arrow .ico {
+  width: 16px;
+  height: 16px;
+}
+.knob-badge:empty {
+  display: none;
+}
+.knob-badge {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--bg1);
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.knob-layer.dragging .knob:not(.grabbed) {
+  opacity: 0.35;
+}
+.knob-layer.spot .knob:not(.off) {
+  animation: spot 1.4s ease-in-out infinite;
+}
+.knob-layer.spot {
+  position: absolute;
+  animation: none;
+}
+/* pointer devices get knobs, touch devices the slider pill */
+@media (hover: hover) and (pointer: fine) {
+  .slicer {
+    display: none !important;
+  }
+}
+@media not ((hover: hover) and (pointer: fine)) {
+  .knob-layer {
+    display: none;
+  }
+}
+.slicer-title {
+  display: flex;
+  padding: 0 4px 0 6px;
+  color: var(--ink-3);
+}
+.axis-seg {
+  display: flex;
+  gap: 2px;
+}
+
+/* ------------------------------------------------------------ dock extras */
+.zero-btn {
+  color: var(--ink-2);
+}
+.zero-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 2px dashed currentColor;
+  border-radius: 7px;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1;
+}
+.zero-btn:not([disabled]) {
+  color: var(--accent);
+}
+.clue-desc {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .clue-desc {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------ rules sheet */
+.rules p {
+  margin: 0 0 12px;
+}
+.rules .muted {
+  font-size: 14px;
+}
+.rule {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.rule .clue {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+}
+.rule b {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+.pattern {
+  display: flex;
+  gap: 3px;
+}
+.pattern i {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1.5px dashed color-mix(in srgb, var(--ink) 25%, transparent);
+}
+.pattern i.on {
+  border: none;
+  background: #6f9df2;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.15);
+}
+.controls-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  margin-top: 12px;
+  font-size: 13.5px;
+}
+.controls-grid b {
+  display: block;
+}
+.controls-grid span {
+  color: var(--ink-2);
 }

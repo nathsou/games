@@ -31,6 +31,7 @@ interface Store {
   tutorialDone: boolean;
   welcomed: boolean;
   editorDraft?: string;
+  tips: string[];
 }
 
 const KEY = 'nonocube:v1';
@@ -52,6 +53,7 @@ const defaults = (): Store => ({
   user: [],
   tutorialDone: false,
   welcomed: false,
+  tips: [],
 });
 
 function load(): Store {
@@ -104,6 +106,14 @@ export function recordSolve(id: string, stars: number, time: number): { newBest:
   delete store.progress[id];
   save();
   return { newBest };
+}
+
+/** Returns true the first time a one-off tip is requested. */
+export function firstTime(tip: string): boolean {
+  if (store.tips.includes(tip)) return false;
+  store.tips.push(tip);
+  save();
+  return true;
 }
 
 export function resetProgress(): void {

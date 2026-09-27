@@ -4,6 +4,11 @@ const s = (body: string, fill = false) =>
 
 export const I = {
   back: s('<path d="M15 5l-7 7 7 7"/>'),
+  chevron: s('<path d="M8.5 5.5l9 6.5-9 6.5z" fill="currentColor" stroke-width="1.5"/>'),
+  zero: s('<ellipse cx="10" cy="12" rx="4.5" ry="7"/><path d="M17 5l2.5 2.5M19.5 5L17 7.5M18 16l3 3M21 16l-3 3"/>'),
+  help2: s('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 015 .3c0 1.7-2.5 2.2-2.5 4"/><path d="M12 17.2v.1"/>'),
+  heart: s('<path d="M12 20.5s-8-5-8-10.8a4.4 4.4 0 018-2.6 4.4 4.4 0 018 2.6c0 5.8-8 10.8-8 10.8z"/>', true),
+  heartOutline: s('<path d="M12 20.5s-8-5-8-10.8a4.4 4.4 0 018-2.6 4.4 4.4 0 018 2.6c0 5.8-8 10.8-8 10.8z"/>'),
   close: s('<path d="M6 6l12 12M18 6L6 18"/>'),
   hammer: s('<path d="M14.5 4.5l5 5-2.5 2.5-5-5z"/><path d="M12 7L4.5 14.5a1.9 1.9 0 002.7 2.7L14.7 9.7"/><path d="M13 3.5l2.5-1 4 4-1 2.5"/>'),
   brush: s('<path d="M19.5 3.5c-3 1.5-7.5 6-9.5 9l2 2c3-2 7.5-6.5 9-9.5z"/><path d="M9 13.5c-2 0-3.5 1.5-3.5 3.5 0 1.5-1 2.5-2.5 2.5 1.5 1.5 3.5 1.5 5 1.5 2.5 0 4-1.5 4-4z"/>'),

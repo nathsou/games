@@ -51,6 +51,22 @@ export interface GenResult {
 }
 
 const TARGET_HIDDEN: Record<Difficulty, number> = { easy: 0.4, medium: 0.62, hard: 1 };
+/** Max share of empty cubes that visible zero-clues may clear on their own. */
+const MAX_ZERO_SHARE: Record<Difficulty, number> = { easy: 0.4, medium: 0.3, hard: 0.2 };
+
+/** Fraction of the empty cubes lying on a visible zero-clue row. */
+export function zeroShare(grid: Grid, clues: Uint8Array, mask: Uint8Array, solution: ArrayLike<number>): number {
+  const swept = new Uint8Array(grid.size);
+  for (let l = 0; l < grid.lineCount; l++) if (mask[l] && clueCount(clues[l]) === 0) for (const i of grid.lines[l]) swept[i] = 1;
+  let empty = 0;
+  let sw = 0;
+  for (let i = 0; i < grid.size; i++)
+    if (!solution[i]) {
+      empty++;
+      sw += swept[i];
+    }
+  return empty ? sw / empty : 0;
+}
 
 /**
  * Hide as many clues as the difficulty allows while keeping the puzzle uniquely
@@ -70,16 +86,10 @@ export function generateMask(
   if (full.status !== 'unique' || full.level >= LEVEL_SEARCH) return { mask, analysis: full };
 
   const maxLevel = Math.max(full.level, difficulty === 'hard' ? LEVEL_PROBE : LEVEL_LINE);
+  const baseLevel = full.level === LEVEL_LINE ? LEVEL_LINE : LEVEL_PROBE;
   const solver = new Solver(grid, clues, mask); // shares `mask` by reference
   const rand = rng(seed);
-  let order = shuffle(Array.from({ length: grid.lineCount }, (_, i) => i), rand);
-  if (difficulty === 'easy') {
-    // Keep zero-clues visible as long as possible: they're the friendliest.
-    order = [...order.filter((l) => clueCount(clues[l]) > 0), ...order.filter((l) => clueCount(clues[l]) === 0)];
-  } else if (difficulty === 'hard') {
-    // Hide the giveaway zero-clues first.
-    order = [...order.filter((l) => clueCount(clues[l]) === 0), ...order.filter((l) => clueCount(clues[l]) > 0)];
-  }
+  const order = shuffle(Array.from({ length: grid.lineCount }, (_, i) => i), rand);
   const maxHidden = Math.floor(TARGET_HIDDEN[difficulty] * grid.lineCount);
   let hidden = 0;
 
@@ -91,12 +101,18 @@ export function generateMask(
     return false;
   };
 
-  // Pass 1: cheap line-logic check.
+  // Phase 1: zero-clues are giveaways (and the game offers a one-click "clear zeros"),
+  // so thin them out until they only clear a limited share of the empty cubes.
+  for (const l of order) {
+    if (zeroShare(grid, clues, mask, solution) <= MAX_ZERO_SHARE[difficulty] || performance.now() > deadline) break;
+    if (clueCount(clues[l]) === 0 && tryHide(l, baseLevel)) hidden++;
+  }
+  // Phase 2: hide other clues up to the difficulty's target.
   for (const l of order) {
     if (hidden >= maxHidden || performance.now() > deadline) break;
-    if (full.level === LEVEL_LINE ? tryHide(l, LEVEL_LINE) : tryHide(l, LEVEL_PROBE)) hidden++;
+    if (mask[l] && tryHide(l, baseLevel)) hidden++;
   }
-  // Pass 2 (hard): allow probing logic on what's left.
+  // Phase 3 (hard): allow probing logic on what's left.
   if (maxLevel >= LEVEL_PROBE && full.level === LEVEL_LINE) {
     for (const l of order) {
       if (hidden >= maxHidden || performance.now() > deadline) break;

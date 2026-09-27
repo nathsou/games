@@ -117,9 +117,9 @@ const LESSONS: Lesson[] = [
       },
       {
         title: 'Peek inside',
-        text: 'Some cubes are hidden in the middle. Use the slicer to peel away layers from the side you’re looking at.',
-        spot: 'slice',
-        until: (p, ev) => ev === 'slice' && p.slice.peel > 0,
+        text: 'Some cubes are hidden in the middle. Drag one of the colored knobs next to the block (or use the slider) to peel away layers from the side you’re looking at.',
+        spot: matchMedia('(hover: hover) and (pointer: fine)').matches ? 'knobs' : 'slice',
+        until: (p, ev) => ev === 'slice' && p.slicer.peel > 0,
         next: 'Skip',
       },
       {

@@ -126,7 +126,7 @@ export class App {
   maskFor(p: PuzzleDef): Uint8Array {
     if (p.mask) return p.mask;
     const g = gridFor(p.dims);
-    const key = `${p.id}:${hashString(Array.from(p.cells).join(''))}`;
+    const key = `g2:${p.id}:${hashString(Array.from(p.cells).join(''))}`;
     const cached = store.masks[key];
     if (cached) {
       const m = maskFromString(cached, g.lineCount);

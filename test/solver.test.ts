@@ -4,7 +4,7 @@ import { gridFor } from '../src/core/grid.ts';
 import { computeClues, clueCode, maskStats } from '../src/core/clues.ts';
 import { solveLine } from '../src/solver/line.ts';
 import { Solver, FILLED, EMPTY } from '../src/solver/solver.ts';
-import { analyze, generateMask } from '../src/solver/generator.ts';
+import { analyze, generateMask, zeroShare } from '../src/solver/generator.ts';
 import { encodePuzzle, decodePuzzle } from '../src/core/codec.ts';
 import { allCollections } from '../src/data/collections.ts';
 import { tutorialLesson1, tutorialLesson2, tutorialLesson3 } from '../src/data/tutorial.ts';
@@ -117,4 +117,14 @@ test('random sculptures are non-empty and in bounds', () => {
     const p = randomSculpture('2026-01-01', k);
     assert.ok(p.cells.some((v) => v > 0));
   }
+});
+
+test('easy puzzles are not solved by zero-clues alone', () => {
+  for (const c of allCollections.filter((c) => c.difficulty === 'easy'))
+    for (const p of c.puzzles) {
+      const g = gridFor(p.dims);
+      const { mask } = generateMask(g, p.cells, p.difficulty, p.id);
+      const share = zeroShare(g, computeClues(g, p.cells), mask, p.cells);
+      assert.ok(share <= 0.5, `${p.id}: zeros clear ${Math.round(share * 100)}%`);
+    }
 });

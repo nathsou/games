@@ -17,7 +17,8 @@ import { button, h, icon, iconButton, modal, toast } from '../ui/dom.ts';
 import type { GestureTarget } from '../ui/gestures.ts';
 import { I } from '../ui/icons.ts';
 import { importCode, shareCode, type Nav } from '../ui/menus.ts';
-import { AXIS_COLORS, AXIS_NAMES } from '../ui/play.ts';
+import { AXIS_COLORS, AXIS_NAMES, Slicer } from '../ui/slicer.ts';
+import { CURSORS } from '../ui/cursors.ts';
 
 type Tool = 'add' | 'remove' | 'paint' | 'pick';
 type Mode = 'build' | 'clues';
@@ -64,7 +65,7 @@ export class EditorScreen implements Screen {
   private prevTool: Tool = 'add';
   private mirrorX = false;
   private mirrorZ = false;
-  private slice = { axis: 1 as Axis, peel: 0, sign: 1 };
+  private slicer: Slicer;
   private undoStack: Snapshot[] = [];
   private redoStack: Snapshot[] = [];
   private stroke: EStroke | null = null;
@@ -93,6 +94,7 @@ export class EditorScreen implements Screen {
         this.starter();
       }
     } else this.starter();
+    this.slicer = new Slicer(app.camera, () => this.dims, () => this.refresh());
     this.el = this.buildUI();
     this.gestures = this.makeGestures();
     this.refresh();
@@ -137,7 +139,7 @@ export class EditorScreen implements Screen {
 
     // build panel
     const toolBtn = (t: Tool, svg: string, label: string, key: string) =>
-      (this.ui[`tool-${t}`] = h('button', { class: 'tool', title: `${label} (${key})`, onclick: () => this.setTool(t) }, icon(svg), h('span', null, label)));
+      (this.ui[`tool-${t}`] = h('button', { class: 'tool', 'data-tip': label, 'data-key': key, onclick: () => this.setTool(t) }, icon(svg), h('span', null, label)));
     this.ui.swatches = h('div', { class: 'swatches' });
     this.ui.dimsRow = h('div', { class: 'dims-row' });
     this.ui.mirX = h('button', { class: 'chip', onclick: () => { this.mirrorX = !this.mirrorX; this.refresh(); } }, 'Mirror X');
@@ -150,12 +152,12 @@ export class EditorScreen implements Screen {
       h('h4', null, 'Size'), this.ui.dimsRow,
       h('h4', null, 'Transform'),
       h('div', { class: 'chips' },
-        h('button', { class: 'chip', title: 'Shift left', onclick: () => this.shift(0, -1) }, '← X'),
-        h('button', { class: 'chip', title: 'Shift right', onclick: () => this.shift(0, 1) }, 'X →'),
-        h('button', { class: 'chip', title: 'Shift down', onclick: () => this.shift(1, -1) }, '↓ Y'),
-        h('button', { class: 'chip', title: 'Shift up', onclick: () => this.shift(1, 1) }, 'Y ↑'),
-        h('button', { class: 'chip', title: 'Shift back', onclick: () => this.shift(2, -1) }, '↖ Z'),
-        h('button', { class: 'chip', title: 'Shift front', onclick: () => this.shift(2, 1) }, 'Z ↘'),
+        h('button', { class: 'chip', 'data-tip': 'Shift left', onclick: () => this.shift(0, -1) }, '← X'),
+        h('button', { class: 'chip', 'data-tip': 'Shift right', onclick: () => this.shift(0, 1) }, 'X →'),
+        h('button', { class: 'chip', 'data-tip': 'Shift down', onclick: () => this.shift(1, -1) }, '↓ Y'),
+        h('button', { class: 'chip', 'data-tip': 'Shift up', onclick: () => this.shift(1, 1) }, 'Y ↑'),
+        h('button', { class: 'chip', 'data-tip': 'Shift back', onclick: () => this.shift(2, -1) }, '↖ Z'),
+        h('button', { class: 'chip', 'data-tip': 'Shift front', onclick: () => this.shift(2, 1) }, 'Z ↘'),
         h('button', { class: 'chip', onclick: () => this.rotateY() }, 'Rotate 90°'),
         h('button', { class: 'chip', onclick: () => this.flipX() }, 'Flip'),
         h('button', { class: 'chip', onclick: () => this.fitBounds() }, 'Crop to fit'),
@@ -194,17 +196,14 @@ export class EditorScreen implements Screen {
     this.ui.panelToggle = h('button', { class: 'panel-toggle icon-btn', 'aria-label': 'Toggle panel', onclick: () => this.el.classList.toggle('panel-closed') }, icon(I.sliders));
 
     // slicer + view
-    const axisBtns = [0, 1, 2].map((a) =>
-      (this.ui[`axis${a}`] = h('button', { class: 'axis-btn', style: `--axis:${AXIS_COLORS[a]}`, onclick: () => this.setSliceAxis(a as Axis) }, AXIS_NAMES[a])));
-    this.ui.sliceRange = h('input', { type: 'range', min: '0', max: '1', value: '0', class: 'slice-range', 'aria-label': 'Layers peeled', oninput: (e: Event) => this.setPeel(Number((e.target as HTMLInputElement).value)) });
-    const slicer = h('div', { class: 'pill slicer' }, icon(I.layers, 'muted'), ...axisBtns, this.ui.sliceRange);
+    const slicer = this.slicer.pill;
     const view = h('div', { class: 'pill viewpad' },
-      iconButton(I.rotL, 'Turn left', () => this.app.camera.turn(-1)),
+      iconButton(I.rotL, 'Turn left', () => this.app.camera.turn(-1), '', '←'),
       iconButton(I.target, 'Reset view', () => { this.app.camera.snapTo(DEFAULT_YAW, DEFAULT_PITCH); this.app.camera.resetZoom(); }),
-      iconButton(I.rotR, 'Turn right', () => this.app.camera.turn(1)));
+      iconButton(I.rotR, 'Turn right', () => this.app.camera.turn(1), '', '→'));
     this.ui.emptyHint = h('div', { class: 'empty-hint' }, 'Tap the floor grid to place your first cube');
 
-    return h('div', { class: 'editor' }, top, this.ui.panel, this.ui.panelToggle, this.ui.emptyHint, h('footer', { class: 'bottom' }, slicer, view));
+    return h('div', { class: 'editor' }, this.slicer.knobLayer, top, this.ui.panel, this.ui.panelToggle, this.ui.emptyHint, h('footer', { class: 'bottom' }, slicer, view));
   }
 
   private refresh(): void {
@@ -224,10 +223,10 @@ export class EditorScreen implements Screen {
       ),
       (() => {
         const input = h('input', { type: 'color', value: this.palette[this.color - 1] ?? '#ff8800', 'aria-label': 'Edit color', onchange: (e: Event) => this.editColor((e.target as HTMLInputElement).value) });
-        return h('label', { class: 'swatch custom', title: 'Change the selected color' }, icon(I.edit), input);
+        return h('label', { class: 'swatch custom', 'data-tip': 'Change the selected color' }, icon(I.edit), input);
       })(),
       ...(this.palette.length < MAX_COLORS
-        ? [h('label', { class: 'swatch add', title: 'Add a color' }, icon(I.plus), h('input', { type: 'color', value: '#ffffff', onchange: (e: Event) => this.addColor((e.target as HTMLInputElement).value) }))]
+        ? [h('label', { class: 'swatch add', 'data-tip': 'Add a color' }, icon(I.plus), h('input', { type: 'color', value: '#ffffff', onchange: (e: Event) => this.addColor((e.target as HTMLInputElement).value) }))]
         : []),
     );
     // dims
@@ -239,11 +238,6 @@ export class EditorScreen implements Screen {
           h('b', null, String(this.dims[a])),
           h('button', { 'aria-label': `Grow ${AXIS_NAMES[a]}`, onclick: () => this.resize(a, 1) }, '+'))),
     );
-    // slicer
-    const range = this.ui.sliceRange as HTMLInputElement;
-    range.max = String(this.dims[this.slice.axis] - 1);
-    range.value = String(this.slice.peel);
-    for (let a = 0; a < 3; a++) this.ui[`axis${a}`].classList.toggle('active', a === this.slice.axis);
     this.ui.emptyHint.classList.toggle('show', this.mode === 'build' && !this.cells.some((c) => c));
     this.renderStatus();
   }
@@ -293,25 +287,8 @@ export class EditorScreen implements Screen {
     this.refresh();
   }
 
-  private setSliceAxis(a: Axis): void {
-    if (this.slice.axis === a && this.slice.peel) this.slice.peel = 0;
-    this.slice.axis = a;
-    this.refresh();
-  }
-
-  private setPeel(n: number): void {
-    n = clamp(Math.round(n), 0, this.dims[this.slice.axis] - 1);
-    if (n > 0 && this.slice.peel === 0) this.slice.sign = this.app.camera.eye[this.slice.axis] >= 0 ? 1 : -1;
-    this.slice.peel = n;
-    this.refresh();
-  }
-
   private visible(x: number, y: number, z: number): boolean {
-    const peel = this.slice.peel;
-    if (!peel) return true;
-    const c = [x, y, z][this.slice.axis];
-    const dim = this.dims[this.slice.axis];
-    return this.slice.sign > 0 ? c < dim - peel : c >= peel;
+    return this.slicer.visible(x, y, z);
   }
 
   // ------------------------------------------------------------ model edits
@@ -395,7 +372,7 @@ export class EditorScreen implements Screen {
     this.dims = nd as unknown as Dims;
     this.grid = ng;
     this.cells = nc;
-    this.slice.peel = Math.min(this.slice.peel, this.dims[this.slice.axis] - 1);
+    this.slicer.clampToDims();
     this.app.camera.fit(this.dims, 1.15);
     this.modelChanged();
   }
@@ -639,6 +616,7 @@ export class EditorScreen implements Screen {
   }
 
   exit(): void {
+    this.app.canvas.style.cursor = '';
     clearTimeout(this.analyzeTimer);
     this.saveDraft();
   }
@@ -655,7 +633,13 @@ export class EditorScreen implements Screen {
     for (const el of this.el.querySelectorAll<HTMLElement>('.bottom > *')) bottom = Math.min(bottom, el.getBoundingClientRect().top);
     if (open && !wide) bottom = Math.min(bottom, pr.top);
     const right = open && wide ? cam.width - pr.left : 0;
-    cam.frame(top + 8, right + 8, cam.height - bottom + 8, 8, dt);
+    const room = this.slicer.pill.offsetParent ? 8 : 44;
+    cam.frame(top + room, right + room, cam.height - bottom + room, room, dt);
+    this.slicer.update(true);
+    // tool cursor over the model, grab over empty space
+    const overModel = this.mode === 'clues' ? !!this.hover.cell : this.tool === 'add' ? !!this.hover.target : !!this.hover.cell;
+    const cursor = !overModel ? 'grab' : this.mode === 'clues' ? 'pointer' : this.tool === 'add' ? CURSORS.add : this.tool === 'remove' ? CURSORS.erase : this.tool === 'paint' ? CURSORS.brush : 'crosshair';
+    if (this.app.canvas.style.cursor !== cursor) this.app.canvas.style.cursor = cursor;
   }
 
   private makeGestures(): GestureTarget {
@@ -902,15 +886,7 @@ export class EditorScreen implements Screen {
       const w = (v: number, a: number) => v - this.dims[a] / 2;
       lines.push({ points: boxEdges([w(t[0], 0) + 0.04, w(t[1], 1) + 0.04, w(t[2], 2) + 0.04], [w(t[0] + 1, 0) - 0.04, w(t[1] + 1, 1) - 0.04, w(t[2] + 1, 2) - 0.04]), color: [c[0], c[1], c[2], pulse] });
     }
-    if (this.slice.peel > 0) {
-      const a = this.slice.axis;
-      const min = [-W / 2, -H / 2, -D / 2];
-      const max = [W / 2, H / 2, D / 2];
-      const cut = this.slice.sign > 0 ? this.dims[a] / 2 - this.slice.peel : -this.dims[a] / 2 + this.slice.peel;
-      min[a] = max[a] = cut;
-      const c = hexToRgb(AXIS_COLORS[a]);
-      lines.push({ points: boxEdges(min, max), color: [c[0], c[1], c[2], 0.9] });
-    }
+    lines.push(...this.slicer.lines(!this.slicer.pill.offsetParent));
     return { block: scene, lines, shadow: { dims: this.dims, alpha: 0.15 }, time: this.time };
   }
 
@@ -932,8 +908,8 @@ export class EditorScreen implements Screen {
     else if (k === 'tab') {
       e.preventDefault();
       this.setMode(this.mode === 'build' ? 'clues' : 'build');
-    } else if (k === ']') this.setPeel(this.slice.peel + 1);
-    else if (k === '[') this.setPeel(this.slice.peel - 1);
+    } else if (k === ']') this.slicer.setPeel(this.slicer.peel + 1);
+    else if (k === '[') this.slicer.setPeel(this.slicer.peel - 1);
     else if (k === 'arrowleft') this.app.camera.turn(-1);
     else if (k === 'arrowright') this.app.camera.turn(1);
     else if (k >= '1' && k <= '9') {

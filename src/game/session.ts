@@ -177,6 +177,16 @@ export class PlaySession {
     this.recount();
   }
 
+  /** Unbroken, unpainted cubes lying on a visible row whose clue is 0 (always safe to break). */
+  zeroCells(): number[] {
+    const out = new Set<number>();
+    for (let l = 0; l < this.grid.lineCount; l++) {
+      if (!this.mask[l] || this.clues[l] !== 0) continue;
+      for (const i of this.grid.lines[l]) if (this.state[i] === UNKNOWN) out.add(i);
+    }
+    return [...out];
+  }
+
   /** Cells the player broke that belong to the shape, or painted that don't (zen mode errors). */
   errors(): { wrongBroken: number[]; wrongPainted: number[] } {
     const wrongBroken: number[] = [];

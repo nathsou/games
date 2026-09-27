@@ -88,6 +88,10 @@ export const sfx = {
     tone(180, 0.22, 'sawtooth', 0.12, 0, 90);
     tone(140, 0.25, 'square', 0.06, 0.02, 70);
   },
+  rowDone(): void {
+    tone(988, 0.09, 'sine', 0.07);
+    tone(1319, 0.12, 'sine', 0.06, 0.05);
+  },
   tick(): void {
     tone(1200, 0.03, 'sine', 0.06);
   },

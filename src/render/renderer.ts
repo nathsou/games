@@ -104,7 +104,9 @@ void main() {
   if (vGlyph != 127) {
     vec2 cell = vec2(float(vGlyph % ${ATLAS_COLS}), float(vGlyph / ${ATLAS_COLS}));
     vec2 uv = (cell + clamp(vGlyphUV, 0.02, 0.98)) / ${ATLAS_COLS}.0;
-    float a = texture(uAtlas, uv).a * uGlyphAlpha * (vFade > 0.5 ? 0.22 : 1.0);
+    float sd = texture(uAtlas, uv).r;
+    float w = clamp(fwidth(sd) * 0.7, 0.004, 0.25);
+    float a = smoothstep(0.5 - w, 0.5 + w, sd) * uGlyphAlpha * (vFade > 0.5 ? 0.22 : 1.0);
     col = mix(col, uInk, a * 0.94);
   }
   outColor = vec4(col, 1.0);
@@ -361,8 +363,10 @@ export class Renderer {
     // Atlas texture
     this.atlas = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, this.atlas);
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, buildAtlas());
+    const atlas = buildAtlas();
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, atlas.size, atlas.size, 0, gl.RED, gl.UNSIGNED_BYTE, atlas.data);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
     gl.generateMipmap(gl.TEXTURE_2D);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
