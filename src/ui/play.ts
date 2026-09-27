@@ -19,14 +19,13 @@ import { I } from './icons.ts';
 import { openSettings } from './settings.ts';
 import { AXIS_COLORS, AXIS_NAMES, Slicer } from './slicer.ts';
 import { FINE_POINTER, keyLabel, ToolKeys } from './toolkeys.ts';
+import { sceneColors, themeFor } from './theme.ts';
 
 export { AXIS_COLORS, AXIS_NAMES };
 export type Tool = 'break' | 'paint';
 
 export const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
 
-const BASE: Vec3 = hexToRgb('#e9e6de');
-const PAINT: Vec3 = hexToRgb('#6f9df2');
 const HOVER_TINT: Vec3 = hexToRgb('#ffd98a');
 const RED: Vec3 = hexToRgb('#ff5a4e');
 
@@ -74,6 +73,7 @@ export class PlayScreen implements Screen {
   readonly app: App;
   readonly gestures: GestureTarget;
   readonly slicer: Slicer;
+  readonly theme: string;
   /** Tool locked on from the dock (null = clicks rotate the block). */
   tool: Tool | null = null;
   /** Shift is held: a locked tool is temporarily swapped for the other one. */
@@ -124,6 +124,7 @@ export class PlayScreen implements Screen {
     this.app = app;
     this.opts = opts;
     this.session = new PlaySession(opts.puzzle, opts.mask, store.settings.mistakeMode);
+    this.theme = themeFor(opts.collection?.id);
     if (opts.saveKey && store.progress[opts.saveKey]) this.session.restore(store.progress[opts.saveKey]);
     const n = this.session.grid.size;
     this.paintT = new Float32Array(n);
@@ -451,6 +452,8 @@ export class PlayScreen implements Screen {
     const palette = s.def.palette.map(hexToRgb);
     const fade = store.settings.greyDone;
     const intro = this.introT < 1.5;
+    const BASE = sceneColors.cube;
+    const PAINT = sceneColors.paint;
     const H = g.H;
 
     for (let i = 0; i < g.size; i++) scene.solid[i] = s.state[i] !== BROKEN && this.visible(i) ? 1 : 0;
@@ -474,7 +477,7 @@ export class PlayScreen implements Screen {
         if (i === this.hover) flags |= FLAG_HOVER;
         if (hl.has(lx) || hl.has(ly) || hl.has(lz) || this.highlightCells.has(i)) flags |= FLAG_GLOW;
         const lf = Math.max(this.lineFlash.get(lx) ?? 0, this.lineFlash.get(ly) ?? 0, this.lineFlash.get(lz) ?? 0);
-        if (lf > 0) for (let c = 0; c < 3; c++) col[c] += (1 - col[c]) * lf * 0.9;
+        if (lf > 0) for (let c = 0; c < 3; c++) col[c] += (sceneColors.accent[c] * 0.5 + 0.5 - col[c]) * lf * 0.9;
         const f = this.flash[i];
         if (f > 0) for (let c = 0; c < 3; c++) col[c] += (RED[c] - col[c]) * Math.min(1, f * 2);
       } else {
@@ -512,7 +515,7 @@ export class PlayScreen implements Screen {
       lines.push({ points: boxEdges([-W / 2, -H / 2, -D / 2], [W / 2, H / 2, D / 2]), color: [0.45, 0.45, 0.6, 0.22] });
       lines.push(...this.slicer.lines(!this.slicer.pill.offsetParent));
     }
-    return { block: scene, particles: this.particles, lines, shadow: { dims: g.dims, alpha: 0.22 }, time: this.time, greyDone: store.settings.greyDone, cut: revealing ? null : this.slicer.cap() };
+    return { block: scene, particles: this.particles, lines, shadow: { dims: g.dims, alpha: 0.22 }, time: this.time, ink: sceneColors.ink, greyDone: store.settings.greyDone, cut: revealing ? null : this.slicer.cap() };
   }
 
   visible(i: number): boolean {
@@ -703,7 +706,10 @@ export class PlayScreen implements Screen {
 
   private breakFx(i: number): void {
     const [x, y, z] = this.session.grid.coords(i);
-    this.particles.burst(x, y, z, [BASE[0] * 0.95, BASE[1] * 0.95, BASE[2] * 0.95], store.settings.reducedMotion ? 3 : 9);
+    const base = sceneColors.cube;
+    const few = store.settings.reducedMotion;
+    this.particles.burst(x, y, z, [base[0] * 0.95, base[1] * 0.95, base[2] * 0.95], few ? 3 : 7);
+    if (!few) this.particles.burst(x, y, z, [...sceneColors.accent] as [number, number, number], 3);
     sfx.break();
   }
 

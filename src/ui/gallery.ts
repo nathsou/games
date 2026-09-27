@@ -8,6 +8,7 @@ import { BlockScene, NO_GLYPHS, Particles } from '../render/scene.ts';
 import { button, h, icon, iconButton } from './dom.ts';
 import type { GestureTarget } from './gestures.ts';
 import { I } from './icons.ts';
+import { applyTheme, sceneColors, themeFor } from './theme.ts';
 import type { Nav } from './menus.ts';
 
 /** Exhibit layout (world units). */
@@ -17,16 +18,13 @@ const MODEL_SIZE = 4.2;
 const SPACING = 9;
 
 const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
-const UNSOLVED = hexToRgb('#e9e6de');
-const PAINTED = hexToRgb('#6f9df2');
-const PLINTH_COLOR = hexToRgb('#f4f1ea');
 
 /** A plain plinth: one cube, scaled up (its bevel reads as a softly rounded edge). */
 export function plinthScene(): BlockScene {
   const s = new BlockScene();
   s.reset([1, 1, 1]);
   s.solid[0] = 1;
-  s.add(0, 0, 0, 1, PLINTH_COLOR, NO_GLYPHS);
+  s.add(0, 0, 0, 1, sceneColors.plinth, NO_GLYPHS);
   return s;
 }
 
@@ -36,6 +34,8 @@ export const exhibitScale = (m: { dims: readonly number[] }) => Math.min(1.15, M
 /** Plinth + model standing on it, centered at x. */
 export function exhibit(model: BlockScene, dims: readonly number[], x: number, yaw: number, plinth: BlockScene): PlacedBlock[] {
   const s = exhibitScale({ dims });
+  // plinths follow the current theme
+  plinth.inst.set(sceneColors.plinth, 4);
   return [
     { scene: plinth, pos: [x, -PLINTH / 2, 0], scale: [PLINTH_W, PLINTH, PLINTH_W], bevel: 0.025, yaw: 0, shadow: 0.2 },
     { scene: model, pos: [x, (dims[1] * s) / 2 + 0.01, 0], scale: s, yaw, shadow: 0.28 },
@@ -52,7 +52,7 @@ function progressScene(scene: BlockScene, p: PuzzleDef): BlockScene {
   for (let i = 0; i < g.size; i++) {
     if (!scene.solid[i]) continue;
     const [x, y, z] = g.coords(i);
-    scene.add(x, y, z, 1, state(i) === 1 ? PAINTED : UNSOLVED, NO_GLYPHS);
+    scene.add(x, y, z, 1, state(i) === 1 ? sceneColors.paint : sceneColors.cube, NO_GLYPHS);
   }
   scene.computeAO();
   return scene;
@@ -65,6 +65,7 @@ function revealScene(scene: BlockScene, m: ModelDef, t: number): BlockScene {
   const colors = m.palette.map(hexToRgb);
   for (let i = 0; i < g.size; i++) scene.solid[i] = m.cells[i] ? 1 : 0;
   const col = [0, 0, 0];
+  const UNSOLVED = sceneColors.cube;
   for (let i = 0; i < g.size; i++) {
     const c = m.cells[i];
     if (!c) continue;
@@ -93,6 +94,7 @@ interface Exhibit {
 export class GalleryScreen implements Screen {
   readonly el: HTMLElement;
   readonly gestures: GestureTarget;
+  readonly theme: string;
   private app: App;
   private nav: Nav;
   private col: Collection;
@@ -111,6 +113,8 @@ export class GalleryScreen implements Screen {
     this.app = app;
     this.nav = nav;
     this.col = col;
+    this.theme = themeFor(col.id);
+    applyTheme(this.theme);
     this.items = col.puzzles.map((p) => {
       const solved = !!store.records[p.id];
       const scene = new BlockScene();
@@ -313,7 +317,7 @@ export class GalleryScreen implements Screen {
       placed.push(...exhibit(e.scene, e.puzzle.dims, i * SPACING, e.yaw, this.plinth));
     });
     // particles use the main block's origin: none here, so they're in world space
-    return { placed, particles: this.particles, time: this.time };
+    return { placed, particles: this.particles, time: this.time, ink: sceneColors.ink };
   }
 
   onKey(e: KeyboardEvent): void {

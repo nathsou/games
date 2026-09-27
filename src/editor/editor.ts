@@ -7,7 +7,7 @@ import type { Difficulty, PuzzleDef } from '../core/types.ts';
 import { onSettingsChange, save, store } from '../game/storage.ts';
 import { GLYPH_HIDDEN } from '../render/atlas.ts';
 import { DEFAULT_PITCH, DEFAULT_YAW } from '../render/camera.ts';
-import { clamp, hexToRgb, type Vec3 } from '../render/math.ts';
+import { clamp, hexToRgb } from '../render/math.ts';
 import { pickFloor, pickVoxel } from '../render/pick.ts';
 import { boxEdges, type DrawList, type LineBatch } from '../render/renderer.ts';
 import { BlockScene, FLAG_GLOW, FLAG_HOVER, NO_GLYPHS, packGlyphs } from '../render/scene.ts';
@@ -19,6 +19,7 @@ import { I } from '../ui/icons.ts';
 import { importCode, shareCode, type Nav } from '../ui/menus.ts';
 import { AXIS_COLORS, AXIS_NAMES, Slicer } from '../ui/slicer.ts';
 import { CURSORS } from '../ui/cursors.ts';
+import { sceneColors } from '../ui/theme.ts';
 import { FINE_POINTER, keyLabel, ToolKeys } from '../ui/toolkeys.ts';
 
 type Tool = 'add' | 'remove' | 'paint' | 'pick';
@@ -27,7 +28,6 @@ type Mode = 'build' | 'clues';
 const MAX_DIM = 16;
 const MAX_COLORS = 15;
 const DEFAULT_PALETTE = ['#e5534b', '#f28b30', '#f5c542', '#5cb85c', '#2f7d4a', '#7cc4f2', '#3d7be0', '#8e6bd6', '#f28bb3', '#8b5a3c', '#f7f7f2', '#2a2d34'];
-const BASE: Vec3 = hexToRgb('#e9e6de');
 
 interface Snapshot {
   dims: Dims;
@@ -905,6 +905,7 @@ export class EditorScreen implements Screen {
       const v = this.cells[i];
       let glyph = NO_GLYPHS;
       if (clueMode) {
+        const BASE = sceneColors.cube;
         const base = v ? colors[v - 1] : BASE;
         const t = v ? 0.45 : 0;
         for (let c = 0; c < 3; c++) col[c] = BASE[c] + (base[c] - BASE[c]) * t;
@@ -917,7 +918,7 @@ export class EditorScreen implements Screen {
         if (hoverLine >= 0 && ls.includes(hoverLine)) for (let c = 0; c < 3; c++) col[c] += (0.99 - col[c]) * 0.25;
         if (amb.has(i)) glyph |= FLAG_GLOW;
       } else {
-        const c0 = colors[v - 1] ?? BASE;
+        const c0 = colors[v - 1] ?? sceneColors.cube;
         col[0] = c0[0];
         col[1] = c0[1];
         col[2] = c0[2];
@@ -946,7 +947,7 @@ export class EditorScreen implements Screen {
       lines.push({ points: boxEdges([w(t[0], 0) + 0.04, w(t[1], 1) + 0.04, w(t[2], 2) + 0.04], [w(t[0] + 1, 0) - 0.04, w(t[1] + 1, 1) - 0.04, w(t[2] + 1, 2) - 0.04]), color: [c[0], c[1], c[2], pulse] });
     }
     lines.push(...this.slicer.lines(!this.slicer.pill.offsetParent));
-    return { block: scene, lines, shadow: { dims: this.dims, alpha: 0.15 }, time: this.time, cut: this.slicer.cap() };
+    return { block: scene, lines, shadow: { dims: this.dims, alpha: 0.15 }, time: this.time, cut: this.slicer.cap(), ink: sceneColors.ink };
   }
 
   onKeyUp(e: KeyboardEvent): void {

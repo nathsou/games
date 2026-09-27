@@ -8,6 +8,7 @@ import { Renderer, type DrawList } from './render/renderer.ts';
 import { BlockScene, NO_GLYPHS } from './render/scene.ts';
 import { generateMask } from './solver/generator.ts';
 import { Gestures, type GestureTarget } from './ui/gestures.ts';
+import { applyTheme } from './ui/theme.ts';
 
 export interface Screen {
   el: HTMLElement;
@@ -16,6 +17,8 @@ export interface Screen {
   exit?(): void;
   update(dt: number, time: number): void;
   draw(time: number): DrawList | null;
+  /** Color theme name (see ui/theme.ts); defaults to "sunset". */
+  theme?: string;
   onKey?(e: KeyboardEvent): void;
   onKeyUp?(e: KeyboardEvent): void;
   /** Window lost focus: drop any held-key state. */
@@ -101,6 +104,7 @@ export class App {
       setTimeout(() => old.el.remove(), 250);
     }
     this.screen = screen;
+    applyTheme(screen.theme ?? 'sunset');
     screen.el.classList.add('screen', 'entering');
     this.root.append(screen.el);
     requestAnimationFrame(() => requestAnimationFrame(() => screen.el.classList.remove('entering')));

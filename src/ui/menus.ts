@@ -6,6 +6,7 @@ import { allCollections } from '../data/collections.ts';
 import { save, store } from '../game/storage.ts';
 import { BlockScene } from '../render/scene.ts';
 import { exhibit, exhibitScale, plinthScene } from './gallery.ts';
+import { THEMES, themeFor } from './theme.ts';
 import type { DrawList } from '../render/renderer.ts';
 import { button, h, icon, iconButton, modal, toast } from './dom.ts';
 import { COLLECTION_ICONS, I } from './icons.ts';
@@ -185,7 +186,8 @@ export class CollectionsScreen implements Screen {
     const cards = allCollections.map((c) => {
       const s = collectionStats(c);
       const done = s.solved === s.total;
-      return h('button', { class: `coll-card ${done ? 'done' : ''}`, style: `--t1:${c.tint[0]};--t2:${c.tint[1]}`, onclick: () => nav.collection(c) },
+      const t = THEMES[themeFor(c.id)];
+      return h('button', { class: `coll-card ${done ? 'done' : ''}`, style: `--t-accent:${t.accent}`, onclick: () => nav.collection(c) },
         (() => {
           // the collection's latest acquisition stands in for its icon
           const shown = [...c.puzzles].reverse().find((p) => store.records[p.id]);
@@ -204,10 +206,10 @@ export class CollectionsScreen implements Screen {
         h('div', { class: 'coll-bar' }, h('i', { style: `width:${(s.solved / s.total) * 100}%` })),
       );
     });
-    const daily = h('button', { class: 'coll-card special', style: '--t1:#ffe1f0;--t2:#f7a8cf', onclick: () => nav.daily() },
+    const daily = h('button', { class: 'coll-card special', style: '--t-accent:#ff6fae', onclick: () => nav.daily() },
       h('div', { class: 'coll-icon' }, icon(I.calendar)),
       h('div', { class: 'coll-body' }, h('div', { class: 'coll-name' }, 'Daily Sculpture'), h('div', { class: 'coll-blurb' }, 'A fresh random puzzle every day.')));
-    const mine = h('button', { class: 'coll-card special', style: '--t1:#e2f3ff;--t2:#9fd0f5', onclick: () => nav.myPuzzles() },
+    const mine = h('button', { class: 'coll-card special', style: '--t-accent:#4f8cff', onclick: () => nav.myPuzzles() },
       h('div', { class: 'coll-icon' }, icon(I.user)),
       h('div', { class: 'coll-body' }, h('div', { class: 'coll-name' }, 'My Puzzles'), h('div', { class: 'coll-blurb' }, `${store.user.length} made in the editor.`)));
     this.el = h('div', { class: 'menu' },
