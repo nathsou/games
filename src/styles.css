@@ -965,14 +965,24 @@ button.puzzle-tile:hover {
     padding: 0 16px;
   }
   .slice-range {
-    width: 78px;
+    width: 70px;
   }
   .hide-sm {
     display: none !important;
   }
   .viewpad .icon-btn {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
+  }
+  .viewpad {
+    gap: 0;
+  }
+  .axis-btn {
+    width: 32px;
+    height: 32px;
+  }
+  .bottom {
+    column-gap: 6px;
   }
   .focus {
     top: calc(64px + var(--safe-t));
