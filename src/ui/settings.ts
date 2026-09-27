@@ -1,6 +1,7 @@
 import type { App } from '../app.ts';
 import { DEFAULT_KEYS, onSettingsChange, resetProgress, store, updateSettings, type KeyBindings, type Settings } from '../game/storage.ts';
 import { keyLabel } from './toolkeys.ts';
+import { DESIGNS, type DesignId } from './theme.ts';
 import { h, modal, toast } from './dom.ts';
 
 function toggle(label: string, desc: string, key: keyof Settings): HTMLElement {
@@ -30,6 +31,7 @@ function segmented<T extends string>(label: string, desc: string, key: keyof Set
 export async function openSettings(app: App): Promise<void> {
   void app;
   const body = h('div', { class: 'settings' },
+    looks(),
     segmented('Mistakes', 'Classic: breaking a shape cube costs a strike (5 max). Zen: no checks until the end.', 'mistakeMode', [['classic', 'Classic'], ['zen', 'Zen']]),
     toggle('Warn on wrong breaks', 'Zen mode: stop and warn instead of breaking a cube that belongs to the shape (no penalty). Classic mode always does this, and counts a mistake.', 'warnWrongBreaks'),
     toggle('Grey out finished rows', 'Once a row’s remaining cubes match its clue and are all painted, grey it out.', 'greyDone'),
@@ -41,7 +43,7 @@ export async function openSettings(app: App): Promise<void> {
     toggle('Left-handed layout', 'Mirror the tool dock.', 'lefty'),
     segmented('Spin momentum', 'How much the block keeps turning after you let go.', 'momentum', [['off', 'Off'], ['light', 'Light'], ['strong', 'Strong']]),
     toggle('Reduce motion', 'Fewer particles and no auto-spin.', 'reducedMotion'),
-    segmented('Theme', '', 'theme', [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]),
+    segmented('Theme', 'Light or dark (the Soft look only; other looks have their own).', 'theme', [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]),
     keyBindings(),
     h('button', {
       class: 'btn danger small',
@@ -139,4 +141,35 @@ function keyBindings(): HTMLElement {
   });
   requestAnimationFrame(() => obs.observe(document.body, { childList: true, subtree: true }));
   return wrap;
+}
+
+/** Visual picker for the design systems, each card previewed in its own look. */
+function looks(): HTMLElement {
+  const grid = h('div', { class: 'looks', role: 'radiogroup', 'aria-label': 'Look' });
+  const render = () =>
+    grid.replaceChildren(
+      ...(Object.keys(DESIGNS) as DesignId[]).map((id) => {
+        const d = DESIGNS[id];
+        return h('button', {
+          class: `look-card ${store.settings.design === id ? 'on' : ''}`,
+          'data-design': id,
+          role: 'radio',
+          'aria-checked': String(store.settings.design === id),
+          onclick: () => {
+            updateSettings({ design: id });
+            render();
+          },
+        },
+          h('div', { class: 'pv' },
+            h('span', { class: 'pv-cube' }, '3'),
+            h('span', { class: 'pv-cube painted tall' }, '1'),
+            h('span', { class: 'pv-cube' }, '0'),
+            h('span', { class: 'pv-btn' }, 'Play')),
+          h('div', null, h('b', null, d.name), h('small', null, d.blurb)));
+      }),
+    );
+  render();
+  return h('div', { class: 'setting-block' },
+    h('div', { class: 'setting', style: 'border:none;padding-bottom:0' }, h('div', null, h('b', null, 'Look'), h('small', null, 'Try a design system — Shift+L cycles them anywhere.'))),
+    grid);
 }

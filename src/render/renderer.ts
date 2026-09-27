@@ -2,6 +2,7 @@ import type { Dims } from '../core/grid.ts';
 import { ATLAS_COLS, buildAtlas } from './atlas.ts';
 import type { OrbitCamera } from './camera.ts';
 import { FACES, INST_FLOATS, type BlockScene, type Particles } from './scene.ts';
+import { renderStyle } from './style.ts';
 
 const CUBE_VS = `#version 300 es
 layout(location=0) in vec3 aPos;
@@ -84,6 +85,12 @@ uniform float uGlyphAlpha;
 uniform float uTime;
 uniform float uGreyDone;
 uniform float uBevel;
+uniform float uEdge;
+uniform vec3 uEdgeColor;
+uniform float uEdgeWidth;
+uniform float uFlat;
+uniform float uAoAmt;
+uniform float uSpec;
 out vec4 outColor;
 void main() {
   vec3 n0 = normalize(vNormal);
@@ -100,15 +107,19 @@ void main() {
   }
   float hemi = 0.5 + 0.5 * n.y;
   float diff = max(dot(n, uLightDir), 0.0);
-  float light = 0.58 + 0.2 * hemi + 0.34 * diff;
-  float ao = mix(0.55, 1.0, vAO);
+  float shaded = 0.58 + 0.2 * hemi + 0.34 * diff;
+  // flat (poster) lighting keeps just enough face contrast to read the shape
+  float flatL = 0.93 + 0.07 * dot(n0, uLightDir) - 0.1 * max(-n0.y, 0.0);
+  float light = mix(shaded, flatL, uFlat);
+  float ao = mix(1.0, mix(0.55, 1.0, vAO), uAoAmt);
   vec3 col = base * light * ao;
   // specular sheen on the bevel
-  col += pow(max(dot(n, normalize(uLightDir + vec3(0.0, 0.0, 0.6))), 0.0), 24.0) * 0.08;
+  col += pow(max(dot(n, normalize(uLightDir + vec3(0.0, 0.0, 0.6))), 0.0), 24.0) * 0.08 * uSpec;
   vec2 ed = min(vUV, 1.0 - vUV);
   float d = min(ed.x, ed.y);
-  // edge seam: at least ~1px wide so thin bevels don't alias
-  col *= mix(0.7, 1.0, smoothstep(0.0, max(0.022 * uBevel / 0.16, fwidth(d) * 1.5), d));
+  // edge line: at least ~1px wide so thin lines don't alias
+  float seam = 1.0 - smoothstep(0.0, max(uEdgeWidth, fwidth(d) * 1.5), d);
+  col = mix(col, uEdgeColor, seam * uEdge);
   if ((vFlags & 2u) != 0u) {
     float rim = 1.0 - smoothstep(0.03, 0.1, d);
     col = mix(col, vec3(1.0, 0.78, 0.25), rim * 0.95);
@@ -336,7 +347,7 @@ export class Renderer {
     this.partProg = compile(gl, PART_VS, PART_FS);
     this.lineProg = compile(gl, LINE_VS, LINE_FS);
     this.shadowProg = compile(gl, SHADOW_VS, SHADOW_FS);
-    this.cu = uniforms(gl, this.cubeProg, ['uViewProj', 'uModel', 'uOrigin', 'uFaceUp', 'uAtlas', 'uLightDir', 'uInk', 'uGlyphAlpha', 'uTime', 'uGreyDone', 'uCutFace', 'uCutPos', 'uCutColor', 'uBevel']);
+    this.cu = uniforms(gl, this.cubeProg, ['uViewProj', 'uModel', 'uOrigin', 'uFaceUp', 'uAtlas', 'uLightDir', 'uInk', 'uGlyphAlpha', 'uTime', 'uGreyDone', 'uCutFace', 'uCutPos', 'uCutColor', 'uBevel', 'uEdge', 'uEdgeColor', 'uEdgeWidth', 'uFlat', 'uAoAmt', 'uSpec']);
     this.pu = uniforms(gl, this.partProg, ['uViewProj', 'uOrigin', 'uLightDir']);
     this.lu = uniforms(gl, this.lineProg, ['uViewProj', 'uColor']);
     this.su = uniforms(gl, this.shadowProg, ['uViewProj', 'uCenter', 'uSize', 'uAlpha', 'uTint']);
@@ -447,7 +458,7 @@ export class Renderer {
     return { w: rect.width, h: rect.height };
   }
 
-  private drawBlock(cam: OrbitCamera, list: DrawList, b: BlockScene, model: Float32Array, glyphAlpha: number, cut: CutCap | null, yaw = 0, bevel = 0.16): void {
+  private drawBlock(cam: OrbitCamera, list: DrawList, b: BlockScene, model: Float32Array, glyphAlpha: number, cut: CutCap | null, yaw = 0, bevel = renderStyle.bevel): void {
     const gl = this.gl;
     const dims = b.dims;
     gl.useProgram(this.cubeProg);
@@ -461,6 +472,13 @@ export class Renderer {
     gl.uniform1f(this.cu.uTime, list.time ?? 0);
     gl.uniform1f(this.cu.uGreyDone, list.greyDone ? 1 : 0);
     gl.uniform1f(this.cu.uBevel, bevel);
+    const st = renderStyle;
+    gl.uniform1f(this.cu.uEdge, st.edge);
+    gl.uniform3fv(this.cu.uEdgeColor, st.edgeColor);
+    gl.uniform1f(this.cu.uEdgeWidth, (st.edgeWidth * bevel) / Math.max(0.01, st.bevel));
+    gl.uniform1f(this.cu.uFlat, st.flat);
+    gl.uniform1f(this.cu.uAoAmt, st.ao);
+    gl.uniform1f(this.cu.uSpec, st.spec);
     gl.uniform1i(this.cu.uCutFace, cut ? cut.face : -1);
     gl.uniform1f(this.cu.uCutPos, cut ? cut.pos : 0);
     gl.uniform3fv(this.cu.uCutColor, cut ? cut.color : [0, 0, 0]);
@@ -554,7 +572,7 @@ export class Renderer {
       for (const sh of shadows) {
         gl.uniform3fv(this.su.uCenter, sh.center);
         gl.uniform2fv(this.su.uSize, sh.size);
-        gl.uniform1f(this.su.uAlpha, sh.alpha);
+        gl.uniform1f(this.su.uAlpha, sh.alpha * renderStyle.shadow);
         gl.uniform3fv(this.su.uTint, sh.tint ?? [0.1, 0.1, 0.2]);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
@@ -600,7 +618,7 @@ export class Renderer {
       gl.bindVertexArray(this.lineVao);
       gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuf);
       for (const batch of list.lines) {
-        gl.uniform4fv(this.lu.uColor, batch.color);
+        gl.uniform4fv(this.lu.uColor, [batch.color[0], batch.color[1], batch.color[2], Math.min(1, batch.color[3] * renderStyle.lines)]);
         gl.bufferData(gl.ARRAY_BUFFER, batch.points, gl.DYNAMIC_DRAW);
         gl.drawArrays(gl.LINES, 0, batch.points.length / 3);
       }

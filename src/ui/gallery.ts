@@ -9,6 +9,7 @@ import { button, h, icon, iconButton } from './dom.ts';
 import type { GestureTarget } from './gestures.ts';
 import { I } from './icons.ts';
 import { applyTheme, sceneColors, themeFor } from './theme.ts';
+import { renderStyle } from '../render/style.ts';
 import type { Nav } from './menus.ts';
 
 /** Exhibit layout (world units). */
@@ -37,7 +38,7 @@ export function exhibit(model: BlockScene, dims: readonly number[], x: number, y
   // plinths follow the current theme
   plinth.inst.set(sceneColors.plinth, 4);
   return [
-    { scene: plinth, pos: [x, -PLINTH / 2, 0], scale: [PLINTH_W, PLINTH, PLINTH_W], bevel: 0.025, yaw: 0, shadow: 0.2 },
+    { scene: plinth, pos: [x, -PLINTH / 2, 0], scale: [PLINTH_W, PLINTH, PLINTH_W], bevel: 0.025 * (renderStyle.bevel / 0.16), yaw: 0, shadow: 0.2 },
     { scene: model, pos: [x, (dims[1] * s) / 2 + 0.01, 0], scale: s, yaw, shadow: 0.28 },
   ];
 }

@@ -48,6 +48,7 @@ Tool keys can be rebound in **Settings → Controls**. Row drags lock to the gri
 - **Level editor**: build with add / remove / paint / pick tools, mirror symmetry, resize, shift, rotate and crop. Auto-generate clues at a chosen difficulty, or tap faces to show and hide individual clues while a live solver badge reports whether the puzzle still has a unique solution and highlights ambiguous cubes. Playtest, save to *My Puzzles*, and share as a link (`#p=<code>`).
 - **Clue generator** thins out zero-clues first (they're giveaways, and the game can clear them in one click), then hides further clues while keeping the puzzle uniquely solvable at the chosen difficulty.
 - **Solver**: line solver over all three axes with contradiction probing and a backtracking uniqueness check. It powers hints, difficulty rating, clue generation and editor validation, and runs in a web worker for editor-sized puzzles.
+- **Six looks** to choose from in Settings (or cycle with Shift+L): Soft, Paper, Bold, Neon, Swiss and Clay. Each is a full design system (UI tokens, type, shapes and 3D rendering style) layered with the per-collection accent colors.
 - Progress, stars, best times and in-progress games are saved in `localStorage`. There are light and dark themes, a left-handed layout, a reduced-motion option and synthesized sound effects.
 
 ## Layout
