@@ -69,6 +69,7 @@ uniform vec3 uLightDir;
 uniform vec3 uInk;
 uniform float uGlyphAlpha;
 uniform float uTime;
+uniform float uGreyDone;
 out vec4 outColor;
 void main() {
   vec3 n0 = normalize(vNormal);
@@ -100,6 +101,10 @@ void main() {
   if ((vFlags & 4u) != 0u) {
     float pulse = 0.5 + 0.5 * sin(uTime * 6.0);
     col = mix(col, vec3(0.25, 0.82, 0.72), 0.22 + 0.28 * pulse);
+  }
+  if (vFade > 0.5 && uGreyDone > 0.5) {
+    float l = dot(col, vec3(0.299, 0.587, 0.114));
+    col = mix(col, vec3(l) * 0.86, 0.72);
   }
   if (vGlyph != 127) {
     vec2 cell = vec2(float(vGlyph % ${ATLAS_COLS}), float(vGlyph / ${ATLAS_COLS}));
@@ -194,6 +199,8 @@ export interface DrawList {
   shadow?: { dims: Dims; alpha: number; tint?: [number, number, number] };
   ink?: [number, number, number];
   time?: number;
+  /** Grey the faces of rows flagged as finished. */
+  greyDone?: boolean;
 }
 
 function compile(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgram {
@@ -276,7 +283,7 @@ export class Renderer {
     this.partProg = compile(gl, PART_VS, PART_FS);
     this.lineProg = compile(gl, LINE_VS, LINE_FS);
     this.shadowProg = compile(gl, SHADOW_VS, SHADOW_FS);
-    this.cu = uniforms(gl, this.cubeProg, ['uViewProj', 'uOrigin', 'uFaceUp', 'uAtlas', 'uLightDir', 'uInk', 'uGlyphAlpha', 'uTime']);
+    this.cu = uniforms(gl, this.cubeProg, ['uViewProj', 'uOrigin', 'uFaceUp', 'uAtlas', 'uLightDir', 'uInk', 'uGlyphAlpha', 'uTime', 'uGreyDone']);
     this.pu = uniforms(gl, this.partProg, ['uViewProj', 'uOrigin', 'uLightDir']);
     this.lu = uniforms(gl, this.lineProg, ['uViewProj', 'uColor']);
     this.su = uniforms(gl, this.shadowProg, ['uViewProj', 'uCenter', 'uSize', 'uAlpha', 'uTint']);
@@ -449,6 +456,7 @@ export class Renderer {
       gl.uniform3fv(this.cu.uInk, list.ink ?? [0.13, 0.15, 0.23]);
       gl.uniform1f(this.cu.uGlyphAlpha, b.glyphAlpha);
       gl.uniform1f(this.cu.uTime, list.time ?? 0);
+      gl.uniform1f(this.cu.uGreyDone, list.greyDone ? 1 : 0);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.atlas);
       gl.uniform1i(this.cu.uAtlas, 0);

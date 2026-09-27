@@ -2,7 +2,6 @@ import type { MistakeMode, SavedProgress } from './session.ts';
 
 export interface Settings {
   mistakeMode: MistakeMode;
-  fadeDone: boolean;
   showTimer: boolean;
   sound: boolean;
   haptics: boolean;
@@ -10,7 +9,24 @@ export interface Settings {
   reducedMotion: boolean;
   theme: 'auto' | 'light' | 'dark';
   momentum: 'off' | 'light' | 'strong';
+  /** Grey out rows whose clue is satisfied (Picross 3D Round 2 style). */
+  greyDone: boolean;
+  /** Zen mode: warn instead of breaking a cube of the shape. */
+  warnWrongBreaks: boolean;
+  keys: KeyBindings;
 }
+
+/** Hold-to-use tool keys (lowercase `KeyboardEvent.key` values). */
+export interface KeyBindings {
+  break: string;
+  paint: string;
+  add: string;
+  remove: string;
+  edPaint: string;
+  pick: string;
+}
+
+export const DEFAULT_KEYS: KeyBindings = { break: 'a', paint: 'd', add: 'w', remove: 'a', edPaint: 'd', pick: 's' };
 
 export interface PuzzleRecord {
   stars: number;
@@ -40,7 +56,6 @@ const KEY = 'nonocube:v1';
 const defaults = (): Store => ({
   settings: {
     mistakeMode: 'classic',
-    fadeDone: true,
     showTimer: true,
     sound: true,
     haptics: true,
@@ -48,6 +63,9 @@ const defaults = (): Store => ({
     reducedMotion: typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches,
     theme: 'auto',
     momentum: 'light',
+    greyDone: true,
+    warnWrongBreaks: false,
+    keys: { ...DEFAULT_KEYS },
   },
   records: {},
   progress: {},
@@ -64,7 +82,9 @@ function load(): Store {
     if (!raw) return defaults();
     const d = defaults();
     const s = JSON.parse(raw) as Partial<Store>;
-    return { ...d, ...s, settings: { ...d.settings, ...(s.settings ?? {}) } };
+    const settings = { ...d.settings, ...(s.settings ?? {}) };
+    settings.keys = { ...DEFAULT_KEYS, ...(s.settings?.keys ?? {}) };
+    return { ...d, ...s, settings };
   } catch {
     return defaults();
   }

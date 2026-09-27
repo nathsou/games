@@ -18,7 +18,7 @@ npm run build      # type-check + production build into dist/
 - A squared number: that many cubes, split into 3 or more groups.
 - No number: no information about that row.
 
-**Classic** mode counts a strike when you break a cube that belongs to the shape (5 allowed). **Zen** mode doesn't check until the end. Switch in Settings.
+**Classic** mode counts a strike when you break a cube that belongs to the shape (5 allowed). **Zen** mode doesn't check until the end, unless you turn on *Warn on wrong breaks*, which blocks such breaks with a warning and no penalty. Rows whose remaining cubes match their clue and are all painted are greyed out (Picross 3D Round 2 style; can be turned off).
 
 ## Controls
 
@@ -38,7 +38,7 @@ Controls work like Picross 3D: with no tool active, clicking and dragging just t
 | Hint · rules · reset view | H · ? · R | Dock / top bar |
 | Editor tools | Hold **W** add · **A** remove · **D** paint · **S** sample color (or lock one in the panel) | Panel |
 
-Row drags lock to the grid axis that best matches the drag direction, and a hammer drag stops at painted (protected) cubes. Every control has a tooltip with its shortcut (long-press on touch).
+Tool keys can be rebound in **Settings → Controls**. Row drags lock to the grid axis that best matches the drag direction, and a hammer drag stops at painted (protected) cubes. Every control has a tooltip with its shortcut (long-press on touch).
 
 ## Features
 

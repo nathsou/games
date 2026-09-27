@@ -8,7 +8,7 @@ export const PAINTED = 1;
 export const BROKEN = 2;
 
 export type MistakeMode = 'classic' | 'zen';
-export type BreakResult = 'ok' | 'mistake' | 'protected' | 'noop';
+export type BreakResult = 'ok' | 'mistake' | 'warned' | 'protected' | 'noop';
 
 interface Change {
   i: number;
@@ -35,6 +35,8 @@ export class PlaySession {
   readonly state: Uint8Array;
   readonly lineDone: Uint8Array;
   mode: MistakeMode;
+  /** Zen mode: refuse (without penalty) to break cubes that belong to the shape. */
+  warnWrongBreaks = false;
   strikes = 0;
   hints = 0;
   elapsed = 0;
@@ -118,6 +120,7 @@ export class PlaySession {
     const s = this.state[i];
     if (s === BROKEN) return 'noop';
     if (s === PAINTED) return 'protected';
+    if (this.mode === 'zen' && this.warnWrongBreaks && this.isFilled(i)) return 'warned';
     if (this.mode === 'classic' && this.isFilled(i)) {
       this.strikes++;
       this.set(i, PAINTED);

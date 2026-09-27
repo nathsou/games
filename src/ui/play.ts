@@ -17,7 +17,7 @@ import type { GestureTarget } from './gestures.ts';
 import { I } from './icons.ts';
 import { openSettings } from './settings.ts';
 import { AXIS_COLORS, AXIS_NAMES, Slicer } from './slicer.ts';
-import { FINE_POINTER, ToolKeys } from './toolkeys.ts';
+import { FINE_POINTER, keyLabel, ToolKeys } from './toolkeys.ts';
 
 export { AXIS_COLORS, AXIS_NAMES };
 export type Tool = 'break' | 'paint';
@@ -78,7 +78,7 @@ export class PlayScreen implements Screen {
   /** Shift is held: a locked tool is temporarily swapped for the other one. */
   private altHeld = false;
   /** Tools held down with the keyboard: A = hammer, D = brush. */
-  private keys = new ToolKeys<Tool>({ a: 'break', d: 'paint' }, () => this.syncTool());
+  private keys = new ToolKeys<Tool>({}, () => this.syncTool());
   private orbitFrom: { x: number; y: number; dist: number } | null = null;
   private nudgeAt = -1e9;
   private nudges = 0;
@@ -160,9 +160,8 @@ export class PlayScreen implements Screen {
     );
 
     // tool dock
-    const toolTip = (what: string, key: string) => (FINE_POINTER ? `${what} — hold ${key} while clicking, or click here to keep it on` : `${what} — tap to turn on, tap again to go back to rotating`);
-    this.ui.hammer = h('button', { class: 'tool', 'aria-label': 'Hammer (hold A)', 'aria-pressed': 'false', 'data-tip': toolTip('Break cubes that aren’t part of the shape', 'A'), 'data-key': 'A', onclick: () => this.setTool('break') }, icon(I.hammer), h('span', null, 'Break'), h('kbd', { class: 'key-hint' }, 'A'));
-    this.ui.brush = h('button', { class: 'tool', 'aria-label': 'Brush (hold D)', 'aria-pressed': 'false', 'data-tip': toolTip('Paint cubes you know stay (protects them)', 'D'), 'data-key': 'D', onclick: () => this.setTool('paint') }, icon(I.brush), h('span', null, 'Paint'), h('kbd', { class: 'key-hint' }, 'D'));
+    this.ui.hammer = h('button', { class: 'tool', 'aria-pressed': 'false', onclick: () => this.setTool('break') }, icon(I.hammer), h('span', null, 'Break'), h('kbd', { class: 'key-hint' }));
+    this.ui.brush = h('button', { class: 'tool', 'aria-pressed': 'false', onclick: () => this.setTool('paint') }, icon(I.brush), h('span', null, 'Paint'), h('kbd', { class: 'key-hint' }));
     this.ui.undo = iconButton(I.undo, 'Undo', () => this.undo(), '', `${MOD} Z`);
     this.ui.redo = iconButton(I.redo, 'Redo', () => this.redo(), '', `${MOD} ⇧ Z`);
     this.ui.zero = h('button', { class: 'icon-btn zero-btn', 'aria-label': 'Clear every row marked 0', 'data-key': '0', onclick: () => this.clearZeros() }, h('span', { class: 'zero-glyph' }, '0'));
@@ -185,8 +184,25 @@ export class PlayScreen implements Screen {
       h('footer', { class: 'bottom' }, this.ui.slice, this.ui.dock, this.ui.view));
   }
 
+  /** Apply the player's key bindings to the held-key map and the dock hints. */
+  private applyKeys(): void {
+    const k = store.settings.keys;
+    this.keys.setMap({ [k.break]: 'break', [k.paint]: 'paint' });
+    const set = (btn: HTMLElement, key: string, what: string, name: string) => {
+      const label = keyLabel(key);
+      btn.setAttribute('aria-label', `${name} (hold ${label})`);
+      btn.dataset.tip = FINE_POINTER ? `${what} — hold ${label} while clicking, or click here to keep it on` : `${what} — tap to turn on, tap again to go back to rotating`;
+      btn.dataset.key = label;
+      btn.querySelector('.key-hint')!.textContent = label;
+    };
+    set(this.ui.hammer, k.break, 'Break cubes that aren’t part of the shape', 'Hammer');
+    set(this.ui.brush, k.paint, 'Paint cubes you know stay (protects them)', 'Brush');
+  }
+
   private applySettings(): void {
+    this.applyKeys();
     this.session.mode = store.settings.mistakeMode;
+    this.session.warnWrongBreaks = store.settings.warnWrongBreaks;
     this.el.classList.toggle('lefty', store.settings.lefty);
     this.ui.timer.style.display = store.settings.showTimer ? '' : 'none';
     this.refreshHud();
@@ -247,7 +263,7 @@ export class PlayScreen implements Screen {
     if (this.nudges < 3 && now - this.nudgeAt > 15000) {
       this.nudges++;
       this.nudgeAt = now;
-      toast(FINE_POINTER ? 'Hold A to break or D to paint — or pick a tool below' : 'Pick the hammer or brush below to act on cubes', 'info', 3000);
+      toast(FINE_POINTER ? `Hold ${keyLabel(store.settings.keys.break)} to break or ${keyLabel(store.settings.keys.paint)} to paint — or pick a tool below` : 'Pick the hammer or brush below to act on cubes', 'info', 3000);
     }
   }
 
@@ -303,8 +319,8 @@ export class PlayScreen implements Screen {
       h('p', { class: 'muted' }, 'Blank faces give no information. Rows marked 0 are empty — the ', h('b', null, 'clear zeros'), ' button removes them all at once.'),
       h('div', { class: 'controls-grid' },
         ...[
-          ['Break', FINE_POINTER ? 'Hold A + click' : 'Hammer on, tap'],
-          ['Paint', FINE_POINTER ? 'Hold D + click' : 'Brush on, tap'],
+          ['Break', FINE_POINTER ? `Hold ${keyLabel(store.settings.keys.break)} + click` : 'Hammer on, tap'],
+          ['Paint', FINE_POINTER ? `Hold ${keyLabel(store.settings.keys.paint)} + click` : 'Brush on, tap'],
           ['Whole row', 'Drag along it with a tool'],
           ['Turn', 'Drag with no tool · two fingers'],
           ['Lock a tool', 'Click it in the dock (Esc to release)'],
@@ -400,7 +416,7 @@ export class PlayScreen implements Screen {
     const hoverLines = this.hover >= 0 && !revealing ? [g.cellLines[this.hover * 3], g.cellLines[this.hover * 3 + 1], g.cellLines[this.hover * 3 + 2]] : [];
     const hl = new Set<number>(this.highlightLines);
     const palette = s.def.palette.map(hexToRgb);
-    const fade = store.settings.fadeDone;
+    const fade = store.settings.greyDone;
     const intro = this.introT < 1.5;
     const H = g.H;
 
@@ -457,7 +473,7 @@ export class PlayScreen implements Screen {
       lines.push({ points: boxEdges([-W / 2, -H / 2, -D / 2], [W / 2, H / 2, D / 2]), color: [0.45, 0.45, 0.6, 0.22] });
       lines.push(...this.slicer.lines(!this.slicer.pill.offsetParent));
     }
-    return { block: scene, particles: this.particles, lines, shadow: { dims: g.dims, alpha: 0.22 }, time: this.time };
+    return { block: scene, particles: this.particles, lines, shadow: { dims: g.dims, alpha: 0.22 }, time: this.time, greyDone: store.settings.greyDone };
   }
 
   visible(i: number): boolean {
@@ -678,6 +694,15 @@ export class PlayScreen implements Screen {
         this.opts.hooks?.event('action');
         if (s.strikesLeft <= 0) setTimeout(() => this.outOfStrikes(), 350);
         else toast(`That cube is part of the shape — ${s.strikesLeft} ${s.strikesLeft === 1 ? 'life' : 'lives'} left`, 'bad');
+        return false;
+      }
+      if (r === 'warned') {
+        this.shake[i] = 0.35;
+        this.flash[i] = 0.6;
+        sfx.clonk();
+        haptic([20, 30, 20]);
+        st.stopped = true;
+        toast('Careful — that cube is part of the shape', 'bad');
         return false;
       }
       if (r === 'protected') {

@@ -2070,3 +2070,61 @@ button.puzzle-tile:hover {
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent);
   }
 }
+
+/* ------------------------------------------------------------ key bindings */
+.keybinds {
+  padding: 4px 0 8px;
+  border-bottom: 1px solid var(--line);
+}
+.keybind-head {
+  border-bottom: none;
+  padding-bottom: 4px;
+}
+.keybind-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+  margin-top: 8px;
+}
+.keybind-group > small {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.keybind {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+}
+.keycap {
+  min-width: 42px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--card-solid);
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--ink) 12%, transparent);
+  font-weight: 800;
+  font-size: 14px;
+}
+.keycap.capturing {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-size: 12px;
+  animation: spot 1.4s ease-in-out infinite;
+}
+@media (max-width: 480px) {
+  .keybind-group {
+    grid-template-columns: 1fr;
+  }
+}
+@media not ((hover: hover) and (pointer: fine)) {
+  .keybinds {
+    display: none;
+  }
+}

@@ -12,6 +12,12 @@ export class ToolKeys<T extends string> {
     this.onChange = onChange;
   }
 
+  /** Replace the key → tool mapping (e.g. after the player rebinds keys). */
+  setMap(map: Record<string, T>): void {
+    this.map = map;
+    this.clear();
+  }
+
   /** Returns true if the event was a tool key. */
   down(e: KeyboardEvent): boolean {
     if (e.ctrlKey || e.metaKey || e.altKey) return false;
@@ -54,3 +60,9 @@ export class ToolKeys<T extends string> {
 }
 
 export const FINE_POINTER = typeof matchMedia !== 'undefined' && matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+/** Readable label for a key value. */
+export function keyLabel(k: string): string {
+  if (k === ' ') return 'Space';
+  return k.length === 1 ? k.toUpperCase() : k[0].toUpperCase() + k.slice(1);
+}

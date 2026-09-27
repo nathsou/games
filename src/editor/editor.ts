@@ -4,7 +4,7 @@ import { computeClues } from '../core/clues.ts';
 import { encodePuzzle } from '../core/codec.ts';
 import { gridFor, type Axis, type Dims, type Grid } from '../core/grid.ts';
 import type { Difficulty, PuzzleDef } from '../core/types.ts';
-import { save, store } from '../game/storage.ts';
+import { onSettingsChange, save, store } from '../game/storage.ts';
 import { GLYPH_HIDDEN } from '../render/atlas.ts';
 import { DEFAULT_PITCH, DEFAULT_YAW } from '../render/camera.ts';
 import { clamp, hexToRgb, type Vec3 } from '../render/math.ts';
@@ -19,7 +19,7 @@ import { I } from '../ui/icons.ts';
 import { importCode, shareCode, type Nav } from '../ui/menus.ts';
 import { AXIS_COLORS, AXIS_NAMES, Slicer } from '../ui/slicer.ts';
 import { CURSORS } from '../ui/cursors.ts';
-import { FINE_POINTER, ToolKeys } from '../ui/toolkeys.ts';
+import { FINE_POINTER, keyLabel, ToolKeys } from '../ui/toolkeys.ts';
 
 type Tool = 'add' | 'remove' | 'paint' | 'pick';
 type Mode = 'build' | 'clues';
@@ -66,7 +66,8 @@ export class EditorScreen implements Screen {
   private tool: Tool | null = null;
   private prevTool: Tool | null = null;
   /** Tools held with the keyboard: W add, A remove, D paint, S sample color. */
-  private keys = new ToolKeys<Tool>({ w: 'add', a: 'remove', d: 'paint', s: 'pick' }, () => this.refreshTools());
+  private keys = new ToolKeys<Tool>({}, () => this.refreshTools());
+  private offSettings: () => void = () => {};
   /** Shift held: add ↔ remove swap temporarily. */
   private altHeld = false;
   private mirrorX = false;
@@ -102,6 +103,7 @@ export class EditorScreen implements Screen {
     } else this.starter();
     this.slicer = new Slicer(app.camera, () => this.dims, () => this.refresh());
     this.el = this.buildUI();
+    this.applyKeys();
     this.gestures = this.makeGestures();
     this.refresh();
   }
@@ -147,10 +149,8 @@ export class EditorScreen implements Screen {
     const toolBtn = (t: Tool, svg: string, label: string, key: string) =>
       (this.ui[`tool-${t}`] = h('button', {
         class: 'tool',
-        'aria-label': `${label} (hold ${key})`,
         'aria-pressed': 'false',
-        'data-tip': FINE_POINTER ? `${label} — hold ${key} while clicking, or click here to keep it on` : `${label} — tap to turn on, tap again to rotate`,
-        'data-key': key,
+        'data-label': label,
         onclick: () => this.setTool(t),
       }, icon(svg), h('span', null, label), h('kbd', { class: 'key-hint' }, key)));
     this.ui.swatches = h('div', { class: 'swatches' });
@@ -159,7 +159,7 @@ export class EditorScreen implements Screen {
     this.ui.mirZ = h('button', { class: 'chip', onclick: () => { this.mirrorZ = !this.mirrorZ; this.refresh(); } }, 'Mirror Z');
 
     const buildPanel = h('div', { class: 'panel-sec build-only' },
-      h('div', { class: 'tools4' }, toolBtn('add', I.addCube, 'Add', 'W'), toolBtn('remove', I.eraser, 'Remove', 'A'), toolBtn('paint', I.paintBucket, 'Paint', 'D'), toolBtn('pick', I.dropper, 'Pick', 'S')),
+      h('div', { class: 'tools4' }, toolBtn('add', I.addCube, 'Add', ''), toolBtn('remove', I.eraser, 'Remove', ''), toolBtn('paint', I.paintBucket, 'Paint', ''), toolBtn('pick', I.dropper, 'Pick', '')),
       h('h4', null, 'Color'), this.ui.swatches,
       h('h4', null, 'Symmetry'), h('div', { class: 'chips' }, this.ui.mirX, this.ui.mirZ),
       h('h4', null, 'Size'), this.ui.dimsRow,
@@ -299,6 +299,23 @@ export class EditorScreen implements Screen {
     if (held) return held;
     if (!this.tool || !this.altHeld) return this.tool;
     return this.tool === 'add' ? 'remove' : this.tool === 'remove' ? 'add' : this.tool;
+  }
+
+  /** Apply the player's key bindings to the held-key map and the panel hints. */
+  private applyKeys(): void {
+    const k = store.settings.keys;
+    const binds: [Tool, string][] = [['add', k.add], ['remove', k.remove], ['paint', k.edPaint], ['pick', k.pick]];
+    this.keys.setMap(Object.fromEntries(binds.map(([t, key]) => [key, t])));
+    for (const [t, key] of binds) {
+      const btn = this.ui[`tool-${t}`];
+      const label = btn.dataset.label ?? t;
+      const kl = keyLabel(key);
+      btn.setAttribute('aria-label', `${label} (hold ${kl})`);
+      btn.dataset.tip = FINE_POINTER ? `${label} — hold ${kl} while clicking, or click here to keep it on` : `${label} — tap to turn on, tap again to rotate`;
+      btn.dataset.key = kl;
+      btn.querySelector('.key-hint')!.textContent = kl;
+    }
+    (this.ui.emptyHint as HTMLElement).textContent = FINE_POINTER ? `Hold ${keyLabel(k.add)} and click the floor grid to place cubes` : 'Turn on Add, then tap the floor grid';
   }
 
   private refreshTools(): void {
@@ -639,6 +656,7 @@ export class EditorScreen implements Screen {
   // ------------------------------------------------------------ view / interaction
 
   enter(): void {
+    this.offSettings = onSettingsChange(() => this.applyKeys());
     const cam = this.app.camera;
     cam.fit(this.dims, 1.15);
     cam.yaw = DEFAULT_YAW;
@@ -649,6 +667,7 @@ export class EditorScreen implements Screen {
   }
 
   exit(): void {
+    this.offSettings();
     this.app.canvas.style.cursor = '';
     clearTimeout(this.analyzeTimer);
     this.saveDraft();
