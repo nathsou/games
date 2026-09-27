@@ -7,7 +7,8 @@ import { EditorScreen } from './editor/editor.ts';
 import { onSettingsChange, store } from './game/storage.ts';
 import { solverClient } from './solver/client.ts';
 import { h, toast } from './ui/dom.ts';
-import { CollectionScreen, CollectionsScreen, HomeScreen, MyPuzzlesScreen, type Nav } from './ui/menus.ts';
+import { GalleryScreen } from './ui/gallery.ts';
+import { CollectionsScreen, HomeScreen, MyPuzzlesScreen, type Nav } from './ui/menus.ts';
 import { PlayScreen } from './ui/play.ts';
 import { installTooltips } from './ui/tooltip.ts';
 import { Tutorial } from './ui/tutorial.ts';
@@ -44,7 +45,7 @@ const nav: Nav = {
     app.go(new HomeScreen(app, nav));
   },
   collections: () => app.go(new CollectionsScreen(app, nav)),
-  collection: (c: Collection) => app.go(new CollectionScreen(app, nav, c)),
+  collection: (c: Collection, focus?: number) => app.go(new GalleryScreen(app, nav, c, focus)),
   play: (c: Collection, index: number) => {
     const puzzle = c.puzzles[index];
     app.go(
@@ -54,8 +55,8 @@ const nav: Nav = {
         collection: c,
         index,
         saveKey: puzzle.id,
-        onExit: () => nav.collection(c),
-        onNext: index + 1 < c.puzzles.length ? () => nav.play(c, index + 1) : () => nav.collection(c),
+        onExit: () => nav.collection(c, index),
+        onNext: index + 1 < c.puzzles.length ? () => nav.play(c, index + 1) : () => nav.collection(c, index),
       }),
     );
   },

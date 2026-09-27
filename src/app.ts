@@ -55,6 +55,8 @@ export class App {
   readonly renderer: Renderer;
   readonly camera = new OrbitCamera();
   screen: Screen | null = null;
+  /** Puzzle id solved in the last play session (the gallery reveals it on its plinth). */
+  freshSolve: string | null = null;
   private last = performance.now();
   private thumbs = new Map<string, string>();
   readonly gestures: Gestures;
@@ -103,6 +105,7 @@ export class App {
     this.root.append(screen.el);
     requestAnimationFrame(() => requestAnimationFrame(() => screen.el.classList.remove('entering')));
     this.camera.offset = [0, 0];
+    this.camera.target = [0, 0, 0];
     this.camera.viewScale = 1;
     this.camera.avail = null;
     this.camera.autoSpin = 0;

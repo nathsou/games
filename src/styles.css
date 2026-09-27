@@ -2128,3 +2128,209 @@ button.puzzle-tile:hover {
     display: none;
   }
 }
+
+/* ------------------------------------------------------------ museum plaque */
+:root {
+  --serif: ui-serif, 'New York', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+}
+.plaque {
+  padding: 22px 26px 18px;
+  border-radius: 6px 6px 22px 22px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card-solid) 96%, #c9a86a), var(--card-solid));
+  border-top: 3px solid #c9a86a;
+}
+.plaque-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.plaque-title {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 34px;
+  letter-spacing: 0.01em;
+  margin: 6px 0 8px;
+  min-height: 1.25em;
+}
+.plaque-rule {
+  width: 56px;
+  height: 2px;
+  margin: 0 auto 12px;
+  background: #c9a86a;
+  border-radius: 2px;
+}
+
+/* ------------------------------------------------------------ gallery */
+body.in-gallery {
+  background:
+    radial-gradient(60% 55% at 50% 12%, color-mix(in srgb, #fff 55%, transparent), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg1) 80%, #e8dccb) 0%, var(--bg1) 62%, color-mix(in srgb, var(--bg1) 70%, #cdbfae) 100%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) body.in-gallery {
+    background:
+      radial-gradient(55% 50% at 50% 10%, rgba(255, 240, 210, 0.13), transparent 70%),
+      linear-gradient(180deg, #1a1c2c 0%, #14162a 62%, #0f1020 100%);
+  }
+}
+:root[data-theme='dark'] body.in-gallery {
+  background:
+    radial-gradient(55% 50% at 50% 10%, rgba(255, 240, 210, 0.13), transparent 70%),
+    linear-gradient(180deg, #1a1c2c 0%, #14162a 62%, #0f1020 100%);
+}
+.gallery {
+  pointer-events: none !important;
+}
+.gallery > * {
+  pointer-events: auto;
+}
+.gallery-head {
+  position: absolute;
+  top: calc(10px + var(--safe-t));
+  left: calc(10px + var(--safe-l));
+  right: calc(18px + var(--safe-r));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.gallery-title h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 30px;
+  letter-spacing: 0.01em;
+}
+.gallery-foot {
+  position: absolute;
+  left: 50%;
+  bottom: calc(14px + var(--safe-b));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(420px, calc(100% - 24px));
+}
+.gallery-plaque {
+  width: 100%;
+  padding: 16px 22px 18px;
+  text-align: center;
+  border-radius: 6px 6px 20px 20px;
+  border-top: 3px solid #c9a86a;
+  background: var(--card);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  box-shadow: var(--shadow);
+}
+.gallery-plaque.swap > * {
+  animation: plaqueIn 0.35s ease both;
+}
+.gallery-plaque.swap > *:nth-child(2) {
+  animation-delay: 0.04s;
+}
+.gallery-plaque.swap > *:nth-child(3) {
+  animation-delay: 0.08s;
+}
+@keyframes plaqueIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.gallery-plaque .plaque-title {
+  font-size: 28px;
+  margin: 2px 0 6px;
+}
+.plaque-meta {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.badge-inline {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--blue);
+  color: #fff;
+}
+.gallery-plaque .btn {
+  min-width: 150px;
+}
+.gallery-dots {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.gdot {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--ink) 30%, transparent);
+  background: transparent;
+  transition: transform 0.2s, background 0.2s;
+}
+.gdot::before {
+  content: '';
+  display: block;
+  margin: -8px;
+  width: 26px;
+  height: 26px;
+}
+.gdot.solved {
+  background: #c9a86a;
+  border-color: #c9a86a;
+}
+.gdot.on {
+  transform: scale(1.45);
+  border-color: var(--ink);
+}
+.gallery-arrow {
+  position: absolute;
+  top: 45%;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, transform 0.15s;
+}
+.gallery-arrow:hover {
+  transform: scale(1.06);
+}
+.gallery-arrow[disabled] {
+  opacity: 0;
+  pointer-events: none;
+}
+.gallery-arrow.left {
+  left: calc(16px + var(--safe-l));
+}
+.gallery-arrow.right {
+  right: calc(16px + var(--safe-r));
+}
+@media (max-width: 600px) {
+  .gallery-arrow {
+    display: none;
+  }
+  .gallery-title h1 {
+    font-size: 24px;
+  }
+}
+.menu-head h1 {
+  font-family: var(--serif);
+  font-weight: 600;
+}

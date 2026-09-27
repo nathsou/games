@@ -5,6 +5,7 @@ import type { Collection, ModelDef, PuzzleDef } from '../core/types.ts';
 import { allCollections } from '../data/collections.ts';
 import { save, store } from '../game/storage.ts';
 import { BlockScene } from '../render/scene.ts';
+import { exhibit, exhibitScale, plinthScene } from './gallery.ts';
 import type { DrawList } from '../render/renderer.ts';
 import { button, h, icon, iconButton, modal, toast } from './dom.ts';
 import { COLLECTION_ICONS, I } from './icons.ts';
@@ -13,7 +14,7 @@ import { openSettings } from './settings.ts';
 export interface Nav {
   home(): void;
   collections(): void;
-  collection(c: Collection): void;
+  collection(c: Collection, focus?: number): void;
   play(c: Collection, index: number): void;
   playCustom(p: PuzzleDef, back: () => void, saveKey?: string | null): void;
   daily(): void;
@@ -61,13 +62,22 @@ class ShowcaseScreen {
   constructor(app: App) {
     this.app = app;
   }
+  protected plinth = plinthScene();
   protected setModel(m: ModelDef): void {
     this.model = m;
     modelScene(this.scene, m);
     const cam = this.app.camera;
-    cam.fit(m.dims, 1.08);
-    cam.autoSpin = store.settings.reducedMotion ? 0 : 0.25;
+    this.fitCamera();
+    cam.autoSpin = store.settings.reducedMotion ? 0 : 0.22;
     this.spinT = 0;
+  }
+  /** Frame the exhibit (piece on its plinth). */
+  protected fitCamera(): void {
+    const cam = this.app.camera;
+    // aim at the piece; only the top of the plinth shows below it
+    const top = this.model ? this.model.dims[1] * exhibitScale(this.model) : 4.2;
+    cam.target = [0, top / 2 - 0.6, 0];
+    cam.fit([5.6, top + 2.2, 5.6], 1.0);
   }
   update(dt: number): void {
     this.spinT += dt;
@@ -76,7 +86,7 @@ class ShowcaseScreen {
     if (!this.model) return null;
     if (this.spinT < 2.5 && !store.settings.reducedMotion) modelScene(this.scene, this.model, this.spinT);
     else if (this.spinT < 2.6) modelScene(this.scene, this.model);
-    return { block: this.scene, shadow: { dims: this.model.dims, alpha: 0.2 } };
+    return { placed: exhibit(this.scene, this.model.dims, 0, 0, this.plinth) };
   }
 }
 
@@ -116,7 +126,8 @@ export class HomeScreen extends ShowcaseScreen implements Screen {
   enter(): void {
     const m = this.pool[Math.floor(Math.random() * this.pool.length)];
     this.setModel(m);
-    this.app.camera.pitch = 0.35;
+    this.app.camera.pitch = 0.3;
+    document.body.classList.add('in-gallery');
     if (!store.welcomed) {
       store.welcomed = true;
       save();
@@ -132,6 +143,10 @@ export class HomeScreen extends ShowcaseScreen implements Screen {
     }
   }
 
+  exit(): void {
+    document.body.classList.remove('in-gallery');
+  }
+
   update(dt: number): void {
     super.update(dt);
     this.cycle += dt;
@@ -142,7 +157,7 @@ export class HomeScreen extends ShowcaseScreen implements Screen {
       const wide = cam.width > 900;
       if (wide) cam.frame(40, 40, 40, r.right + 20, dt);
       else cam.frame(20, 20, cam.height - r.top + 10, 20, dt);
-      cam.fit(this.model.dims, 1.08);
+      this.fitCamera();
     }
     if (this.cycle > 14 && this.pool.length > 1) {
       this.cycle = 0;

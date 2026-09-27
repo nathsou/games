@@ -2,7 +2,7 @@ import { sfx } from '../audio/sfx.ts';
 import type { Axis, Dims } from '../core/grid.ts';
 import type { OrbitCamera } from '../render/camera.ts';
 import { clamp, hexToRgb, type Vec3 } from '../render/math.ts';
-import type { LineBatch } from '../render/renderer.ts';
+import type { CutCap, LineBatch } from '../render/renderer.ts';
 import { h, icon } from './dom.ts';
 import { I } from './icons.ts';
 import { hideTooltip } from './tooltip.ts';
@@ -258,6 +258,15 @@ export class Slicer {
       knob.classList.toggle('active', a === this.axis && this.peel > 0);
       this.badges[a].textContent = a === this.axis && this.peel > 0 ? String(this.peel) : '';
     }
+  }
+
+  /** The exposed cross-section to hatch (object/cell space), or null when nothing is peeled. */
+  cap(): CutCap | null {
+    if (!this.peel) return null;
+    const a = this.axis;
+    const dim = this.dims[a];
+    const c = hexToRgb(AXIS_COLORS[a]);
+    return this.sign > 0 ? { face: a * 2, pos: dim - this.peel - 0.5, color: c } : { face: a * 2 + 1, pos: this.peel - 0.5, color: c };
   }
 
   /** Rails (with layer ticks) and the cut outline, for the renderer. */

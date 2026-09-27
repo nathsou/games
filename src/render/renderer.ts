@@ -13,6 +13,8 @@ layout(location=5) in vec3 iColor;
 layout(location=6) in uint iGlyph;
 layout(location=7) in uvec2 iAO;
 uniform mat4 uViewProj;
+/** Object (cell grid, centered) → world. */
+uniform mat4 uModel;
 uniform vec3 uOrigin;
 uniform vec3 uFaceUp[6];
 const vec3 T1[6] = vec3[6](vec3(0,1,0), vec3(0,0,1), vec3(0,0,1), vec3(1,0,0), vec3(1,0,0), vec3(0,1,0));
@@ -27,8 +29,12 @@ flat out vec3 vT2;
 flat out int vGlyph;
 flat out float vFade;
 flat out uint vFlags;
+flat out int vFace;
+out vec3 vObj;
 void main() {
-  vec3 world = uOrigin + iPosScale.xyz + aPos * iPosScale.w;
+  vec3 obj = iPosScale.xyz + aPos * iPosScale.w;
+  vObj = obj;
+  vec3 world = (uModel * vec4(uOrigin + obj, 1.0)).xyz;
   gl_Position = uViewProj * vec4(world, 1.0);
   int face = int(aFC.x + 0.5);
   int corner = int(aFC.y + 0.5);
@@ -44,9 +50,11 @@ void main() {
   uint word = k < 16 ? iAO.x : iAO.y;
   uint ao = (word >> uint((k % 16) * 2)) & 3u;
   vAO = float(ao) / 3.0;
-  vNormal = aNormal;
-  vT1 = T1[face];
-  vT2 = T2[face];
+  mat3 m = mat3(uModel);
+  vNormal = normalize(m * aNormal);
+  vT1 = normalize(m * T1[face]);
+  vT2 = normalize(m * T2[face]);
+  vFace = face;
   vUV = aUV;
   vColor = iColor;
 }`;
@@ -64,18 +72,24 @@ flat in vec3 vT2;
 flat in int vGlyph;
 flat in float vFade;
 flat in uint vFlags;
+flat in int vFace;
+in vec3 vObj;
+uniform int uCutFace;
+uniform float uCutPos;
+uniform vec3 uCutColor;
 uniform sampler2D uAtlas;
 uniform vec3 uLightDir;
 uniform vec3 uInk;
 uniform float uGlyphAlpha;
 uniform float uTime;
 uniform float uGreyDone;
+uniform float uBevel;
 out vec4 outColor;
 void main() {
   vec3 n0 = normalize(vNormal);
   // rounded bevel: bend the normal outward near the face edges
   vec2 p = vUV * 2.0 - 1.0;
-  const float B = 0.16;
+  float B = uBevel;
   vec2 e = clamp((abs(p) - (1.0 - B)) / B, 0.0, 1.0);
   e = e * e * sign(p);
   vec3 n = normalize(n0 * (1.0 - 0.35 * max(abs(e.x), abs(e.y))) + (vT1 * e.x + vT2 * e.y) * 0.85);
@@ -93,7 +107,8 @@ void main() {
   col += pow(max(dot(n, normalize(uLightDir + vec3(0.0, 0.0, 0.6))), 0.0), 24.0) * 0.08;
   vec2 ed = min(vUV, 1.0 - vUV);
   float d = min(ed.x, ed.y);
-  col *= mix(0.7, 1.0, smoothstep(0.0, 0.022, d));
+  // edge seam: at least ~1px wide so thin bevels don't alias
+  col *= mix(0.7, 1.0, smoothstep(0.0, max(0.022 * uBevel / 0.16, fwidth(d) * 1.5), d));
   if ((vFlags & 2u) != 0u) {
     float rim = 1.0 - smoothstep(0.03, 0.1, d);
     col = mix(col, vec3(1.0, 0.78, 0.25), rim * 0.95);
@@ -101,6 +116,17 @@ void main() {
   if ((vFlags & 4u) != 0u) {
     float pulse = 0.5 + 0.5 * sin(uTime * 6.0);
     col = mix(col, vec3(0.25, 0.82, 0.72), 0.22 + 0.28 * pulse);
+  }
+  if (vFace == uCutFace) {
+    int ax = uCutFace / 2;
+    float along = ax == 0 ? vObj.x : ax == 1 ? vObj.y : vObj.z;
+    if (abs(along - uCutPos) < 0.02) {
+      // cross-section cap: tinted, with diagonal hatching continuous across cubes
+      vec2 q = ax == 0 ? vObj.yz : ax == 1 ? vObj.xz : vObj.xy;
+      float hatch = smoothstep(0.42, 0.5, abs(fract((q.x + q.y) * 3.0) - 0.5));
+      col = mix(col, uCutColor, 0.22);
+      col *= mix(1.0, 0.86, hatch);
+    }
   }
   if (vFade > 0.5 && uGreyDone > 0.5) {
     float l = dot(col, vec3(0.299, 0.587, 0.114));
@@ -192,8 +218,33 @@ export interface LineBatch {
   color: [number, number, number, number];
 }
 
+/** A block drawn somewhere in the world (gallery pedestals, showcases). */
+export interface PlacedBlock {
+  scene: BlockScene;
+  /** World position of the block's center. */
+  pos: [number, number, number];
+  /** Uniform scale, or per-axis [x, y, z]. */
+  scale?: number | [number, number, number];
+  /** Bevel width as a fraction of a face (default 0.16). */
+  bevel?: number;
+  /** Rotation around the vertical axis (radians). */
+  yaw?: number;
+  /** Contact shadow under the block (alpha). */
+  shadow?: number;
+  glyphAlpha?: number;
+}
+
+/** Peeled-layer cross-section to cap (object space of the main block). */
+export interface CutCap {
+  face: number;
+  pos: number;
+  color: [number, number, number];
+}
+
 export interface DrawList {
   block?: BlockScene;
+  placed?: PlacedBlock[];
+  cut?: CutCap | null;
   particles?: Particles;
   lines?: LineBatch[];
   shadow?: { dims: Dims; alpha: number; tint?: [number, number, number] };
@@ -243,6 +294,8 @@ function cubeMesh(): { verts: Float32Array; idx: Uint16Array } {
   return { verts: Float32Array.from(v), idx: Uint16Array.from(idx) };
 }
 
+const IDENTITY = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+
 const LIGHT = (() => {
   const l = [0.45, 0.8, 0.55];
   const n = Math.hypot(...l);
@@ -283,7 +336,7 @@ export class Renderer {
     this.partProg = compile(gl, PART_VS, PART_FS);
     this.lineProg = compile(gl, LINE_VS, LINE_FS);
     this.shadowProg = compile(gl, SHADOW_VS, SHADOW_FS);
-    this.cu = uniforms(gl, this.cubeProg, ['uViewProj', 'uOrigin', 'uFaceUp', 'uAtlas', 'uLightDir', 'uInk', 'uGlyphAlpha', 'uTime', 'uGreyDone']);
+    this.cu = uniforms(gl, this.cubeProg, ['uViewProj', 'uModel', 'uOrigin', 'uFaceUp', 'uAtlas', 'uLightDir', 'uInk', 'uGlyphAlpha', 'uTime', 'uGreyDone', 'uCutFace', 'uCutPos', 'uCutColor', 'uBevel']);
     this.pu = uniforms(gl, this.partProg, ['uViewProj', 'uOrigin', 'uLightDir']);
     this.lu = uniforms(gl, this.lineProg, ['uViewProj', 'uColor']);
     this.su = uniforms(gl, this.shadowProg, ['uViewProj', 'uCenter', 'uSize', 'uAlpha', 'uTint']);
@@ -394,10 +447,44 @@ export class Renderer {
     return { w: rect.width, h: rect.height };
   }
 
+  private drawBlock(cam: OrbitCamera, list: DrawList, b: BlockScene, model: Float32Array, glyphAlpha: number, cut: CutCap | null, yaw = 0, bevel = 0.16): void {
+    const gl = this.gl;
+    const dims = b.dims;
+    gl.useProgram(this.cubeProg);
+    gl.uniformMatrix4fv(this.cu.uViewProj, false, cam.viewProj);
+    gl.uniformMatrix4fv(this.cu.uModel, false, model);
+    gl.uniform3f(this.cu.uOrigin, -(dims[0] - 1) / 2, -(dims[1] - 1) / 2, -(dims[2] - 1) / 2);
+    gl.uniform3fv(this.cu.uFaceUp, this.faceUps(cam, yaw));
+    gl.uniform3fv(this.cu.uLightDir, LIGHT);
+    gl.uniform3fv(this.cu.uInk, list.ink ?? [0.13, 0.15, 0.23]);
+    gl.uniform1f(this.cu.uGlyphAlpha, glyphAlpha);
+    gl.uniform1f(this.cu.uTime, list.time ?? 0);
+    gl.uniform1f(this.cu.uGreyDone, list.greyDone ? 1 : 0);
+    gl.uniform1f(this.cu.uBevel, bevel);
+    gl.uniform1i(this.cu.uCutFace, cut ? cut.face : -1);
+    gl.uniform1f(this.cu.uCutPos, cut ? cut.pos : 0);
+    gl.uniform3fv(this.cu.uCutColor, cut ? cut.color : [0, 0, 0]);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.atlas);
+    gl.uniform1i(this.cu.uAtlas, 0);
+    gl.bindVertexArray(this.cubeVao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, b.inst.subarray(0, b.count * INST_FLOATS), gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.glyphBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, b.glyph.subarray(0, b.count), gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.aoBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, b.ao.subarray(0, b.count * 2), gl.DYNAMIC_DRAW);
+    gl.drawElementsInstanced(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0, b.count);
+  }
+
   /** Pick the in-plane axis per face that looks most "up" on screen, so numbers stay upright. */
-  private faceUps(cam: OrbitCamera): Float32Array {
+  private faceUps(cam: OrbitCamera, yaw = 0): Float32Array {
     const out = new Float32Array(18);
-    const up = cam.up;
+    // camera up expressed in the block's (yaw-rotated) object space
+    const c = Math.cos(yaw);
+    const sn = Math.sin(yaw);
+    const u = cam.up;
+    const up = [c * u[0] - sn * u[2], u[1], sn * u[0] + c * u[2]];
     FACES.forEach((f, i) => {
       let best: number[] = f.t1;
       let bestDot = -Infinity;
@@ -429,45 +516,50 @@ export class Renderer {
     const dims = list.block?.dims ?? list.shadow?.dims ?? [1, 1, 1];
     const origin = [-(dims[0] - 1) / 2, -(dims[1] - 1) / 2, -(dims[2] - 1) / 2];
 
-    if (list.shadow) {
-      const [W, H, D] = list.shadow.dims;
-      gl.disable(gl.DEPTH_TEST);
-      gl.useProgram(this.shadowProg);
-      gl.uniformMatrix4fv(this.su.uViewProj, false, cam.viewProj);
-      gl.uniform3f(this.su.uCenter, 0, -H / 2 - 0.02, 0);
-      gl.uniform2f(this.su.uSize, W * 0.62 + 1.4, D * 0.62 + 1.4);
-      gl.uniform1f(this.su.uAlpha, list.shadow.alpha);
-      gl.uniform3fv(this.su.uTint, list.shadow.tint ?? [0.1, 0.1, 0.2]);
-      gl.bindVertexArray(this.shadowVao);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    }
-
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.CULL_FACE);
 
+    const shadows: { center: number[]; size: number[]; alpha: number; tint?: number[] }[] = [];
+    if (list.shadow) {
+      const [W, H, D] = list.shadow.dims;
+      shadows.push({ center: [0, -H / 2 - 0.02, 0], size: [W * 0.62 + 1.4, D * 0.62 + 1.4], alpha: list.shadow.alpha, tint: list.shadow.tint });
+    }
+
     const b = list.block;
-    if (b && b.count > 0) {
-      gl.useProgram(this.cubeProg);
-      gl.uniformMatrix4fv(this.cu.uViewProj, false, cam.viewProj);
-      gl.uniform3fv(this.cu.uOrigin, origin);
-      gl.uniform3fv(this.cu.uFaceUp, this.faceUps(cam));
-      gl.uniform3fv(this.cu.uLightDir, LIGHT);
-      gl.uniform3fv(this.cu.uInk, list.ink ?? [0.13, 0.15, 0.23]);
-      gl.uniform1f(this.cu.uGlyphAlpha, b.glyphAlpha);
-      gl.uniform1f(this.cu.uTime, list.time ?? 0);
-      gl.uniform1f(this.cu.uGreyDone, list.greyDone ? 1 : 0);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, this.atlas);
-      gl.uniform1i(this.cu.uAtlas, 0);
-      gl.bindVertexArray(this.cubeVao);
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.instBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, b.inst.subarray(0, b.count * INST_FLOATS), gl.DYNAMIC_DRAW);
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.glyphBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, b.glyph.subarray(0, b.count), gl.DYNAMIC_DRAW);
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.aoBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, b.ao.subarray(0, b.count * 2), gl.DYNAMIC_DRAW);
-      gl.drawElementsInstanced(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0, b.count);
+    if (b && b.count > 0) this.drawBlock(cam, list, b, IDENTITY, b.glyphAlpha, list.cut ?? null);
+    for (const pb of list.placed ?? []) {
+      if (!pb.scene.count) continue;
+      const sc = pb.scale ?? 1;
+      const [sx, sy, sz] = typeof sc === 'number' ? [sc, sc, sc] : sc;
+      const yaw = pb.yaw ?? 0;
+      const c = Math.cos(yaw);
+      const sn = Math.sin(yaw);
+      // column-major: scale, then rotate around Y, then translate
+      const m = new Float32Array([c * sx, 0, -sn * sx, 0, 0, sy, 0, 0, sn * sz, 0, c * sz, 0, pb.pos[0], pb.pos[1], pb.pos[2], 1]);
+      this.drawBlock(cam, list, pb.scene, m, pb.glyphAlpha ?? pb.scene.glyphAlpha, null, yaw, pb.bevel);
+      if (pb.shadow) {
+        const [W, H, D] = pb.scene.dims;
+        shadows.push({ center: [pb.pos[0], pb.pos[1] - (H / 2) * sy + 0.015, pb.pos[2]], size: [(W * 0.62 + 1.0) * sx, (D * 0.62 + 1.0) * sz], alpha: pb.shadow });
+      }
+    }
+
+    if (shadows.length) {
+      // drawn after the geometry so they land on (and are hidden by) whatever is there
+      gl.disable(gl.CULL_FACE);
+      gl.depthMask(false);
+      gl.useProgram(this.shadowProg);
+      gl.uniformMatrix4fv(this.su.uViewProj, false, cam.viewProj);
+      gl.bindVertexArray(this.shadowVao);
+      for (const sh of shadows) {
+        gl.uniform3fv(this.su.uCenter, sh.center);
+        gl.uniform2fv(this.su.uSize, sh.size);
+        gl.uniform1f(this.su.uAlpha, sh.alpha);
+        gl.uniform3fv(this.su.uTint, sh.tint ?? [0.1, 0.1, 0.2]);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+      gl.depthMask(true);
+      gl.enable(gl.CULL_FACE);
     }
 
     const parts = list.particles?.list;

@@ -946,7 +946,7 @@ export class EditorScreen implements Screen {
       lines.push({ points: boxEdges([w(t[0], 0) + 0.04, w(t[1], 1) + 0.04, w(t[2], 2) + 0.04], [w(t[0] + 1, 0) - 0.04, w(t[1] + 1, 1) - 0.04, w(t[2] + 1, 2) - 0.04]), color: [c[0], c[1], c[2], pulse] });
     }
     lines.push(...this.slicer.lines(!this.slicer.pill.offsetParent));
-    return { block: scene, lines, shadow: { dims: this.dims, alpha: 0.15 }, time: this.time };
+    return { block: scene, lines, shadow: { dims: this.dims, alpha: 0.15 }, time: this.time, cut: this.slicer.cap() };
   }
 
   onKeyUp(e: KeyboardEvent): void {

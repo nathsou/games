@@ -401,8 +401,8 @@ export class PlayScreen implements Screen {
       else this.lineFlash.set(l, t - dt);
     }
     if (s.solved && this.solvedAt >= 0) {
-      this.revealT = Math.min(1, this.revealT + dt / 1.4);
-      if (this.revealT > 0.55 && !this.cardShown) this.showSolvedCard();
+      this.revealT = Math.min(1, this.revealT + dt / 2);
+      if (this.revealT > 0.62 && !this.cardShown) this.showSolvedCard();
     }
   }
 
@@ -434,6 +434,7 @@ export class PlayScreen implements Screen {
       const lx = g.cellLines[i * 3];
       const ly = g.cellLines[i * 3 + 1];
       const lz = g.cellLines[i * 3 + 2];
+      let popScale = 1;
       if (!revealing) {
         if (hoverLines.length && i !== this.hover && (lx === hoverLines[0] || ly === hoverLines[1] || lz === hoverLines[2]))
           for (let c = 0; c < 3; c++) col[c] = col[c] * 0.82 + HOVER_TINT[c] * 0.26;
@@ -444,15 +445,20 @@ export class PlayScreen implements Screen {
         const f = this.flash[i];
         if (f > 0) for (let c = 0; c < 3; c++) col[c] += (RED[c] - col[c]) * Math.min(1, f * 2);
       } else {
+        // cubes take their true colors one by one, bottom to top, with a little pop
+        const delay = (y / Math.max(1, H)) * 0.55 + (((i * 7919) % 97) / 97) * 0.25;
+        const t = clamp((this.revealT * 1.8 - delay) / 0.45, 0, 1);
         const sc = palette[s.def.cells[i] - 1] ?? col;
-        for (let c = 0; c < 3; c++) col[c] += (sc[c] - col[c]) * rt;
+        const e = t * t * (3 - 2 * t);
+        for (let c = 0; c < 3; c++) col[c] += (sc[c] - col[c]) * e;
+        popScale = 1 + 0.14 * Math.sin(Math.PI * t);
       }
       const glyph = (l: number) => (s.mask[l] ? s.clues[l] : GLYPH_NONE);
       const done = (l: number) => fade && s.mask[l] === 1 && s.lineDone[l] === 1;
       const packed = packGlyphs(glyph(lx), glyph(ly), glyph(lz), done(lx), done(ly), done(lz)) | flags;
       let ox = 0;
       if (this.shake[i] > 0) ox = Math.sin(this.time * 70) * 0.09 * (this.shake[i] / 0.35);
-      let scale = revealing ? 1 : 1 - 0.04 * Math.max(0, 1 - Math.abs(pt - 0.5) * 2);
+      let scale = revealing ? popScale : 1 - 0.04 * Math.max(0, 1 - Math.abs(pt - 0.5) * 2);
       let oy = 0;
       if (intro) {
         // the block assembles from the bottom up
@@ -465,7 +471,7 @@ export class PlayScreen implements Screen {
       scene.add(x + ox, y + oy, z, scale, col, packed);
     }
     scene.computeAO();
-    scene.glyphAlpha = 1 - rt;
+    scene.glyphAlpha = clamp(1 - rt * 2.2, 0, 1);
 
     const lines: LineBatch[] = [];
     const [W, , D] = g.dims;
@@ -473,7 +479,7 @@ export class PlayScreen implements Screen {
       lines.push({ points: boxEdges([-W / 2, -H / 2, -D / 2], [W / 2, H / 2, D / 2]), color: [0.45, 0.45, 0.6, 0.22] });
       lines.push(...this.slicer.lines(!this.slicer.pill.offsetParent));
     }
-    return { block: scene, particles: this.particles, lines, shadow: { dims: g.dims, alpha: 0.22 }, time: this.time, greyDone: store.settings.greyDone };
+    return { block: scene, particles: this.particles, lines, shadow: { dims: g.dims, alpha: 0.22 }, time: this.time, greyDone: store.settings.greyDone, cut: revealing ? null : this.slicer.cap() };
   }
 
   visible(i: number): boolean {
@@ -865,6 +871,7 @@ export class PlayScreen implements Screen {
       for (let k = 0; k < 6; k++) this.particles.burst((Math.random() - 0.5) * W + (W - 1) / 2, H - 1, (Math.random() - 0.5) * D + (D - 1) / 2, colors[k % colors.length], 8, 1.4);
     this.app.camera.autoSpin = store.settings.reducedMotion ? 0 : 0.35;
     if (this.opts.saveKey) recordSolve(this.opts.saveKey, s.stars(), s.elapsed);
+    if (this.opts.collection) this.app.freshSolve = s.def.id;
     this.opts.hooks?.event('solved');
     this.refreshHud();
   }
@@ -875,9 +882,12 @@ export class PlayScreen implements Screen {
     const s = this.session;
     const stars = s.stars();
     const rec = this.opts.saveKey ? store.records[this.opts.saveKey] : undefined;
-    const card = h('div', { class: 'solved-card' },
-      h('div', { class: 'eyebrow' }, 'Solved!'),
-      h('h2', null, s.def.name),
+    const where = this.opts.collection ? `${this.opts.collection.name} · No. ${(this.opts.index ?? 0) + 1}` : this.opts.subtitle ?? 'Solved';
+    const title = h('h2', { class: 'plaque-title', 'aria-label': s.def.name });
+    const card = h('div', { class: 'solved-card plaque' },
+      h('div', { class: 'plaque-eyebrow' }, where),
+      title,
+      h('div', { class: 'plaque-rule' }),
       h('div', { class: 'stars', 'aria-label': `${stars} of 3 stars` }, ...[1, 2, 3].map((k) => icon(k <= stars ? I.star : I.starOutline, k <= stars ? 'on' : ''))),
       h('div', { class: 'solved-stats' },
         h('div', null, h('b', null, formatTime(s.elapsed)), h('span', null, 'time')),
@@ -886,10 +896,18 @@ export class PlayScreen implements Screen {
         rec ? h('div', null, h('b', null, formatTime(rec.bestTime)), h('span', null, 'best')) : null,
       ),
       h('div', { class: 'row' },
-        button('Back', () => this.leave(), 'ghost'),
+        button(this.opts.collection ? 'To the gallery' : 'Back', () => this.leave(), 'ghost'),
         this.opts.onNext ? button('Next puzzle', () => this.opts.onNext!(), 'primary', I.arrowRight) : null,
       ),
     );
+    // the name is lettered in, like a plaque being engraved
+    const name = s.def.name;
+    let n = 0;
+    const type = () => {
+      title.textContent = name.slice(0, n);
+      if (n++ < name.length) setTimeout(type, store.settings.reducedMotion ? 0 : 55);
+    };
+    setTimeout(type, 250);
     this.el.append(card);
     requestAnimationFrame(() => card.classList.add('in'));
   }
