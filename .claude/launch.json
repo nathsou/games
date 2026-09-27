@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "/Users/nathan/Documents/code/claude/nono/node_modules/.bin/vite",
+      "runtimeArgs": ["/Users/nathan/Documents/code/claude/nono", "--port", "5391", "--strictPort"],
+      "cwd": "/Users/nathan/Documents/code/claude/nono",
+      "port": 5391
+    }
+  ]
+}
