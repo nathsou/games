@@ -2051,3 +2051,22 @@ button.puzzle-tile:hover {
     display: none;
   }
 }
+
+/* nudge the tool switch when a cube is clicked with no tool active */
+.toolswitch.nudge,
+.tools4.nudge {
+  animation: nudge 0.7s ease;
+}
+@keyframes nudge {
+  15% {
+    transform: translateY(-5px);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+  35% {
+    transform: none;
+  }
+  55% {
+    transform: translateY(-2px);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+}

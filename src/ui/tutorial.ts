@@ -5,6 +5,10 @@ import { BROKEN, PAINTED } from '../game/session.ts';
 import { save, store } from '../game/storage.ts';
 import { button, h, modal } from './dom.ts';
 import { PlayScreen, type PlayHooks } from './play.ts';
+import { FINE_POINTER } from './toolkeys.ts';
+
+/** Pick the wording for mouse/keyboard or touch. */
+const say = (mouse: string, touch: string) => (FINE_POINTER ? mouse : touch);
 
 type Ev = Parameters<PlayHooks['event']>[0];
 
@@ -43,20 +47,29 @@ const LESSONS: Lesson[] = [
       },
       {
         title: 'Look around',
-        text: 'Drag the empty background to turn the block. On a touch screen you can also use two fingers — pinch to zoom.',
+        text: say(
+          'With no tool active, dragging anywhere turns the block. Scroll to zoom.',
+          'With no tool active, dragging anywhere turns the block. Pinch to zoom.',
+        ),
         until: (_p, ev) => ev === 'orbit',
         next: 'Skip',
       },
       {
         title: 'Zero means empty',
-        text: 'The glowing column shows 0 on top: none of its cubes are part of the shape. Tap them with the hammer — or drag along the column to break them all at once.',
+        text: say(
+          'The glowing column shows 0 on top: none of its cubes belong to the shape. Hold A and click them to break them — or hold A and drag down the column to break it all at once.',
+          'The glowing column shows 0 on top: none of its cubes belong to the shape. Turn on the hammer below, then tap them — or drag down the column to break it all at once.',
+        ),
         lines: (p) => [colLine(p, 3)],
         spot: 'hammer',
         until: (p) => all(p, [[3, 0], [3, 1], [3, 2]], BROKEN),
       },
       {
         title: 'Keep what’s certain',
-        text: 'This column says 3 and has exactly 3 cubes, so they all stay. Pick the brush and paint them — painted cubes are protected from the hammer. (Tip: Shift-click or long-press uses the other tool.)',
+        text: say(
+          'This column says 3 and has exactly 3 cubes, so they all stay. Hold D and click (or drag) to paint them — painted cubes are protected from the hammer.',
+          'This column says 3 and has exactly 3 cubes, so they all stay. Switch to the brush and paint them — painted cubes are protected from the hammer.',
+        ),
         lines: (p) => [colLine(p, 1)],
         spot: 'brush',
         until: (p) => all(p, [[1, 0], [1, 1], [1, 2]], PAINTED),
@@ -69,7 +82,10 @@ const LESSONS: Lesson[] = [
       },
       {
         title: 'Finish it',
-        text: 'The last two rows say 1, and each already has a painted cube. Switch back to the hammer and break the rest!',
+        text: say(
+          'The last two rows say 1, and each already has a painted cube. Break the rest with A! (You can also click a tool below to keep it on.)',
+          'The last two rows say 1, and each already has a painted cube. Switch back to the hammer and break the rest!',
+        ),
         lines: () => [rowLine(0), rowLine(1)],
         spot: 'hammer',
         until: (p) => p.session.solved,

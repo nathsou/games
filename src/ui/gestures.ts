@@ -13,7 +13,7 @@ export interface GestureTarget {
   strokeEnd(): void;
   hover(x: number, y: number): void;
   hoverEnd(): void;
-  orbitStart(): void;
+  orbitStart(x: number, y: number): void;
   orbit(dx: number, dy: number, dt: number): void;
   orbitEnd(): void;
   zoom(factor: number): void;
@@ -85,7 +85,7 @@ export class Gestures {
       this.t.touchFocus?.(0, null);
       this.mode = 'multi';
       this.multiStart = this.multiState();
-      this.t.orbitStart();
+      this.t.orbitStart(-1, -1);
       this.last.time = performance.now();
       return;
     }
@@ -95,13 +95,13 @@ export class Gestures {
     const isMouse = e.pointerType === 'mouse';
     if (isMouse && e.button !== 0) {
       this.mode = 'orbit';
-      this.t.orbitStart();
+      this.t.orbitStart(-1, -1);
       return;
     }
     const hit = this.t.hitTest(p.x, p.y);
     if (!hit) {
       this.mode = 'orbit';
-      this.t.orbitStart();
+      this.t.orbitStart(p.x, p.y);
       return;
     }
     if (isMouse) {

@@ -70,7 +70,7 @@ export class App {
       strokeEnd: () => this.screen?.gestures?.strokeEnd(),
       hover: (x, y) => this.screen?.gestures?.hover(x, y),
       hoverEnd: () => this.screen?.gestures?.hoverEnd(),
-      orbitStart: () => (this.screen?.gestures ? this.screen.gestures.orbitStart() : this.camera.beginDrag()),
+      orbitStart: (x, y) => (this.screen?.gestures ? this.screen.gestures.orbitStart(x, y) : this.camera.beginDrag()),
       orbit: (dx, dy, dt) => (this.screen?.gestures ? this.screen.gestures.orbit(dx, dy, dt) : this.camera.orbit(dx, dy, dt)),
       orbitEnd: () => (this.screen?.gestures ? this.screen.gestures.orbitEnd() : this.camera.endDrag()),
       zoom: (f) => this.screen?.gestures?.zoom(f),

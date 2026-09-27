@@ -19,6 +19,7 @@ import { I } from '../ui/icons.ts';
 import { importCode, shareCode, type Nav } from '../ui/menus.ts';
 import { AXIS_COLORS, AXIS_NAMES, Slicer } from '../ui/slicer.ts';
 import { CURSORS } from '../ui/cursors.ts';
+import { FINE_POINTER, ToolKeys } from '../ui/toolkeys.ts';
 
 type Tool = 'add' | 'remove' | 'paint' | 'pick';
 type Mode = 'build' | 'clues';
@@ -61,8 +62,11 @@ export class EditorScreen implements Screen {
   private analyzing = false;
   private reqId = 0;
   private mode: Mode = 'build';
-  private tool: Tool = 'add';
-  private prevTool: Tool = 'add';
+  /** Tool locked on from the panel (null = drags rotate the model). */
+  private tool: Tool | null = null;
+  private prevTool: Tool | null = null;
+  /** Tools held with the keyboard: W add, A remove, D paint, S sample color. */
+  private keys = new ToolKeys<Tool>({ w: 'add', a: 'remove', d: 'paint', s: 'pick' }, () => this.refreshTools());
   /** Shift held: add ↔ remove swap temporarily. */
   private altHeld = false;
   private mirrorX = false;
@@ -141,14 +145,21 @@ export class EditorScreen implements Screen {
 
     // build panel
     const toolBtn = (t: Tool, svg: string, label: string, key: string) =>
-      (this.ui[`tool-${t}`] = h('button', { class: 'tool', 'aria-label': `${label} (${key})`, 'data-tip': label, 'data-key': key, onclick: () => this.setTool(t) }, icon(svg), h('span', null, label), h('kbd', { class: 'key-hint' }, key)));
+      (this.ui[`tool-${t}`] = h('button', {
+        class: 'tool',
+        'aria-label': `${label} (hold ${key})`,
+        'aria-pressed': 'false',
+        'data-tip': FINE_POINTER ? `${label} — hold ${key} while clicking, or click here to keep it on` : `${label} — tap to turn on, tap again to rotate`,
+        'data-key': key,
+        onclick: () => this.setTool(t),
+      }, icon(svg), h('span', null, label), h('kbd', { class: 'key-hint' }, key)));
     this.ui.swatches = h('div', { class: 'swatches' });
     this.ui.dimsRow = h('div', { class: 'dims-row' });
     this.ui.mirX = h('button', { class: 'chip', onclick: () => { this.mirrorX = !this.mirrorX; this.refresh(); } }, 'Mirror X');
     this.ui.mirZ = h('button', { class: 'chip', onclick: () => { this.mirrorZ = !this.mirrorZ; this.refresh(); } }, 'Mirror Z');
 
     const buildPanel = h('div', { class: 'panel-sec build-only' },
-      h('div', { class: 'tools4' }, toolBtn('add', I.addCube, 'Add', 'A'), toolBtn('remove', I.eraser, 'Remove', 'E'), toolBtn('paint', I.paintBucket, 'Paint', 'P'), toolBtn('pick', I.dropper, 'Pick', 'I')),
+      h('div', { class: 'tools4' }, toolBtn('add', I.addCube, 'Add', 'W'), toolBtn('remove', I.eraser, 'Remove', 'A'), toolBtn('paint', I.paintBucket, 'Paint', 'D'), toolBtn('pick', I.dropper, 'Pick', 'S')),
       h('h4', null, 'Color'), this.ui.swatches,
       h('h4', null, 'Symmetry'), h('div', { class: 'chips' }, this.ui.mirX, this.ui.mirZ),
       h('h4', null, 'Size'), this.ui.dimsRow,
@@ -203,16 +214,14 @@ export class EditorScreen implements Screen {
       iconButton(I.rotL, 'Turn left', () => this.app.camera.turn(-1), '', '←'),
       iconButton(I.target, 'Reset view', () => { this.app.camera.snapTo(DEFAULT_YAW, DEFAULT_PITCH); this.app.camera.resetZoom(); }),
       iconButton(I.rotR, 'Turn right', () => this.app.camera.turn(1), '', '→'));
-    this.ui.emptyHint = h('div', { class: 'empty-hint' }, 'Tap the floor grid to place your first cube');
+    this.ui.emptyHint = h('div', { class: 'empty-hint' }, FINE_POINTER ? 'Hold W and click the floor grid to place cubes' : 'Turn on Add, then tap the floor grid');
 
     return h('div', { class: 'editor' }, this.slicer.knobLayer, top, this.ui.panel, this.ui.panelToggle, this.ui.emptyHint, h('footer', { class: 'bottom' }, slicer, view));
   }
 
   private refresh(): void {
     // tools
-    const active = this.activeTool;
-    for (const t of ['add', 'remove', 'paint', 'pick'] as Tool[]) this.ui[`tool-${t}`].classList.toggle('active', active === t);
-    this.ui['tool-add'].parentElement!.classList.toggle('temporary', active !== this.tool);
+    this.refreshTools();
     this.ui.mirX.classList.toggle('active', this.mirrorX);
     this.ui.mirZ.classList.toggle('active', this.mirrorZ);
     this.ui.tabBuild.classList.toggle('active', this.mode === 'build');
@@ -223,7 +232,7 @@ export class EditorScreen implements Screen {
     // swatches
     this.ui.swatches.replaceChildren(
       ...this.palette.map((c, i) =>
-        h('button', { class: `swatch ${this.color === i + 1 ? 'active' : ''}`, style: `--c:${c}`, 'aria-label': `Color ${c}`, onclick: () => { this.color = i + 1; if (this.tool === 'remove' || this.tool === 'pick') this.setTool('add'); this.refresh(); } }),
+        h('button', { class: `swatch ${this.color === i + 1 ? 'active' : ''}`, style: `--c:${c}`, 'aria-label': `Color ${c}`, onclick: () => { this.color = i + 1; this.refresh(); } }),
       ),
       (() => {
         const input = h('input', { type: 'color', value: this.palette[this.color - 1] ?? '#ff8800', 'aria-label': 'Edit color', onchange: (e: Event) => this.editColor((e.target as HTMLInputElement).value) });
@@ -284,13 +293,27 @@ export class EditorScreen implements Screen {
     this.refresh();
   }
 
-  /** The tool a click would use right now (Shift swaps add and remove). */
-  private get activeTool(): Tool {
-    if (!this.altHeld) return this.tool;
+  /** The tool a click would use right now: a held key wins, then the locked tool (Shift swaps add/remove). */
+  private get activeTool(): Tool | null {
+    const held = this.keys.current;
+    if (held) return held;
+    if (!this.tool || !this.altHeld) return this.tool;
     return this.tool === 'add' ? 'remove' : this.tool === 'remove' ? 'add' : this.tool;
   }
 
-  setTool(t: Tool): void {
+  private refreshTools(): void {
+    const active = this.activeTool;
+    for (const t of ['add', 'remove', 'paint', 'pick'] as Tool[]) {
+      this.ui[`tool-${t}`].classList.toggle('active', active === t);
+      this.ui[`tool-${t}`].setAttribute('aria-pressed', String(this.tool === t));
+    }
+    this.ui['tool-add'].parentElement!.classList.toggle('temporary', active !== null && active !== this.tool);
+    this.el?.classList.toggle('rotate-mode', active === null);
+  }
+
+  /** Lock a tool on from the panel; choosing the locked tool again goes back to rotating. */
+  setTool(t: Tool | null): void {
+    if (t === this.tool) t = null;
     if (t === 'pick' && this.tool !== 'pick') this.prevTool = this.tool;
     this.tool = t;
     if (this.mode !== 'build') this.setMode('build');
@@ -659,7 +682,9 @@ export class EditorScreen implements Screen {
     return {
       hitTest: (x, y) => {
         if (this.mode === 'clues') return !!this.pickFull(x, y);
-        if (this.tool === 'add') return !!this.pickBuild(x, y);
+        const tool = this.activeTool;
+        if (!tool) return false;
+        if (tool === 'add') return !!this.pickBuild(x, y);
         return !!this.pickSolid(x, y);
       },
       strokeStart: (x, y, alt) => {
@@ -727,7 +752,7 @@ export class EditorScreen implements Screen {
       this.hover = hit ? { cell: [hit.x, hit.y, hit.z], target: null, face: hit.normal[0] ? 0 : hit.normal[1] ? 1 : 2 } : { cell: null, target: null, face: -1 };
       return;
     }
-    if (this.tool === 'add') {
+    if (this.activeTool === 'add') {
       const b = this.pickBuild(x, y);
       this.hover = { cell: b?.hit ?? null, target: b?.target ?? null, face: -1 };
     } else {
@@ -748,13 +773,16 @@ export class EditorScreen implements Screen {
       this.toggleClue(hit.x, hit.y, hit.z, axis);
       return;
     }
-    let tool = this.tool;
-    if (alt) tool = tool === 'add' ? 'remove' : tool === 'remove' ? 'add' : tool;
+    let tool = this.activeTool;
+    if (!tool) return;
+    // long-press (touch) or a non-Shift modifier swaps add/remove for this stroke
+    if (alt && !this.altHeld && !this.keys.current) tool = tool === 'add' ? 'remove' : tool === 'remove' ? 'add' : tool;
     if (tool === 'pick') {
       const hit = this.pickSolid(x, y);
       if (hit) {
         this.color = this.cells[this.grid.idx(hit.x, hit.y, hit.z)];
-        this.tool = this.prevTool === 'pick' ? 'add' : this.prevTool;
+        // a locked pick returns to the previous tool; a held S just samples
+        if (!this.keys.current && this.tool === 'pick') this.tool = this.prevTool === 'pick' ? null : this.prevTool;
         sfx.tick();
         this.refresh();
       }
@@ -875,7 +903,7 @@ export class EditorScreen implements Screen {
         col[1] = c0[1];
         col[2] = c0[2];
       }
-      if (i === hoverIdx && !clueMode && this.tool !== 'add') glyph |= FLAG_HOVER;
+      if (i === hoverIdx && !clueMode && this.activeTool && this.activeTool !== 'add') glyph |= FLAG_HOVER;
       scene.add(x, y, z, 1, col, glyph);
     }
     scene.computeAO();
@@ -892,7 +920,7 @@ export class EditorScreen implements Screen {
     if (this.mirrorX) lines.push({ points: boxEdges([0, -H / 2, -D / 2], [0, H / 2, D / 2]), color: [0.9, 0.35, 0.3, 0.6] });
     if (this.mirrorZ) lines.push({ points: boxEdges([-W / 2, -H / 2, 0], [W / 2, H / 2, 0]), color: [0.24, 0.48, 0.88, 0.6] });
     const t = this.hover.target;
-    if (!clueMode && this.tool === 'add' && t) {
+    if (!clueMode && this.activeTool === 'add' && t) {
       const pulse = 0.6 + 0.3 * Math.sin(this.time * 6);
       const c = hexToRgb(this.palette[this.color - 1] ?? '#ffffff');
       const w = (v: number, a: number) => v - this.dims[a] / 2;
@@ -903,6 +931,7 @@ export class EditorScreen implements Screen {
   }
 
   onKeyUp(e: KeyboardEvent): void {
+    this.keys.up(e);
     if (e.key === 'Shift' && this.altHeld) {
       this.altHeld = false;
       this.refresh();
@@ -910,6 +939,7 @@ export class EditorScreen implements Screen {
   }
 
   onBlur(): void {
+    this.keys.clear();
     if (this.altHeld) {
       this.altHeld = false;
       this.refresh();
@@ -924,6 +954,7 @@ export class EditorScreen implements Screen {
       }
       return;
     }
+    if (this.mode === 'build' && this.keys.down(e)) return;
     const k = e.key.toLowerCase();
     const mod = e.ctrlKey || e.metaKey;
     if (mod && k === 'z') {
@@ -934,14 +965,7 @@ export class EditorScreen implements Screen {
       e.preventDefault();
       this.redo();
     } else if (mod) return;
-    else if (k === 'a') this.setTool('add');
-    else if (k === 'e') this.setTool('remove');
-    else if (k === 'p') this.setTool('paint');
-    else if (k === 'i') this.setTool('pick');
-    else if (k === ' ') {
-      e.preventDefault();
-      if (!e.repeat) this.setTool(this.tool === 'add' ? 'remove' : 'add');
-    }
+    else if (k === 'escape' && this.tool) this.setTool(null);
     else if (k === 'tab') {
       e.preventDefault();
       this.setMode(this.mode === 'build' ? 'clues' : 'build');

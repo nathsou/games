@@ -22,20 +22,21 @@ npm run build      # type-check + production build into dist/
 
 ## Controls
 
+Controls work like Picross 3D: with no tool active, clicking and dragging just turns the block. To act on cubes, **hold a key** while clicking, or **lock a tool** by clicking it in the dock (click it again or press Esc to go back to rotating).
+
 | | Mouse / keyboard | Touch |
 |---|---|---|
-| Break / paint | Click a cube with the current tool | Tap a cube |
-| Whole row | Drag from a cube along the row | Drag from a cube |
-| Turn the block | Drag the background, right-drag, ← → ↑ ↓ | Drag the background, or two fingers |
+| Turn the block | Drag anywhere (no tool active), right-drag, ← → ↑ ↓ | Drag anywhere, or two fingers |
+| Break | Hold **A** + click / drag | Turn on the hammer, tap / drag |
+| Paint (protect) | Hold **D** + click / drag | Turn on the brush, tap / drag |
+| Lock a tool | Click Break / Paint in the dock · Esc releases | Tap Break / Paint |
+| Swap the locked tool | Hold Shift | Long-press |
 | Zoom | Wheel / trackpad pinch | Pinch |
-| Switch tool | B (hammer) / P (brush), Space or T toggles, hold Shift for the other tool | Tool dock, long-press |
-| Editor tools | A add · E remove · P paint · I pick, Space toggles add/remove, hold Shift to swap | Panel |
 | Peel layers | Drag the colored knobs by the block, `[` `]`, or X / Y / Z | Slider |
 | Clear all zero rows | `0` or the dashed-0 button | Dock |
-| Rules & controls | `?` | ? button |
 | Undo / redo | Ctrl+Z / Ctrl+Shift+Z | Dock |
-| Hint | H | Lightbulb |
-| Reset view | R | Target button |
+| Hint · rules · reset view | H · ? · R | Dock / top bar |
+| Editor tools | Hold **W** add · **A** remove · **D** paint · **S** sample color (or lock one in the panel) | Panel |
 
 Row drags lock to the grid axis that best matches the drag direction, and a hammer drag stops at painted (protected) cubes. Every control has a tooltip with its shortcut (long-press on touch).
 
