@@ -17,6 +17,9 @@ export interface Screen {
   update(dt: number, time: number): void;
   draw(time: number): DrawList | null;
   onKey?(e: KeyboardEvent): void;
+  onKeyUp?(e: KeyboardEvent): void;
+  /** Window lost focus: drop any held-key state. */
+  onBlur?(): void;
 }
 
 /**
@@ -80,6 +83,8 @@ export class App {
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT') && (t as HTMLInputElement).type !== 'range') return;
       this.screen?.onKey?.(e);
     });
+    window.addEventListener('keyup', (e) => this.screen?.onKeyUp?.(e));
+    window.addEventListener('blur', () => this.screen?.onBlur?.());
     requestAnimationFrame(this.loop);
   }
 

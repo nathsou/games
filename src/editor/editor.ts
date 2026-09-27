@@ -63,6 +63,8 @@ export class EditorScreen implements Screen {
   private mode: Mode = 'build';
   private tool: Tool = 'add';
   private prevTool: Tool = 'add';
+  /** Shift held: add ↔ remove swap temporarily. */
+  private altHeld = false;
   private mirrorX = false;
   private mirrorZ = false;
   private slicer: Slicer;
@@ -139,7 +141,7 @@ export class EditorScreen implements Screen {
 
     // build panel
     const toolBtn = (t: Tool, svg: string, label: string, key: string) =>
-      (this.ui[`tool-${t}`] = h('button', { class: 'tool', 'data-tip': label, 'data-key': key, onclick: () => this.setTool(t) }, icon(svg), h('span', null, label)));
+      (this.ui[`tool-${t}`] = h('button', { class: 'tool', 'aria-label': `${label} (${key})`, 'data-tip': label, 'data-key': key, onclick: () => this.setTool(t) }, icon(svg), h('span', null, label), h('kbd', { class: 'key-hint' }, key)));
     this.ui.swatches = h('div', { class: 'swatches' });
     this.ui.dimsRow = h('div', { class: 'dims-row' });
     this.ui.mirX = h('button', { class: 'chip', onclick: () => { this.mirrorX = !this.mirrorX; this.refresh(); } }, 'Mirror X');
@@ -208,7 +210,9 @@ export class EditorScreen implements Screen {
 
   private refresh(): void {
     // tools
-    for (const t of ['add', 'remove', 'paint', 'pick'] as Tool[]) this.ui[`tool-${t}`].classList.toggle('active', this.tool === t);
+    const active = this.activeTool;
+    for (const t of ['add', 'remove', 'paint', 'pick'] as Tool[]) this.ui[`tool-${t}`].classList.toggle('active', active === t);
+    this.ui['tool-add'].parentElement!.classList.toggle('temporary', active !== this.tool);
     this.ui.mirX.classList.toggle('active', this.mirrorX);
     this.ui.mirZ.classList.toggle('active', this.mirrorZ);
     this.ui.tabBuild.classList.toggle('active', this.mode === 'build');
@@ -278,6 +282,12 @@ export class EditorScreen implements Screen {
     sfx.tick();
     if (m === 'clues' && !this.mask) void this.generate();
     this.refresh();
+  }
+
+  /** The tool a click would use right now (Shift swaps add and remove). */
+  private get activeTool(): Tool {
+    if (!this.altHeld) return this.tool;
+    return this.tool === 'add' ? 'remove' : this.tool === 'remove' ? 'add' : this.tool;
   }
 
   setTool(t: Tool): void {
@@ -638,8 +648,9 @@ export class EditorScreen implements Screen {
     cam.fit(this.dims, 1.1);
     this.slicer.update(true);
     // tool cursor over the model, grab over empty space
-    const overModel = this.mode === 'clues' ? !!this.hover.cell : this.tool === 'add' ? !!this.hover.target : !!this.hover.cell;
-    const cursor = !overModel ? 'grab' : this.mode === 'clues' ? 'pointer' : this.tool === 'add' ? CURSORS.add : this.tool === 'remove' ? CURSORS.erase : this.tool === 'paint' ? CURSORS.brush : 'crosshair';
+    const overModel = this.mode === 'clues' ? !!this.hover.cell : this.activeTool === 'add' ? !!this.hover.target : !!this.hover.cell;
+    const tool = this.activeTool;
+    const cursor = !overModel ? 'grab' : this.mode === 'clues' ? 'pointer' : tool === 'add' ? CURSORS.add : tool === 'remove' ? CURSORS.erase : tool === 'paint' ? CURSORS.brush : 'crosshair';
     if (this.app.canvas.style.cursor !== cursor) this.app.canvas.style.cursor = cursor;
   }
 
@@ -891,7 +902,28 @@ export class EditorScreen implements Screen {
     return { block: scene, lines, shadow: { dims: this.dims, alpha: 0.15 }, time: this.time };
   }
 
+  onKeyUp(e: KeyboardEvent): void {
+    if (e.key === 'Shift' && this.altHeld) {
+      this.altHeld = false;
+      this.refresh();
+    }
+  }
+
+  onBlur(): void {
+    if (this.altHeld) {
+      this.altHeld = false;
+      this.refresh();
+    }
+  }
+
   onKey(e: KeyboardEvent): void {
+    if (e.key === 'Shift') {
+      if (!this.altHeld) {
+        this.altHeld = true;
+        this.refresh();
+      }
+      return;
+    }
     const k = e.key.toLowerCase();
     const mod = e.ctrlKey || e.metaKey;
     if (mod && k === 'z') {
@@ -906,6 +938,10 @@ export class EditorScreen implements Screen {
     else if (k === 'e') this.setTool('remove');
     else if (k === 'p') this.setTool('paint');
     else if (k === 'i') this.setTool('pick');
+    else if (k === ' ') {
+      e.preventDefault();
+      if (!e.repeat) this.setTool(this.tool === 'add' ? 'remove' : 'add');
+    }
     else if (k === 'tab') {
       e.preventDefault();
       this.setMode(this.mode === 'build' ? 'clues' : 'build');

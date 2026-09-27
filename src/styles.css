@@ -2002,3 +2002,52 @@ button.puzzle-tile:hover {
     max-width: 150px;
   }
 }
+
+/* ------------------------------------------------------------ tool shortcut hints */
+.key-hint {
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1;
+  min-width: 17px;
+  padding: 3px 4px;
+  border-radius: 5px;
+  color: var(--ink-3);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ink) 12%, transparent);
+  text-align: center;
+}
+.tool.active .key-hint {
+  color: inherit;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.tools4 .key-hint {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 9.5px;
+  padding: 2px 3px;
+  min-width: 14px;
+}
+.tools4 .tool {
+  position: relative;
+}
+.tools4 .tool.active .key-hint {
+  background: rgba(255, 255, 255, 0.16);
+}
+/* Shift held: the swapped-in tool shows as temporary */
+.toolswitch.temporary .tool.active,
+.tools4.temporary .tool.active {
+  outline: 2px dashed currentColor;
+  outline-offset: -4px;
+}
+@media not ((hover: hover) and (pointer: fine)) {
+  .key-hint {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
+  .play .key-hint {
+    display: none;
+  }
+}

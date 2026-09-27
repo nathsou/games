@@ -73,6 +73,8 @@ export class PlayScreen implements Screen {
   readonly gestures: GestureTarget;
   readonly slicer: Slicer;
   tool: Tool = 'break';
+  /** Shift is held: the other tool is temporarily active. */
+  private altHeld = false;
   /** Lines to pulse (hints / tutorial). */
   highlightLines: number[] = [];
   highlightCells = new Set<number>();
@@ -151,8 +153,8 @@ export class PlayScreen implements Screen {
     );
 
     // tool dock
-    this.ui.hammer = h('button', { class: 'tool active', 'aria-label': 'Hammer', 'data-tip': 'Hammer — break cubes that aren’t part of the shape', 'data-key': 'B', onclick: () => this.setTool('break') }, icon(I.hammer), h('span', null, 'Break'));
-    this.ui.brush = h('button', { class: 'tool', 'aria-label': 'Brush', 'data-tip': 'Brush — mark cubes you know stay (protects them)', 'data-key': 'P', onclick: () => this.setTool('paint') }, icon(I.brush), h('span', null, 'Paint'));
+    this.ui.hammer = h('button', { class: 'tool active', 'aria-label': 'Hammer (B)', 'data-tip': 'Hammer — break cubes that aren’t part of the shape', 'data-key': 'B', onclick: () => this.setTool('break') }, icon(I.hammer), h('span', null, 'Break'), h('kbd', { class: 'key-hint' }, 'B'));
+    this.ui.brush = h('button', { class: 'tool', 'aria-label': 'Brush (P)', 'data-tip': 'Brush — mark cubes you know stay (protects them)', 'data-key': 'P', onclick: () => this.setTool('paint') }, icon(I.brush), h('span', null, 'Paint'), h('kbd', { class: 'key-hint' }, 'P'));
     this.ui.undo = iconButton(I.undo, 'Undo', () => this.undo(), '', `${MOD} Z`);
     this.ui.redo = iconButton(I.redo, 'Redo', () => this.redo(), '', `${MOD} ⇧ Z`);
     this.ui.zero = h('button', { class: 'icon-btn zero-btn', 'aria-label': 'Clear every row marked 0', 'data-key': '0', onclick: () => this.clearZeros() }, h('span', { class: 'zero-glyph' }, '0'));
@@ -200,15 +202,32 @@ export class PlayScreen implements Screen {
     (this.ui.progress.firstChild as HTMLElement).style.width = `${Math.round(s.progress * 100)}%`;
   }
 
+  /** The tool a click would use right now (Shift swaps temporarily). */
+  get activeTool(): Tool {
+    return this.altHeld ? (this.tool === 'break' ? 'paint' : 'break') : this.tool;
+  }
+
   setTool(t: Tool): void {
     if (this.tool === t) return;
     this.tool = t;
-    this.ui.hammer.classList.toggle('active', t === 'break');
-    this.ui.brush.classList.toggle('active', t === 'paint');
-    this.el.classList.toggle('painting', t === 'paint');
-    this.updateCursor();
+    this.syncTool();
     sfx.tick();
     this.opts.hooks?.event('tool');
+  }
+
+  private syncTool(): void {
+    const t = this.activeTool;
+    this.ui.hammer.classList.toggle('active', t === 'break');
+    this.ui.brush.classList.toggle('active', t === 'paint');
+    this.ui.tools.classList.toggle('temporary', this.altHeld);
+    this.el.classList.toggle('painting', t === 'paint');
+    this.updateCursor();
+  }
+
+  private setAltHeld(on: boolean): void {
+    if (this.altHeld === on) return;
+    this.altHeld = on;
+    this.syncTool();
   }
 
   private resetView(): void {
@@ -220,7 +239,7 @@ export class PlayScreen implements Screen {
     const c = this.app.canvas.style;
     if (this.orbiting) c.cursor = 'grabbing';
     else if (this.session.solved) c.cursor = 'grab';
-    else if (this.hover >= 0) c.cursor = this.tool === 'break' ? CURSORS.hammer : CURSORS.brush;
+    else if (this.hover >= 0) c.cursor = this.activeTool === 'break' ? CURSORS.hammer : CURSORS.brush;
     else c.cursor = 'grab';
   }
 
@@ -258,7 +277,8 @@ export class PlayScreen implements Screen {
       h('div', { class: 'controls-grid' },
         ...[
           ['Break / paint', 'Click · tap'],
-          ['Other tool', 'Shift-click · long-press'],
+          ['Switch tool', 'B / P · Space toggles'],
+          ['Other tool', 'Hold Shift · long-press'],
           ['Whole row', 'Drag along it'],
           ['Turn', 'Drag background · two fingers'],
           ['Peel layers', 'Drag the knobs · slider'],
@@ -838,6 +858,10 @@ export class PlayScreen implements Screen {
     const k = e.key.toLowerCase();
     const mod = e.ctrlKey || e.metaKey;
     const sl = this.slicer;
+    if (e.key === 'Shift') {
+      this.setAltHeld(true);
+      return;
+    }
     if (mod && k === 'z') {
       e.preventDefault();
       if (e.shiftKey) this.redo();
@@ -848,9 +872,9 @@ export class PlayScreen implements Screen {
     } else if (mod) return;
     else if (k === 'b' || k === '1') this.setTool('break');
     else if (k === 'p' || k === '2') this.setTool('paint');
-    else if (k === ' ') {
+    else if (k === ' ' || k === 't') {
       e.preventDefault();
-      this.setTool(this.tool === 'break' ? 'paint' : 'break');
+      if (!e.repeat) this.setTool(this.tool === 'break' ? 'paint' : 'break');
     } else if (k === '0') this.clearZeros();
     else if (k === 'h') this.showHint();
     else if (k === '?') void this.showRules();
@@ -870,6 +894,14 @@ export class PlayScreen implements Screen {
         sl.setPeel(1);
       }
     } else if (k === 'escape') this.leave();
+  }
+
+  onKeyUp(e: KeyboardEvent): void {
+    if (e.key === 'Shift') this.setAltHeld(false);
+  }
+
+  onBlur(): void {
+    this.setAltHeld(false);
   }
 
   exit(): void {

@@ -21,6 +21,10 @@ function applyTheme(): void {
 applyTheme();
 onSettingsChange(applyTheme);
 installTooltips();
+document.addEventListener('click', (e) => {
+  const b = (e.target as HTMLElement | null)?.closest?.('button');
+  if (b && e.detail > 0 && document.activeElement === b) b.blur();
+});
 
 const canvas = h('canvas', { id: 'gl', 'aria-label': '3D puzzle view' });
 const root = h('div', { id: 'ui' });

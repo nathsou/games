@@ -25,11 +25,11 @@ npm run build      # type-check + production build into dist/
 | | Mouse / keyboard | Touch |
 |---|---|---|
 | Break / paint | Click a cube with the current tool | Tap a cube |
-| Other tool | Shift-click | Long-press |
 | Whole row | Drag from a cube along the row | Drag from a cube |
 | Turn the block | Drag the background, right-drag, ← → ↑ ↓ | Drag the background, or two fingers |
 | Zoom | Wheel / trackpad pinch | Pinch |
-| Switch tool | Space, B (hammer), P (brush) | Tool dock |
+| Switch tool | B (hammer) / P (brush), Space or T toggles, hold Shift for the other tool | Tool dock, long-press |
+| Editor tools | A add · E remove · P paint · I pick, Space toggles add/remove, hold Shift to swap | Panel |
 | Peel layers | Drag the colored knobs by the block, `[` `]`, or X / Y / Z | Slider |
 | Clear all zero rows | `0` or the dashed-0 button | Dock |
 | Rules & controls | `?` | ? button |
