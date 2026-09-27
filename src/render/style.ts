@@ -17,6 +17,9 @@ export interface RenderStyle {
   shadow: number;
   /** Axis-colored bounding box / rails brightness multiplier. */
   lines: number;
+  /** Hovered cube outline color and width (fraction of a face). */
+  hoverColor: [number, number, number];
+  hoverWidth: number;
 }
 
 export const renderStyle: RenderStyle = {
@@ -29,4 +32,6 @@ export const renderStyle: RenderStyle = {
   spec: 1,
   shadow: 1,
   lines: 1,
+  hoverColor: [0.17, 0.18, 0.26],
+  hoverWidth: 0.05,
 };

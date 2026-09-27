@@ -39,12 +39,14 @@ export function themeFor(collectionId?: string): string {
 }
 
 /** Current 3D scene colors (read by the renderers every frame). */
-export const sceneColors: { cube: Vec3; paint: Vec3; ink: Vec3; plinth: Vec3; accent: Vec3 } = {
+export const sceneColors: { cube: Vec3; paint: Vec3; ink: Vec3; plinth: Vec3; accent: Vec3; wash: Vec3; washAmt: number } = {
   cube: hexToRgb(THEMES.sunset.cube),
   paint: hexToRgb(THEMES.sunset.paint),
   ink: hexToRgb(THEMES.sunset.ink),
   plinth: hexToRgb(THEMES.sunset.plinth),
   accent: hexToRgb(THEMES.sunset.accent),
+  wash: [0.87, 0.89, 0.94],
+  washAmt: 0.6,
 };
 
 // ------------------------------------------------------------------ design systems
@@ -63,18 +65,21 @@ export interface Design {
   ink?: (t: Theme) => string;
   plinth?: (t: Theme) => string;
   edgeColor?: (t: Theme) => string;
+  /** Hovered cube outline, and the wash on its three rows. */
+  hover: { outline: string; width: number; wash: string; washAmt: number };
 }
 
-const BASE_STYLE: RenderStyle = { bevel: 0.16, edge: 0.3, edgeColor: [0, 0, 0], edgeWidth: 0.022, flat: 0, ao: 1, spec: 1, shadow: 1, lines: 1 };
+const BASE_STYLE: RenderStyle = { bevel: 0.16, edge: 0.3, edgeColor: [0, 0, 0], edgeWidth: 0.022, flat: 0, ao: 1, spec: 1, shadow: 1, lines: 1, hoverColor: [0.17, 0.18, 0.26], hoverWidth: 0.05 };
 
 export const DESIGNS: Record<DesignId, Design> = {
-  soft: { id: 'soft', name: 'Soft', blurb: 'Rounded, airy and calm', scheme: 'auto', style: BASE_STYLE },
+  soft: { id: 'soft', name: 'Soft', blurb: 'Rounded, airy and calm', scheme: 'auto', style: BASE_STYLE, hover: { outline: '#3a3d55', width: 0.045, wash: '#dfe3f0', washAmt: 0.6 } },
   swiss: {
     id: 'swiss',
     name: 'Swiss',
     blurb: 'White, hairlines, square and precise',
     scheme: 'light',
     style: { ...BASE_STYLE, bevel: 0.006, edge: 0.9, edgeWidth: 0.012, flat: 0.92, ao: 0.25, spec: 0, shadow: 0.35, lines: 0.9 },
+    hover: { outline: '#111111', width: 0.028, wash: '#e7e7e7', washAmt: 0.6 },
     cube: () => '#ffffff',
     ink: () => '#111111',
     plinth: () => '#ffffff',
@@ -86,6 +91,7 @@ export const DESIGNS: Record<DesignId, Design> = {
     blurb: 'Thick outlines, hard shadows, loud',
     scheme: 'light',
     style: { ...BASE_STYLE, bevel: 0.04, edge: 1, edgeWidth: 0.055, flat: 0.85, ao: 0.3, spec: 0, shadow: 0.7, lines: 1.8 },
+    hover: { outline: '#111111', width: 0.1, wash: '#e2e2e2', washAmt: 0.75 },
     cube: () => '#ffffff',
     ink: () => '#111111',
     plinth: () => '#ffffff',
@@ -97,6 +103,7 @@ export const DESIGNS: Record<DesignId, Design> = {
     blurb: 'Ink drawings on cream paper',
     scheme: 'light',
     style: { ...BASE_STYLE, bevel: 0.05, edge: 0.8, edgeWidth: 0.03, flat: 0.8, ao: 0.45, spec: 0, shadow: 0.55, lines: 1.3 },
+    hover: { outline: '#1f3a6b', width: 0.06, wash: '#dce4f2', washAmt: 0.6 },
     cube: () => '#fbf6ea',
     ink: () => '#1f3a6b',
     plinth: () => '#fbf6ea',
@@ -139,5 +146,9 @@ export function applyTheme(name: string): void {
   sceneColors.plinth = hexToRgb(d.plinth?.(t) ?? t.plinth);
   sceneColors.accent = hexToRgb(t.accent);
   renderStyle.edgeColor = hexToRgb(d.edgeColor?.(t) ?? '#000000');
+  renderStyle.hoverColor = hexToRgb(d.hover.outline);
+  renderStyle.hoverWidth = d.hover.width;
+  sceneColors.wash = hexToRgb(d.hover.wash);
+  sceneColors.washAmt = d.hover.washAmt;
   for (const l of listeners) l();
 }

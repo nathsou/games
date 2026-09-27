@@ -26,7 +26,6 @@ export type Tool = 'break' | 'paint';
 
 export const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
 
-const HOVER_TINT: Vec3 = hexToRgb('#ffd98a');
 const RED: Vec3 = hexToRgb('#ff5a4e');
 
 /** Hooks for the interactive tutorial. */
@@ -98,6 +97,7 @@ export class PlayScreen implements Screen {
   private scene = new BlockScene();
   private particles = new Particles();
   private hover = -1;
+  private hoverLift = 0;
   private stroke: Stroke | null = null;
   private orbiting = false;
   private paintT: Float32Array;
@@ -420,6 +420,7 @@ export class PlayScreen implements Screen {
     }
     this.runSweep(dt);
     this.particles.update(dt);
+    this.hoverLift += ((this.hover >= 0 ? 1 : 0) - this.hoverLift) * damp(22, dt);
     const k = damp(18, dt);
     for (let i = 0; i < this.paintT.length; i++) {
       const target = s.state[i] === PAINTED ? 1 : 0;
@@ -473,7 +474,7 @@ export class PlayScreen implements Screen {
       let popScale = 1;
       if (!revealing) {
         if (hoverLines.length && i !== this.hover && (lx === hoverLines[0] || ly === hoverLines[1] || lz === hoverLines[2]))
-          for (let c = 0; c < 3; c++) col[c] = col[c] * 0.82 + HOVER_TINT[c] * 0.26;
+          for (let c = 0; c < 3; c++) col[c] += (sceneColors.wash[c] - col[c]) * sceneColors.washAmt;
         if (i === this.hover) flags |= FLAG_HOVER;
         if (hl.has(lx) || hl.has(ly) || hl.has(lz) || this.highlightCells.has(i)) flags |= FLAG_GLOW;
         const lf = Math.max(this.lineFlash.get(lx) ?? 0, this.lineFlash.get(ly) ?? 0, this.lineFlash.get(lz) ?? 0);
@@ -495,6 +496,8 @@ export class PlayScreen implements Screen {
       let ox = 0;
       if (this.shake[i] > 0) ox = Math.sin(this.time * 70) * 0.09 * (this.shake[i] / 0.35);
       let scale = revealing ? popScale : 1 - 0.04 * Math.max(0, 1 - Math.abs(pt - 0.5) * 2);
+      // the hovered cube lifts slightly toward you
+      if (i === this.hover && !revealing) scale *= 1 + 0.06 * this.hoverLift;
       let oy = 0;
       if (intro) {
         // the block assembles from the bottom up
@@ -587,6 +590,7 @@ export class PlayScreen implements Screen {
   private setHover(i: number): void {
     if (i === this.hover) return;
     this.hover = i;
+    this.hoverLift = 0;
     this.renderFocus();
     this.updateCursor();
   }

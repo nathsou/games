@@ -91,6 +91,8 @@ uniform float uEdgeWidth;
 uniform float uFlat;
 uniform float uAoAmt;
 uniform float uSpec;
+uniform vec3 uHoverColor;
+uniform float uHoverWidth;
 out vec4 outColor;
 void main() {
   vec3 n0 = normalize(vNormal);
@@ -121,8 +123,9 @@ void main() {
   float seam = 1.0 - smoothstep(0.0, max(uEdgeWidth, fwidth(d) * 1.5), d);
   col = mix(col, uEdgeColor, seam * uEdge);
   if ((vFlags & 2u) != 0u) {
-    float rim = 1.0 - smoothstep(0.03, 0.1, d);
-    col = mix(col, vec3(1.0, 0.78, 0.25), rim * 0.95);
+    // hovered cube: a crisp outline in the look's line color
+    float rim = 1.0 - smoothstep(uHoverWidth, uHoverWidth + max(fwidth(d) * 1.2, 0.004), d);
+    col = mix(col, uHoverColor, rim);
   }
   if ((vFlags & 4u) != 0u) {
     float pulse = 0.5 + 0.5 * sin(uTime * 6.0);
@@ -347,7 +350,7 @@ export class Renderer {
     this.partProg = compile(gl, PART_VS, PART_FS);
     this.lineProg = compile(gl, LINE_VS, LINE_FS);
     this.shadowProg = compile(gl, SHADOW_VS, SHADOW_FS);
-    this.cu = uniforms(gl, this.cubeProg, ['uViewProj', 'uModel', 'uOrigin', 'uFaceUp', 'uAtlas', 'uLightDir', 'uInk', 'uGlyphAlpha', 'uTime', 'uGreyDone', 'uCutFace', 'uCutPos', 'uCutColor', 'uBevel', 'uEdge', 'uEdgeColor', 'uEdgeWidth', 'uFlat', 'uAoAmt', 'uSpec']);
+    this.cu = uniforms(gl, this.cubeProg, ['uViewProj', 'uModel', 'uOrigin', 'uFaceUp', 'uAtlas', 'uLightDir', 'uInk', 'uGlyphAlpha', 'uTime', 'uGreyDone', 'uCutFace', 'uCutPos', 'uCutColor', 'uBevel', 'uEdge', 'uEdgeColor', 'uEdgeWidth', 'uFlat', 'uAoAmt', 'uSpec', 'uHoverColor', 'uHoverWidth']);
     this.pu = uniforms(gl, this.partProg, ['uViewProj', 'uOrigin', 'uLightDir']);
     this.lu = uniforms(gl, this.lineProg, ['uViewProj', 'uColor']);
     this.su = uniforms(gl, this.shadowProg, ['uViewProj', 'uCenter', 'uSize', 'uAlpha', 'uTint']);
@@ -479,6 +482,8 @@ export class Renderer {
     gl.uniform1f(this.cu.uFlat, st.flat);
     gl.uniform1f(this.cu.uAoAmt, st.ao);
     gl.uniform1f(this.cu.uSpec, st.spec);
+    gl.uniform3fv(this.cu.uHoverColor, st.hoverColor);
+    gl.uniform1f(this.cu.uHoverWidth, st.hoverWidth);
     gl.uniform1i(this.cu.uCutFace, cut ? cut.face : -1);
     gl.uniform1f(this.cu.uCutPos, cut ? cut.pos : 0);
     gl.uniform3fv(this.cu.uCutColor, cut ? cut.color : [0, 0, 0]);
