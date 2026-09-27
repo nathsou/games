@@ -41,7 +41,7 @@ function satellite() {
   v.box(0, 2, 1, 2, 2, 1, 's').box(7, 2, 1, 9, 2, 1, 's');
   v.box(4, 4, 1, 5, 4, 1, 's');
   v.box(3, 5, 0, 6, 5, 2, 'w');
-  v.box(4, 5, 1, 5, 5, 1, null);
+  v.box(4, 5, 1, 5, 5, 1, 's');
   v.box(4, 0, 1, 5, 0, 1, 's');
   return v.puzzle('s-satellite', 'Satellite', D);
 }
@@ -52,8 +52,8 @@ function alien() {
   v.box(2, 5, 4, 2, 5, 4, 'k').set(4, 5, 4, 'k');
   v.set(1, 5, 4, 'k').set(5, 5, 4, 'k');
   v.box(2, 0, 1, 4, 2, 3, 'p');
-  v.set(1, 2, 2, 'd').set(5, 2, 2, 'd').set(0, 1, 2, 'd').set(6, 1, 2, 'd');
-  v.set(1, 8, 2, 'd').set(5, 8, 2, 'd');
+  v.box(0, 2, 2, 1, 2, 2, 'd').box(5, 2, 2, 6, 2, 2, 'd').set(0, 1, 2, 'd').set(6, 1, 2, 'd');
+  v.set(2, 8, 2, 'd').set(4, 8, 2, 'd');
   return v.puzzle('s-alien', 'Alien', D);
 }
 
@@ -71,9 +71,8 @@ function star() {
 function rover() {
   const v = new Vox(8, 5, 6, { w: C.white, k: C.black, g: C.grey, y: C.gold, b: C.blue });
   v.box(1, 1, 1, 6, 2, 4, 'w');
-  v.box(0, 0, 0, 0, 1, 0, 'k').box(0, 0, 5, 0, 1, 5, 'k');
-  v.box(3, 0, 0, 4, 1, 0, 'k').box(3, 0, 5, 4, 1, 5, 'k');
-  v.box(7, 0, 0, 7, 1, 0, 'k').box(7, 0, 5, 7, 1, 5, 'k');
+  for (const x of [1, 5]) for (const z of [0, 5]) v.box(x, 0, z, x + 1, 1, z, 'k');
+  v.box(0, 2, 1, 0, 2, 4, 'g');
   v.box(1, 3, 1, 3, 3, 4, 'b');
   v.box(5, 3, 2, 5, 4, 2, 'g');
   v.set(6, 4, 2, 'y').set(5, 4, 3, 'y');
@@ -82,10 +81,9 @@ function rover() {
 
 function helmet() {
   const v = new Vox(7, 7, 7, { w: C.white, y: C.gold, g: C.grey });
-  v.sphere(3, 3.5, 3, 3.1, 'w');
-  v.fill(null, (x, y, z) => y >= 1 && y <= 5 && z <= 5 && Math.hypot(x - 3, y - 3.5, z - 3) < 2.2);
-  v.paint('y', (x, y, z) => z >= 5 && y >= 2 && y <= 5 && Math.abs(x - 3) <= 2);
-  v.paint('g', (_x, y) => y === 0);
+  v.sphere(3, 3.4, 3, 3.1, 'w');
+  v.box(1, 0, 1, 5, 0, 5, 'g');
+  v.paint('y', (x, y, z) => z >= 4 && y >= 2 && y <= 4 && Math.abs(x - 3) <= 2 && v.surface(x, y, z));
   return v.puzzle('s-helmet', 'Space Helmet', D);
 }
 

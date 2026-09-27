@@ -9,7 +9,7 @@ function duck() {
   v.ellipsoid(5, 4, 2, 1.3, 1.3, 1.3, 'y');
   v.set(6, 3, 2, 'y');
   v.set(7, 4, 2, 'o').set(7, 3, 2, 'o');
-  v.set(5, 4, 0, 'k').set(5, 4, 4, 'k');
+  v.set(5, 4, 1, 'k').set(5, 4, 3, 'k');
   v.set(0, 3, 2, 'y').set(0, 2, 2, 'y');
   return v.puzzle('c-duck', 'Duck', D);
 }
@@ -74,18 +74,18 @@ function frog() {
   v.paint('l', (_x, y) => y === 0);
   v.set(1, 3, 3, 'w').set(5, 3, 3, 'w').set(1, 3, 4, 'k').set(5, 3, 4, 'k');
   v.box(2, 1, 5, 4, 1, 5, 'r');
-  v.set(0, 0, 5, 'g').set(6, 0, 5, 'g').set(0, 0, 0, 'g').set(6, 0, 0, 'g');
+  v.box(0, 0, 1, 1, 0, 2, 'g').box(5, 0, 1, 6, 0, 2, 'g').set(1, 0, 4, 'g').set(5, 0, 4, 'g');
   return v.puzzle('c-frog', 'Frog', D);
 }
 
 function pig() {
   const v = new Vox(8, 5, 5, { p: C.pink, d: C.red, k: C.black });
-  v.ellipsoid(3, 2.4, 2, 3.2, 1.7, 2.1, 'p');
-  v.set(1, 0, 1, 'p').set(5, 0, 1, 'p').set(1, 0, 3, 'p').set(5, 0, 3, 'p');
+  v.ellipsoid(3, 2.3, 2, 3.2, 1.9, 2.1, 'p');
+  v.set(2, 0, 1, 'p').set(4, 0, 1, 'p').set(2, 0, 3, 'p').set(4, 0, 3, 'p');
   v.box(7, 2, 1, 7, 3, 3, 'p');
   v.set(7, 2, 2, 'd').set(7, 3, 2, 'd');
   v.set(5, 4, 1, 'd').set(5, 4, 3, 'd');
-  v.set(6, 3, 0, 'k').set(6, 3, 4, 'k');
+  v.set(5, 3, 1, 'k').set(5, 3, 3, 'k');
   v.set(0, 3, 2, 'd');
   return v.puzzle('c-pig', 'Pig', D);
 }

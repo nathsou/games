@@ -6,7 +6,7 @@ const D = 'hard' as const;
 function lighthouse() {
   const v = new Vox(5, 10, 5, { w: C.white, r: C.red, k: C.black, y: C.yellow, s: C.grey });
   v.lathe(2, 2, [2.2, 1.5, 1.5, 1.5, 1.5, 1.5, 2.2, 1, 1, 0.5], ['s', 'r', 'w', 'r', 'w', 'r', 'k', 'y', 'y', 'r']);
-  v.set(2, 1, 4, 'k');
+  v.set(2, 1, 3, 'k');
   return v.puzzle('a-lighthouse', 'Lighthouse', D);
 }
 
@@ -48,9 +48,8 @@ function windmill() {
   v.lathe(3, 2, [1.5, 1.5, 1.5, 1.5, 1.5, 1, 1, 0.5], ['w', 'w', 'w', 'w', 'w', 'r', 'r', 'r']);
   v.set(3, 0, 3, 'd').set(3, 1, 3, 'd');
   v.set(3, 5, 4, 'd');
-  for (let k = 1; k <= 3; k++) {
-    v.set(3 - k, 5 + k, 4, 'b').set(3 + k, 5 + k, 4, 'b').set(3 - k, 5 - k, 4, 'b').set(3 + k, 5 - k, 4, 'b');
-  }
+  for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]])
+    for (let k = 1; k <= 3; k++) v.set(3 + dx * k, 5 + dy * k, 4, 'b').set(3 + dx * (k - 1), 5 + dy * k, 4, 'b');
   return v.puzzle('a-windmill', 'Windmill', D);
 }
 

@@ -19,7 +19,7 @@ function teapot() {
   v.ellipsoid(3.5, 1.6, 2, 2.6, 1.9, 2.1, 'b');
   v.box(2, 4, 1, 5, 4, 3, 'l');
   v.box(3, 5, 2, 4, 5, 2, 'g');
-  v.set(6, 2, 2, 'b').set(7, 3, 2, 'b');
+  v.set(6, 2, 2, 'b').set(6, 3, 2, 'b').set(7, 3, 2, 'b');
   v.set(7, 4, 2, 'b');
   v.box(0, 1, 2, 0, 3, 2, 'b');
   return v.puzzle('k-teapot', 'Teapot', D);
@@ -62,7 +62,7 @@ function bottle() {
 function bowl() {
   const v = new Vox(7, 4, 7, { b: C.blue, s: C.sky, o: C.orange, g: C.green, r: C.red });
   v.lathe(3, 3, [1.5, -2.5, -3.2, -3.3], ['s', 'b', 'b', 's']);
-  v.set(2, 1, 3, 'o').set(4, 1, 3, 'g').set(3, 1, 2, 'r').set(3, 2, 3, 'o');
+  v.set(2, 1, 3, 'o').set(4, 1, 3, 'g').set(3, 1, 2, 'r').set(3, 1, 3, 'r').set(3, 2, 3, 'o');
   return v.puzzle('k-bowl', 'Fruit Bowl', D);
 }
 

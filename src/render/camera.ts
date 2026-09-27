@@ -41,7 +41,8 @@ export class OrbitCamera {
   }
 
   fit(dims: Dims, margin = 1.08): void {
-    const r = 0.5 * Math.hypot(dims[0], dims[1], dims[2]);
+    // a box never fills its bounding sphere from typical angles, so fit a bit tighter
+    const r = 0.48 * Math.hypot(dims[0], dims[1], dims[2]);
     const aspect = this.width / this.height;
     const fovX = 2 * Math.atan(Math.tan(this.fov / 2) * aspect);
     const f = Math.min(this.fov, fovX);

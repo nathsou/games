@@ -12,7 +12,7 @@ function pawn() {
 
 function rook() {
   const v = new Vox(5, 8, 5, pal);
-  v.lathe(2, 2, [2.2, 1.5, 1.5, 1.5, 1.5, 2.2, -2.2], ['f', 'k', 'k', 'k', 'k', 'k', 'k']);
+  v.lathe(2, 2, [2.2, 1.5, 1.5, 1.5, 1.5, 2.3, -2.3], ['f', 'k', 'k', 'k', 'k', 'k', 'k']);
   v.fill('k', (x, y, z) => y === 7 && (x === 0 || x === 4 || z === 0 || z === 4) && (x + z) % 2 === 1);
   return v.puzzle('ch-rook', 'Rook', D);
 }
@@ -35,7 +35,7 @@ function knight() {
 
 function queen() {
   const v = new Vox(5, 10, 5, pal);
-  v.lathe(2, 2, [2.2, 1.5, 1, 1, 1, 1.5, 1.5, -2.2], ['f', 'w', 'w', 'w', 'w', 'w', 'w', 'g']);
+  v.lathe(2, 2, [2.2, 1.5, 1, 1, 1, 1.5, 1.5, 2.2], ['f', 'w', 'w', 'w', 'w', 'w', 'w', 'g']);
   v.fill('g', (x, y, z) => y === 8 && (x === 0 || x === 4 || z === 0 || z === 4) && (x + z) % 2 === 0 && Math.hypot(x - 2, z - 2) < 2.3);
   v.set(2, 8, 2, 'w').set(2, 9, 2, 'g');
   return v.puzzle('ch-queen', 'Queen', D);

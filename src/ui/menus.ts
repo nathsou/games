@@ -65,7 +65,7 @@ class ShowcaseScreen {
     this.model = m;
     modelScene(this.scene, m);
     const cam = this.app.camera;
-    cam.fit(m.dims, 1.35);
+    cam.fit(m.dims, 1.08);
     cam.autoSpin = store.settings.reducedMotion ? 0 : 0.25;
     this.spinT = 0;
   }
@@ -134,8 +134,13 @@ export class HomeScreen extends ShowcaseScreen implements Screen {
     super.update(dt);
     this.cycle += dt;
     const cam = this.app.camera;
-    const wide = cam.width > 900;
-    cam.offset = [wide ? cam.width * 0.2 : 0, wide ? 0 : -cam.height * 0.22];
+    const card = this.el.querySelector('.home-card') as HTMLElement | null;
+    if (card) {
+      const r = card.getBoundingClientRect();
+      const wide = cam.width > 900;
+      if (wide) cam.frame(40, 40, 40, r.right + 20, dt);
+      else cam.frame(20, 20, cam.height - r.top + 10, 20, dt);
+    }
     if (this.cycle > 14 && this.pool.length > 1) {
       this.cycle = 0;
       let m = this.model;

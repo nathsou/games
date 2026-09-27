@@ -156,6 +156,13 @@ export class Gestures {
         this.t.strokeMove(p.x, p.y);
       }
     } else if (this.mode === 'stroke') {
+      // subdivide fast moves so no cube under the path is skipped
+      const dist = Math.hypot(p.x - this.last.x, p.y - this.last.y);
+      const steps = Math.min(40, Math.floor(dist / 6));
+      for (let k = 1; k <= steps; k++) {
+        const t = k / (steps + 1);
+        this.t.strokeMove(this.last.x + (p.x - this.last.x) * t, this.last.y + (p.y - this.last.y) * t);
+      }
       this.t.strokeMove(p.x, p.y);
     }
     this.last = { x: p.x, y: p.y, time: now };

@@ -94,10 +94,9 @@ function die() {
 }
 
 function key() {
-  const v = new Vox(9, 5, 2, { y: C.gold, o: C.orange });
-  v.front(['yyy......', 'y.yyyyyyy', 'yyy...y.y', '.......y.'], 0, 1, 0, 4);
-  v.set(0, 0, 0, null);
-  v.set(1, 3, 0, 'o').set(1, 3, 1, 'o');
+  const v = new Vox(9, 4, 2, { y: C.gold, o: C.orange });
+  v.front(['yyy......', 'y.yyyyyyy', 'yyy...y.y', '......yy.'], 0, 1, 0, 3);
+  v.set(0, 3, 0, 'o').set(1, 3, 0, 'o').set(2, 3, 0, 'o');
   return v.puzzle('t-key', 'Key', D);
 }
 
@@ -105,11 +104,11 @@ function teddy() {
   const v = new Vox(7, 8, 5, { b: C.wood, t: C.tan, k: C.black, r: C.red });
   v.ellipsoid(3, 2.2, 2, 2.2, 2.2, 2, 'b');
   v.sphere(3, 5.5, 2, 1.6, 'b');
-  v.set(1, 7, 2, 'b').set(5, 7, 2, 'b');
+  v.box(1, 6, 2, 1, 7, 2, 'b').box(5, 6, 2, 5, 7, 2, 'b');
   v.set(3, 5, 4, 't').set(3, 5, 3, 't');
   v.set(2, 6, 3, 'k').set(4, 6, 3, 'k');
   v.set(0, 3, 2, 'b').set(6, 3, 2, 'b');
-  v.set(1, 0, 3, 'b').set(5, 0, 3, 'b');
+  v.set(2, 0, 3, 'b').set(4, 0, 3, 'b');
   v.box(2, 4, 3, 4, 4, 3, 'r');
   return v.puzzle('t-teddy', 'Teddy Bear', D);
 }

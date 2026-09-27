@@ -51,7 +51,7 @@ function sprout() {
 function carrot() {
   const v = new Vox(5, 9, 5, { o: C.orange, g: C.green });
   v.lathe(2, 2, [0.5, 0.5, 1, 1, 1.5, 1.5, 2.1], 'o');
-  v.set(2, 7, 2, 'g').set(1, 8, 2, 'g').set(3, 8, 2, 'g').set(2, 8, 1, 'g').set(2, 8, 3, 'g');
+  v.set(2, 7, 2, 'g').set(2, 8, 2, 'g').set(1, 8, 2, 'g').set(3, 8, 2, 'g').set(2, 8, 1, 'g').set(2, 8, 3, 'g');
   return v.puzzle('g-carrot', 'Carrot', D);
 }
 
