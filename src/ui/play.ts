@@ -304,7 +304,7 @@ export class PlayScreen implements Screen {
     this.introT += dt;
     const s = this.session;
     const cam = this.app.camera;
-    // keep the model clear of the HUD
+    // keep the model clear of the HUD (refit every frame: the viewport may change)
     let top = 0;
     let bottom = cam.height;
     for (const el of this.el.querySelectorAll<HTMLElement>('.topbar, .tutorial-card')) top = Math.max(top, el.getBoundingClientRect().bottom);
@@ -313,6 +313,7 @@ export class PlayScreen implements Screen {
     // leave room for the slicer knobs around the block
     const knobRoom = this.slicer.pill.offsetParent ? 8 : 44;
     cam.frame(top + knobRoom, knobRoom, cam.height - bottom + knobRoom, knobRoom, this.firstFrame ? 0 : dt);
+    cam.fit(s.grid.dims);
     this.firstFrame = false;
     this.slicer.update(!s.solved);
 

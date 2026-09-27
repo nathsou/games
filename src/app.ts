@@ -19,8 +19,11 @@ export interface Screen {
   onKey?(e: KeyboardEvent): void;
 }
 
-/** Fill a scene with a model in its own colors (no clues). */
-export function modelScene(scene: BlockScene, m: ModelDef): BlockScene {
+/**
+ * Fill a scene with a model in its own colors (no clues). `appear` (seconds) animates the
+ * cubes dropping in from the bottom up; omit for the finished model.
+ */
+export function modelScene(scene: BlockScene, m: ModelDef, appear = Infinity): BlockScene {
   scene.reset(m.dims);
   const g = scene.grid;
   const colors = m.palette.map(hexToRgb);
@@ -29,6 +32,14 @@ export function modelScene(scene: BlockScene, m: ModelDef): BlockScene {
     const c = m.cells[i];
     if (!c) continue;
     const [x, y, z] = g.coords(i);
+    if (appear < 3) {
+      const delay = (y / Math.max(1, m.dims[1])) * 0.7 + (((i * 7919) % 97) / 97) * 0.25;
+      const t = Math.min(1, Math.max(0, (appear - delay) / 0.45));
+      if (t <= 0) continue;
+      const e = 1 + 2.2 * Math.pow(t - 1, 3) + 1.2 * Math.pow(t - 1, 2);
+      scene.add(x, y + (1 - t) * 1.5, z, e, colors[c - 1], NO_GLYPHS);
+      continue;
+    }
     scene.add(x, y, z, 1, colors[c - 1], NO_GLYPHS);
   }
   scene.computeAO();
@@ -85,6 +96,7 @@ export class App {
     requestAnimationFrame(() => requestAnimationFrame(() => screen.el.classList.remove('entering')));
     this.camera.offset = [0, 0];
     this.camera.viewScale = 1;
+    this.camera.avail = null;
     this.camera.autoSpin = 0;
     screen.enter?.();
   }

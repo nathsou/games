@@ -630,11 +630,12 @@ export class EditorScreen implements Screen {
     let top = 0;
     let bottom = cam.height;
     for (const el of this.el.querySelectorAll<HTMLElement>('.topbar')) top = el.getBoundingClientRect().bottom;
-    for (const el of this.el.querySelectorAll<HTMLElement>('.bottom > *')) bottom = Math.min(bottom, el.getBoundingClientRect().top);
+    for (const el of this.el.querySelectorAll<HTMLElement>('.bottom > *')) if (el.offsetParent) bottom = Math.min(bottom, el.getBoundingClientRect().top);
     if (open && !wide) bottom = Math.min(bottom, pr.top);
     const right = open && wide ? cam.width - pr.left : 0;
     const room = this.slicer.pill.offsetParent ? 8 : 44;
     cam.frame(top + room, right + room, cam.height - bottom + room, room, dt);
+    cam.fit(this.dims, 1.1);
     this.slicer.update(true);
     // tool cursor over the model, grab over empty space
     const overModel = this.mode === 'clues' ? !!this.hover.cell : this.tool === 'add' ? !!this.hover.target : !!this.hover.cell;

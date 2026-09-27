@@ -70,10 +70,12 @@ class ShowcaseScreen {
     this.spinT = 0;
   }
   update(dt: number): void {
-    this.spinT = Math.min(1, this.spinT + dt * 1.5);
+    this.spinT += dt;
   }
   draw(): DrawList | null {
     if (!this.model) return null;
+    if (this.spinT < 2.5 && !store.settings.reducedMotion) modelScene(this.scene, this.model, this.spinT);
+    else if (this.spinT < 2.6) modelScene(this.scene, this.model);
     return { block: this.scene, shadow: { dims: this.model.dims, alpha: 0.2 } };
   }
 }
@@ -135,11 +137,12 @@ export class HomeScreen extends ShowcaseScreen implements Screen {
     this.cycle += dt;
     const cam = this.app.camera;
     const card = this.el.querySelector('.home-card') as HTMLElement | null;
-    if (card) {
+    if (card && this.model) {
       const r = card.getBoundingClientRect();
       const wide = cam.width > 900;
       if (wide) cam.frame(40, 40, 40, r.right + 20, dt);
       else cam.frame(20, 20, cam.height - r.top + 10, 20, dt);
+      cam.fit(this.model.dims, 1.08);
     }
     if (this.cycle > 14 && this.pool.length > 1) {
       this.cycle = 0;

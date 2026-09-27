@@ -40,13 +40,36 @@ export class OrbitCamera {
     return this.fitDist * this.zoom * this.viewScale;
   }
 
+  /**
+   * Choose a base distance so the block's 8 corners fill the viewport (with margin) when
+   * seen from the default angle. Independent of the current rotation, so it doesn't pump.
+   */
   fit(dims: Dims, margin = 1.08): void {
-    // a box never fills its bounding sphere from typical angles, so fit a bit tighter
-    const r = 0.48 * Math.hypot(dims[0], dims[1], dims[2]);
     const aspect = this.width / this.height;
-    const fovX = 2 * Math.atan(Math.tan(this.fov / 2) * aspect);
-    const f = Math.min(this.fov, fovX);
-    this.fitDist = (r / Math.sin(f / 2)) * margin;
+    const t = Math.tan(this.fov / 2);
+    const cy = Math.cos(DEFAULT_YAW);
+    const sy = Math.sin(DEFAULT_YAW);
+    const cp = Math.cos(DEFAULT_PITCH);
+    const sp = Math.sin(DEFAULT_PITCH);
+    // camera basis for the default view
+    const fwd = [-cp * sy, -sp, -cp * cy];
+    const right = [cy, 0, -sy];
+    const up = [right[1] * fwd[2] - right[2] * fwd[1], right[2] * fwd[0] - right[0] * fwd[2], right[0] * fwd[1] - right[1] * fwd[0]];
+    let best = 0;
+    for (const x of [-1, 1])
+      for (const y of [-1, 1])
+        for (const z of [-1, 1]) {
+          const p = [(x * dims[0]) / 2, (y * dims[1]) / 2, (z * dims[2]) / 2];
+          const px = p[0] * right[0] + p[1] * right[1] + p[2] * right[2];
+          const py = p[0] * up[0] + p[1] * up[1] + p[2] * up[2];
+          const pz = p[0] * fwd[0] + p[1] * fwd[1] + p[2] * fwd[2]; // toward the scene
+          // distance needed so this corner projects inside the frustum
+          const fx = this.avail ? Math.min(1, this.avail[0] / this.width) : 1;
+          const fy = this.avail ? Math.min(1, this.avail[1] / this.height) : 1;
+          const need = Math.max(Math.abs(px) / (t * aspect * fx), Math.abs(py) / (t * fy)) * margin - pz;
+          best = Math.max(best, need);
+        }
+    this.fitDist = best;
   }
 
   setSize(w: number, h: number): void {
@@ -61,13 +84,16 @@ export class OrbitCamera {
   frame(top: number, right: number, bottom: number, left: number, dt: number): void {
     const w = Math.max(80, this.width - left - right);
     const h = Math.max(80, this.height - top - bottom);
-    const scale = Math.max(this.width / w, this.height / h);
     const ox = (left - right) / 2;
     const oy = (top - bottom) / 2;
     const k = dt > 0 ? 1 - Math.exp(-10 * dt) : 1;
-    this.viewScale += (scale - this.viewScale) * k;
+    if (!this.avail) this.avail = [w, h];
+    this.avail = [this.avail[0] + (w - this.avail[0]) * k, this.avail[1] + (h - this.avail[1]) * k];
     this.offset = [this.offset[0] + (ox - this.offset[0]) * k, this.offset[1] + (oy - this.offset[1]) * k];
   }
+
+  /** Free viewport area (CSS px) the model should fit in; null = whole viewport. */
+  avail: [number, number] | null = null;
 
   beginDrag(): void {
     this.dragging = true;
