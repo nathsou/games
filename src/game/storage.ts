@@ -11,7 +11,7 @@ export interface Settings {
   momentum: 'off' | 'light' | 'strong';
   /** Grey out rows whose clue is satisfied (Picross 3D Round 2 style). */
   greyDone: boolean;
-  design: 'soft' | 'paper' | 'bold' | 'neon' | 'swiss' | 'clay';
+  design: 'soft' | 'swiss' | 'bold' | 'paper';
   /** Mouse: fade the HUD while working on the block. */
   autoHideHud: boolean;
   ambient: boolean;

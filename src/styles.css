@@ -2697,60 +2697,6 @@ body.in-play {
   color: #111;
 }
 
-/* ------------------------------------------------------------ Neon */
-:root[data-design='neon'],
-.look-card[data-design='neon'] {
-  --font: ui-rounded, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --serif: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  --ink: #eaf2ff;
-  --ink-2: #aab6d8;
-  --ink-3: #6f7aa3;
-  --card: rgba(18, 22, 44, 0.72);
-  --card-solid: #141934;
-  --line: rgba(140, 160, 255, 0.18);
-  --bc: color-mix(in srgb, var(--accent) 55%, transparent);
-  --bw: 1px;
-  --r-pill: 12px;
-  --r-card: 14px;
-  --r-btn: 10px;
-  --blur: 14px;
-  --shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent), 0 0 30px color-mix(in srgb, var(--accent) 22%, transparent);
-  --shadow-sm: 0 0 16px color-mix(in srgb, var(--accent) 20%, transparent);
-  --pv-bg: #0b0e1e;
-  --pv-cube: #242943;
-  --pv-edge: #ff5e7e;
-  --pv-ink: #eef7ff;
-  --pv-cube-r: 4px;
-  color-scheme: dark;
-}
-:root[data-design='neon'] body,
-:root[data-design='neon'] body.in-play {
-  background:
-    radial-gradient(900px 500px at 50% -10%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
-    linear-gradient(rgba(120, 140, 255, 0.06) 1px, transparent 1px) 0 0 / 40px 40px,
-    linear-gradient(90deg, rgba(120, 140, 255, 0.06) 1px, transparent 1px) 0 0 / 40px 40px,
-    #080a16;
-}
-:root[data-design='neon'] body.in-gallery {
-  background:
-    radial-gradient(60% 40% at 50% 0%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 70%),
-    linear-gradient(180deg, #0d1022 0%, #0a0c1b 59.7%, var(--accent) 59.7%, var(--accent) 60%, #070814 60%, #05060e 100%);
-}
-[data-design='neon'] .plaque-title,
-[data-design='neon'] .gallery-title h1,
-[data-design='neon'] .menu-head h1,
-[data-design='neon'] .logo {
-  text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 65%, transparent);
-  letter-spacing: 0.02em;
-}
-[data-design='neon'] .btn.primary {
-  background: var(--accent);
-  box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 60%, transparent);
-}
-[data-design='neon'] .toolswitch .tool.active {
-  box-shadow: 0 0 18px color-mix(in srgb, currentColor 30%, transparent);
-}
-
 /* ------------------------------------------------------------ Swiss */
 :root[data-design='swiss'],
 .look-card[data-design='swiss'] {
@@ -2806,59 +2752,6 @@ body.in-play {
 }
 [data-design='swiss'] .toolswitch .tool.active {
   box-shadow: none;
-}
-
-/* ------------------------------------------------------------ Clay */
-:root[data-design='clay'],
-.look-card[data-design='clay'] {
-  --font: ui-rounded, 'SF Pro Rounded', 'Nunito', system-ui, sans-serif;
-  --serif: ui-rounded, 'SF Pro Rounded', 'Nunito', system-ui, sans-serif;
-  --ink: color-mix(in srgb, #2b2d42 80%, var(--accent));
-  --ink-2: color-mix(in srgb, #5d627a 80%, var(--accent));
-  --ink-3: color-mix(in srgb, #9297ab 70%, var(--accent));
-  --card: color-mix(in srgb, #fff 90%, var(--accent));
-  --card-solid: color-mix(in srgb, #fff 92%, var(--accent));
-  --line: transparent;
-  --bc: transparent;
-  --bw: 0px;
-  --r-pill: 999px;
-  --r-card: 32px;
-  --r-btn: 999px;
-  --blur: 0px;
-  --shadow: 0 16px 34px color-mix(in srgb, var(--accent) 20%, transparent), inset 0 -6px 0 color-mix(in srgb, var(--accent) 10%, transparent), inset 0 2px 0 rgba(255, 255, 255, 0.7);
-  --shadow-sm: 0 8px 18px color-mix(in srgb, var(--accent) 18%, transparent), inset 0 -3px 0 color-mix(in srgb, var(--accent) 12%, transparent);
-  --pv-bg: #ffe8ef;
-  --pv-cube: #ffe3ea;
-  --pv-edge: transparent;
-  --pv-ink: #6b3350;
-  --pv-cube-r: 9px;
-}
-:root[data-design='clay'] body,
-:root[data-design='clay'] body.in-play {
-  background:
-    radial-gradient(900px 700px at 10% 0%, color-mix(in srgb, var(--accent) 22%, #fff), transparent 70%),
-    radial-gradient(900px 700px at 100% 100%, color-mix(in srgb, var(--paint) 20%, #fff), transparent 70%),
-    color-mix(in srgb, var(--accent) 8%, #fff);
-}
-:root[data-design='clay'] body.in-gallery {
-  background:
-    radial-gradient(60% 45% at 50% 5%, #fff, transparent 70%),
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, #fff) 0%, color-mix(in srgb, var(--accent) 16%, #fff) 58%, color-mix(in srgb, var(--accent) 26%, #fff) 64%, color-mix(in srgb, var(--accent) 30%, #fff) 100%);
-}
-[data-design='clay'] .plaque-title,
-[data-design='clay'] .gallery-title h1,
-[data-design='clay'] .menu-head h1,
-[data-design='clay'] .coll-name,
-[data-design='clay'] .logo {
-  font-weight: 900;
-}
-[data-design='clay'] .btn:active,
-[data-design='clay'] .icon-btn:active,
-[data-design='clay'] .tool:active {
-  transform: scale(0.92);
-}
-[data-design='clay'] .btn.primary {
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 40%, transparent), inset 0 -4px 0 rgba(0, 0, 0, 0.12);
 }
 
 /* ------------------------------------------------------------ look picker */
@@ -2960,4 +2853,125 @@ body.in-play {
   --pv-edge: rgba(0, 0, 0, 0.12);
   --pv-ink: #2b2d42;
   --pv-cube-r: 7px;
+}
+
+/* ------------------------------------------------------------ settings (tabbed) */
+.modal.settings-modal {
+  width: min(680px, 100%);
+  padding: 20px 22px 16px;
+}
+.settings-modal h2 {
+  margin-bottom: 14px;
+}
+.settings2 {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 20px;
+}
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.settings-nav button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink-2);
+  font-weight: 700;
+  font-size: 14.5px;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.settings-nav .tab-short {
+  display: none;
+}
+.settings-nav button .ico {
+  width: 19px;
+  height: 19px;
+}
+.settings-nav button:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+.settings-nav button.on {
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  color: var(--ink);
+}
+.settings-nav button.on .ico {
+  color: var(--accent);
+}
+.settings-pane {
+  min-height: 372px;
+}
+.settings-pane.in > * {
+  animation: plaqueIn 0.25s ease both;
+}
+.settings-pane .setting {
+  padding: 9px 0;
+}
+.settings-pane .setting:last-child {
+  border-bottom: none;
+}
+.settings-pane .setting small:empty {
+  display: none;
+}
+.settings-pane .looks {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 8px;
+}
+.settings-pane .keybinds {
+  border-bottom: none;
+}
+.settings-foot {
+  margin: 14px 0 0 !important;
+  font-size: 12.5px;
+  color: var(--ink-3) !important;
+}
+.settings-modal .modal-actions {
+  margin-top: 8px;
+}
+[data-design] .settings-nav button {
+  border-radius: min(12px, var(--r-btn));
+}
+/* phones: tabs become a strip above the content */
+@media (max-width: 600px) {
+  .modal.settings-modal {
+    padding: 16px 14px 12px;
+  }
+  .settings2 {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .settings-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -4px;
+    padding: 0 4px 2px;
+  }
+  .settings-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .settings-nav button {
+    flex-direction: column;
+    gap: 3px;
+    padding: 7px 6px;
+    font-size: 11.5px;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .settings-nav .tab-long {
+    display: none;
+  }
+  .settings-nav .tab-short {
+    display: inline;
+  }
+  .settings-pane {
+    min-height: 0;
+  }
 }

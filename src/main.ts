@@ -11,6 +11,7 @@ import { GalleryScreen } from './ui/gallery.ts';
 import { CollectionsScreen, HomeScreen, MyPuzzlesScreen, type Nav } from './ui/menus.ts';
 import { PlayScreen } from './ui/play.ts';
 import { installTooltips } from './ui/tooltip.ts';
+import { setTutorialLauncher } from './ui/settings.ts';
 import { applyDesign, DESIGNS, type DesignId } from './ui/theme.ts';
 import { Tutorial } from './ui/tutorial.ts';
 
@@ -116,6 +117,7 @@ function openFromHash(): boolean {
     return false;
   }
 }
+setTutorialLauncher(() => nav.tutorial());
 window.addEventListener('hashchange', () => openFromHash());
 if (!openFromHash()) nav.home();
 
