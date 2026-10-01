@@ -8,6 +8,7 @@ export class CampaignScene {
     this.app = app;
     this.world = opts.world ?? this.firstUnfinishedWorld();
     this.slide = 0;
+    this.t = 0;
   }
 
   firstUnfinishedWorld() {
@@ -32,6 +33,7 @@ export class CampaignScene {
     const store = app.store;
     const w = WORLDS[this.world];
     this.slide += (0 - this.slide) * Math.min(1, dt * 10);
+    this.t += dt;
 
     app.backdrop(1 + this.world, 0.3, true);
     if (header(app, 'Campaign', `${store.totalStars()} ★ collected`)) app.openTitle();
@@ -74,26 +76,33 @@ export class CampaignScene {
 
     // level tiles
     const portrait = ui.h > ui.w || ui.w < 900 * u;
-    const cols = portrait ? 3 : 6;
-    const rows = Math.ceil(w.levels.length / cols);
     const gap = 14 * u;
     const gridW = Math.min(ui.w - 40 * u, 1060 * u);
+    const startY = ty + 140 * u;
+    // big 3x2 tiles when the screen is tall enough, otherwise a single row of six
+    const tw3 = (gridW - gap * 2) / 3;
+    const th3 = Math.min(tw3 * 0.64, 172 * u);
+    const bigFits = 2 * (th3 + gap) <= ui.h - startY - 16 * u;
+    const cols = portrait || bigFits ? 3 : 6;
+    const rows = Math.ceil(w.levels.length / cols);
     const tw = (gridW - gap * (cols - 1)) / cols;
-    const th = Math.min(tw * (portrait ? 0.95 : 1.12), 190 * u);
+    const th = cols === 3 ? th3 : Math.min(tw * 1.12, 170 * u);
     const gx = (ui.w - gridW) / 2;
-    const gy = portrait ? ty + 150 * u : Math.max(ty + 130 * u, ui.h - rows * (th + gap) - 24 * u + gap);
+    const gy = portrait || cols === 3 ? startY : Math.max(startY - 10 * u, ui.h - rows * (th + gap) - 24 * u + gap);
     w.levels.forEach((lv, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
       const x = gx + col * (tw + gap);
-      const y = gy + row * (th + gap);
+      const e = 1 - Math.pow(1 - Math.min(1, Math.max(0, this.t * 2.6 - 0.2 - i * 0.07)), 3);
+      const y = gy + row * (th + gap) + (1 - e) * 26 * u;
       const rec = store.levelRecord(lv.id);
-      const clicked = ui.button('lv-' + lv.id, x, y, tw, th, { fill: null });
       // thumbnail + labels drawn over the invisible button
-      ui.rect(x, y, tw, th, { fill: rec ? hex('#12204a', 0.82) : hex('#0d1636', 0.8), border: 1.5, borderColor: rec && rec.stars === 3 ? hex('#ffd25e', 0.7) : COL.panelEdge, radius: 16 * u, glow: rec && rec.stars === 3 ? hex('#ffd25e', 0.1) : undefined });
+      const gold = rec && rec.stars === 3;
+      ui.glass(x, y, tw, th, { radius: 20 * u, tint: rec ? [0.06, 0.11, 0.32, 0.55] : [0.04, 0.07, 0.2, 0.5], glow: gold ? hex('#ffd25e', 0.1) : undefined, edge: gold ? [1, 0.88, 0.5, 0.7] : undefined, topGlow: gold ? [1, 0.82, 0.35, 0.18] : undefined, shadowAlpha: 0.3, shadowBlur: 12 * u, shadowOffset: 5 * u, sheen: 0.07 });
+      const clicked = ui.button('lv-' + lv.id, x, y, tw, th, { kind: 'ghost', radius: 20 * u });
       drawThumb(ui, lv, x + 8 * u, y + 28 * u, tw - 16 * u, th - 78 * u);
-      ui.text(String(i + 1), x + 12 * u, y + 17 * u, 17 * u, COL.accent);
-      ui.text(lv.name, x + 32 * u, y + 17 * u, Math.min(13 * u, (tw - 40 * u) / (lv.name.length * 0.55)), COL.text);
+      ui.text(String(i + 1), x + 14 * u, y + 19 * u, 17 * u, COL.accent, { weight: 'heavy' });
+      ui.text(lv.name, x + 36 * u, y + 17 * u, Math.min(13 * u, (tw - 40 * u) / (lv.name.length * 0.55)), COL.text);
       ui.stars(x + tw / 2, y + th - 36 * u, 16 * u, rec ? rec.stars : 0, 3);
       ui.text(rec ? `Best ${rec.best} · Par ${lv.par}` : `Par ${lv.par}`, x + tw / 2, y + th - 14 * u, 11.5 * u, COL.dim, { align: 'center' });
       if (clicked) app.playCampaign(this.world, i);

@@ -124,7 +124,8 @@ export class EditorScene {
       }
       const cy = y + h * 0.38;
       if (t.icon) ui.icon(t.icon, x + tw / 2, cy, 24 * u, t.id === 'star' ? COL.gold : COL.text);
-      else if (t.color) ui.disc(x + tw / 2, cy, 22 * u, [...t.color, 1], t.ring ? 2.5 : 0, t.ring ? [...t.ring, 1] : COL.clear);
+      else if (t.ring) ui.disc(x + tw / 2, cy, 22 * u, [0.02, 0.02, 0.06, 1], 2.5, [...t.ring, 1]);
+      else if (t.color) ui.sphere(x + tw / 2, cy, 24 * u, [...t.color, 1], t.id === 'sun' || t.id === 'repulsor' || t.id === 'blackhole' ? 1 : 0);
       else {
         // pointer glyph for "select"
         ui.icon(ICON.right, x + tw / 2 - 2 * u, cy, 26 * u, COL.text);
@@ -523,6 +524,7 @@ export class EditorScene {
     const r = app.r;
     const ui = app.ui;
     const L = this.level;
+    r.bounds = { hw: L.bounds.w / 2, hh: L.bounds.h / 2 };
     r.background(this.pal);
     const w = createWorld(L);
     this.world = w;

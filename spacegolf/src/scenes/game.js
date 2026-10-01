@@ -10,6 +10,9 @@ import { COL, ICON, hex, withAlpha } from '../ui.js';
 import { drawLevel, fieldBodies } from '../worldview.js';
 import { paletteFor } from '../level.js';
 
+// the ball is drawn a little bigger than its collision radius so it reads at any zoom
+const BALL_VIS = BALL_R * 1.6;
+
 export function scoreName(strokes, par) {
   if (strokes === 1) return 'Hole in one!';
   const d = strokes - par;
@@ -137,14 +140,14 @@ export class GameScene {
     const leftEdge = 12 * u + bh + 10 * u;
     const tight = cx < leftEdge + 120 * u || cx + cw > rightEdge - 8 * u;
     const chipX = tight ? Math.max(leftEdge, Math.min(cx, rightEdge - cw - 8 * u)) : cx;
-    ui.rect(chipX, y, cw, bh, { fill: COL.panel, border: 1.5, borderColor: COL.panelEdge, radius: 16 * u });
+    ui.glass(chipX, y, cw, bh, { radius: bh / 2, shadowAlpha: 0.35 });
     const st = strokes(S);
-    ui.text('STROKES', chipX + 16 * u, y + bh * 0.3, 10.5 * u, COL.dim, { spacing: 0.1 });
-    ui.text(String(st), chipX + 16 * u, y + bh * 0.68, 22 * u, COL.text);
-    ui.text('PAR', chipX + 100 * u, y + bh * 0.3, 10.5 * u, COL.dim, { spacing: 0.1 });
-    ui.text(String(this.level.par ?? '–'), chipX + 100 * u, y + bh * 0.68, 22 * u, COL.accent);
+    ui.text('STROKES', chipX + 24 * u, y + bh * 0.3, 9.5 * u, COL.dim, { spacing: 0.16, weight: 'medium' });
+    ui.text(String(st), chipX + 24 * u, y + bh * 0.68, 23 * u, COL.text, { weight: 'heavy' });
+    ui.text('PAR', chipX + 108 * u, y + bh * 0.3, 9.5 * u, COL.dim, { spacing: 0.16, weight: 'medium' });
+    ui.text(String(this.level.par ?? '–'), chipX + 108 * u, y + bh * 0.68, 23 * u, COL.accent, { weight: 'heavy' });
     if (w.stars.length) {
-      for (let i = 0; i < w.stars.length; i++) ui.icon(ICON.star, chipX + 160 * u + i * 24 * u + 12 * u, y + bh * 0.5, 20 * u, S.stars[i] ? COL.gold : hex('#3a4670', 0.9));
+      for (let i = 0; i < w.stars.length; i++) ui.icon(ICON.star, chipX + 168 * u + i * 24 * u + 12 * u, y + bh * 0.5, 19 * u, S.stars[i] ? COL.gold : hex('#4a5686', 0.85));
     }
 
     // title block (only when there is room)
@@ -153,8 +156,8 @@ export class GameScene {
     const title = cfg.title || '';
     if (room > 90 * u) {
       const tw = ui.measure(title, 18 * u);
-      ui.text(title, tx, y + bh * 0.32, tw > room ? 14 * u : 18 * u, COL.text, { shadow: true });
-      if (cfg.subtitle) ui.text(cfg.subtitle, tx, y + bh * 0.73, 12 * u, COL.dim);
+      ui.text(title, tx, y + bh * 0.32, tw > room ? 14 * u : 18 * u, COL.text, { shadow: true, weight: 'heavy' });
+      if (cfg.subtitle) ui.text(cfg.subtitle, tx, y + bh * 0.73, 12 * u, COL.dim, { weight: 'light' });
     }
 
     // recall button for balls stuck in orbit
@@ -176,7 +179,7 @@ export class GameScene {
       const bw = Math.max(...lines.map((l) => ui.measure(l, size))) + 40 * u;
       const bx = (ui.w - bw) / 2;
       const by = ui.h - bhh - 22 * u;
-      ui.rect(bx, by, bw, bhh, { fill: withAlpha(COL.panel, a), border: 1.2, borderColor: withAlpha(COL.panelEdge, a), radius: 16 * u });
+      ui.glass(bx, by, bw, bhh, { radius: 18 * u, tint: [0.05, 0.08, 0.22, 0.4 * a], shadowAlpha: 0.35 * a, edge: [0.84, 0.91, 1, 0.3 * a], edge2: [0.55, 0.7, 1, 0.07 * a], sheen: 0.06 * a });
       lines.forEach((l, i) => ui.text(l, ui.w / 2, by + 22 * u + i * 22 * u - 2 * u, size, withAlpha(COL.text, a), { align: 'center' }));
     }
   }
@@ -444,6 +447,7 @@ export class GameScene {
     const b = S.ball;
     const bs = this.level.bounds || { w: 1600, h: 900 };
 
+    r.bounds = { hw: bs.w / 2, hh: bs.h / 2 };
     r.background({ c1: this.pal.c1, c2: this.pal.c2, seed: this.pal.seed, parX: b.x * 0.15, parY: b.y * 0.15 });
     ensureBodies(w, S.t);
     const wantField = this.fieldMode > 0;
@@ -454,13 +458,16 @@ export class GameScene {
     this.drawBounds(r, bs, b);
 
     // trail
+    // trail: a tapering ribbon that warms up with speed
     const tr = this.trail;
     const tn = tr.length / 2;
-    for (let i = 0; i < tn; i++) {
-      const f = (i + 1) / tn;
-      const sp = Math.hypot(b.vx, b.vy);
-      const hot = Math.min(1, sp / 500);
-      r.dot(tr[i * 2], tr[i * 2 + 1], 2 + f * 3.4, 0.45 + hot * 0.55, 0.75 - hot * 0.2, 1 - hot * 0.65, f * f * 0.55);
+    const sp = Math.hypot(b.vx, b.vy);
+    const hot = Math.min(1, sp / 520);
+    for (let i = 1; i < tn; i++) {
+      const f = i / tn;
+      const wd = 0.5 + f * f * 3.1;
+      const al = f * f * 0.95;
+      r.line(tr[i * 2 - 2], tr[i * 2 - 1], tr[i * 2], tr[i * 2 + 1], wd, 0.35 + hot * 0.65, 0.75 - hot * 0.15, 1.0 - hot * 0.7, al);
     }
 
     // aim + preview
@@ -470,7 +477,7 @@ export class GameScene {
       if (aim) this.drawAim(r, aim);
       else {
         const pr = 0.5 + 0.5 * Math.sin(t * 3);
-        r.ringFx(b.x, b.y, 15 + pr * 5, 1.1, 0.5, 0.85, 1, 0.35 + 0.25 * pr);
+        r.ringFx(b.x, b.y, 16 + pr * 6, 1.0, 0.55, 0.88, 1, 0.28 + 0.3 * pr);
       }
     }
 
@@ -480,15 +487,16 @@ export class GameScene {
       const e = 1 - Math.pow(1 - k, 3);
       const x = this.win.bx + (w.hx - this.win.bx) * e;
       const y = this.win.by + (w.hy - this.win.by) * e;
-      if (k < 1) r.sprite(false, T.BALL, x, y, BALL_R * 3.6, BALL_R * (1 - 0.7 * e), 0, 0, 0, 1, 1, 1, 1 - e * 0.5);
+      if (k < 1) r.sprite(false, T.BALL, x, y, BALL_VIS * 3.6, BALL_VIS * (1 - 0.7 * e), 0, 0, 0, 1, 1, 1, 1 - e * 0.5);
     } else {
-      r.sprite(false, T.BALL, b.x, b.y, BALL_R * 3.8, BALL_R, 0, 0, 0, 1, 1, 1, 1);
+      r.sprite(false, T.BALL, b.x, b.y, BALL_VIS * 4.2, BALL_VIS, 0, 0, 0, 1, 1, 1, 1);
     }
 
     // particles
     for (const q of this.particles) {
       const f = q.life / q.max;
-      r.dot(q.x, q.y, q.size * (0.4 + f * 0.8), q.col[0], q.col[1], q.col[2], f * 0.9);
+      if (q.size > 2.9) r.sprite(true, T.SPARKLE, q.x, q.y, q.size * 3.2, q.size * (0.5 + f), 0, 0, 0, q.col[0], q.col[1], q.col[2], f);
+      else r.dot(q.x, q.y, q.size * (0.4 + f * 0.8), q.col[0], q.col[1], q.col[2], f * 0.9);
     }
     // floating labels
     for (const f of this.floaters) {
@@ -504,13 +512,21 @@ export class GameScene {
     const hh = bs.h / 2;
     const near = b.mode === 'fly' ? Math.min(hw - Math.abs(b.x), hh - Math.abs(b.y)) : 1e9;
     const warn = Math.max(0, 1 - near / 120);
-    const c = [0.35 + warn * 0.65, 0.6 - warn * 0.3, 1 - warn * 0.6];
-    const a = 0.2 + warn * 0.5;
-    const dash = 26;
-    r.line(-hw, -hh, hw, -hh, 1.4, c[0], c[1], c[2], a, dash);
-    r.line(hw, -hh, hw, hh, 1.4, c[0], c[1], c[2], a, dash);
-    r.line(hw, hh, -hw, hh, 1.4, c[0], c[1], c[2], a, dash);
-    r.line(-hw, hh, -hw, -hh, 1.4, c[0], c[1], c[2], a, dash);
+    const c = [0.5 + warn * 0.5, 0.75 - warn * 0.4, 1 - warn * 0.65];
+    const a = 0.16 + warn * 0.55;
+    const L = 60;
+    // faint continuous frame
+    r.line(-hw, -hh, hw, -hh, 0.8, c[0], c[1], c[2], a * 0.45);
+    r.line(hw, -hh, hw, hh, 0.8, c[0], c[1], c[2], a * 0.45);
+    r.line(hw, hh, -hw, hh, 0.8, c[0], c[1], c[2], a * 0.45);
+    r.line(-hw, hh, -hw, -hh, 0.8, c[0], c[1], c[2], a * 0.45);
+    // brighter corner brackets
+    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      const x = sx * hw;
+      const y = sy * hh;
+      r.line(x, y, x - sx * L, y, 1.6, c[0], c[1], c[2], a * 2.2);
+      r.line(x, y, x, y - sy * L, 1.6, c[0], c[1], c[2], a * 2.2);
+    }
   }
 
   drawAim(r, aim) {
@@ -552,8 +568,10 @@ export class GameScene {
       const n = pts.length / 2;
       for (let i = 1; i < n; i++) {
         const f = i / n;
-        const a = Math.pow(1 - f, 0.7) * 0.9;
-        r.dot(pts[i * 2], pts[i * 2 + 1], 2.1, 1, 1, 1, a, 1);
+        const a = Math.pow(1 - f, 0.8) * 0.95;
+        const rad = 2.4 - f * 0.9;
+        r.dot(pts[i * 2], pts[i * 2 + 1], rad, 0.85 + 0.15 * (1 - f), 0.95, 1, a, 1);
+        if (i % 3 === 0) r.dot(pts[i * 2], pts[i * 2 + 1], rad * 3.2, pc[0], pc[1], pc[2], a * 0.18);
       }
       const end = sim.S.ball;
       if (sim.steps * DT < secs - 0.05 || sim.S.ball.mode !== 'fly') {
@@ -585,30 +603,34 @@ export class GameScene {
     if (win.t < delay) return;
     const t = win.t - delay;
     const a = Math.min(1, t * 4);
-    ui.rect(0, 0, ui.w, ui.h, { fill: [0.01, 0.02, 0.06, 0.55 * a], radius: 0 });
+    ui.rect(0, 0, ui.w, ui.h, { fill: [0.01, 0.015, 0.05, 0.5 * a], radius: 0 });
     ui.block(0, 0, ui.w, ui.h);
-    const pw = Math.min(440 * u, ui.w - 24);
-    const ph = 340 * u;
+    const pw = Math.min(460 * u, ui.w - 24);
+    const ph = 360 * u;
     const px = (ui.w - pw) / 2;
-    const py = (ui.h - ph) / 2 + (1 - a) * 24 * u;
-    ui.rect(px, py, pw, ph, { fill: withAlpha(COL.panel, 0.94 * a), border: 1.6, borderColor: withAlpha(COL.panelEdge, a), radius: 22 * u, glow: withAlpha(hex('#4c8cff'), 0.12 * a) });
+    const py = (ui.h - ph) / 2 + (1 - a) * 28 * u;
+    const gold = res.stars === 3;
+    ui.glass(px, py, pw, ph, { radius: 30 * u, tint: [0.05, 0.08, 0.24, 0.5 * a], shadowAlpha: 0.55 * a, shadowBlur: 30 * u, shadowOffset: 14 * u, glow: withAlpha(gold ? hex('#ffc94d') : hex('#4c8cff'), 0.14 * a), topGlow: withAlpha(gold ? hex('#ffd36b') : hex('#6ab8ff'), 0.2 * a), edge: [0.86, 0.93, 1, 0.38 * a], edge2: [0.55, 0.7, 1, 0.08 * a], sheen: 0.08 * a });
     const cx = px + pw / 2;
-    ui.text(res.name, cx, py + 52 * u, 34 * u, withAlpha(COL.text, a), { align: 'center', shadow: true, color2: withAlpha(res.stars === 3 ? COL.gold : COL.accent, a) });
-    ui.text(`${res.strokes} stroke${res.strokes === 1 ? '' : 's'}  ·  par ${res.par}`, cx, py + 88 * u, 16 * u, withAlpha(COL.dim, a), { align: 'center' });
+    ui.text(res.name.toUpperCase(), cx, py + 52 * u, 30 * u, withAlpha(COL.text, a), { align: 'center', shadow: true, weight: 'heavy', spacing: 0.08, color2: withAlpha(gold ? COL.gold : COL.accent, a) });
+    ui.text(`${res.strokes} stroke${res.strokes === 1 ? '' : 's'}  ·  par ${res.par}`, cx, py + 88 * u, 15 * u, withAlpha(COL.dim, a), { align: 'center', weight: 'light' });
     // stars pop in one by one
     for (let i = 0; i < 3; i++) {
       const k = Math.max(0, Math.min(1, (t - 0.25 - i * 0.22) * 4));
-      const pop = k < 1 ? 1 + Math.sin(k * Math.PI) * 0.4 : 1;
-      const col = i < res.stars ? withAlpha(COL.gold, a * k) : withAlpha(hex('#3a4670'), a * Math.max(0.5, k));
-      ui.icon(ICON.star, cx + (i - 1) * 62 * u, py + 150 * u, 52 * u * (i < res.stars ? pop * k : 1), col);
+      const pop = k < 1 ? 1 + Math.sin(k * Math.PI) * 0.45 : 1;
+      const on = i < res.stars;
+      const col = on ? withAlpha(COL.gold, a * k) : withAlpha(hex('#4a5686'), a * Math.max(0.55, k));
+      const yy = py + 154 * u - (i === 1 ? 10 * u : 0);
+      if (on && k > 0) ui.glow(cx + (i - 1) * 66 * u, yy, 110 * u, 110 * u, withAlpha(hex('#ffc94d'), 0.35 * a * k), 2.2);
+      ui.icon(ICON.star, cx + (i - 1) * 66 * u, yy, 56 * u * (on ? pop * Math.max(k, 0.01) : 1), col);
     }
-    if (res.pickupsTotal) ui.text(`Stars collected ${res.pickups}/${res.pickupsTotal}`, cx, py + 196 * u, 14 * u, withAlpha(COL.dim, a), { align: 'center' });
+    if (res.pickupsTotal) ui.text(`Pickups ${res.pickups}/${res.pickupsTotal}`, cx, py + 214 * u, 13 * u, withAlpha(COL.dim, a), { align: 'center' });
     const info = win.info;
-    if (info.newBest) ui.text('New best!', cx, py + 218 * u, 15 * u, withAlpha(COL.good, a), { align: 'center' });
-    else if (info.best) ui.text(`Best: ${info.best} strokes`, cx, py + 218 * u, 14 * u, withAlpha(COL.dim, a), { align: 'center' });
-    if (info.extra) ui.text(info.extra, cx, py + 240 * u, 13 * u, withAlpha(COL.faint, a), { align: 'center' });
+    if (info.newBest) ui.text('NEW BEST', cx, py + 238 * u, 12 * u, withAlpha(COL.good, a), { align: 'center', spacing: 0.25, weight: 'heavy' });
+    else if (info.best) ui.text(`Best: ${info.best} strokes`, cx, py + 238 * u, 13 * u, withAlpha(COL.dim, a), { align: 'center', weight: 'light' });
+    if (info.extra) ui.text(info.extra, cx, py + 260 * u, 12.5 * u, withAlpha(COL.faint, a), { align: 'center', weight: 'light' });
 
-    const by = py + ph - 70 * u;
+    const by = py + ph - 74 * u;
     const gap = 10 * u;
     const hasNext = !!this.cfg.onNext;
     const nb = hasNext ? 3 : 2;

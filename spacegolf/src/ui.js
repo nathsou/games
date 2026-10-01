@@ -2,6 +2,8 @@
 // Every frame, scenes call ui.button()/ui.text()/... which both draw and
 // hit-test, so layout code and interaction code live in one place.
 
+import { WEIGHTS } from './text.js';
+
 export function hex(h, a = 1) {
   const n = parseInt(h.slice(1), 16);
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, a];
@@ -11,18 +13,20 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const mixc = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t), lerp(a[3], b[3], t)];
 
 export const COL = {
-  text: hex('#eaf1ff'),
-  dim: hex('#9db0d8'),
-  faint: hex('#6b7da8'),
-  accent: hex('#5ee1ff'),
-  accent2: hex('#8b7bff'),
-  gold: hex('#ffd25e'),
-  good: hex('#6dff9c'),
-  bad: hex('#ff6b7d'),
+  text: hex('#f4f7ff'),
+  dim: hex('#a9b8d9'),
+  faint: hex('#6f7fa6'),
+  accent: hex('#7fe9ff'),
+  accent2: hex('#a18cff'),
+  gold: hex('#ffd36b'),
+  good: hex('#7dffb0'),
+  bad: hex('#ff7a8c'),
   panel: hex('#0a1030', 0.78),
-  panelEdge: hex('#7ea4ff', 0.38),
+  panelEdge: hex('#9bb8ff', 0.34),
   btn: hex('#16204a', 0.82),
   btnHover: hex('#23336f', 0.92),
+  glassTint: [0.05, 0.08, 0.22, 0.3],
+  glassTintHi: [0.11, 0.18, 0.42, 0.42],
   white: [1, 1, 1, 1],
   clear: [0, 0, 0, 0],
   dark: hex('#050816'),
@@ -132,12 +136,12 @@ export class UI {
     const u = this.u;
     this.toasts.forEach((t, i) => {
       const a = Math.min(1, t.age * 6, (t.life - t.age) * 4);
-      const size = 17 * u;
-      const w = this.atlas.measure(t.msg, size) + 40 * u;
+      const size = 16 * u;
+      const w = this.atlas.measure(t.msg, size) + 44 * u;
       const x = (this.w - w) / 2;
-      const y = this.h - 90 * u - i * 50 * u - (1 - a) * 12 * u;
-      this.rect(x, y, w, 38 * u, { fill: withAlpha(COL.panel, a), border: 1.2, borderColor: withAlpha(COL.panelEdge, a), radius: 19 * u });
-      this.text(t.msg, this.w / 2, y + 19 * u, size, withAlpha(COL.text, a), { align: 'center' });
+      const y = this.h - 96 * u - i * 54 * u - (1 - a) * 14 * u;
+      this.glass(x, y, w, 40 * u, { radius: 20 * u, tint: [0.06, 0.09, 0.24, 0.55 * a], shadowAlpha: 0.4 * a, edge: [0.85, 0.92, 1, 0.3 * a], edge2: [0.6, 0.75, 1, 0.08 * a], sheen: 0.06 * a });
+      this.text(t.msg, this.w / 2, y + 20 * u, size, withAlpha(COL.text, a), { align: 'center' });
     });
     const p = this.ptr;
     p.pressed = false;
@@ -192,9 +196,33 @@ export class UI {
     if (o.border) this.r.uiPush(x, y, w, h, o.borderColor || COL.panelEdge, COL.clear, 6, r, o.border, 0);
   }
 
+  // soft drop shadow under a rounded rect
+  shadow(x, y, w, h, o = {}) {
+    const blur = o.blur ?? 16 * this.u;
+    const pad = blur * 2;
+    const off = o.offset ?? 8 * this.u;
+    this.r.uiPush(x - pad, y - pad + off, w + pad * 2, h + pad * 2, [0.0, 0.01, 0.05, o.alpha ?? 0.4], COL.clear, 7, o.radius ?? 18 * this.u, blur, pad);
+  }
+
+  // Frosted glass: blurs whatever is behind it, tints it, adds a soft sheen and a light-catching edge.
+  glass(x, y, w, h, o = {}) {
+    const u = this.u;
+    const r = o.radius ?? 18 * u;
+    if (o.shadow !== false) this.shadow(x, y, w, h, { radius: r, alpha: o.shadowAlpha ?? 0.4, blur: o.shadowBlur ?? 16 * u, offset: o.shadowOffset ?? 8 * u });
+    if (o.glow) this.glow(x + w / 2, y + h / 2, w * 1.35 + 40 * u, h * 1.9 + 40 * u, o.glow, 2.2);
+    this.r.uiPush(x, y, w, h, o.tint || COL.glassTint, o.topGlow || COL.clear, 8, r, 0, o.sheen ?? 0.07);
+    this.r.uiPush(x, y, w, h, o.edge || [0.84, 0.91, 1.0, 0.3], o.edge2 || [0.55, 0.7, 1.0, 0.07], 6, r, o.border ?? 1.2, 0);
+  }
+
   panel(x, y, w, h, o = {}) {
     this.block(x, y, w, h);
-    this.rect(x, y, w, h, { fill: COL.panel, border: 1.5, borderColor: COL.panelEdge, radius: 18 * this.u, ...o });
+    this.glass(x, y, w, h, { radius: 22 * this.u, ...o });
+  }
+
+  // a little lit planet (level thumbnails and decoration)
+  sphere(cx, cy, d, color, halo = 0) {
+    const pad = halo > 0 ? d * 0.6 : 0;
+    this.r.uiPush(cx - d / 2 - pad, cy - d / 2 - pad, d + pad * 2, d + pad * 2, color, COL.clear, 9, halo, 0, d / (d + pad * 2));
   }
 
   disc(cx, cy, d, fill, border = 0, borderColor = COL.clear) {
@@ -213,7 +241,8 @@ export class UI {
   text(str, x, y, size, color = COL.text, o = {}) {
     const atlas = this.atlas;
     const sp = o.spacing || 0;
-    const width = atlas.measure(str, size, sp);
+    const wt = typeof o.weight === 'string' ? WEIGHTS[o.weight] ?? 1 : o.weight ?? 1;
+    const width = atlas.measure(str, size, sp, wt);
     let px = x;
     if (o.align === 'center') px = x - width / 2;
     else if (o.align === 'right') px = x - width;
@@ -225,7 +254,7 @@ export class UI {
     const drawPass = (ox, oy, c, cc2) => {
       let pen = px;
       for (let i = 0; i < str.length; i++) {
-        const g = atlas.glyph(str[i]);
+        const g = atlas.glyph(str[i], wt);
         if (g.icon) {
           if (ox === 0 && oy === 0) this.icon(g.icon, pen + g.adv * size * 0.5, y, size * 0.95, c);
         } else if (str[i] !== ' ') {
@@ -234,13 +263,17 @@ export class UI {
         pen += g.adv * size + sp * size;
       }
     };
-    if (o.shadow) drawPass(0, size * 0.06, [0, 0, 0, 0.55 * color[3]], [0, 0, 0, 0.55 * color[3]]);
+    if (o.shadow) {
+      drawPass(0, size * 0.09, [0.0, 0.01, 0.05, 0.28 * color[3]], [0.0, 0.01, 0.05, 0.28 * color[3]]);
+      drawPass(0, size * 0.045, [0.0, 0.01, 0.05, 0.4 * color[3]], [0.0, 0.01, 0.05, 0.4 * color[3]]);
+    }
     drawPass(0, 0, color, c2);
     return width;
   }
 
-  measure(str, size, spacing = 0) {
-    return this.atlas.measure(str, size, spacing);
+  measure(str, size, spacing = 0, weight = 1) {
+    const wt = typeof weight === 'string' ? WEIGHTS[weight] ?? 1 : weight;
+    return this.atlas.measure(str, size, spacing, wt);
   }
 
   stars(cx, cy, size, filled, total = 3, gap = 1.15) {
@@ -269,45 +302,50 @@ export class UI {
     const hov = this._anim(id + ':h', over ? 1 : 0, 16);
     const prs = this._anim(id + ':p', over && this.activeId === id && p.down ? 1 : 0, 30);
     const kind = o.kind || 'normal';
-    const sc = 1 - 0.045 * prs;
+    const sc = 1 - 0.04 * prs + 0.012 * hov;
     const cx = x + w / 2;
     const cy = y + h / 2;
     const bw = w * sc;
     const bh = h * sc;
     const bx = cx - bw / 2;
     const by = cy - bh / 2;
-    const radius = o.radius ?? Math.min(14 * u, h / 2);
+    const iconOnly = o.icon !== undefined && !o.label;
+    const radius = o.radius ?? (iconOnly && Math.abs(w - h) < 2 ? bh / 2 : Math.min(16 * u, bh / 2));
     const alpha = disabled ? 0.4 : 1;
     let textCol = COL.text;
+    let weight = 'medium';
+    const sh = { radius, shadowAlpha: (0.28 - 0.1 * prs) * alpha, shadowBlur: 10 * u, shadowOffset: (5 - 2 * prs) * u };
     if (kind === 'primary') {
-      const a = mixc(hex('#49d9ff'), hex('#7ff0ff'), hov);
-      const b = mixc(hex('#3b7bff'), hex('#5a9bff'), hov);
-      this.rect(bx, by, bw, bh, { grad: [withAlpha(a, alpha), withAlpha(b, alpha)], radius, glow: withAlpha(hex('#4cc4ff'), 0.18 + 0.2 * hov) });
-      textCol = hex('#04122e');
+      const a = mixc(hex('#58e0ff'), hex('#8cf2ff'), hov);
+      const b = mixc(hex('#3f7dff'), hex('#6aa3ff'), hov);
+      this.shadow(bx, by, bw, bh, { radius, alpha: 0.4 * alpha, blur: 14 * u, offset: 7 * u });
+      this.glow(cx, cy, bw * 1.45 + 30 * u, bh * 2.1 + 30 * u, withAlpha(hex('#4cc4ff'), (0.2 + 0.2 * hov) * alpha), 2.4);
+      this.rect(bx, by, bw, bh, { grad: [withAlpha(a, alpha), withAlpha(b, alpha)], radius });
+      this.rect(bx + 1, by + 1, bw - 2, bh * 0.52, { grad: [[1, 1, 1, 0.34 * alpha], [1, 1, 1, 0.02 * alpha]], radius: Math.max(2, radius - 1) });
+      this.rect(bx, by, bw, bh, { fill: null, border: 1, borderColor: [1, 1, 1, 0.35 * alpha], radius });
+      textCol = hex('#04132f');
+      weight = 'heavy';
     } else if (kind === 'danger') {
-      this.rect(bx, by, bw, bh, { fill: withAlpha(mixc(hex('#4a1626', 0.85), hex('#7a2038', 0.95), hov), alpha), border: 1.5, borderColor: hex('#ff6b7d', 0.6), radius });
+      this.glass(bx, by, bw, bh, { ...sh, tint: withAlpha(mixc([0.55, 0.08, 0.2, 0.42], [0.8, 0.14, 0.28, 0.55], hov), alpha), edge: [1, 0.55, 0.62, 0.45 * alpha], edge2: [1, 0.4, 0.5, 0.1 * alpha] });
     } else if (kind === 'ghost') {
-      this.rect(bx, by, bw, bh, { fill: withAlpha(mixc(hex('#16204a', 0.0), hex('#23336f', 0.6), hov), alpha), radius });
+      if (hov > 0.02) this.glass(bx, by, bw, bh, { radius, shadow: false, tint: withAlpha(COL.glassTintHi, hov * alpha), edge: [0.84, 0.91, 1, 0.22 * hov], edge2: [0.55, 0.7, 1, 0.05 * hov] });
+    } else if (o.selected) {
+      this.glass(bx, by, bw, bh, { ...sh, tint: withAlpha(mixc([0.16, 0.38, 0.9, 0.55], [0.22, 0.48, 1, 0.65], hov), alpha), topGlow: [0.5, 0.9, 1, 0.38 * alpha], edge: [0.8, 0.95, 1, 0.75 * alpha], edge2: [0.5, 0.8, 1, 0.3 * alpha], glow: withAlpha(hex('#4c8cff'), 0.16 * alpha), sheen: 0.1 });
     } else {
-      const base = o.selected ? hex('#2c4aa8', 0.92) : COL.btn;
-      this.rect(bx, by, bw, bh, {
-        fill: withAlpha(mixc(base, COL.btnHover, hov), alpha),
-        border: 1.5, borderColor: o.selected ? hex('#8fd8ff', 0.9) : withAlpha(mixc(COL.panelEdge, hex('#aad0ff', 0.8), hov), alpha), radius,
-        glow: o.selected ? hex('#4c8cff', 0.18) : undefined,
-      });
+      this.glass(bx, by, bw, bh, { ...sh, tint: withAlpha(mixc(COL.glassTint, COL.glassTintHi, hov), alpha), edge: [0.84, 0.91, 1, (0.28 + 0.25 * hov) * alpha], sheen: 0.06 + 0.05 * hov });
     }
     const size = (o.size ?? 18) * u;
     const col = withAlpha(o.color || textCol, alpha);
     if (o.icon !== undefined && o.label) {
       const iw = size * 1.15;
-      const tw = this.measure(o.label, size, o.spacing || 0);
+      const tw = this.measure(o.label, size, o.spacing || 0, weight);
       const total = iw + 8 * u + tw;
       this.icon(o.icon, cx - total / 2 + iw / 2, cy, iw, col);
-      this.text(o.label, cx - total / 2 + iw + 8 * u, cy, size, col, { spacing: o.spacing });
+      this.text(o.label, cx - total / 2 + iw + 8 * u, cy, size, col, { spacing: o.spacing, weight });
     } else if (o.icon !== undefined) {
       this.icon(o.icon, cx, cy, Math.min(bw, bh) * (o.iconScale ?? 0.5), col);
     } else if (o.label) {
-      this.text(o.label, cx, cy, size, col, { align: 'center', spacing: o.spacing });
+      this.text(o.label, cx, cy, size, col, { align: 'center', spacing: o.spacing, weight });
     }
     if (clicked && this.onClick) this.onClick(kind);
     return clicked;
