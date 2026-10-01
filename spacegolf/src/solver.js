@@ -69,6 +69,30 @@ export function trial(w, S0, angle, power, t, maxTime = 20) {
   return S;
 }
 
+// How forgiving is a shot? Fraction of nearby shots (angle +-0.8deg, power +-2.5%,
+// launch time +-0.12s) that still drop in the hole. A human can't hit needles.
+export const ROBUST_MIN = 0.4;
+export function robustness(w, S0, shot, maxTime = 20) {
+  const dA = 0.014;
+  const dP = 0.025;
+  const moving = hasMovingBodies(w.level);
+  const dTs = moving ? [-0.12, 0, 0.12] : [0];
+  let ok = 0;
+  let total = 0;
+  for (const da of [-1, 0, 1]) {
+    for (const dp of [-1, 0, 1]) {
+      for (const dt of dTs) {
+        const power = Math.max(0.03, Math.min(1, shot.power + dp * dP));
+        const t = Math.max(S0.t, shot.t + dt);
+        const S = trial(w, S0, shot.angle + da * dA, power, t, maxTime);
+        total++;
+        if (S.ball.mode === 'captured') ok++;
+      }
+    }
+  }
+  return ok / total;
+}
+
 function keepBest(list, item, cap) {
   list.push(item);
   list.sort((a, b) => a.miss - b.miss);
@@ -83,6 +107,8 @@ export function* searchOneShot(w, S0, opts = {}) {
   const times = timeSamples(level, S0, opts.times ?? 6);
   const refine = opts.refine ?? true;
   const maxTime = opts.maxTime ?? 20;
+  const robust = opts.robust ?? true;
+  const accept = (t, angle, power) => !robust || robustness(w, S0, { t, angle, power }, maxTime) >= ROBUST_MIN;
   const misses = [];
   let count = 0;
   for (let ai = 0; ai < nA; ai++) {
@@ -90,7 +116,7 @@ export function* searchOneShot(w, S0, opts = {}) {
     for (const power of powers) {
       for (const t of times) {
         const S = trial(w, S0, angle, power, t, maxTime);
-        if (S.ball.mode === 'captured') return { solved: true, shot: { t, angle, power } };
+        if (S.ball.mode === 'captured' && accept(t, angle, power)) return { solved: true, shot: { t, angle, power } };
         if (refine) keepBest(misses, { angle, power, t, miss: S.minHole }, 6);
         if (++count % 300 === 0) yield ai / nA;
       }
@@ -108,7 +134,7 @@ export function* searchOneShot(w, S0, opts = {}) {
             const power = Math.max(0.05, Math.min(1, m.power + dp));
             const t = Math.max(S0.t, m.t + dt * dtStep);
             const S = trial(w, S0, angle, power, t, maxTime);
-            if (S.ball.mode === 'captured') return { solved: true, shot: { t, angle, power } };
+            if (S.ball.mode === 'captured' && accept(t, angle, power)) return { solved: true, shot: { t, angle, power } };
             if (++count % 300 === 0) yield 1;
           }
         }
