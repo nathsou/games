@@ -610,8 +610,9 @@ export class GameScene {
 
     const by = py + ph - 70 * u;
     const gap = 10 * u;
-    const bw = (pw - 40 * u - gap * 2) / 3;
     const hasNext = !!this.cfg.onNext;
+    const nb = hasNext ? 3 : 2;
+    const bw = (pw - 40 * u - gap * (nb - 1)) / nb;
     if (ui.button('w-menu', px + 20 * u, by, bw, 48 * u, { icon: ICON.home, label: 'Menu', size: 16 })) this.exit();
     if (ui.button('w-retry', px + 20 * u + bw + gap, by, bw, 48 * u, { icon: ICON.retry, label: 'Retry', size: 16 })) this.restart();
     if (hasNext) {

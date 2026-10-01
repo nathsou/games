@@ -398,8 +398,8 @@ export class EditorScene {
     const wp = this.worldPos();
     if (p.pressed && !ui.overUI()) this.onPress(wp);
     if (this.drag) {
-      if (p.down) this.onDrag(wp);
-      else this.drag = null;
+      if (p.down || p.released) this.onDrag(wp); // apply the final position even if the drag ended within a frame
+      if (!p.down) this.drag = null;
     }
   }
 

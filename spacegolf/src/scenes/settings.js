@@ -68,6 +68,18 @@ export class SettingsScene {
         st.save();
       });
     });
+    if (document.fullscreenEnabled || document.webkitFullscreenEnabled) {
+      row('Fullscreen', 'Best on tablets and phones', (rx, ry, h) => {
+        const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        segmented('fs', rx, ry, h, ['Off', 'On'], on ? 1 : 0, (i) => {
+          try {
+            const el = document.documentElement;
+            if (i === 1) (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+            else (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+          } catch (e) { /* not allowed here */ }
+        });
+      });
+    }
     y += 6 * u;
     if (ui.button('reset', x0, y, colW, 50 * u, { label: 'Reset all progress', icon: ICON.trash, kind: 'danger', size: 16 })) this.confirmReset = true;
     y += 66 * u;
