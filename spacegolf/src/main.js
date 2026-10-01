@@ -1,46 +1,34 @@
-import { Renderer, T, LOOK_ID } from './renderer.js';
-import { TextAtlas } from './text.js';
-import { UI, COL, ICON } from './ui.js';
+import { App } from './app.js';
+import { TitleScene } from './scenes/title.js';
+import { installNavigation } from './nav.js';
+
 const canvas = document.getElementById('game');
-const r = new Renderer(canvas);
-const atlas = new TextAtlas();
-r.setAtlas(atlas.canvas);
-const ui = new UI(r, atlas, canvas);
-window.__r = r;
-let last = performance.now();
-function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  const t = now / 1000;
-  r.resize();
-  ui.begin(dt, t);
-  r.beginFrame(t);
-  r.fitCamera(1600, 900, { x: 0, y: 0, w: r.cssW, h: r.cssH });
-  r.background({ c1: [0.2, 0.1, 0.5], c2: [0.05, 0.3, 0.5], seed: 3 });
-  r.field(window.__field || 0, [{x:-400,y:-100,mu:1.2e6,eps2:1},{x:300,y:100,mu:-5e5,eps2:100}]);
-  const looks = ['moon','earth','desert','lava','ice','goo','jelly','gas'];
-  looks.forEach((l,i)=> r.sprite(false, T.PLANET, -700+i*190, -300, 90, 50, i*3+1, LOOK_ID[l], i===1||i===7?30:0, 1,1,1,1));
-  r.sprite(false, T.SUN, -500, 100, 180, 50, 2, 0,0, 1,1,1,1);
-  r.sprite(false, T.BLACKHOLE, -200, 100, 90, 16, 2, 0,0, 1,1,1,1);
-  r.lens(-200,100,16*3);
-  r.sprite(false, T.REPULSOR, 100, 100, 100, 28, 2, 0,0, 1,1,1,1);
-  r.sprite(false, T.WORMHOLE, 350, 100, 50, 22, 2, 0,0, 0.4,0.8,1,1);
-  r.sprite(false, T.WORMHOLE, 450, 100, 50, 22, 2, 0,0, 1,0.5,1,1);
-  r.sprite(false, T.WIND, 650, 100, 150, 140, 2, 100,-40, 1,1,1,1);
-  r.sprite(false, T.HOLE, 0, 300, 60, 15, 0, 0.2,0, 1,1,1,1);
-  r.sprite(false, T.FLAG, 0, 300, 60, 36, 0, 0,-1, 1,1,1,1);
-  r.sprite(false, T.STAR, 120, 300, 30, 12, 1, 0,0, 1,1,1,1);
-  r.sprite(false, T.BALL, 200, 300, 20, 5, 0, 0,0, 1,1,1,1);
-  r.dot(260,300,6,1,1,1,1,1);
-  r.line(300,300,400,340,2,0.5,0.9,1,0.8,12);
-  r.flushWorld();
-  r.endWorld(1, null, 0.8);
-  ui.text('SPACEGOLF', r.cssW/2, 80, 64, COL.text, {align:'center', spacing: 0.08, color2: COL.accent});
-  ui.button('a', 50, r.cssH-100, 200, 54, {label:'Campaign', kind:'primary'});
-  ui.button('b', 270, r.cssH-100, 200, 54, {label:'Endless', icon: ICON.dice});
-  for (let i=1;i<=26;i++){ ui.button('i'+i, 40+((i-1)%13)*92, 180+Math.floor((i-1)/13)*84, 76, 76, {icon:i, iconScale:0.6}); }
-  ui.stars(r.cssW-120, 150, 30, 2);
-  ui.end();
-  r.flushUI();
-  requestAnimationFrame(frame);
+
+function fail(message) {
+  // WebGL2 is required; with no GL context we can still paint a message with 2D.
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  if (!ctx) return;
+  ctx.fillStyle = '#050816';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#eaf1ff';
+  ctx.font = '600 22px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Spacegolf needs WebGL2', canvas.width / 2, canvas.height / 2 - 12);
+  ctx.fillStyle = '#9db0d8';
+  ctx.font = '15px system-ui, sans-serif';
+  ctx.fillText(String(message).slice(0, 120), canvas.width / 2, canvas.height / 2 + 18);
 }
-requestAnimationFrame(frame);
+
+try {
+  const app = new App(canvas);
+  window.spacegolf = app;
+  installNavigation(app);
+  app.go(new TitleScene(app), true);
+  app.routeFromHash();
+  app.start();
+} catch (e) {
+  console.error(e);
+  fail(e && e.message ? e.message : e);
+}

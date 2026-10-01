@@ -39,6 +39,8 @@ export class TextAtlas {
         v1: (cy + this.cellH) / canvas.height,
       });
     }
+    // the star is drawn as an icon by the UI (fonts differ in whether they have it)
+    this.glyphs.set('★', { adv: 0.95, icon: 13, u0: 0, v0: 0, u1: 0, v1: 0 });
     this.canvas = canvas;
     this.fallback = this.glyphs.get('?');
   }

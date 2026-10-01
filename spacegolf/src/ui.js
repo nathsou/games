@@ -220,7 +220,9 @@ export class UI {
       let pen = px;
       for (let i = 0; i < str.length; i++) {
         const g = atlas.glyph(str[i]);
-        if (str[i] !== ' ') {
+        if (g.icon) {
+          if (ox === 0 && oy === 0) this.icon(g.icon, pen + g.adv * size * 0.5, y, size * 0.95, c);
+        } else if (str[i] !== ' ') {
           this.r.uiPush(pen + g.adv * size * 0.5 - cw / 2 + ox, top + oy, cw, ch, c, cc2, 1, 0, 0, 0, g.u0, g.v0, g.u1, g.v1);
         }
         pen += g.adv * size + sp * size;

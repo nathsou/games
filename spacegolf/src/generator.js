@@ -9,10 +9,10 @@
 
 import { RNG } from './rng.js';
 import {
-  createWorld, newState, cloneState, shoot, step, waitUntil, ensureBodies, replay,
+  createWorld, newState, cloneState, shoot, step, waitUntil, ensureBodies, replay, flyToEnd,
   DT, PORTAL_R, hasMovingBodies,
 } from './physics.js';
-import { searchOneShot, drain } from './solver.js';
+import { searchOneShot, drain, robustness, trial, ROBUST_MIN } from './solver.js';
 
 export const DIFFICULTIES = [
   null,
@@ -319,6 +319,80 @@ function placeStars(w, level, shots, count, rng) {
   return out;
 }
 
+// Can a human actually play this solution? The last shot must tolerate small aim
+// errors, and every earlier shot must reliably land on the same planet.
+function humanPlayable(w, shots) {
+  const S = newState(w);
+  for (let i = 0; i < shots.length; i++) {
+    const sh = shots[i];
+    if (sh.t > S.t) waitUntil(w, S, sh.t);
+    const pre = cloneState(S);
+    if (i === shots.length - 1) {
+      if (robustness(w, pre, sh) < ROBUST_MIN) return false;
+    } else {
+      const want = (() => {
+        const e = trial(w, pre, sh.angle, sh.power, sh.t);
+        return e.lastRest.body;
+      })();
+      let ok = 0;
+      for (const da of [-1, 0, 1]) {
+        for (const dp of [-1, 0, 1]) {
+          const e = trial(w, pre, sh.angle + da * 0.014, Math.max(0.03, Math.min(1, sh.power + dp * 0.025)), sh.t);
+          if (e.ball.mode === 'rest' && e.penalties === pre.penalties && e.lastRest.body === want) ok++;
+        }
+      }
+      if (ok < 6) return false;
+    }
+    shoot(w, S, sh.angle, sh.power);
+    flyToEnd(w, S);
+  }
+  return true;
+}
+
+// Place pickups at the given fractions (0..1) of the way along a solution's flight path.
+export function placeStarsAlong(level, shots, fracs) {
+  const w = createWorld({ ...level, stars: [] });
+  const S = newState(w);
+  const pts = [];
+  let total = 0;
+  let px = null;
+  let py = null;
+  for (const sh of shots) {
+    if (sh.t > S.t) waitUntil(w, S, sh.t);
+    shoot(w, S, sh.angle, sh.power);
+    let i = 0;
+    while (S.ball.mode === 'fly' && i < 5400) {
+      step(w, S, DT);
+      i++;
+      if (i % 10 === 0 && S.ball.mode === 'fly') {
+        if (px !== null) total += Math.hypot(S.ball.x - px, S.ball.y - py);
+        px = S.ball.x;
+        py = S.ball.y;
+        pts.push({ x: px, y: py, d: total });
+      }
+    }
+    px = null;
+  }
+  const out = [];
+  const clearOf = (p) => {
+    for (let i = 0; i < w.n; i++) {
+      if (Math.hypot(p.x - w.px[i], p.y - w.py[i]) < w.R[i] + (w.atmo[i] || 0) + 42) return false;
+    }
+    for (const q of out) if (Math.hypot(q.x - p.x, q.y - p.y) < 140) return false;
+    return Math.abs(p.x) < W / 2 - 50 && Math.abs(p.y) < H / 2 - 50;
+  };
+  for (const f of fracs) {
+    const target = total * f;
+    let best = null;
+    for (const p of pts) {
+      if (!clearOf(p)) continue;
+      if (!best || Math.abs(p.d - target) < Math.abs(best.d - target)) best = p;
+    }
+    if (best) out.push({ x: Math.round(best.x), y: Math.round(best.y) });
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -351,6 +425,7 @@ export function* generateSteps(seed, difficulty) {
     const par = check.shots;
     if (par !== chain.shots.length) continue; // captured early: the hole is too exposed
     const used = chain.shots;
+    if (!humanPlayable(w, used)) continue; // needle-thin solutions are no fun
 
     level.stars = placeStars(w, level, used, cfg.stars, rng);
     const w2 = createWorld(level);
@@ -360,7 +435,7 @@ export function* generateSteps(seed, difficulty) {
     }
 
     level.par = par;
-    level.solution = used.map((s) => ({ t: +s.t.toFixed(5), angle: +s.angle.toFixed(5), power: +s.power.toFixed(5) }));
+    level.solution = used.map((s) => ({ t: s.t, angle: s.angle, power: s.power }));
     level.previewSec = cfg.preview;
     level.difficulty = d;
     level.seed = seed;
