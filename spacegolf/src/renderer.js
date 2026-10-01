@@ -6,6 +6,7 @@
 import * as SH from './shaders.js';
 
 export const T = {
+  SPARKLE: 11,
   PLANET: 0, SUN: 1, BLACKHOLE: 2, REPULSOR: 3, WORMHOLE: 4, HOLE: 5, DOT: 6, STAR: 7,
   BALL: 8, WIND: 9, RING: 10, CAPSULE: 12, FLAG: 13,
 };
@@ -44,10 +45,12 @@ function program(gl, vs, fs, label) {
   return { p, u: uniforms };
 }
 
-function makeTarget(gl, w, h, filter = gl.LINEAR) {
+function makeTarget(gl, w, h, hdr = false) {
+  const filter = gl.LINEAR;
   const tex = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, tex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  if (hdr) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -68,18 +71,22 @@ export class Renderer {
     this.gl = gl;
     this.time = 0;
     this.dpr = 1;
+    this.quality = 1; // render-resolution multiplier (lowered automatically on slow devices)
     this.cssW = 0;
     this.cssH = 0;
     this.W = 0;
     this.H = 0;
     this.cam = { x: 0, y: 0, scale: 1 };
     this.light = [-0.55, -0.62, 0.6];
+    this.sun = null; // {x, y}: light comes from this world position when set
+    this.bounds = null; // {hw, hh}: dims everything outside the playfield
 
     this.progObj = program(gl, SH.OBJ_VS, SH.OBJ_FS, 'objects');
     this.progBg = program(gl, SH.FS_VS, SH.BG_FS, 'background');
     this.progField = program(gl, SH.FS_VS, SH.FIELD_FS, 'field');
     this.progBright = program(gl, SH.FS_VS, SH.BRIGHT_FS, 'bright');
     this.progBlur = program(gl, SH.FS_VS, SH.BLUR_FS, 'blur');
+    this.progCopy = program(gl, SH.FS_VS, SH.COPY_FS, 'copy');
     this.progComp = program(gl, SH.FS_VS, SH.COMPOSITE_FS, 'composite');
     this.progUI = program(gl, SH.UI_VS, SH.UI_FS, 'ui');
 
@@ -141,7 +148,7 @@ export class Renderer {
   // ----- sizing ---------------------------------------------------------------
   resize() {
     const gl = this.gl;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2) * (this.quality || 1);
     const cssW = Math.max(1, window.innerWidth);
     const cssH = Math.max(1, window.innerHeight);
     const W = Math.round(cssW * dpr);
@@ -156,21 +163,53 @@ export class Renderer {
     this.canvas.height = H;
     this.canvas.style.width = cssW + 'px';
     this.canvas.style.height = cssH + 'px';
-    if (this.targets) {
-      for (const t of Object.values(this.targets)) {
+    if (this.allTargets) {
+      for (const t of this.allTargets) {
         gl.deleteTexture(t.tex);
         gl.deleteFramebuffer(t.fbo);
       }
     }
-    const bw = Math.max(2, W >> 2);
-    const bh = Math.max(2, H >> 2);
-    this.targets = {
-      scene: makeTarget(gl, W, H),
-      bloomA: makeTarget(gl, bw, bh),
-      bloomB: makeTarget(gl, bw, bh),
-    };
+    this.buildTargets(W, H);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return true;
+  }
+
+  // HDR (half float) targets when the browser can render to them, else plain RGBA8.
+  buildTargets(W, H) {
+    const gl = this.gl;
+    if (this.hdr === undefined) {
+      this.hdr = !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
+    }
+    const make = (w, h, hdr) => {
+      const t = makeTarget(gl, Math.max(2, w), Math.max(2, h), hdr);
+      this.allTargets.push(t);
+      return t;
+    };
+    this.allTargets = [];
+    let scene = make(W, H, this.hdr);
+    if (this.hdr && gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+      // half-float rendering is advertised but broken: fall back
+      this.hdr = false;
+      gl.deleteTexture(scene.tex);
+      gl.deleteFramebuffer(scene.fbo);
+      this.allTargets.length = 0;
+      scene = make(W, H, false);
+    }
+    const hdr = this.hdr;
+    this.targets = { scene };
+    // bloom pyramid: 1/2, 1/4, 1/8, 1/16, 1/32 resolution, each with a ping-pong partner
+    this.bloom = [];
+    for (let i = 0; i < 5; i++) {
+      const w = W >> (i + 1);
+      const h = H >> (i + 1);
+      this.bloom.push({ a: make(w, h, hdr), b: make(w, h, hdr) });
+    }
+    // composite result (kept for the frosted-glass UI) + its blurred copies
+    this.final = make(W, H, false);
+    this.glass = [
+      { a: make(W >> 2, H >> 2, false), b: make(W >> 2, H >> 2, false) },
+      { a: make(W >> 3, H >> 3, false), b: make(W >> 3, H >> 3, false) },
+    ];
   }
 
   setAtlas(canvas2d) {
@@ -195,6 +234,8 @@ export class Renderer {
     this.objLayers[1].n = 0;
     this.holes.length = 0;
     this.ui.n = 0;
+    this.sun = null;
+    this.bounds = null;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.targets.scene.fbo);
     gl.viewport(0, 0, this.W, this.H);
     gl.disable(gl.BLEND);
@@ -244,6 +285,7 @@ export class Renderer {
     gl.uniform3fv(pr.u.uCol1, palette.c1);
     gl.uniform3fv(pr.u.uCol2, palette.c2);
     gl.uniform1f(pr.u.uSeed, palette.seed || 0);
+    gl.uniform2f(pr.u.uBounds, this.bounds ? this.bounds.hw : 0, this.bounds ? this.bounds.hh : 0);
     gl.bindVertexArray(this.emptyVao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
@@ -298,7 +340,7 @@ export class Renderer {
     const hx = (x2 - x1) / 2;
     const hy = (y2 - y1) / 2;
     const len = Math.hypot(hx, hy);
-    this.sprite(true, T.CAPSULE, x1 + hx, y1 + hy, len + width * 5, width, dash, hx, hy, r, g, b, a);
+    this.sprite(true, T.CAPSULE, x1 + hx, y1 + hy, len + width * 13, width, dash, hx, hy, r, g, b, a);
   }
 
   flushWorld() {
@@ -307,6 +349,7 @@ export class Renderer {
     gl.useProgram(pr.p);
     this.setUniformsCommon(pr);
     gl.uniform3f(pr.u.uLight, this.light[0], this.light[1], this.light[2]);
+    gl.uniform3f(pr.u.uSun, this.sun ? this.sun.x : 0, this.sun ? this.sun.y : 0, this.sun ? 1 : 0);
     gl.enable(gl.BLEND);
     for (let k = 0; k < 2; k++) {
       const L = this.objLayers[k];
@@ -329,60 +372,80 @@ export class Renderer {
     }
   }
 
-  // bloom + composite to the screen
+  // draw a fullscreen pass of `prog` from texture `src` into `dst` (null = screen)
+  pass(prog, src, dst, w, h, setup) {
+    const gl = this.gl;
+    gl.useProgram(prog.p);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, dst ? dst.fbo : null);
+    gl.viewport(0, 0, w, h);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, src.tex);
+    gl.uniform1i(prog.u.uTex, 0);
+    if (setup) setup(prog.u);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  blur(level, iterations) {
+    // level = {a, b}; blurs a in place (a -> b -> a)
+    for (let i = 0; i < iterations; i++) {
+      this.pass(this.progBlur, level.a, level.b, level.a.w, level.a.h, (u) => this.gl.uniform2f(u.uDir, 1 / level.a.w, 0));
+      this.pass(this.progBlur, level.b, level.a, level.a.w, level.a.h, (u) => this.gl.uniform2f(u.uDir, 0, 1 / level.a.h));
+    }
+  }
+
+  // bloom + lensing + tone-mapping; leaves the finished image on the screen
   endWorld(fade = 1, shake = null, bloom = 0.8) {
     const gl = this.gl;
-    const T_ = this.targets;
     gl.disable(gl.BLEND);
     gl.bindVertexArray(this.emptyVao);
+    const scene = this.targets.scene;
 
-    // bright pass -> A
-    let pr = this.progBright;
-    gl.useProgram(pr.p);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, T_.bloomA.fbo);
-    gl.viewport(0, 0, T_.bloomA.w, T_.bloomA.h);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, T_.scene.tex);
-    gl.uniform1i(pr.u.uTex, 0);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-
-    // two blur iterations
-    pr = this.progBlur;
-    gl.useProgram(pr.p);
-    gl.uniform1i(pr.u.uTex, 0);
-    for (let i = 0; i < 2; i++) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, T_.bloomB.fbo);
-      gl.bindTexture(gl.TEXTURE_2D, T_.bloomA.tex);
-      gl.uniform2f(pr.u.uDir, 1 / T_.bloomA.w, 0);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, T_.bloomA.fbo);
-      gl.bindTexture(gl.TEXTURE_2D, T_.bloomB.tex);
-      gl.uniform2f(pr.u.uDir, 0, 1 / T_.bloomA.h);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (bloom > 0) {
+      // bright pass -> level 0, then a blurred pyramid
+      this.pass(this.progBright, scene, this.bloom[0].a, this.bloom[0].a.w, this.bloom[0].a.h, (u) => gl.uniform2f(u.uTexel, 1 / scene.w, 1 / scene.h));
+      for (let i = 0; i < this.bloom.length; i++) {
+        if (i > 0) this.pass(this.progCopy, this.bloom[i - 1].a, this.bloom[i].a, this.bloom[i].a.w, this.bloom[i].a.h);
+        this.blur(this.bloom[i], i < 2 ? 1 : 2);
+      }
     }
 
-    // composite
-    pr = this.progComp;
+    // composite into `final`
+    const pr = this.progComp;
     gl.useProgram(pr.p);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.final.fbo);
     gl.viewport(0, 0, this.W, this.H);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, T_.scene.tex);
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, T_.bloomA.tex);
+    const bind = (unit, tex) => {
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+    };
+    bind(0, scene.tex);
+    for (let i = 0; i < 5; i++) bind(1 + i, this.bloom[i].a.tex);
     gl.uniform1i(pr.u.uScene, 0);
-    gl.uniform1i(pr.u.uBloom, 1);
+    for (let i = 0; i < 5; i++) gl.uniform1i(pr.u['uB' + i], 1 + i);
     gl.uniform2f(pr.u.uRes, this.W, this.H);
     const hn = Math.min(4, this.holes.length / 3);
     const hv = new Float32Array(12);
     for (let i = 0; i < hn * 3; i++) hv[i] = this.holes[i];
     gl.uniform3fv(pr.u.uHoles, hv);
     gl.uniform1i(pr.u.uHoleCount, hn);
-    gl.uniform1f(pr.u.uBloomAmt, bloom);
-    gl.uniform1f(pr.u.uFade, fade);
+    gl.uniform1f(pr.u.uBloomAmt, bloom > 0 ? bloom : 0);
     gl.uniform2f(pr.u.uShake, shake ? shake.x * this.dpr : 0, shake ? shake.y * this.dpr : 0);
+    gl.uniform1f(pr.u.uTime, this.time);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.activeTexture(gl.TEXTURE0);
+
+    // to the screen
+    this.pass(this.progCopy, this.final, null, this.W, this.H);
+
+    // blurred copies of the finished frame: the UI's frosted glass samples these
+    const g0 = this.glass[0];
+    const g1 = this.glass[1];
+    this.pass(this.progCopy, this.final, g0.a, g0.a.w, g0.a.h);
+    this.blur(g0, 1);
+    this.pass(this.progCopy, g0.a, g1.a, g1.a.w, g1.a.h);
+    this.blur(g1, 2);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, this.W, this.H);
   }
 
   // ----- UI -------------------------------------------------------------------
@@ -413,6 +476,11 @@ export class Renderer {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.atlasTex);
     gl.uniform1i(pr.u.uAtlas, 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.glass[1].a.tex);
+    gl.uniform1i(pr.u.uGlass, 1);
+    gl.uniform2f(pr.u.uDevRes, this.W, this.H);
+    gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(U.vao);

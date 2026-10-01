@@ -75,7 +75,7 @@ export class CreateScene {
     const slice = list.slice(this.page * perPage, this.page * perPage + perPage);
     slice.forEach((e, i) => {
       const yy = y + i * rowH;
-      ui.rect(x0, yy, colW, rowH - 10 * u, { fill: hex('#0b1230', 0.7), border: 1.2, borderColor: COL.panelEdge, radius: 16 * u });
+      ui.glass(x0, yy, colW, rowH - 10 * u, { radius: 20 * u, shadowAlpha: 0.25, shadowBlur: 10 * u, shadowOffset: 4 * u });
       const th = rowH - 26 * u;
       drawThumb(ui, e.level, x0 + 12 * u, yy + 8 * u, th * 1.78, th);
       const tx = x0 + 12 * u + th * 1.78 + 16 * u;

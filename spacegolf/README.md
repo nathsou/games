@@ -9,6 +9,9 @@ path, and sink it in the hole in as few strokes as you can.
   rasterised once at startup).
 * **Everything is procedural**: planets, nebulae, black-hole lensing, sound.
   No image or audio files are loaded.
+* **Modern look**: an HDR render pipeline (see *Rendering* below), frosted-glass
+  UI that blurs the scene behind it, soft shadows, three font weights, and
+  eased motion.
 * Works with **mouse, touch (tablet) and keyboard**.
 
 ## Run it
@@ -49,6 +52,22 @@ leaving the frame) costs +1 stroke and returns it to its last resting place.
 * **Create**: a level editor (planets, bumpers, black holes, suns, wormholes,
   wind zones, pickups, orbits, tee and hole). Test a level to verify it, save it,
   and share it as a link (`#level=...`).
+
+## Rendering
+
+* The world is drawn into a half-float (HDR) target, so suns, lava and the hole's
+  rim can exceed 1.0. A five-level bloom pyramid, black-hole lensing, a filmic
+  highlight shoulder, a touch of grading, vignette and film grain finish the frame.
+  If the browser can't render to half-float it falls back to 8-bit.
+* Planets are shaded per pixel: gradient-noise fBm with level-of-detail (no
+  shimmering on small planets), bump-mapped craters/dunes/cracks, ocean specular,
+  clouds, city lights on the night side, atmospheric rim scattering, and light that
+  comes from the level's sun when it has one.
+* The backdrop is a domain-warped nebula with dust lanes and sparse, colour-tempered
+  stars. The playfield is marked with corner brackets and everything outside it is dimmed.
+* The UI pass blurs the finished frame into two small textures; panels and
+  buttons sample them (`ui.glass`) for the frosted look, with drop shadows and
+  a light-catching edge. Text uses a three-weight glyph atlas.
 
 ## Physics, in one paragraph
 

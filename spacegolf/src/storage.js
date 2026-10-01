@@ -3,7 +3,7 @@
 const KEY = 'spacegolf.v1';
 
 const DEFAULTS = () => ({
-  settings: { sound: true, assist: 1, field: 0, bloom: true },
+  settings: { sound: true, assist: 1, field: 0, bloom: true, quality: 'auto' },
   campaign: {},
   custom: [],
   endless: { holes: 0, aces: 0, bestRun: null, difficulty: 2, ramp: true },
