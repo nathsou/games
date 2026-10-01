@@ -1,0 +1,12 @@
+{
+  "name": "spacegolf",
+  "version": "1.0.0",
+  "description": "A golf game in space: slingshot a ball around planets into the hole. WebGL2, vanilla JS, zero dependencies.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node tools/serve.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "solve": "node tools/solve.mjs"
+  }
+}
