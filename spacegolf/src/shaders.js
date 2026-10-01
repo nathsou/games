@@ -209,9 +209,9 @@ vec4 blackhole(){
   float br = 0.35+0.9*fbm3(vec3(cos(spin)*1.6, sin(spin)*1.6, dn*1.8));
   float disk = smoothstep(1.15,1.45,dn)*(1.0-smoothstep(2.0,3.9,dn));
   vec3 hot = mix(vec3(1.0,0.9,0.7), vec3(0.8,0.25,1.0), smoothstep(1.3,3.2,dn));
-  col.rgb = hot*br*disk*1.5; col.a = disk*0.95;
+  col.rgb = hot*br*disk*1.15; col.a = disk*0.95;
   float ph = exp(-pow((dn-1.1)*9.0, 2.0));
-  col.rgb += vec3(1.0,0.85,0.7)*ph*1.2; col.a = max(col.a, ph);
+  col.rgb += vec3(1.0,0.85,0.7)*ph*0.85; col.a = max(col.a, ph);
   float edge = 1.0-smoothstep(1.0-aaw()/R, 1.0+aaw()/R, dn);
   col = mix(col, vec4(0.0,0.0,0.0,1.0), edge);
   float outer = exp(-max(dn-3.0,0.0)*1.6)*0.0;

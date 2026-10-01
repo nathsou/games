@@ -73,14 +73,15 @@ export class CampaignScene {
     }
 
     // level tiles
-    const cols = ui.w < 640 * u ? 3 : 6;
+    const portrait = ui.h > ui.w || ui.w < 900 * u;
+    const cols = portrait ? 3 : 6;
     const rows = Math.ceil(w.levels.length / cols);
     const gap = 14 * u;
     const gridW = Math.min(ui.w - 40 * u, 1060 * u);
     const tw = (gridW - gap * (cols - 1)) / cols;
-    const th = Math.min(tw * 1.12, 170 * u);
+    const th = Math.min(tw * (portrait ? 0.95 : 1.12), 190 * u);
     const gx = (ui.w - gridW) / 2;
-    const gy = Math.max(narrow ? ty + 130 * u : ty + 130 * u, ui.h - rows * (th + gap) - 24 * u + gap);
+    const gy = portrait ? ty + 150 * u : Math.max(ty + 130 * u, ui.h - rows * (th + gap) - 24 * u + gap);
     w.levels.forEach((lv, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);

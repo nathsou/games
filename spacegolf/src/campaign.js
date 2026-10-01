@@ -41,7 +41,11 @@ export const WORLDS = [];
 
 function world(id, name, blurb, look, colors, levels) {
   const w = { id, name, blurb, look, colors, levels: [] };
-  levels.forEach((l, i) => w.levels.push(build(`${id}-${i + 1}`, l.name, l)));
+  levels.forEach((l, i) => {
+    const level = build(`${id}-${i + 1}`, l.name, l);
+    level.palette = level.palette || { c1: colors.c1, c2: colors.c2, seed: WORLDS.length * 7.3 + i * 1.9 };
+    w.levels.push(level);
+  });
   WORLDS.push(w);
 }
 

@@ -90,6 +90,7 @@ export class UI {
       if (p.down) p.released = true;
       p.down = false;
       p.id = null;
+      if (e.pointerType !== 'mouse') p.leaveAfter = true; // touches have no hover: forget the position after this frame
     };
     c.addEventListener('pointerup', up);
     c.addEventListener('pointercancel', up);
@@ -142,6 +143,11 @@ export class UI {
     p.pressed = false;
     p.released = false;
     p.rightPressed = false;
+    if (p.leaveAfter && !p.down) {
+      p.x = -100;
+      p.y = -100;
+      p.leaveAfter = false;
+    }
     this.wheel = 0;
     this.keys.length = 0;
     this.canvas.style.cursor = this.hoverId !== null ? 'pointer' : this.cursor;

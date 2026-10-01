@@ -27,6 +27,7 @@ try {
   installNavigation(app);
   app.go(new TitleScene(app), true);
   app.routeFromHash();
+  window.addEventListener('hashchange', () => app.routeFromHash());
   app.start();
 } catch (e) {
   console.error(e);
