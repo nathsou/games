@@ -13,7 +13,14 @@ function playCustom(app, entry, fromList = true) {
     title: level.name,
     subtitle: 'Custom level',
     paletteSalt: 3,
-    onWin: (res) => ({ extra: res.strokes <= (level.par ?? 3) ? 'Par or better!' : '' }),
+    onWin: (res) => {
+      // keep the best run so it can be replayed from the My Levels list
+      if (!entry.best || res.strokes < entry.best.strokes) {
+        entry.best = { strokes: res.strokes, shots: res.sequence };
+        app.store.save();
+      }
+      return { extra: res.strokes <= (level.par ?? 3) ? 'Par or better!' : '' };
+    },
     onExit: () => app.go(new CreateScene(app)),
   };
   app.go(new GameScene(app, cfg));
@@ -101,6 +108,14 @@ export class CreateScene {
       bx -= bs + 6 * u;
       if (ui.button('c-edit' + e.id, bx, by, bs, bs, { icon: ICON.pencil, iconScale: 0.5 })) app.go(new EditorScene(app, e));
       bx -= bs + 6 * u;
+      if (e.best && e.best.shots) {
+        if (ui.button('c-watch' + e.id, bx, by, bs, bs, { icon: ICON.eye, iconScale: 0.55 })) {
+          const lv = cloneLevel(e.level);
+          lv.name = e.name || lv.name;
+          app.watchReplay(lv, e.best.shots, `Replay · ${lv.name}`, `Custom level · best run, ${e.best.strokes} strokes`, () => app.go(new CreateScene(app)), 3);
+        }
+        bx -= bs + 6 * u;
+      }
       if (ui.button('c-play' + e.id, bx, by, bs, bs, { icon: ICON.play, iconScale: 0.5, kind: 'primary', disabled: !ok })) playCustom(app, e);
     });
     if (pages > 1) {

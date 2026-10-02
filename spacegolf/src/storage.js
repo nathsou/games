@@ -49,19 +49,22 @@ export class Store {
     return this.data.campaign[id] || null;
   }
 
-  // returns { newBest, record }
-  recordCampaign(id, strokes, stars) {
+  // Returns { newBest, record }. The sequence of the best run (fewest strokes, then most stars) is kept for replays.
+  recordCampaign(id, strokes, stars, sequence) {
     const rec = this.data.campaign[id];
     let newBest = false;
     if (!rec) {
       this.data.campaign[id] = { best: strokes, stars };
+      if (sequence) this.data.campaign[id].shots = sequence;
       newBest = true;
     } else {
+      const better = strokes < rec.best || (strokes === rec.best && stars > rec.stars) || (!rec.shots && strokes <= rec.best);
       if (strokes < rec.best) {
         rec.best = strokes;
         newBest = true;
       }
       if (stars > rec.stars) rec.stars = stars;
+      if (better && sequence) rec.shots = sequence;
     }
     this.save();
     return { newBest, record: this.data.campaign[id] };

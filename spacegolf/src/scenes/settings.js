@@ -1,7 +1,7 @@
 import { COL, ICON, hex, withAlpha } from '../ui.js';
 import { header } from './common.js';
 
-const ASSIST = [['Short', 0.6], ['Normal', 1], ['Long', 1.8]];
+const ASSIST = [['Off', 0], ['Short', 0.5], ['Normal', 1], ['Long', 2]];
 const FIELD = ['Off', 'Contours', 'Grid'];
 
 export class SettingsScene {
@@ -49,8 +49,9 @@ export class SettingsScene {
         st.save();
       });
     });
-    row('Aim preview', 'How far the dotted trajectory reaches', (rx, ry, h) => {
-      const cur = ASSIST.findIndex((a) => a[1] === s.assist);
+    row('Aim hint', 'How much of the shot\'s start is shown as dots', (rx, ry, h) => {
+      let cur = 0;
+      ASSIST.forEach((a, i) => { if (Math.abs(a[1] - s.assist) < Math.abs(ASSIST[cur][1] - s.assist)) cur = i; });
       segmented('as', rx, ry, h, ASSIST.map((a) => a[0]), cur, (i) => {
         s.assist = ASSIST[i][1];
         st.save();

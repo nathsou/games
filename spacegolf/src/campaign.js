@@ -132,7 +132,7 @@ world('w3', 'Moving Parts', 'Planets on the move', 'desert', { c1: [0.5, 0.18, 0
     name: 'Merry-Go-Round',
     bodies: [planet(-600, 150, 60, 'earth'), planet(40, 0, 60, 'moon', { g: 230 }), planet(300, 0, 30, 'ice', { orbit: { around: 1, period: 26 } })],
     tee: [0, -30], hole: [2, 270], preview: 5, starFracs: [0.5],
-    hint: 'This moon is on the move, and so is the hole. Time your shot: the preview follows the planets live.',
+    hint: 'This moon is on the move, and so is the hole. Time your shot: the aim hint follows the planets live.',
   },
   {
     name: 'Moon Shot',
@@ -148,7 +148,7 @@ world('w3', 'Moving Parts', 'Planets on the move', 'desert', { c1: [0.5, 0.18, 0
     name: 'Timing Is Everything',
     bodies: [planet(-620, 0, 55, 'earth'), planet(620, 0, 55, 'moon'), planet(0, -140, 48, 'lava', { orbit: { cx: 0, cy: 0, period: 12 }, g: 240 })],
     tee: [0, 0], hole: [1, 180], preview: 3.5, starFracs: [0.5],
-    hint: 'Wait for the gap. The preview shows where the planets will be.',
+    hint: 'Wait for the gap and fire when the way is clear.',
   },
   {
     name: 'Hitchhiker',

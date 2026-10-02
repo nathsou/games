@@ -99,13 +99,24 @@ export class CampaignScene {
       // thumbnail + labels drawn over the invisible button
       const gold = rec && rec.stars === 3;
       ui.glass(x, y, tw, th, { radius: 20 * u, tint: rec ? [0.06, 0.11, 0.32, 0.55] : [0.04, 0.07, 0.2, 0.5], glow: gold ? hex('#ffd25e', 0.1) : undefined, edge: gold ? [1, 0.88, 0.5, 0.7] : undefined, topGlow: gold ? [1, 0.82, 0.35, 0.18] : undefined, shadowAlpha: 0.3, shadowBlur: 12 * u, shadowOffset: 5 * u, sheen: 0.07 });
-      const clicked = ui.button('lv-' + lv.id, x, y, tw, th, { kind: 'ghost', radius: 20 * u });
+      // small "watch best run" button in the corner of tiles that have a recording
+      let watch = false;
+      let overWatch = false;
+      if (rec && rec.shots) {
+        const ws = 34 * u;
+        const wx = x + tw - ws - 8 * u;
+        const wy = y + 8 * u;
+        overWatch = ui.hit(wx, wy, ws, ws);
+        watch = ui.button('watch-' + lv.id, wx, wy, ws, ws, { icon: ICON.eye, iconScale: 0.55, size: 12 });
+      }
+      const clicked = ui.button('lv-' + lv.id, x, y, tw, th, { kind: 'ghost', radius: 20 * u, disabled: overWatch });
+      if (watch) app.watchCampaign(this.world, i);
       drawThumb(ui, lv, x + 8 * u, y + 28 * u, tw - 16 * u, th - 78 * u);
       ui.text(String(i + 1), x + 14 * u, y + 19 * u, 17 * u, COL.accent, { weight: 'heavy' });
       ui.text(lv.name, x + 36 * u, y + 17 * u, Math.min(13 * u, (tw - 40 * u) / (lv.name.length * 0.55)), COL.text);
       ui.stars(x + tw / 2, y + th - 36 * u, 16 * u, rec ? rec.stars : 0, 3);
       ui.text(rec ? `Best ${rec.best} · Par ${lv.par}` : `Par ${lv.par}`, x + tw / 2, y + th - 14 * u, 11.5 * u, COL.dim, { align: 'center' });
-      if (clicked) app.playCampaign(this.world, i);
+      if (clicked && !watch) app.playCampaign(this.world, i);
     });
     for (const k of ui.keys) {
       if (k.key === 'ArrowLeft' && this.world > 0) this.world--;
