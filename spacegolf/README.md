@@ -33,13 +33,16 @@ node tools/serve.mjs        # or: npm start       -> http://localhost:8080/
 | Hold pointer during flight, or `F` | Fast-forward |
 | `R` / `U` / `G` / `Esc` | Retry / undo last shot / cycle gravity view / back |
 
-The dotted line previews the first few seconds of the shot (adjustable in
-Settings). Planets that orbit keep moving while you aim, so the preview always
-shows where things *will* be, and timing is part of the puzzle.
+A short run of dots hints at the start of the shot's path (off / short / normal /
+long in Settings); it never shows where the ball ends up. Planets that orbit keep
+moving while you aim, and the hint follows them live, so timing is part of the
+puzzle. The ball may leave the starting view: the camera zooms out and follows it.
+Nothing recalls the ball automatically (a *Recall* button appears during long
+flights, and undo/retry are always available).
 
 Strokes count against **par**; ★ for finishing, ★★ for par or better, ★★★ for
-par or better while collecting every pickup. Losing the ball (black hole, sun,
-leaving the frame) costs +1 stroke and returns it to its last resting place.
+par or better while collecting every pickup. Falling into a black hole or a sun
+costs +1 stroke and returns the ball to its last resting place.
 
 ## Game modes
 
@@ -49,6 +52,12 @@ leaving the frame) costs +1 stroke and returns it to its last resting place.
   levels (optionally ramping up every 3 holes). Every hole has a seed that can be
   shared (`#seed=K7F2QX&d=3`) or typed in on the on-canvas keypad. The next hole
   is generated in the background while you play.
+* **Replays**: every run is recorded (each shot and its exact world time, plus any
+  manual recall). The best run of each campaign or custom level is saved in your
+  browser and can be watched at any time: the eye button on a level tile, in
+  *My Levels*, or *Watch best run* on the result panel. The replay swings the aim
+  round and pulls back before each shot, and is exact because the simulation is
+  deterministic. (Recordings are per browser; endless holes aren't recorded.)
 * **Create**: a level editor (planets, bumpers, black holes, suns, wormholes,
   wind zones, pickups, orbits, tee and hole). Test a level to verify it, save it,
   and share it as a link (`#level=...`).
@@ -64,7 +73,7 @@ leaving the frame) costs +1 stroke and returns it to its last resting place.
   clouds, city lights on the night side, atmospheric rim scattering, and light that
   comes from the level's sun when it has one.
 * The backdrop is a domain-warped nebula with dust lanes and sparse, colour-tempered
-  stars. The playfield is marked with corner brackets and everything outside it is dimmed.
+  stars.
 * The UI pass blurs the finished frame into two small textures; panels and
   buttons sample them (`ui.glass`) for the frosted look, with drop shadows and
   a light-catching edge. Text uses a three-weight glyph atlas.
@@ -75,8 +84,8 @@ Everything runs on one deterministic fixed-step simulation (`src/physics.js`,
 180 Hz velocity-Verlet): N-body gravity from every planet, repulsor and black
 hole; atmospheric drag; per-surface bounce and friction (rock, ice, rubber,
 sticky goo); wormholes; wind zones; and bodies on analytic circular orbits so
-their position is a pure function of time. The aiming preview, the live flight,
-the level generator and the offline solver all share it, so a preview matches
+their position is a pure function of time. The aim hint, the live flight,
+the level generator and the offline solver all share it, so the hint matches
 the real flight exactly.
 
 ## Procedural levels

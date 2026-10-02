@@ -34,9 +34,15 @@ export class App {
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
     window.addEventListener('resize', () => this.r.resize());
-    document.addEventListener('visibilitychange', () => {
+    const syncFocus = () => {
+      this.sound.setFocused(document.visibilityState === 'visible' && document.hasFocus());
       this.last = performance.now();
-    });
+    };
+    document.addEventListener('visibilitychange', syncFocus);
+    window.addEventListener('blur', syncFocus);
+    window.addEventListener('focus', syncFocus);
+    window.addEventListener('pagehide', () => this.sound.setFocused(false));
+    this.sound.focused = document.visibilityState === 'visible' && document.hasFocus();
   }
 
   // 'auto' lowers the render resolution if the device can't hold ~30 fps; 'high' never does; 'low' starts reduced.

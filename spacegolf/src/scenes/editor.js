@@ -229,7 +229,7 @@ export class EditorScene {
       ui.text('Level', x, y + 10 * u, 17 * u, COL.text);
       y += 26 * u;
       y = this.stepper('par', 'Par', String(L.par ?? 3), x, y, w, () => { L.par = Math.max(1, (L.par ?? 3) - 1); this.parAuto = false; this.dirty = true; }, () => { L.par = Math.min(12, (L.par ?? 3) + 1); this.parAuto = false; this.dirty = true; });
-      y = this.stepper('pv', 'Aim preview (s)', String(L.previewSec ?? 4), x, y, w, () => { L.previewSec = Math.max(1, (L.previewSec ?? 4) - 1); this.dirty = true; }, () => { L.previewSec = Math.min(10, (L.previewSec ?? 4) + 1); this.dirty = true; });
+      y = this.stepper('pv', 'Aim hint (1-10)', String(L.previewSec ?? 4), x, y, w, () => { L.previewSec = Math.max(1, (L.previewSec ?? 4) - 1); this.dirty = true; }, () => { L.previewSec = Math.min(10, (L.previewSec ?? 4) + 1); this.dirty = true; });
       ui.text('Pick a tool below, then tap', x, y + 6 * u, 12 * u, COL.dim);
       ui.text('the canvas to place it.', x, y + 24 * u, 12 * u, COL.dim);
     }

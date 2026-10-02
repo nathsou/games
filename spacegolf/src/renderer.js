@@ -244,16 +244,18 @@ export class Renderer {
   // Fit a rectangle (world units, centred on origin) into a region of the screen (CSS px).
   fitCamera(worldW, worldH, region, shake) {
     const s = Math.min(region.w / worldW, region.h / worldH);
+    this.view(0, 0, s, region, shake);
+    return s;
+  }
+
+  // World point (wx, wy) sits at the centre of `region` (css px), at s css px per world unit.
+  view(wx, wy, s, region, shake) {
     const cx = region.x + region.w / 2;
     const cy = region.y + region.h / 2;
-    // world origin lands on (cx, cy) in css px; camera centre is the world point at screen centre
-    const wx = (this.cssW / 2 - cx) / s;
-    const wy = (this.cssH / 2 - cy) / s;
-    this.cam.x = wx + (shake ? shake.x / s : 0);
-    this.cam.y = wy + (shake ? shake.y / s : 0);
+    this.cam.x = wx + (this.cssW / 2 - cx) / s + (shake ? shake.x / s : 0);
+    this.cam.y = wy + (this.cssH / 2 - cy) / s + (shake ? shake.y / s : 0);
     this.cam.scale = s * this.dpr;
     this.camCss = s;
-    return s;
   }
 
   worldToScreen(x, y, out = {}) {
