@@ -2777,3 +2777,54 @@ html[data-game=flip-it] .arcade-ai-dialog button[data-ai=forget] {
   background:var(--coral);
   box-shadow:0 4px #a82f35,inset 0 0 0 3px var(--k);
 }
+/* Each opponent owns a framed region and a single, readable hand badge. */
+.rivals { column-gap:18px; row-gap:12px; }
+.rival-zone {
+  padding:6px 8px;
+  border:1px solid #fff4de38;
+  border-radius:14px;
+  background:#081e1826;
+}
+.rival-zone.rival-active { border-color:var(--amber); }
+.rival-zone>.rival-heading { gap:12px; min-height:38px; margin:0 0 6px; }
+.rival-identity { display:flex; align-items:center; gap:8px; min-width:0; flex:1; }
+.rival-name {
+  font:26px/1 'Jersey 10';
+  text-shadow:0 2px var(--k);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  min-width:0;
+}
+.rival-turn {
+  flex-shrink:0;
+  border-radius:5px;
+  background:var(--amber);
+  color:var(--k);
+  font:17px/1 'Jersey 15';
+  padding:3px 6px;
+}
+.rival-zone .rival-hand { flex-direction:row; gap:8px; flex-shrink:0; }
+.rival-count {
+  font-size:19px;
+  line-height:1;
+  white-space:nowrap;
+  background:#140d1f99;
+  padding:5px 7px;
+  border-radius:6px;
+}
+@media(min-width:761px) {
+  .table-size-4 .rivals,.table-size-5 .rivals { column-gap:18px; row-gap:8px; }
+  .table-size-4 .rival-zone,.table-size-5 .rival-zone { padding-top:4px; padding-bottom:4px; }
+  .table-size-4 .rival-zone>.rival-heading,.table-size-5 .rival-zone>.rival-heading { min-height:36px; margin:0 0 5px; }
+  .table-size-4 .rival-name,.table-size-5 .rival-name { font-size:23px; }
+  .table-size-4 .rivals .mini-back,.table-size-5 .rivals .mini-back {
+    width:24px;
+    height:34px;
+    margin-left:-16px;
+    border-width:2px;
+    box-shadow:0 0 0 2px var(--k),inset 0 0 0 1px #7c61ca;
+  }
+  .table-size-4 .rivals .mini-back:first-child,.table-size-5 .rivals .mini-back:first-child { margin-left:0; }
+  .table-size-4 .rival-count,.table-size-5 .rival-count { font-size:18px; }
+}
