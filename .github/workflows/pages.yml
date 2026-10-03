@@ -75,7 +75,6 @@ jobs:
           cp midnight/index.html midnight/style.css midnight/preview.png _site/midnight/
           cp -r midnight/src midnight/assets _site/midnight/
           cp -r cluance _site/cluance
-          cp -r similo _site/similo
           cp -r shared _site/shared
           mkdir -p _site/ink-riot
           cp ink-riot/index.html ink-riot/style.css ink-riot/icon.svg ink-riot/preview.png _site/ink-riot/

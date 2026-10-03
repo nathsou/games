@@ -8,9 +8,6 @@ const types = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 createServer(async (req, res) => {
   try {
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
-    if (pathname === '/similo' || pathname.startsWith('/similo/')) {
-      res.writeHead(302, {Location:'/cluance/' + new URL(req.url, 'http://localhost').search}).end(); return;
-    }
     const shared = pathname.startsWith('/shared/'), base = shared ? sharedRoot : root;
     const relative = shared ? pathname.slice('/shared'.length) : pathname.replace(/^\/cluance(?=\/|$)/, '') || '/';
     const path = resolve(base, '.' + relative);
