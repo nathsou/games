@@ -137,11 +137,13 @@ const KIND_LABEL = { collect: 'Movement challenge', quiz: 'Quiz', puzzle: 'Puzzl
 export function mapScreen(app, nav, focusWorld, celebrate) {
   playMusic('map');
   const stars = h('span', { class: 'star-count' }, spriteCanvas(starSprite(true), 2), String(totalStars()));
-  const codexBtn = button('📖 Codex', () => nav.codex(), 'small ghost' + (save.newCodex.length ? ' badge-dot' : ''));
+  const lbl = t => h('span', { class: 'lbl' }, t);
+  const codexBtn = button(['📖', lbl(' Codex')], () => nav.codex(), 'small ghost' + (save.newCodex.length ? ' badge-dot' : ''));
+  codexBtn.setAttribute('aria-label', 'Codex');
   const header = h('header', { class: 'hud' },
-    button('◀ Title', () => nav.title(), 'small ghost back'),
+    button(['◀', lbl(' Title')], () => nav.title(), 'small ghost back'),
     h('div', { class: 'hud-title' }, h('span', { class: 'hud-sub' }, 'The quest'), h('span', { class: 'hud-main' }, 'Climb the 8 ranks')),
-    h('div', { class: 'hud-right' }, stars, codexBtn, button('♞ Practice', () => nav.practice(), 'small ghost'), button('♟ Arena', () => nav.arena(), 'small ghost')),
+    h('div', { class: 'hud-right' }, stars, codexBtn, button(['♞', lbl(' Practice')], () => nav.practice(), 'small ghost'), button(['♟', lbl(' Arena')], () => nav.arena(), 'small ghost')),
   );
   const scroll = h('div', { class: 'map-scroll' });
   const root = h('div', { class: 'screen map-screen' }, header, scroll);
@@ -168,14 +170,21 @@ export function mapScreen(app, nav, focusWorld, celebrate) {
       }, h('span', { class: 'node-badge' }, unlocked ? nodeIcon(l) : h('span', { class: 'node-glyph' }, '🔒')), h('span', { class: 'node-label' }, l.title), res ? starsRow(res.stars, 3, 1) : null);
       sec.append(node);
       if (l === cur) {
-        const av = h('div', { class: 'avatar', style: { left: pts[i].x * 100 + '%', top: (pts[i].y - (l.boss ? 44 : 34)) + 'px' } }, spriteCanvas(pieceSprite(1, WHITE), 4));
+        const at = (k, lv) => ({ left: pts[k].x * 100 + '%', top: (pts[k].y - (lv.boss ? 44 : 34)) + 'px' });
+        const justCleared = save.justCleared && world.levels[i - 1]?.uid === save.justCleared;
+        const av = h('div', { class: 'avatar', style: justCleared ? at(i - 1, world.levels[i - 1]) : at(i, l) }, spriteCanvas(pieceSprite(1, WHITE), 4));
         sec.append(av);
+        if (justCleared) {
+          node.classList.add('fresh');
+          setTimeout(() => { Object.assign(av.style, at(i, l)); sfx.unlock(); }, 500);
+        }
       }
     });
     if (!worldUnlocked(world)) sec.append(h('div', { class: 'world-lock' }, h('span', {}, `🔒 Beat the boss of Rank ${world.rank - 1} to climb here`)));
     scroll.append(sec);
     sections.push({ sec, canvas, world, height, pts });
   }
+  if (save.justCleared) { save.justCleared = null; }
   const paint = () => { const cw = scroll.clientWidth; for (const s of sections) drawBiome(s.canvas, cw, s.height, s.world, s.pts); };
   const ro = new ResizeObserver(paint); ro.observe(scroll);
   paint();

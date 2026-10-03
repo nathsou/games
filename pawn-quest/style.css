@@ -179,6 +179,8 @@ b { color: var(--gold); font-weight: 800; }
 .node-label { background: rgba(10,6,24,.82); color: #fff; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
 .node .stars-row { margin-top: -4px; }
 .node.current .node-badge { animation: pulse 1.4s infinite; }
+.node.fresh .node-badge { animation: unlockPop .7s .5s cubic-bezier(.2,1.8,.4,1) both, pulse 1.4s 1.2s infinite; }
+@keyframes unlockPop { 0% { transform: scale(.4) rotate(-20deg); filter: brightness(2) } 100% { transform: none } }
 @keyframes pulse { 0%, 100% { box-shadow: 0 6px 0 var(--ink), 0 0 0 0 rgba(255,210,63,.7) } 50% { box-shadow: 0 6px 0 var(--ink), 0 0 0 12px rgba(255,210,63,0) } }
 .avatar { position: absolute; z-index: 4; transform: translate(-50%, -100%); pointer-events: none; animation: hop2 1.2s ease-in-out infinite; transition: left .6s, top .6s; }
 @keyframes hop2 { 50% { transform: translate(-50%, calc(-100% - 10px)) } }
@@ -289,6 +291,11 @@ b { color: var(--gold); font-weight: 800; }
   .hud .back { min-width: 0; }
   .hud-main { font-size: 15px; }
 }
+@media (max-width: 680px) {
+  .map-screen .hud-title { display: none; }
+  .map-screen .lbl { display: none; }
+  .map-screen .hud-right { flex: 1; }
+}
 @media (max-width: 480px) {
   .speech { min-height: 96px; padding: 10px; }
   .speech-text { font-size: 15px; }
@@ -298,3 +305,9 @@ b { color: var(--gold); font-weight: 800; }
   .hud-right { min-width: 0; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001s !important; transition: none !important; } }
+.mat-strip { background: var(--panel); border: 3px solid var(--edge); border-radius: 8px; padding: 6px 10px; box-shadow: 0 4px 0 var(--shadow); font-size: 13px; font-weight: 800; }
+.mat-row { display: flex; align-items: center; gap: 2px; min-height: 20px; flex-wrap: wrap; }
+.mat-label { color: var(--dim); width: 72px; flex: 0 0 72px; }
+.mat-row canvas { width: 16px; height: 16px; }
+.mat-score { margin-top: 2px; color: var(--dim); }
+.mat-score.up { color: var(--mint); } .mat-score.down { color: var(--coral); }

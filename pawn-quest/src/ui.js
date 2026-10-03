@@ -233,3 +233,29 @@ export function confetti(n = 120) {
 }
 
 export function clear(el) { el.replaceChildren(); return el; }
+
+// Pieces each side has captured since `start`, with the point difference.
+export function materialStrip(start, pos, me) {
+  const count = p => { const c = [[0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0]]; for (const sq of p.pieces()) { const x = p.b[sq]; c[x >> 3][x & 7]++; } return c; };
+  const a = count(start), b = count(pos);
+  const vals = [0, 1, 3, 3, 5, 9, 0];
+  const row = (victimColor, label) => {
+    const el = h('div', { class: 'mat-row' }, h('span', { class: 'mat-label' }, label));
+    let pts = 0;
+    for (const t of [5, 4, 3, 2, 1]) {
+      const lost = Math.max(0, a[victimColor][t] - b[victimColor][t]);
+      for (let i = 0; i < lost; i++) el.append(pieceIcon(t, victimColor, 1));
+      pts += lost * vals[t];
+    }
+    return { el, pts };
+  };
+  const mine = row(me ^ 1, 'You took'), theirs = row(me, 'They took');
+  const diff = mine.pts - theirs.pts;
+  // Promotions add material without captures; fall back to plain counting for the score.
+  const score = c => { let s = 0; for (const sq of pos.pieces(c)) s += vals[pos.b[sq] & 7]; return s; };
+  const lead = score(me) - score(me ^ 1);
+  const wrap = h('div', { class: 'mat-strip' }, mine.el, theirs.el,
+    h('div', { class: 'mat-score ' + (lead > 0 ? 'up' : lead < 0 ? 'down' : '') }, lead === 0 ? 'Material: even' : lead > 0 ? `You're ahead by ${lead}` : `You're behind by ${-lead}`));
+  void diff;
+  return wrap;
+}

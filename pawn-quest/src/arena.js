@@ -4,7 +4,7 @@ import { Game, BOTS, BOT_LINES } from './game.js';
 import { playLayout } from './level.js';
 import { BoardView } from './board.js';
 import { save, persist } from './save.js';
-import { h, button, modal, toast, richEl, portrait, Speech, linkSquares, banner, confetti, CHAR_NAMES } from './ui.js';
+import { h, button, modal, toast, richEl, portrait, Speech, linkSquares, banner, confetti, CHAR_NAMES, materialStrip } from './ui.js';
 import { GRADES } from './coach.js';
 import { TAG_TO_CODEX, CODEX } from './codex-data.js';
 import { ask } from './ai.js';
@@ -86,7 +86,8 @@ function startGame(app, nav, botId, color, moves) {
   const controls = h('div', { class: 'controls' });
   const movelist = h('div', { class: 'movelist', 'aria-label': 'Moves' });
   const feed = h('div', { class: 'feed' });
-  ui.side.append(controls, movelist, feed);
+  const matBox = h('div');
+  ui.side.append(controls, matBox, movelist, feed);
   linkSquares(ui.side, board);
   const lines = BOT_LINES[bot?.char] || {};
   let ended = false, hintStage = 0, lastHint = null;
@@ -130,6 +131,7 @@ function startGame(app, nav, botId, color, moves) {
   }
 
   function paintMoves() {
+    matBox.replaceChildren(materialStrip(Position.fromFEN(START_FEN), game.pos, friend ? WHITE : user));
     movelist.replaceChildren();
     game.history.forEach((e, i) => {
       if (i % 2 === 0) movelist.append(h('span', { class: 'n' }, (i / 2 + 1) + '.'));

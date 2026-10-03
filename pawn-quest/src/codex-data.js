@@ -111,12 +111,12 @@ export const CODEX = {
   kqk: {
     title: 'Queen + King Mate', cat: 'Endgames', icon: 'Q',
     text: 'With queen and king against a lone king:\n1) Put your queen a **knight\'s move** away from the enemy king to build a shrinking box.\n2) Once the king is on the edge, bring **your king** close.\n3) Mate with the queen protected by your king.\nAlways check that the enemy king still has a move, or it\'s stalemate!',
-    demo: { setup: 'ka8 Qc6 Kc1', moves: ['c1b2', 'a8b8', 'b2b3', 'b8a7', 'b3b4', 'a7b8', 'b4b5', 'b8a7', 'c6c7', 'a7a8', 'b5a6', 'a8b8', 'c7b7'] },
+    demo: { setup: 'ke6 Qd1 Kc1', moves: ['c1d2', 'e6f6', 'd2e3', 'f6e7', 'e3f4', 'e7f7', 'f4e5', 'f7e7', 'd1h1', 'e7e8', 'e5e6', 'e8d8', 'h1b7', 'd8e8', 'b7e7'] },
   },
   ladder: {
     title: 'The Rook Ladder', cat: 'Endgames', icon: 'R',
     text: 'Two rooks (or a rook and queen) mate easily: one rook cuts the king off along a rank while the other gives check on the next rank. They take turns, climbing like a ladder until the king hits the edge.',
-    demo: { setup: 'ke4 Ra1 Rb2 Kh8', moves: ['a1a4', 'e4d5', 'b2b5', 'd5c6', 'a4a6', 'c6c7', 'b5b7', 'c7c8', 'a6a8'] },
+    demo: { setup: 'kd5 Ra4 Rh3 Kh1', moves: ['h3h5', 'd5d6', 'a4a6', 'd6e7', 'h5h7', 'e7d8', 'a6a8'] },
   },
   krk: {
     title: 'Rook + King Mate', cat: 'Endgames', icon: 'R',
