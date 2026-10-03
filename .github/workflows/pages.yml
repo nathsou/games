@@ -25,6 +25,12 @@ jobs:
       - name: Spacegolf tests
         run: npm test
         working-directory: spacegolf
+      - name: Nonocube install
+        run: npm ci
+        working-directory: nonocube
+      - name: Nonocube type-check and tests
+        run: npm run typecheck && npm test
+        working-directory: nonocube
 
   deploy:
     needs: test
@@ -34,12 +40,20 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build Nonocube
+        run: npm ci && npx vite build
+        working-directory: nonocube
       - name: Assemble site
         run: |
           mkdir -p _site/spacegolf
           cp index.html _site/
           cp spacegolf/index.html spacegolf/preview.jpg _site/spacegolf/
           cp -r spacegolf/src _site/spacegolf/src
+          cp -r nonocube/dist _site/nonocube
+          cp nonocube/preview.jpg _site/nonocube/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
