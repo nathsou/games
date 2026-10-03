@@ -117,3 +117,6 @@ The renamed title, C emblem, Cluance wordmark and favicon were inspected in the 
 A replay exported through the real button downloaded as `cluance-writers-2026-10-03.json` with the `cluance-replay` format. Its public snapshot contained neither private hand nor keys. A five-round legacy replay loaded through the unchanged file control. The static collection card links to `cluance/` and its renamed atlas path; the old `similo/` page redirects while preserving query parameters and the fragment. Original-game credits and legacy migration identifiers remain intentionally unchanged.
 
 No tests were written. Module syntax and whitespace checks passed; this verification used direct browser actions and live provider requests.
+
+
+The legacy `similo/` folder and its deployment and preview redirects were subsequently removed at the user’s request. Cluance remains at `cluance/`; saved-data and replay compatibility are unchanged.
