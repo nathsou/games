@@ -9,7 +9,7 @@ import {botAction} from './bot.js';
 import {FlipSession, REACTIONS} from './session.js';
 import {ReplayStore,highlights} from './replays.js';
 import {saveTable, loadTable, forgetTable} from './resume.js';
-import {captureTable, animateMove, motionEnabled} from './effects.js';
+import {captureTable, animateMove, cancelMotion, motionEnabled} from './effects.js';
 import {PeerLink, decodePairing, makeLink, iceConfig} from './peer.js';
 import {pairingBody} from '../../shared/pairing.js';
 import {drawQR} from './qr.js';
@@ -105,6 +105,7 @@ function render() {
   app.innerHTML = scene === 'menu' || !view() ? renderMenu() : renderGame();
   document.body.classList.toggle('in-game', scene==='game' && Boolean(view()));
   if (document.querySelector('#chat-list')) document.querySelector('#chat-list').scrollTop = document.querySelector('#chat-list').scrollHeight;
+  if(modal.open&&modal.dataset.kind==='set-details')renderSetDetails();
   renderedPosition=scene==='game' ? position : null;
   if (animate) {
     const token=++animationGeneration;
@@ -122,7 +123,7 @@ function renderMenu() {
   let html='<div class="menu-layout"><aside class="panel lobby-panel"><h2 class="hud-title">New table</h2><div class="invite-buttons">'+button('<b>Invite</b><small>Send a link or QR</small>','host','pink')+(!online?button('<b>Join</b><small>Paste an invite</small>','join','mint'):button('<b>Connected</b><small>Your friend is here</small>','host','mint'))+'</div>'+button('<b>'+ (online?'Deal a new match':'Deal the cards')+'</b><small>★ Starred card opens the round</small>',online?'deal-online':'start-game','coral deal-button',guest)+button('Table settings <span>Players, bots & teams →</span>','table-settings','gold settings-button')+'<section class="house-summary"><div><h3>House rules</h3>'+button('Change','house-rules','gold compact',guest)+'</div>'+optionBadges(options)+'<label class="name-field" for="player-name">Name<input id="player-name" maxlength="24" value="'+esc(name())+'" autocomplete="nickname"></label></section>';
   if(view())html+=button('Resume current match','resume','outline compact');
   if(prefs.lastPlayer?.name&&!online)html+='<div class="last-player"><span>Last at your table: '+esc(prefs.lastPlayer.name)+'</span>'+button('Reconnect','reconnect-last','pink compact')+'</div>';
-  html+=tableControls()+button('Saved games · '+replayStore.records.length,'replay-library','outline compact')+(online?button('Leave online table','leave-online','outline compact'):'')+'</aside><section class="intro"><div class="hero-art" aria-label="Illustrated double-number cards">'+heroes.map((c,i)=>cardHtml(c,false,false,[-14,3,15][i])).join('')+'</div><h1 class="hero-logo" aria-label="Flip it">FL<span class="logo-arrow" aria-hidden="true"></span>P<span class="logo-gap"></span>IT</h1><p>Two numbers on every card.<br>Play the top one. Flip the whole hand when the bottom one is better.</p><span class="hero-caption">2–5 players · A little friendly rivalry</span></section></div>';
+  html+=tableControls()+button('Saved games · '+replayStore.records.length,'replay-library','outline compact')+(online?button('Leave online table','leave-online','outline compact'):'')+'</aside><section class="intro"><div class="hero-art" aria-label="Illustrated double-number cards">'+heroes.map((c,i)=>cardHtml(c,false,false,[-14,3,15][i])).join('')+'</div><h1 class="hero-logo" aria-label="Flip it">FL<span class="logo-arrow" aria-hidden="true"></span>P<span class="logo-gap"></span>IT</h1><p>Two numbers on every card.<br>Play the top one. Flip the whole hand when the bottom one is better.</p><span class="hero-caption">2–5 players · Local or online</span></section></div>';
   return html;
 }
 function renderGame() {
@@ -140,7 +141,7 @@ function renderGame() {
   return html+'</section></div>';
 }
 function chatEntries() {
-  return session?.messages.length ? session.messages.map(e => '<li class="'+(e.kind==='reaction'?'reaction-entry':'')+'"><b>'+esc(session.members[e.seat])+'</b><span>'+esc(e.text)+'</span></li>').join('') : '<li class="chat-empty">A little friendly rivalry.<br>Say hello to your opponent.</li>';
+  return session?.messages.length ? session.messages.map(e => '<li class="'+(e.kind==='reaction'?'reaction-entry':'')+'"><b>'+esc(session.members[e.seat])+'</b><span>'+esc(e.text)+'</span></li>').join('') : '<li class="chat-empty">No messages yet.</li>';
 }
 function renderSocial() {
   if (mode!=='online') return '<p class="table-tip">Higher sets bounce lower sets home <b>flipped.</b></p>';
@@ -185,15 +186,15 @@ function renderTable(v) {
     html += '<section class="rival-zone '+(active?'rival-active':'')+'" aria-label="'+esc(ns[other])+'’s table"><div class="zone-title rival-heading"><div class="rival-identity"><span class="rival-name">'+esc(ns[other])+'</span>'+(active?'<span class="rival-turn">TURN</span>':'')+'</div><span class="rival-hand" data-hand-seat="'+other+'"><span class="mini-fan" aria-hidden="true">'+Array.from({length:Math.min(v.hands[other].length,14)},(_,i)=>'<i class="mini-back" style="--fan:'+ (i-(Math.min(v.hands[other].length,14)-1)/2)+'"></i>').join('')+'</span><span class="rival-count">'+v.hands[other].length+' cards</span></span></div><div class="table-row ' + (v.options.quickTurns?'single-space':'') + '">';
     for(const target of (v.options.quickTurns?[0]:[0,1])) {
       const set=v.table[other][target],owner=v.hands.length===2?{}:{targetSeat:other},add={kind:'add',lane,target,cards:chosen,...owner},take={kind:'take',lane,target,...owner};
-      html += '<article data-space-seat="'+other+'" data-space-lane="'+target+'" class="play-space rival-space" '+(set.length?'data-action="inspect-set" data-owner="'+other+'" data-target="'+target+'"':'')+'><div class="space-header"><span>'+(v.options.quickTurns?'PLAY':target?'RIGHT':'LEFT')+' SPACE</span><strong>'+(set.length?set.length+' × '+setValue(set):'EMPTY')+'</strong>'+(set.length?'<button class="set-inspect" data-action="inspect-set" data-owner="'+other+'" data-target="'+target+'" aria-label="Actions for '+esc(ns[other])+'’s '+(target?'right':'left')+' set" aria-expanded="'+(expandedSet===other+':'+target)+'">▾</button>':'')+'</div><div class="space-cards">'+(set.length?set.map(c=>cardHtml(c)).join(''):'<span class="space-empty">✦</span>')+'</div><div class="space-controls '+(expandedSet===other+':'+target?'expanded':'')+'">'+button('ADD 1','add','mint',!actionValid(actions,add)||preview,'data-target="'+target+'" data-owner="'+other+'"')+button('Grab & flip','take','gold',!actionValid(actions,take)||preview,'data-target="'+target+'" data-owner="'+other+'"')+'</div></article>';
+      html += '<article data-space-seat="'+other+'" data-space-lane="'+target+'" class="play-space rival-space" '+(set.length?'data-action="inspect-set" data-owner="'+other+'" data-target="'+target+'"':'')+'><div class="space-header"><span>'+(v.options.quickTurns?'PLAY':target?'RIGHT':'LEFT')+' SPACE</span><strong>'+(set.length?set.length+' × '+setValue(set):'EMPTY')+'</strong>'+(set.length?'<button class="set-inspect" data-action="inspect-set" data-owner="'+other+'" data-target="'+target+'" aria-label="Actions for '+esc(ns[other])+'’s '+(target?'right':'left')+' set" aria-expanded="'+(expandedSet===other+':'+target)+'">▾</button>':'')+'</div>'+(set.length?'<button type="button" class="space-cards exposed-cards" data-action="inspect-cards" data-owner="'+other+'" data-target="'+target+'" aria-label="Inspect all '+set.length+' exposed cards in '+esc(ns[other])+'’s '+(v.options.quickTurns?'play':target?'right':'left')+' space">'+set.map(c=>cardHtml(c)).join('')+'</button>':'<div class="space-cards"><span class="space-empty">✦</span></div>')+'<div class="space-controls '+(expandedSet===other+':'+target?'expanded':'')+'">'+button('ADD 1','add','mint',!actionValid(actions,add)||preview,'data-target="'+target+'" data-owner="'+other+'"')+button('Grab & flip','take','gold',!actionValid(actions,take)||preview,'data-target="'+target+'" data-owner="'+other+'"')+'</div></article>';
     }
     html += '</div></section>';
   }
   html += '</div>';
-  html += '<p class="table-instruction '+(v.pending!==null?'chance-instruction':'')+'" role="status">' + (v.pending!==null ? 'LAST CHANCE' : animating ? 'CARDS IN MOTION' : turn ? preview ? 'PEEK AT THE OTHER SIDE' : 'YOUR TURN' : esc(ns[v.turn]).toUpperCase() + '’S TURN') + '<small>' + (v.pending!==null ? (v.pending===p ? 'Your hand is empty. '+v.repliesRemaining+' '+(v.repliesRemaining===1?'reply remains.':'replies remain.') : esc(ns[v.pending])+' has an empty hand. Send cards back to stop the win.') : turn ? v.options.quickTurns ? 'Select matching ranks. Play a set, or flip your hand.' : 'Use your ' + (v.beat ? 'right' : 'left') + ' space for this action.' : 'Watch their move. Plan your next flip.') + '</small></p><div class="zone-title"><span>YOUR PLAY SPACE' + (v.options.quickTurns?'':'S') + '</span><span>' + (v.options.quickTurns ? 'ONE ACTION / TURN' : (v.opening ? 'OPENING ACTION' : 'ACTION ' + (v.beat ? 1 : 2) + ' / 2')) + '</span></div><div class="table-row ' + (v.options.quickTurns?'single-space':'') + '">';
+  html += '<p class="table-instruction '+(v.pending!==null?'chance-instruction':'')+'" role="status">' + (v.pending!==null ? 'LAST CHANCE' : animating ? 'CARDS IN MOTION' : turn ? preview ? 'PEEK AT THE OTHER SIDE' : 'YOUR TURN' : esc(ns[v.turn]).toUpperCase() + '’S TURN') + '<small>' + (v.pending!==null ? (v.pending===p ? 'Your hand is empty. '+v.repliesRemaining+' '+(v.repliesRemaining===1?'reply remains.':'replies remain.') : esc(ns[v.pending])+' has an empty hand. Send cards back to stop the win.') : turn ? v.options.quickTurns ? 'Select matching ranks. Play a set, or flip your hand.' : 'Use your ' + (v.beat ? 'right' : 'left') + ' space for this action.' : 'Waiting for their action.') + '</small></p><div class="zone-title own-spaces-heading"><span>YOUR PLAY SPACE' + (v.options.quickTurns?'':'S') + '</span><span>' + (v.options.quickTurns ? 'ONE ACTION / TURN' : (v.opening ? 'OPENING ACTION' : 'ACTION ' + (v.beat ? 1 : 2) + ' / 2')) + '</span></div><div class="table-row ' + (v.options.quickTurns?'single-space':'') + '">';
   for (const own of (v.options.quickTurns?[0]:[0,1])) {
     const set = v.table[p][own], canChoose = turn && availableLanes(v).includes(own);
-    html += '<article data-space-seat="'+p+'" data-space-lane="'+own+'" class="play-space ' + (own === lane && turn ? 'chosen' : '') + '"><button type="button" class="space-select" data-action="lane" data-lane="' + own + '" aria-pressed="' + (own===lane) + '" ' + (!canChoose ? 'disabled' : '') + '>' + (own === lane && turn ? '● ' : '○ ') + (v.options.quickTurns ? 'PLAY' : own ? 'RIGHT' : 'LEFT') + ' SPACE' + (set.length ? ' · ' + set.length + ' × ' + setValue(set) : '') + '</button><div class="space-cards">' + (set.length ? set.map(c => cardHtml(c)).join('') : '<span class="space-empty">↕</span>') + '</div><p class="cash-note">' + (set.length ? own === lane && turn ? 'These ' + set.length + ' cards leave on your move.' : 'Leave exposed, or cash out next.' : own === lane && turn ? 'Your new set will go here.' : 'An empty place for a new idea.') + '</p></article>';
+    html += '<article data-space-seat="'+p+'" data-space-lane="'+own+'" class="play-space ' + (own === lane && turn ? 'chosen' : '') + '"><button type="button" class="space-select" data-action="lane" data-lane="' + own + '" aria-pressed="' + (own===lane) + '" ' + (!canChoose ? 'disabled' : '') + '>' + (own === lane && turn ? '● ' : '○ ') + (v.options.quickTurns ? 'PLAY' : own ? 'RIGHT' : 'LEFT') + ' SPACE' + (set.length ? ' · ' + set.length + ' × ' + setValue(set) : '') + '</button><div class="space-cards" style="--set-count:' + set.length + '">' + (set.length ? set.map(c => cardHtml(c)).join('') : '<span class="space-empty">↕</span>') + '</div><p class="cash-note">' + (set.length ? own === lane && turn ? 'These ' + set.length + ' cards leave on your move.' : 'Leave exposed, or cash out next.' : own === lane && turn ? 'Your new set will go here.' : 'Available next turn.') + '</p></article>';
   }
   const hand = v.hands[p].slice().sort((a,b) => (preview ? reverseOf(a)-reverseOf(b) : valueOf(a)-valueOf(b)) || a.id.localeCompare(b.id));
   html += '</div><div class="hand-tools"><span class="zone-title" style="margin:0">' + (preview ? 'OTHER SIDES' : 'YOUR HAND') + ' · ' + hand.length + '</span><span class="hand-caption">' + (preview ? 'Preview only' : 'The top number plays') + '</span></div><div class="hand '+(hand.length>16?'crowded':'')+'" data-hand-seat="'+p+'" style="--hand-count:'+hand.length+'" aria-label="' + (preview ? 'Preview of flipped hand' : 'Your hand') + '">' + hand.map((c,i) => '<span class="hand-card" style="--d:'+ (i-(hand.length-1)/2)+';--fan-rise:'+Math.min(18,Math.pow(i-(hand.length-1)/2,2)*.45)+'px;--fan-step:'+Math.min(3.2,30/Math.max(1,hand.length))+'deg">'+cardHtml(c,true,preview)+'</span>').join('') + '</div><div class="table-controls">' + button(chosen.length ? 'Play ' + chosen.length + ' × '+valueOf(hand.find(c=>c.id===chosen[0])) : 'Play a set', 'play', '', !canPlay || preview) + button('Flip hand ↕', 'flip', 'gold', !turn || preview) +button(preview?'Stop peek ↕':'Peek ↕','preview','lavender',false,'aria-pressed="'+preview+'"')+ (chosen.length ? button('Clear', 'clear', 'outline compact') : '') + '</div>';
@@ -210,7 +211,7 @@ function renderTable(v) {
 function renderEnd(v) {
   const match = v.phase === 'matchOver', r = v.result, ns = names(), winner = match ? v.scores.indexOf(v.options.target||2) : r.winner;
   const title = winner === null ? 'A draw' : winner===mySeat()&&ns[winner]==='You' ? (match?'You win the match':'You win the round') : esc(ns[winner]) + (match ? ' wins the match' : ' wins the round');
-  const reason = r.reason === 'repeat' ? 'The same position came around three times. Drawn round: shuffle and try again.' : r.reason === 'limit' ? 'A long back-and-forth. Drawn round: a fresh deal keeps things moving.' : r.reason === 'survived' ? 'The last-chance reply couldn’t put cards back in their hand.' : 'An empty hand. A well-earned round.';
+  const reason = r.reason === 'repeat' ? 'The same position came around three times. Drawn round: shuffle and try again.' : r.reason === 'limit' ? 'The action limit was reached. Drawn round: deal again.' : r.reason === 'survived' ? 'The last-chance reply couldn’t put cards back in their hand.' : 'Their hand is empty.';
   const ready = mode === 'online' && session.ready[session.seat], guest = mode === 'online' && session.seat === 1;
   return '<div class="ending pop"><div class="trophy" aria-hidden="true">✦</div><p class="eyebrow">' + (match ? 'MATCH OVER' : 'ROUND '+(v.round+1)+' OVER') + '</p><h2>' + title + '</h2><p>' + reason + '</p><div class="ending-score"><span>' + v.scores.join(' : ') + '</span></div>' + (match ? button(guest ? 'HOST CAN DEAL A REMATCH' : 'Rematch', 'rematch', 'gold', guest || mode==='online' && !connected()) : button(ready ? 'WAITING FOR YOUR FRIEND…' : 'Deal next round', 'next', 'gold', ready || mode==='online' && !connected())) + button('GAME HIGHLIGHTS ↗','game-highlights','outline') + button('Change rules', 'menu', 'coral') + '</div>';
 }
@@ -230,14 +231,14 @@ function recordView() {
   if(!replayStore.persistent&&!storageNotified){storageNotified=true;notify('Browser storage is unavailable. This replay stays in memory until you close the tab.');}
 }
 function currentRecording(){recordView();return replayStore.records.find(r=>r.id===recordingId());}
-function pauseReplay(){clearInterval(replayTimer);replayTimer=null;}
+function pauseReplay(){clearInterval(replayTimer);replayTimer=null;cancelMotion(modalContent);}
 function beginReplayDialog(){
   stopScan();pairingOpen=false;replayOpen=true;clearTimeout(botTimer);generation++;stopAI();
   modal.classList.add('replay-dialog');if(!modal.open)modal.showModal();
 }
 function showReplayLibrary(){
   pauseReplay();beginReplayDialog();
-  modalContent.innerHTML=modalHead('Saved games','SAVED ON THIS BROWSER')+'<p class="modal-copy">Your last eight games, with every recorded move and its highlights. Older games are removed as browser storage fills. Recordings include only the cards visible to this browser.</p><div class="replay-library">'+(replayStore.records.length?replayStore.records.map(r=>'<article><div><h3>'+r.names.map(esc).join(' / ')+'</h3><p>'+esc(new Date(r.updated).toLocaleString())+' · '+r.entries.filter(e=>e.event&&e.event.kind!=='deal').length+' actions · '+(r.entries.at(-1).view.phase==='matchOver'?'Finished':'In progress')+'</p></div><div>'+button('WATCH ↗','open-recording','gold compact',false,'data-recording="'+esc(r.id)+'"')+button('DELETE','delete-recording','outline compact',false,'data-recording="'+esc(r.id)+'"')+'</div></article>').join(''):'<p class="modal-copy">Play a game to start your collection.</p>')+'</div>';
+  modalContent.innerHTML=modalHead('Saved games','SAVED ON THIS BROWSER')+'<p class="modal-copy">Your last eight games, with every recorded move and its highlights. Older games are removed as browser storage fills. Recordings include only the cards visible to this browser.</p><div class="replay-library">'+(replayStore.records.length?replayStore.records.map(r=>'<article><div><h3>'+r.names.map(esc).join(' / ')+'</h3><p>'+esc(new Date(r.updated).toLocaleString())+' · '+r.entries.filter(e=>e.event&&e.event.kind!=='deal').length+' actions · '+(r.entries.at(-1).view.phase==='matchOver'?'Finished':'In progress')+'</p></div><div>'+button('WATCH ↗','open-recording','gold compact',false,'data-recording="'+esc(r.id)+'"')+button('DELETE','delete-recording','outline compact',false,'data-recording="'+esc(r.id)+'"')+'</div></article>').join(''):'<p class="modal-copy">No saved games yet.</p>')+'</div>';
 }
 function openRecording(record){
   if(!record){notify('No moves have been recorded yet.');return;}
@@ -256,7 +257,7 @@ function replayBoard(entry){
   let html='<div class="replay-board"><div class="table-meta"><span>ROUND '+(v.round+1)+' · ACTION '+v.moves+'</span>'+starterHtml(v,ns)+'<span data-bank>▤ BANK '+v.discardCount+'</span></div><div class="replay-seats">';
   for(let i=0;i<v.hands.length;i++) {
     html+='<section class="replay-seat"><div class="zone-title"><span>'+esc(ns[i])+'</span><span data-hand-seat="'+i+'"><span class="mini-fan" aria-hidden="true">'+Array.from({length:Math.min(v.hands[i].length,5)},()=>'<i class="mini-back"></i>').join('')+'</span> '+v.hands[i].length+' IN HAND · '+v.scores[i]+' WINS</span></div><div class="table-row '+(v.options.quickTurns?'single-space':'')+'">';
-    for(const lane of(v.options.quickTurns?[0]:[0,1]))html+='<div class="play-space" data-space-seat="'+i+'" data-space-lane="'+lane+'"><span class="eyebrow">'+(v.options.quickTurns?'PLAY SPACE':lane?'RIGHT':'LEFT')+'</span><div class="space-cards">'+(v.table[i][lane].map(c=>cardHtml(c)).join('')||'<span class="space-empty">✦</span>')+'</div></div>';
+    for(const lane of(v.options.quickTurns?[0]:[0,1]))html+='<div class="play-space" data-space-seat="'+i+'" data-space-lane="'+lane+'"><span class="eyebrow">'+(v.options.quickTurns?'PLAY SPACE':lane?'RIGHT':'LEFT')+'</span><div class="space-cards" style="--set-count:'+v.table[i][lane].length+'">'+(v.table[i][lane].map(c=>cardHtml(c)).join('')||'<span class="space-empty">✦</span>')+'</div></div>';
     html+='</div></section>';
   }
   // During pass-and-play the replay shows the public table. Private hands stay
@@ -266,14 +267,34 @@ function replayBoard(entry){
   if(v.result)html+='<p class="replay-result">'+(v.result.winner===null?'Drawn round':esc(ns[v.result.winner])+' won the '+(v.phase==='matchOver'?'match':'round'))+'.</p>';
   return html+'</div>';
 }
-function renderReplay(){
+function renderReplay(scrubbing=false){
   if(!replayRecord)return;
+  cancelMotion(modalContent);
   const before=captureTable(modalContent);
   const r=replayRecord,entry=r.entries[replayIndex],marks=highlights(r),markMap=new Map(marks.map(m=>[m.index,m.label]));
   const items=r.entries.map((e,index)=>({entry:e,index})).filter(({index})=>!replayOnlyHighlights||markMap.has(index));
   const scroll=modal.querySelector('.action-timeline')?.scrollTop;
-  modalContent.innerHTML=modalHead('Action log & replay','ACTION LOG / REPLAY')+'<div class="replay-controls">'+button('←','replay-step','outline compact',replayIndex===0,'data-step="-1" aria-label="Previous action"')+button(replayTimer?'PAUSE':'PLAY ▶','replay-play','gold compact')+button('→','replay-step','outline compact',replayIndex===r.entries.length-1,'data-step="1" aria-label="Next action"')+'<label class="replay-scrubber">'+(replayIndex+1)+' / '+r.entries.length+'<input id="replay-scrubber" type="range" min="0" max="'+(r.entries.length-1)+'" value="'+replayIndex+'" aria-label="Replay action"></label>'+button('SAVED GAMES','replay-library','outline compact')+'</div>'+(r.partial?'<p class="small">This recording started partway through the game or missed updates while this browser was away.</p>':'')+'<div class="replay-layout"><section><div class="replay-caption" aria-live="polite">'+eventVisual(entry.event)+'<p>'+eventText(entry.event,r.names)+'</p></div>'+replayBoard(entry)+'</section><aside class="replay-log"><div class="replay-log-head"><span>'+r.entries.filter(e=>e.event&&e.event.kind!=='deal').length+' ACTIONS</span>'+button(replayOnlyHighlights?'ALL ACTIONS':'HIGHLIGHTS · '+marks.length,'replay-filter','outline compact',false,'aria-pressed="'+replayOnlyHighlights+'"')+'</div><ol class="action-timeline" aria-label="Complete game action log">'+items.map(({entry:e,index})=>'<li><button type="button" data-action="replay-jump" data-index="'+index+'" class="log-entry '+(index===replayIndex?'current':'')+'" aria-current="'+(index===replayIndex?'step':'false')+'"><span class="log-meta">R'+(e.view.round+1)+' / '+(!e.event?'SNAPSHOT':e.event.kind==='deal'?'DEAL':'MOVE '+e.view.moves)+(markMap.has(index)?' · ★ '+esc(markMap.get(index)):'')+'</span><span class="log-visual">'+eventVisual(e.event)+'</span><span class="log-text">'+eventText(e.event,r.names)+'</span></button></li>').join('')+'</ol></aside></div>';
-  modal.querySelector('#replay-scrubber').oninput=event=>{pauseReplay();replayIndex=Number(event.target.value);renderReplay();};
+  const controls=scrubbing?modalContent.querySelector('.replay-controls'):null;
+  const html=modalHead('Action log & replay','ACTION LOG / REPLAY')+'<div class="replay-controls">'+button('←','replay-step','outline compact',replayIndex===0,'data-step="-1" aria-label="Previous action"')+button(replayTimer?'PAUSE':'PLAY ▶','replay-play','gold compact')+button('→','replay-step','outline compact',replayIndex===r.entries.length-1,'data-step="1" aria-label="Next action"')+'<label class="replay-scrubber">'+(replayIndex+1)+' / '+r.entries.length+'<input id="replay-scrubber" type="range" min="0" max="'+(r.entries.length-1)+'" value="'+replayIndex+'" aria-label="Replay action"></label>'+button('SAVED GAMES','replay-library','outline compact')+'</div>'+(r.partial?'<p class="small">This recording started partway through the game or missed updates while this browser was away.</p>':'')+'<div class="replay-layout"><section><div class="replay-caption" aria-live="polite">'+eventVisual(entry.event)+'<p>'+eventText(entry.event,r.names)+'</p></div>'+replayBoard(entry)+'</section><aside class="replay-log"><div class="replay-log-head"><span>'+r.entries.filter(e=>e.event&&e.event.kind!=='deal').length+' ACTIONS</span>'+button(replayOnlyHighlights?'ALL ACTIONS':'HIGHLIGHTS · '+marks.length,'replay-filter','outline compact',false,'aria-pressed="'+replayOnlyHighlights+'"')+'</div><ol class="action-timeline" aria-label="Complete game action log">'+items.map(({entry:e,index})=>'<li><button type="button" data-action="replay-jump" data-index="'+index+'" class="log-entry '+(index===replayIndex?'current':'')+'" aria-current="'+(index===replayIndex?'step':'false')+'"><span class="log-meta">R'+(e.view.round+1)+' / '+(!e.event?'SNAPSHOT':e.event.kind==='deal'?'DEAL':'MOVE '+e.view.moves)+(markMap.has(index)?' · ★ '+esc(markMap.get(index)):'')+'</span><span class="log-visual">'+eventVisual(e.event)+'</span><span class="log-text">'+eventText(e.event,r.names)+'</span></button></li>').join('')+'</ol></aside></div>';
+  // Keep the native range element alive throughout mouse, touch and keyboard
+  // scrubbing. Replacing it during input loses pointer capture and focus.
+  if(controls){
+    const next=document.createElement('div');next.innerHTML=html;
+    for(const child of [...modalContent.children])if(child!==controls)child.remove();
+    for(const child of [...next.children]){
+      if(child.classList.contains('replay-controls'))continue;
+      if(child.classList.contains('modal-head'))modalContent.insertBefore(child,controls);
+      else modalContent.append(child);
+    }
+    controls.querySelector('.replay-scrubber').firstChild.textContent=(replayIndex+1)+' / '+r.entries.length;
+    controls.querySelector('[data-action=replay-play]').textContent='PLAY ▶';
+    controls.querySelector('[data-step="-1"]').disabled=replayIndex===0;
+    controls.querySelector('[data-step="1"]').disabled=replayIndex===r.entries.length-1;
+  }
+  else modalContent.innerHTML=html;
+  const scrubber=modal.querySelector('#replay-scrubber');
+  scrubber.oninput=event=>{pauseReplay();replayPosition=null;replayIndex=Number(event.target.value);renderReplay(true);};
+  scrubber.onpointerdown=()=>{pauseReplay();modal.querySelector('[data-action=replay-play]').textContent='PLAY ▶';};
   if(scroll!==undefined)modal.querySelector('.action-timeline').scrollTop=scroll;
   if(replayPosition?.id===r.id&&replayPosition.index+1===replayIndex&&replayPosition.round===entry.view.round&&replayPosition.seat===entry.seat&&replayPosition.revision+1===entry.view.revision&&entry.event?.kind!=='deal'&&entry.event&&motionEnabled())animateMove(modalContent,before,entry.event,entry.seat,entry.view);
   replayPosition={id:r.id,index:replayIndex,round:entry.view.round,seat:entry.seat,revision:entry.view.revision};
@@ -290,7 +311,7 @@ function toggleReplay(){
 
 function resetSelection() { expandedSet=null; chosen = []; preview = false; if (view()) lane = availableLanes(view())[0]; }
 function startOffline(nextMode, options = prefs.options) {
-  clearTimeout(botTimer); generation++; stopAI(); aiHistory.clear();matchId=crypto.randomUUID();
+  cancelMotion(app);clearTimeout(botTimer); generation++; stopAI(); aiHistory.clear();matchId=crypto.randomUUID();
   animating=false; animationGeneration++; renderedPosition=null;
   forgetTable(); const old=peer; peer=null; old?.close(); session=null; linkStatus='idle';
   mode=nextMode; seat=0; scene='game'; offlineControllers=[...Array(mode==='solo'?1:2).fill('human'),...aiPlayers(mode==='solo'?4:3,mode==='solo'?1:0)];
@@ -495,6 +516,23 @@ async function scanCode(target) {
 function ruleDiagram(ranks,label,flipped=false){
   return '<div class="diagram-set"><div>'+ranks.map((ends,i)=>cardHtml({id:'diagram-'+label+i,ends,face:flipped?1:0})).join('')+'</div><small>'+label+'</small></div>';
 }
+function showSetDetails(owner,target){
+  const v=view();
+  if(!v||owner===mySeat()||!v.table[owner]?.[target]?.length)return;
+  stopScan();pauseReplay();pairingOpen=false;
+  modal.dataset.kind='set-details';modal.dataset.setOwner=owner;modal.dataset.setLane=target;
+  renderSetDetails();if(!modal.open)modal.showModal();
+}
+function renderSetDetails(){
+  const owner=Number(modal.dataset.setOwner),target=Number(modal.dataset.setLane),v=view();
+  const set=v?.table[owner]?.[target]||[],ns=names();
+  const label=v?.options.quickTurns?'play space':target?'right space':'left space';
+  const closeFocused=document.activeElement?.dataset.action==='close-modal',scroll=modalContent.scrollTop;
+  modalContent.innerHTML=modalHead(esc(ns[owner])+'’s '+label,'EXPOSED CARDS')+'<p class="set-details-summary" role="status">'+(set.length?set.length+' card'+(set.length===1?'':'s')+' · Top rank '+setValue(set):'This space is now empty.')+'</p><div class="set-details-cards" role="list" aria-label="Every exposed card">'+set.map(c=>'<div class="set-detail-card" role="listitem">'+cardHtml(c)+'<span>Top <b>'+valueOf(c)+'</b></span><span>Flips to <b>'+reverseOf(c)+'</b></span></div>').join('')+'</div>'+button('Back to table','close-modal');
+  modalContent.scrollTop=scroll;
+  if(closeFocused)modalContent.querySelector('[data-action=close-modal]').focus({preventScroll:true});
+}
+
 function showRules() {
   stopScan();pairingOpen=false;delete modal.dataset.kind;modal.classList.add('rules-dialog');
   const options=scene==='game'&&view()?view().options:prefs.options;
@@ -503,52 +541,84 @@ function showRules() {
     ['Add','var(--lime)',ruleDiagram([[3,1]],'one 3')+'<span class="diagram-arrow">→</span>'+ruleDiagram([[3,1],[3,4],[3,5]],'their triple'),'Add one matching card to their set. Its new size must beat every other set of that size.'],
     ['Take','var(--aqua)',ruleDiagram([[3,1],[3,5]],'their set')+'<span class="diagram-arrow">→ ↕</span>'+ruleDiagram([[3,1],[3,5]],'your hand',true),'Every card you take flips to its other side. The whole set joins your hand.'],
     ['Flip','var(--pink)',ruleDiagram([[1,3],[2,4],[5,1]],'your hand')+'<span class="diagram-arrow">↕</span>'+ruleDiagram([[1,3],[2,4],[5,1]],'other sides',true),'Flip your entire hand. It costs your whole action, so use it when the bottoms are better.'],
-    ['Cash out','var(--lavender)',ruleDiagram([[4,2],[4,3]],'your old set')+'<span class="diagram-arrow">→</span><span class="diagram-set"><span class="card-back"></span><small>banked</small></span>','The set in the space you use leaves the game before you act. Those cards are gone for good.']
+    ['Cash out','var(--lavender)',ruleDiagram([[4,2],[4,3]],'your old set')+'<span class="diagram-arrow">→</span><span class="diagram-set"><span class="card-back"></span><small>banked</small></span>','The set in the space you use leaves the game before you act. Banked cards cannot return to a hand.']
   ];
-  modalContent.innerHTML=modalHead('How to play','TWO NUMBERS. ONE GOOD IDEA.')+'<p class="rules-intro">Empty your hand to win a round. '+goalText(options)+'. The upright number is active; the upside-down number becomes active after a flip.</p><div class="illustrated-rules">'+panels.map(([title,color,diagram,text])=>'<section class="rule-panel" style="--accent:'+color+'"><h3>'+title+'</h3><div class="rule-diagram">'+diagram+'</div><p>'+text+'</p></section>').join('')+'</div><ol class="rules-list"><li><strong>★ Opening.</strong> Whoever receives the unique starred card starts each round. The star stays with the card and has no extra power.</li><li><strong>Turns.</strong> '+(options.quickTurns?'One action each, using your single play space.':'Right space, then left. The opening player gets only the right action.')+' Cash out the set in that space before every action.</li><li><strong>Same size competes.</strong> Your new set must have a higher rank than every other set of that size. All lower sets return to their owners flipped, including your own.</li><li><strong>Ending.</strong> '+(options.lastChance?'An empty hand gives every other player one reply. Send cards back to stop the win. The first finisher has priority if several hands are empty.':'An empty hand wins immediately.')+'</li><li><strong>Draws.</strong> Three repeats of a position, or '+(options.compactDeck?'120':'180')+' actions, draw the round. Nobody scores; deal again.</li></ol>'+optionBadges(options)+'<p class="small">Keys: 1–9 / 0 select ranks · Enter plays · F flips · Esc clears. You can also drag cards onto a space, or drag their set into your hand.</p>'+button('Deal me in','close-modal');
+  modalContent.innerHTML=modalHead('How to play','GAME RULES')+'<p class="rules-intro">Empty your hand to win a round. '+goalText(options)+'. The upright number is active; the upside-down number becomes active after a flip.</p><div class="illustrated-rules">'+panels.map(([title,color,diagram,text])=>'<section class="rule-panel" style="--accent:'+color+'"><h3>'+title+'</h3><div class="rule-diagram">'+diagram+'</div><p>'+text+'</p></section>').join('')+'</div><ol class="rules-list"><li><strong>★ Opening.</strong> Whoever receives the unique starred card starts each round. The star stays with the card and has no extra power.</li><li><strong>Turns.</strong> '+(options.quickTurns?'One action each, using your single play space.':'Right space, then left. The opening player gets only the right action.')+' Cash out the set in that space before every action.</li><li><strong>Same size competes.</strong> Your new set must have a higher rank than every other set of that size. All lower sets return to their owners flipped, including your own.</li><li><strong>Ending.</strong> '+(options.lastChance?'An empty hand gives every other player one reply. Send cards back to stop the win. The first finisher has priority if several hands are empty.':'An empty hand wins immediately.')+'</li><li><strong>Draws.</strong> Three repeats of a position, or '+(options.compactDeck?'120':'180')+' actions, draw the round. Nobody scores; deal again.</li></ol>'+optionBadges(options)+'<p class="small">Keys: 1–9 / 0 select ranks · Enter plays · F flips · Esc clears. You can also drag cards onto a space, or drag their set into your hand.</p>'+button('Close rules','close-modal');
   if(!modal.open)modal.showModal();
 }
 
 // Drag interactions use only the current player's redacted view and the same
 // action validator as buttons. Taps and keyboard selection remain available.
 let drag=null,suppressDragClick=false;
+function dragAction(current,at){
+  const space=at?.closest('[data-space-seat]'),hand=at?.closest('.hand[data-hand-seat]');
+  if(current.kind==='take'&&hand&&Number(hand.dataset.handSeat)===mySeat())return {kind:'take',lane,target:current.target,...(view().hands.length>2?{targetSeat:current.owner}:{})};
+  if(current.kind==='cards'&&space){
+    const owner=Number(space.dataset.spaceSeat),target=Number(space.dataset.spaceLane);
+    return owner===mySeat()?{kind:'play',lane:target,cards:current.cards}:{kind:'add',lane,target,...(view().hands.length>2?{targetSeat:owner}:{}),cards:current.cards};
+  }
+  return null;
+}
+function dragPreview(current){
+  const ghost=document.createElement('div');ghost.className='drag-ghost';ghost.setAttribute('aria-hidden','true');
+  const cards=current.kind==='take'?view().table[current.owner][current.target]:current.cards.map(id=>view().hands[mySeat()].find(c=>c.id===id));
+  const step=Math.min(18,120/Math.max(1,cards.length-1));
+  ghost.style.width=(64+step*(cards.length-1))+'px';
+  ghost.innerHTML=cards.map((c,i)=>'<span class="drag-card" style="left:'+i*step+'px;top:'+Math.min(i,5)*2+'px">'+cardHtml(c)+'</span>').join('')+'<span class="drag-count">'+cards.length+' card'+(cards.length===1?'':'s')+(current.kind==='take'?' · grab & flip':'')+'</span>';
+  // Ghosts are decorative; cloned card IDs must not enter animation captures.
+  ghost.querySelectorAll('[data-visual-card]').forEach(n=>n.removeAttribute('data-visual-card'));
+  return ghost;
+}
 document.addEventListener('pointerdown',event=>{
-  if(event.button!==0||modal.open||!myTurn()||preview)return;
+  if(event.button!==0||event.isPrimary===false||drag||modal.open||!myTurn()||preview)return;
   const card=event.target.closest('.hand [data-card]'),space=event.target.closest('[data-space-seat]');
   if(card){drag={pointer:event.pointerId,x:event.clientX,y:event.clientY,kind:'cards',cards:chosen.includes(card.dataset.card)?[...chosen]:[card.dataset.card],source:card};}
-  else if(space&&Number(space.dataset.spaceSeat)!==mySeat()&&!event.target.closest('button')){
+  else if(space&&Number(space.dataset.spaceSeat)!==mySeat()&&!event.target.closest('button:not(.exposed-cards)')){
     const owner=Number(space.dataset.spaceSeat),target=Number(space.dataset.spaceLane);
-    if(view().table[owner][target].length)drag={pointer:event.pointerId,x:event.clientX,y:event.clientY,kind:'take',owner,target,source:space.querySelector('.flip-card')};
+    if(view().table[owner][target].length)drag={pointer:event.pointerId,x:event.clientX,y:event.clientY,kind:'take',owner,target,source:space};
   }
 });
+function highlightDrop(current){
+  document.querySelectorAll('.drop-valid').forEach(n=>n.classList.remove('drop-valid'));
+  const at=document.elementFromPoint(current.pointerX,current.pointerY),action=dragAction(current,at);
+  if(action&&actionValid(current.actions,action))at.closest(action.kind==='take'?'.hand[data-hand-seat]':'[data-space-seat]')?.classList.add('drop-valid');
+}
+function scrollDrag(){
+  if(!drag?.ghost)return;
+  const edge=44,y=drag.pointerY,step=y<edge?-12:y>innerHeight-edge?12:0;
+  if(step){const previous=scrollY;window.scrollBy(0,step);if(scrollY!==previous)highlightDrop(drag);}
+  drag.frame=requestAnimationFrame(scrollDrag);
+}
 document.addEventListener('pointermove',event=>{
   if(!drag||drag.pointer!==event.pointerId)return;
   if(!drag.ghost&&Math.hypot(event.clientX-drag.x,event.clientY-drag.y)<8)return;
-  if(!drag.ghost){drag.ghost=drag.source.cloneNode(true);drag.ghost.classList.add('drag-ghost');drag.ghost.classList.remove('selected');drag.ghost.removeAttribute('data-action');drag.ghost.style.setProperty('--card-w','64px');drag.ghost.setAttribute('aria-hidden','true');document.body.append(drag.ghost);document.body.classList.add('dragging');}
-  event.preventDefault();drag.ghost.style.left=event.clientX+'px';drag.ghost.style.top=event.clientY+'px';
-  document.querySelectorAll('.drop-valid').forEach(n=>n.classList.remove('drop-valid'));
-  const at=document.elementFromPoint(event.clientX,event.clientY),space=at?.closest('[data-space-seat]'),hand=at?.closest('.hand[data-hand-seat]');
-  if(drag.kind==='take'&&hand)hand.classList.add('drop-valid');
-  else if(drag.kind==='cards'&&space)space.classList.add('drop-valid');
+  drag.pointerX=event.clientX;drag.pointerY=event.clientY;
+  if(!drag.ghost){
+    drag.ghost=dragPreview(drag);document.body.append(drag.ghost);document.body.classList.add('dragging');
+    window.getSelection()?.removeAllRanges();
+    drag.source.setPointerCapture?.(event.pointerId);
+    drag.actions=legalActions(view(),mySeat());drag.frame=requestAnimationFrame(scrollDrag);
+  }
+  event.preventDefault();
+  const ghostWidth=drag.ghost.offsetWidth,ghostHeight=drag.ghost.offsetHeight;
+  drag.ghost.style.left=Math.max(ghostWidth/2+4,Math.min(innerWidth-ghostWidth/2-4,event.clientX))+'px';
+  drag.ghost.style.top=Math.max(ghostHeight*.7+4,Math.min(innerHeight-ghostHeight*.3-4,event.clientY))+'px';
+  highlightDrop(drag);
 },{passive:false});
 function endDrag(event,cancel=false){
   if(!drag||drag.pointer!==event.pointerId)return;
-  const current=drag;drag=null;document.body.classList.remove('dragging');document.querySelectorAll('.drop-valid').forEach(n=>n.classList.remove('drop-valid'));
+  const current=drag;drag=null;cancelAnimationFrame(current.frame);document.body.classList.remove('dragging');document.querySelectorAll('.drop-valid').forEach(n=>n.classList.remove('drop-valid'));
+  if(current.source.hasPointerCapture?.(event.pointerId))current.source.releasePointerCapture(event.pointerId);
   if(!current.ghost)return;
   current.ghost.remove();suppressDragClick=true;setTimeout(()=>suppressDragClick=false,0);
   if(cancel||!myTurn())return;
-  const at=document.elementFromPoint(event.clientX,event.clientY),space=at?.closest('[data-space-seat]'),hand=at?.closest('.hand[data-hand-seat]');
-  try{
-    if(current.kind==='take'&&hand)act({kind:'take',lane,target:current.target,...(view().hands.length>2?{targetSeat:current.owner}:{})});
-    else if(current.kind==='cards'&&space){
-      const owner=Number(space.dataset.spaceSeat),target=Number(space.dataset.spaceLane);
-      if(owner===mySeat())act({kind:'play',lane:target,cards:current.cards});
-      else act({kind:'add',lane,target,...(view().hands.length>2?{targetSeat:owner}:{}),cards:current.cards});
-    }
-  }catch(error){notify(error.message);}
+  const action=dragAction(current,document.elementFromPoint(event.clientX,event.clientY));
+  if(action)try{act(action);}catch(error){notify(error.message);}
 }
 document.addEventListener('pointerup',event=>endDrag(event));
 document.addEventListener('pointercancel',event=>endDrag(event,true));
+window.addEventListener('blur',()=>{if(drag)endDrag({pointerId:drag.pointer},true);});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&drag)endDrag({pointerId:drag.pointer},true);});
 document.addEventListener('click',event=>{if(suppressDragClick){event.preventDefault();event.stopImmediatePropagation();suppressDragClick=false;}},true);
 
 document.addEventListener('click',async event=>{
@@ -558,6 +628,7 @@ document.addEventListener('click',async event=>{
     if(action==='ai-settings')openAISettings(()=>{generation++;stopAI();render();scheduleBot();});
     else if(action==='cancel-ai'){generation++;stopAI('AI paused. Retry when ready.');render();}
     else if(action==='retry-ai'){stopAI();render();scheduleBot();}
+    else if(action==='inspect-cards')showSetDetails(Number(target.dataset.owner),Number(target.dataset.target));
     else if(action==='inspect-set'){const key=target.dataset.owner+':'+target.dataset.target;expandedSet=expandedSet===key?null:key;render();}
     else if(action==='table-chat'){pairingOpen=false;delete modal.dataset.kind;modalContent.innerHTML=modalHead('Table talk','JUST YOU AND YOUR FRIEND')+renderSocial();if(!modal.open)modal.showModal();modal.querySelector('#chat-input')?.focus();}
     else if(action==='table-settings')showTableSettings();
@@ -582,7 +653,7 @@ document.addEventListener('click',async event=>{
     else if (action==='take') act({kind:'take',lane,target:Number(target.dataset.target),...(view().hands.length>2?{targetSeat:Number(target.dataset.owner)}:{})});
     else if (action==='flip') act({kind:'flip',lane});
     else if (action==='clear') { chosen=[]; render(); }
-    else if (action==='preview') { preview=!preview; chosen=[]; render(); }
+    else if (action==='preview') {cancelMotion(app); preview=!preview; chosen=[]; render(); }
     else if (action==='uncover') { handoff=false; render(); }
     else if (action==='game-highlights') {openRecording(currentRecording());replayOnlyHighlights=true;renderReplay();}
     else if (action==='game-log') openRecording(currentRecording());
@@ -594,7 +665,7 @@ document.addEventListener('click',async event=>{
     else if (action==='replay-play') toggleReplay();
     else if (action==='replay-filter') {replayOnlyHighlights=!replayOnlyHighlights;renderReplay();}
     else if (action==='rules') showRules();
-    else if (action==='menu') { event.preventDefault(); scene='menu'; clearTimeout(botTimer);generation++;stopAI();render(); }
+    else if (action==='menu') { event.preventDefault();cancelMotion(app); scene='menu'; clearTimeout(botTimer);generation++;stopAI();render(); }
     else if (action==='resume') { scene='game'; render(); scheduleBot(); }
     else if (action==='next') act({kind:'next'});
     else if (action==='rematch') {
@@ -615,7 +686,7 @@ document.addEventListener('click',async event=>{
     else if (action==='share') {
       if (navigator.share) { try { await navigator.share({title:'Flip it',text:pairKind==='host'?'Your seat is waiting.':'Here’s my reply. Meet you at the table.',url:pairOut}); } catch(error) { if (error.name!=='AbortError') await copyOutput(); } }
       else await copyOutput();
-    } else if (action==='close-modal') modal.close();
+    } else if (action==='close-modal') {pauseReplay();modal.close();}
     else if (action==='cancel-pair') {
       stopScan(); const old=peer; peer=null; old?.close(); pairOut=''; pairBusy=false; pairError=''; pairMessage=''; linkStatus='idle';
       if (!session?.view) { mode='solo'; session=null; }
@@ -645,7 +716,7 @@ document.addEventListener('change',event=>{
   if(modal.open&&modal.dataset.kind==='table-settings')showTableSettings();
 });
 document.addEventListener('keydown',event=>{
-  if (modal.open || scene!=='game' || handoff || ['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) return;
+  if (modal.open || scene!=='game' || handoff || ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) return;
   if (event.key==='Escape') { chosen=[]; preview=false; render(); return; }
   if (!myTurn() || preview) return;
   if(event.key==='ArrowLeft'||event.key==='ArrowRight'){const requested=event.key==='ArrowLeft'?0:1;if(availableLanes(view()).includes(requested)){lane=requested;render();}event.preventDefault();return;}
@@ -657,6 +728,7 @@ document.addEventListener('keydown',event=>{
     try { act({kind:'play',lane,cards:chosen}); } catch(error) { notify(error.message); } event.preventDefault();
   }
 });
+modal.addEventListener('cancel',pauseReplay);
 modal.addEventListener('close',()=>{modal.classList.remove('rules-dialog');stopScan();pairingOpen=false;pauseReplay();replayOpen=false;modal.classList.remove('replay-dialog');delete modal.dataset.kind;scheduleBot();});
 modal.addEventListener('click',event=>{
   if (event.target===modal) { const r=modal.getBoundingClientRect(); if (event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom) modal.close(); }
@@ -668,7 +740,7 @@ function applySettings() {
   document.body.classList.toggle('no-fx',prefs.fx===false); document.querySelector('#effects').textContent='FX '+(prefs.fx===false?'OFF':'ON');
 }
 document.querySelector('#sound').addEventListener('click',()=>{prefs.sound=!prefs.sound;savePrefs();applySettings();sound('deal');});
-document.querySelector('#effects').addEventListener('click',()=>{prefs.fx=prefs.fx===false;savePrefs();applySettings();});
+document.querySelector('#effects').addEventListener('click',()=>{prefs.fx=prefs.fx===false;savePrefs();applySettings();if(prefs.fx===false){cancelMotion(app);cancelMotion(modalContent);}});
 bus?.addEventListener('message',async event=>{
   const message=event.data; if (!message || typeof message!=='object') return;
   if (message.type==='reply' && session?.seat===0 && peer && message.room===peer.room && !peer.connected) {
