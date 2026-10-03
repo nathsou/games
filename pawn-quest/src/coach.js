@@ -2,7 +2,7 @@
 // Everything here is algorithmic: static exchange evaluation, tactic
 // pattern detection, opening principles and a small search.
 import {
-  WHITE, BLACK, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, F_CAPTURE, F_CASTLE, F_PROMO, F_EP,
+  WHITE, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, F_CAPTURE, F_CASTLE, F_PROMO, F_EP,
   typeOf, colorOf, mFrom, mTo, mFlags, mPromo, sqName, NAMES, COLOR_NAMES, BISHOP_D, ROOK_D, uci,
 } from './chess.js';
 import { search, MATE, isMateScore } from './engine.js';
@@ -602,4 +602,3 @@ export function threatSummary(pos) {
   return out;
 }
 
-export { BLACK };

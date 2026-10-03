@@ -1,7 +1,7 @@
 // A game against a bot (or a friend), with optional coaching.
-import { Position, WHITE, BLACK, KING, QUEEN, KNIGHT, ROOK, BISHOP, PAWN, typeOf, colorOf, mFrom, mTo, mFlags, mPromo, F_CAPTURE, F_PROMO, F_CASTLE, uci, sqName, START_FEN } from './chess.js';
+import { Position, WHITE, BLACK, QUEEN, KNIGHT, ROOK, BISHOP, PAWN, typeOf, colorOf, mFrom, mTo, mFlags, mPromo, F_CAPTURE, F_PROMO, F_CASTLE, uci, START_FEN } from './chess.js';
 import { ask } from './ai.js';
-import { attackMap, hangingPieces, threatSummary } from './coach.js';
+import { attackMap, hangingPieces } from './coach.js';
 import { sfx } from './audio.js';
 import { h, modal, richEl, pieceIcon } from './ui.js';
 
@@ -246,4 +246,3 @@ export class Game {
   }
 }
 
-export { WHITE, BLACK, sqName };

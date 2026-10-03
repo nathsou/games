@@ -1,5 +1,5 @@
 // Pure level logic (no DOM): positions, collect-mode rules and par, quiz answers.
-import { Position, WHITE, BLACK, KING, QUEEN, PAWN, LETTERS, START_FEN, typeOf, colorOf, mFrom, mTo, mFlags, mPromo, F_PROMO, F_CASTLE, sqParse, sqName } from './chess.js';
+import { Position, WHITE, BLACK, KING, QUEEN, LETTERS, START_FEN, typeOf, colorOf, mFrom, mTo, mFlags, mPromo, F_PROMO, F_CASTLE, sqParse, sqName } from './chess.js';
 import { hangingPieces } from './coach.js';
 
 export const FREE_RULES = { variant: 'free', checks: false, castling: false, enPassant: false };
@@ -126,7 +126,6 @@ export function quizAnswer(q, pos = quizPosition(q)) {
   }
 }
 
-export { sqParse, sqName, KING, PAWN };
 
 // Why a move from `from` to `to` isn't allowed, in beginner words.
 export function illegalReason(pos, from, to) {

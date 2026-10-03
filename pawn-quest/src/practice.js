@@ -1,5 +1,5 @@
 // Practice: daily puzzle, endless generated drills, Coordinate Rush and your own Mistake Gym.
-import { START_FEN, sqName, BLACK, WHITE } from './chess.js';
+import { START_FEN, sqName, BLACK } from './chess.js';
 import { save, persist } from './save.js';
 import { h, button, modal, toast, richEl, starsRow, confetti } from './ui.js';
 import { createPlayCtx, solvePuzzle } from './level.js';
@@ -164,4 +164,3 @@ function rush(app, nav) {
   return () => { running = false; cancelAnimationFrame(raf); ctx.destroy(); };
 }
 
-export { WHITE };

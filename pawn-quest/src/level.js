@@ -1,12 +1,12 @@
 // The level screen: intro dialogue, then one of the four level kinds.
-import { WHITE, BLACK, KING, QUEEN, PAWN, typeOf, colorOf, mFrom, mTo, mFlags, F_CAPTURE, F_PROMO, F_CASTLE, sqParse, sqName, uci, START_FEN } from './chess.js';
+import { WHITE, BLACK, QUEEN, typeOf, colorOf, mFrom, mTo, mFlags, F_CAPTURE, F_PROMO, sqParse, sqName, uci, START_FEN } from './chess.js';
 import { BoardView } from './board.js';
 import { h, Speech, button, starsRow, modal, toast, banner, confetti, richEl, linkSquares, portrait, CHAR_NAMES, materialStrip } from './ui.js';
 import { pixelText } from './font.js';
 import { sfx, playMusic } from './audio.js';
 import { save, recordLevel, unlockCodex } from './save.js';
 import { makePosition, collectSetup, collectMoves, collectSolve, capturedPiece, quizPosition, quizAnswer, FREE_RULES, illegalReason } from './levelkit.js';
-import { attackMap, hangingPieces } from './coach.js';
+import { attackMap } from './coach.js';
 import { Game, BOT_LINES } from './game.js';
 import { turnAdvice, captureNote } from './battlecoach.js';
 import { ask } from './ai.js';

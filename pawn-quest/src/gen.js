@@ -1,7 +1,7 @@
 // Procedurally generated training positions. Every position is verified
 // with the rules engine before it is used, so drills never run out.
-import { Position, WHITE, BLACK, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, piece, typeOf, colorOf, mFrom, mTo, mFlags, F_CAPTURE, KNIGHT_D, uci, sqName } from './chess.js';
-import { see, hangingPieces, mateInOne, threatOn } from './coach.js';
+import { Position, WHITE, BLACK, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, piece, typeOf, mTo, mFlags, F_CAPTURE, KNIGHT_D, uci, sqName } from './chess.js';
+import { see, hangingPieces, mateInOne } from './coach.js';
 import { search, rootScores } from './engine.js';
 
 export function rng(seed) {
@@ -193,4 +193,3 @@ export const DRILLS = {
   'save-piece': { title: 'Rescue', blurb: 'One of your pieces is attacked. Save it.' },
   'fork': { title: 'Fork Finder', blurb: 'Fork the king and a big piece with your knight.' },
 };
-export { BLACK };

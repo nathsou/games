@@ -251,12 +251,10 @@ export function materialStrip(start, pos, me) {
     return { el, pts };
   };
   const mine = row(me ^ 1, 'You took'), theirs = row(me, 'They took');
-  const diff = mine.pts - theirs.pts;
   // Promotions add material without captures; fall back to plain counting for the score.
   const score = c => { let s = 0; for (const sq of pos.pieces(c)) s += vals[pos.b[sq] & 7]; return s; };
   const lead = score(me) - score(me ^ 1);
   const wrap = h('div', { class: 'mat-strip' }, mine.el, theirs.el,
     h('div', { class: 'mat-score ' + (lead > 0 ? 'up' : lead < 0 ? 'down' : '') }, lead === 0 ? 'Material: even' : lead > 0 ? `You're ahead by ${lead}` : `You're behind by ${-lead}`));
-  void diff;
   return wrap;
 }

@@ -2,7 +2,7 @@ import { startSky } from './sky.js';
 import { save, persist, totalStars, resetProgress } from './save.js';
 import { h, button, modal, toast, confetti, richEl } from './ui.js';
 import { pixelText } from './font.js';
-import { pieceSprite, spriteCanvas, PIECE_PALETTES } from './sprites.js';
+import { pieceSprite, spriteCanvas } from './sprites.js';
 import { PAWN, QUEEN, WHITE } from './chess.js';
 import { sfx, playMusic, setSfx, setMusic, unlockAudio } from './audio.js';
 import { levelById, LEVELS } from './curriculum.js';
@@ -149,5 +149,3 @@ function endingScreen(app) {
   return null;
 }
 
-export { nav };
-void PIECE_PALETTES;
