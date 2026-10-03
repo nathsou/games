@@ -154,7 +154,6 @@ export function mapScreen(app, nav, focusWorld, celebrate) {
     const { height, pts } = nodeLayout(world.levels.length);
     const canvas = h('canvas', { class: 'map-canvas', 'aria-hidden': 'true' });
     const sec = h('section', { class: 'map-world', style: { height: height + 'px' }, 'aria-label': `Rank ${world.rank}: ${world.name}` }, canvas);
-    const done = world.levels.filter(l => save.levels[l.uid]).length;
     const ws = world.levels.reduce((s, l) => s + (save.levels[l.uid]?.stars || 0), 0);
     sec.append(h('div', { class: 'world-banner' },
       pixelText(`RANK ${world.rank}: ${world.name}`, { scale: 3, color: '#ffffff', shadow: '#000000', outline: '#1b1230' }),

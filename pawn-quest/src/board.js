@@ -1,6 +1,6 @@
 // Canvas board: crisp pixel art at an integer scale, smooth animation,
 // danger overlays, arrows, particles and pointer input (click or drag).
-import { KING, KNIGHT, typeOf, colorOf, mFrom, mTo, mFlags, F_CASTLE, F_EP, F_CAPTURE, F_PROMO, mPromo, sqName, sqParse, WHITE } from './chess.js';
+import { KNIGHT, typeOf, colorOf, mFrom, mTo, mFlags, F_CASTLE, F_EP, F_CAPTURE, F_PROMO, sqParse, WHITE } from './chess.js';
 import { pieceSprite, pieceSilhouette, starSprite } from './sprites.js';
 import { drawText } from './font.js';
 
@@ -613,4 +613,3 @@ export class BoardView {
   }
 }
 
-export { sqName };

@@ -1,11 +1,11 @@
 // Arena: a normal game of chess against a character (or a friend), with an optional coach.
-import { WHITE, BLACK, START_FEN, Position, mFrom, mTo, sqParse } from './chess.js';
+import { WHITE, BLACK, START_FEN, Position, mFrom, mTo } from './chess.js';
 import { Game, BOTS, BOT_LINES } from './game.js';
 import { playLayout } from './level.js';
 import { illegalReason } from './levelkit.js';
 import { BoardView } from './board.js';
 import { save, persist } from './save.js';
-import { h, button, modal, toast, richEl, portrait, Speech, linkSquares, banner, confetti, CHAR_NAMES, materialStrip } from './ui.js';
+import { h, button, modal, toast, richEl, portrait, Speech, linkSquares, banner, confetti, materialStrip } from './ui.js';
 import { GRADES } from './coach.js';
 import { TAG_TO_CODEX, CODEX } from './codex-data.js';
 import { ask } from './ai.js';
@@ -301,4 +301,3 @@ async function reviewGame(app, nav, history, user, bot) {
   app.__arenaCleanup = () => { alive = false; document.removeEventListener('keydown', onKey); speech.destroy(); board.destroy(); app.__arenaCleanup = null; };
 }
 
-export { sqParse, CHAR_NAMES };

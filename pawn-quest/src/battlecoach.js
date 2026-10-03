@@ -1,6 +1,6 @@
 // Turn-by-turn coaching for quest battles: what should a beginner look at right now?
 // Priorities: king danger > free material > own pieces in danger > pawn races > a gentle routine reminder.
-import { WHITE, PAWN, KING, typeOf, colorOf, sqName, NAMES } from './chess.js';
+import { WHITE, PAWN, KING, typeOf, sqName, NAMES } from './chess.js';
 import { hangingPieces, see, PV, mateInOne } from './coach.js';
 
 const N = t => NAMES[t];
@@ -77,4 +77,3 @@ export function captureNote(pos, entry, me, name) {
   return { text: `${name} took your ${N(victim)} on [${sqName(sq)}]: nothing was protecting it. Before each move, check which enemy pieces can reach your piece's square!`, tone: 'bad' };
 }
 
-export { colorOf };

@@ -2,7 +2,7 @@
 // opponents can be greedy, timid, sloppy or sharp.
 import {
   WHITE, BLACK, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, F_CAPTURE, F_PROMO,
-  typeOf, colorOf, mFrom, mTo, mFlags, mPromo, uci,
+  colorOf, mFrom, mTo, mFlags, mPromo,
 } from './chess.js';
 
 export const MATE = 100000;
@@ -128,10 +128,9 @@ export function evaluate(pos, style = NO_STYLE) {
   if (wk >= 0 && bk >= 0) {
     const diff = mat[WHITE] - mat[BLACK];
     if (Math.abs(diff) >= 400 && (mat[WHITE] === 0 || mat[BLACK] === 0 || phase <= 6)) {
-      const win = diff > 0 ? WHITE : BLACK, loserK = win === WHITE ? bk : wk, winK = win === WHITE ? wk : bk;
+      const win = diff > 0 ? WHITE : BLACK, loserK = win === WHITE ? bk : wk;
       const mop = centerDist(loserK) * 12 + (14 - dist(wk, bk) * 2) * 4 + (loserK & 7 && (loserK & 7) !== 7 && (loserK >> 4) && (loserK >> 4) !== 7 ? 0 : 20);
       score += win === WHITE ? mop : -mop;
-      void winK;
     }
   }
   if (v === 'capture-all') score = (mat[WHITE] - mat[BLACK]) + (score - (mat[WHITE] - mat[BLACK])) * 0.3;
@@ -440,4 +439,3 @@ export function botMove(pos, bot = {}, rand = Math.random) {
   return { move: pool[0].move, score: pool[0].score };
 }
 
-export { uci };
