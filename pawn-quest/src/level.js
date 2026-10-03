@@ -6,7 +6,7 @@ import { pixelText } from './font.js';
 import { sfx, playMusic } from './audio.js';
 import { save, recordLevel, unlockCodex } from './save.js';
 import { makePosition, collectSetup, collectMoves, collectSolve, capturedPiece, quizPosition, quizAnswer, FREE_RULES, illegalReason } from './levelkit.js';
-import { attackMap } from './coach.js';
+import { attackMap, hangingPieces } from './coach.js';
 import { Game, BOT_LINES } from './game.js';
 import { turnAdvice, captureNote } from './battlecoach.js';
 import { ask } from './ai.js';
@@ -63,8 +63,17 @@ export function createPlayCtx(app, { title, subtitle, onBack, backLabel = 'Map' 
 
 export function levelScreen(app, L, nav) {
   const world = L.world;
-  const ctx = createPlayCtx(app, { title: L.title, subtitle: `Rank ${world.rank} · ${world.name}`, onBack: () => nav.map(world.id) });
+  const ctx = createPlayCtx(app, {
+    title: L.title, subtitle: `Rank ${world.rank} · ${world.name}`,
+    onBack: async () => {
+      // Don't throw away a battle in progress by accident.
+      const g = ctx.game;
+      if (g && g.history.length && !g.over && !(await modal({ title: 'Leave the battle?', body: 'Your progress in this game will be lost.', buttons: [{ label: 'Stay', value: false, cls: 'ghost' }, { label: 'Leave', value: true, cls: 'coral' }] }))) return;
+      nav.map(world.id);
+    },
+  });
   ctx.L = L; ctx.nav = nav;
+
   playMusic(L.kind === 'battle' ? 'battle' : 'calm');
   run(ctx).catch(e => { if (ctx.alive) { console.error(e); ctx.speech.show('Hoo... something went wrong: ' + e.message); } });
   return () => ctx.destroy();
@@ -382,7 +391,7 @@ async function buildPuzzles(ctx, L) {
   for (const g of gens) {
     let p = null;
     for (let i = 0; i < 4 && !p; i++) p = await ask('gen', { fen: START_FEN, kind: g, seed: seed++ });
-    if (p) out.push(p);
+    if (p) out.push(L.drill.prompt ? { ...p, prompt: L.drill.prompt } : p);
   }
   return out;
 }
@@ -523,7 +532,7 @@ async function playPuzzles(ctx, L) {
 async function playBattle(ctx, L) {
   const { board, speech } = ctx;
   const char = L.character;
-  const lines = BOT_LINES[char] || {};
+  const lines = { ...(BOT_LINES[char] || {}), ...(L.lines || {}) };
   const rules = { castling: true, enPassant: true, checks: true, ...L.rules };
   const start = makePosition(L, rules);
   const userColor = L.side === 'b' ? BLACK : WHITE;
@@ -554,7 +563,10 @@ async function playBattle(ctx, L) {
     else { board.arrows = [{ from: lastHint.from, to: lastHint.to, color: 'hint' }]; speech.show(`**${lastHint.san}**. ${lastHint.why}`); }
   }, 'small');
   const undoBtn = button('↶ Undo', () => { if (game.takeback()) { board.arrows = []; lastHint = null; } }, 'small ghost');
-  const resignBtn = button('⚑ Restart', () => { ctx.restartBattle?.(); }, 'small ghost');
+  const resignBtn = button('⚑ Restart', async () => {
+    if (game.history.length && !(await modal({ title: 'Restart the battle?', body: 'This game will be lost and the pieces set up again.', buttons: [{ label: 'Keep playing', value: false, cls: 'ghost' }, { label: 'Restart', value: true, cls: 'coral' }] }))) return;
+    ctx.restartBattle?.();
+  }, 'small ghost');
   ctx.setControls([hintBtn, undoBtn, resignBtn]);
   const matBox = h('div');
   ctx.ui.side.append(matBox);
@@ -577,7 +589,7 @@ async function playBattle(ctx, L) {
       if (d.by === 'bot' && d.capture === QUEEN) lostQueen = true;
       if (d.by === 'bot' && d.capture && lines.capture?.length && Math.random() < 0.7) taunt(pick(lines.capture));
       else if (d.by === 'user' && d.capture && lines.captured?.length && Math.random() < 0.7) taunt(pick(lines.captured));
-      if (d.by === 'bot' && d.capture) pendingNote = captureNote(game.pos, e, userColor, CHAR_NAMES[char] || 'Your opponent');
+      if (d.by === 'bot' && d.capture) pendingNote = captureNote(game.pos, e, userColor, CHAR_NAMES[char] || 'Your opponent', game.history[game.history.length - 2]);
       if (d.by === 'user') say(pick(['Nice. Now watch the reply...', 'Let\'s see what happens...', 'Hmm, interesting...']));
       if (L.maxMoves) ctx.setProgress(`Moves: ${game.history.filter(x => x.by === 'user').length} / ${L.maxMoves}`);
       paintMat();
@@ -588,7 +600,7 @@ async function playBattle(ctx, L) {
       const adv = turnAdvice(game.pos, userColor, { variant: rules.variant, coaching: !!L.threats, name: CHAR_NAMES[char], turn: turnNo++ });
       board.opportunities = L.threats ? (adv.opportunities || []) : [];
       // A capture explanation matters more than a routine reminder.
-      if (pendingNote && (!adv.tone || adv.tone === '')) say(pendingNote.text, 'pip', pendingNote.tone);
+      if (pendingNote && (!adv.tone || adv.tone === '' || pendingNote.tone === 'good')) say(pendingNote.text + (adv.tone === 'good' ? ' ' + adv.text : ''), 'pip', pendingNote.tone || adv.tone || '');
       else if (pendingNote && adv.tone === 'good') say(pendingNote.text + ' ' + adv.text, 'pip', 'good');
       else say(adv.text, 'pip', adv.tone || '');
       pendingNote = null;
@@ -645,7 +657,7 @@ async function playBattle(ctx, L) {
     fiona: 'Watch out for knight forks on your king and queen. Keep valuable pieces off squares her knights can reach.',
     iron: 'Play solid: develop, castle, and check for threats every move. Hints and undos are allowed!',
   };
-  return { success: false, title: end.winner === -1 ? 'DRAW!' : 'DEFEAT', text: reasonText[end.reason] || 'The game is over.', tip: tips[char] || 'Use the hint button when you\'re stuck. Every loss teaches something!' };
+  return { success: false, title: end.winner === -1 ? 'DRAW!' : 'DEFEAT', text: reasonText[end.reason] || 'The game is over.', tip: L.tip || tips[char] || 'Use the hint button when you\'re stuck. Every loss teaches something!' };
 }
 
 // Capture-all battles: stop the endless chase once one side is hopelessly behind.
@@ -670,10 +682,11 @@ function developEnd(userColor) {
     const castled = game.history.some(x => x.by === 'user' && /^O-O/.test(x.san));
     let mat = 0;
     for (const sq of pos.pieces()) { const p = pos.b[sq]; const v = [0, 1, 3, 3, 5, 9, 0][typeOf(p)]; mat += colorOf(p) === userColor ? v : -v; }
-    if (knightsOut && bishopsOut && castled && mat >= 0 && !game.isUserTurn()) return { winner: userColor, reason: 'developed' };
+    const safe = !hangingPieces(pos, userColor).some(x => x.gain >= 200);
+    if (knightsOut && bishopsOut && castled && mat >= 0 && safe && !game.isUserTurn()) return { winner: userColor, reason: 'developed' };
     if (userMoves >= 10 && !game.isUserTurn()) {
       const miss = [];
-      if (!knightsOut) miss.push('develop both knights'); if (!bishopsOut) miss.push('develop both bishops'); if (!castled) miss.push('castle'); if (mat < 0) miss.push('keep your material');
+      if (!knightsOut) miss.push('develop both knights'); if (!bishopsOut) miss.push('develop both bishops'); if (!castled) miss.push('castle'); if (mat < 0) miss.push('keep your material'); if (!safe) miss.push('keep every piece safe');
       return { winner: userColor ^ 1, reason: 'develop', text: `Time's up! You still needed to: ${miss.join(', ')}.` };
     }
     return null;

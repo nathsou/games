@@ -62,7 +62,7 @@ export function arenaScreen(app, nav) {
       toggle('threats', 'Danger vision', 'Red stripes on attacked squares; your pieces in danger glow.'),
       toggle('takebacks', 'Allow undo', 'Take back moves when you change your mind.'),
     ),
-    h('div', {}, button('Start game ▶', () => {
+    h('div', { class: 'start-bar' }, button('Start game ▶', () => {
       const color = o.color === 'r' ? (Math.random() < 0.5 ? 'w' : 'b') : o.color;
       startGame(app, nav, o.bot, color, []);
     }, 'gold')),
@@ -116,7 +116,7 @@ function startGame(app, nav, botId, color, moves) {
   const resignBtn = button('⚑ Resign', async () => {
     if (game.over) return;
     const v = await modal({ title: 'Resign?', body: 'Give up this game?', buttons: [{ label: 'Keep playing', value: false, cls: 'ghost' }, { label: 'Resign', value: true, cls: 'coral' }] });
-    if (v && !game.over) { game.over = { winner: friend ? (game.pos.turn ^ 1) : (user ^ 1), reason: 'resign' }; board.interactive = false; onEvent('end', game.over); }
+    if (v && !game.over) { game.over = { winner: friend ? (game.pos.turn ^ 1) : (user ^ 1), reason: 'resign', resigner: friend ? (game.pos.turn === WHITE ? 'White' : 'Black') : 'You' }; board.interactive = false; onEvent('end', game.over); }
   }, 'small ghost');
   controls.append(hintBtn, undoBtn || '', flipBtn, resignBtn);
   speech.show(friend ? 'Two players, one board. White moves first. Have fun!' : (lines.start || 'Good luck!'), friend ? 'pip' : bot.char);
@@ -141,8 +141,8 @@ function startGame(app, nav, botId, color, moves) {
     movelist.scrollTop = movelist.scrollHeight;
   }
 
-  function addFeed(html, tone, tags = []) {
-    const item = h('div', { class: 'feed-item tone-' + tone });
+  function addFeed(html, tone, tags = [], ply = game.history.length) {
+    const item = h('div', { class: 'feed-item tone-' + tone, 'data-ply': ply });
     item.append(html);
     const links = [...new Set(tags.map(t => TAG_TO_CODEX[t]).filter(id => id && save.codex[id]))];
     if (links.length) item.append(h('div', { class: 'learn' }, 'Learn more: ', ...links.map(id => h('a', { onclick: () => { persistGame(); nav.codex(id); } }, CODEX[id].title))));
@@ -175,7 +175,7 @@ function startGame(app, nav, botId, color, moves) {
       speech.show(t.text, 'pip', t.kind === 'mate' || t.kind === 'check' ? 'bad' : '');
       if (t.move) board.arrows = [{ from: t.move & 127, to: (t.move >> 7) & 127, color: 'bad' }];
     }
-    if (type === 'takeback') paintMoves();
+    if (type === 'takeback' || type === 'warning-undo') { paintMoves(); for (const it of [...feed.children]) if (+it.dataset.ply > game.history.length) it.remove(); }
     if (type === 'illegal') { const r = illegalReason(game.pos, d.from, d.to); if (r) speech.show(r, 'pip', 'bad'); }
     if (type === 'end') { opp?.classList.remove('thinking'); if (opp) opp.querySelector('.opp-status').textContent = 'Game over'; finish(d); }
   }
@@ -191,7 +191,7 @@ function startGame(app, nav, botId, color, moves) {
       if (userWon) { save.arena.wins++; rec.w++; } else if (userLost) rec.l++; else { save.arena.draws++; rec.d++; }
       persist();
     }
-    const reason = { checkmate: 'by checkmate', stalemate: 'by stalemate', repetition: 'by repetition', 'fifty-moves': 'by the 50-move rule', insufficient: '(not enough material)', resign: 'by resignation' }[end.reason] || '';
+    const reason = { checkmate: 'by checkmate', stalemate: 'by stalemate', repetition: 'by repetition', 'fifty-moves': 'by the 50-move rule', insufficient: '(not enough material)', resign: `(${end.resigner || 'a player'} resigned)` }[end.reason] || '';
     let title = 'DRAW', sub = `Draw ${reason}`;
     if (friend) { if (end.winner >= 0) { title = end.winner === WHITE ? 'WHITE WINS' : 'BLACK WINS'; sub = `${end.winner === WHITE ? 'White' : 'Black'} wins ${reason}`; } }
     else if (userWon) { title = 'VICTORY!'; sub = `You win ${reason}`; sfx.win(); confetti(140); if (lines.lose) speech.show(lines.lose, bot.char); }
@@ -200,11 +200,11 @@ function startGame(app, nav, botId, color, moves) {
     await new Promise(r => setTimeout(r, 1200));
     const v = await modal({
       body: h('div', { class: 'result' }, h('div', { class: 'result-title' }, pixelText(title, { scale: 4, color: userLost ? '#ff8aa0' : '#ffd23f', shadow: userLost ? '#5a1428' : '#8a3a12' })), h('p', { class: 'result-note' }, sub)),
-      buttons: [{ label: 'Arena', value: 'arena', cls: 'ghost' }, { label: 'Rematch', value: 'again', cls: 'ghost' }, ...(friend ? [] : [{ label: 'Review game 🔍', value: 'review', cls: 'gold' }])],
+      buttons: [{ label: 'Arena', value: 'arena', cls: 'ghost' }, { label: 'Rematch', value: 'again', cls: 'ghost' }, { label: 'Review game 🔍', value: 'review', cls: 'gold' }],
       dismissable: false,
     });
     if (v === 'again') startGame(app, nav, botId, user === BLACK ? 'b' : 'w', []);
-    else if (v === 'review') reviewGame(app, nav, game.history, user, bot);
+    else if (v === 'review') reviewGame(app, nav, game.history, user, friend ? { name: 'a friend', char: 'pip' } : bot);
     else nav.arena();
   }
 

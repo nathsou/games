@@ -2,7 +2,9 @@
 // with the rules engine before it is used, so drills never run out.
 import { Position, WHITE, BLACK, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, piece, typeOf, mTo, mFlags, F_CAPTURE, KNIGHT_D, uci, sqName } from './chess.js';
 import { see, hangingPieces, mateInOne } from './coach.js';
-import { search, rootScores } from './engine.js';
+import { search, rootScores, MATE, CP } from './engine.js';
+
+const materialCp = p => p.pieces().reduce((s, sq) => s + ((p.b[sq] >> 3) === WHITE ? 1 : -1) * CP[p.b[sq] & 7], 0);
 
 export function rng(seed) {
   let a = seed >>> 0 || 1;
@@ -150,9 +152,7 @@ function genSavePiece(r) {
     const p = emptyPos();
     place(p, ri(r, 2) * 16 + 1 + ri(r, 6), piece(WHITE, KING));
     place(p, (6 + ri(r, 2)) * 16 + 1 + ri(r, 6), piece(BLACK, KING));
-    const types = [PAWN, KNIGHT, BISHOP, ROOK];
-    for (let i = 0; i < 2 + ri(r, 3); i++) place(p, randSq(r), piece(WHITE, types[ri(r, 4)]));
-    for (let i = 0; i < 2 + ri(r, 3); i++) place(p, randSq(r), piece(BLACK, types[ri(r, 4)]));
+    for (const c of [WHITE, BLACK]) for (const t of army(r, 2 + ri(r, 3)).filter(t => t !== QUEEN)) place(p, randSq(r), piece(c, t));
     if (r() < 0.5) place(p, randSq(r), piece(WHITE, QUEEN));
     if (!finalize(p)) continue;
     if (p.inCheck(WHITE)) continue;
@@ -163,10 +163,12 @@ function genSavePiece(r) {
     const roots = rootScores(p, 3, { timeMs: 500 });
     if (roots.length < 4) continue;
     const best = roots[0].score;
+    // Skip positions where some flashy tactic dwarfs a simple rescue.
+    if (best > MATE - 1000 || best > materialCp(p) + 150) continue;
     const ok = roots.filter(x => x.score >= best - 60);
     const bad = roots.filter(x => x.score < best - 200);
     if (bad.length < roots.length / 2 || ok.length > roots.length / 2) continue;
-    return { fen: p.toFEN(), accept: 'engine', solution: [uci(ok[0].move)], alts: ok.slice(1).map(x => uci(x.move)), prompt: `Your ${['', 'pawn', 'knight', 'bishop', 'rook', 'queen'][mine[0].type]} on [${sqName(mine[0].sq)}] is in danger. Save it!`, tag: 'hanging', danger: sqName(mine[0].sq) };
+    return { fen: p.toFEN(), accept: 'engine', margin: 120, solution: [uci(ok[0].move)], alts: ok.slice(1).map(x => uci(x.move)), prompt: `Your ${['', 'pawn', 'knight', 'bishop', 'rook', 'queen'][mine[0].type]} on [${sqName(mine[0].sq)}] is in danger. Save it!`, tag: 'hanging', danger: sqName(mine[0].sq) };
   }
   return null;
 }

@@ -116,7 +116,7 @@ export const CODEX = {
   kqk: {
     title: 'Queen + King Mate', cat: 'Endgames', icon: 'Q',
     text: 'With queen and king against a lone king:\n1) Put your queen a **knight\'s move** away from the enemy king to build a shrinking box.\n2) Once the king is on the edge, bring **your king** close.\n3) Mate with the queen protected by your king.\nAlways check that the enemy king still has a move, or it\'s stalemate!',
-    demo: { setup: 'ke6 Qd1 Kc1', moves: ['c1d2', 'e6f6', 'd2e3', 'f6e7', 'e3f4', 'e7f7', 'f4e5', 'f7e7', 'd1h1', 'e7e8', 'e5e6', 'e8d8', 'h1b7', 'd8e8', 'b7e7'] },
+    demo: { setup: 'ke5 Qd1 Kc1', moves: ['d1d3', 'e5f4', 'd3d5', 'f4e3', 'd5c4', 'e3f3', 'c4d4', 'f3g3', 'd4e4', 'g3f2', 'c1d1', 'f2g3', 'd1e1', 'g3h2', 'e4g4', 'h2h1', 'e1f1', 'h1h2', 'g4h4'] },
   },
   ladder: {
     title: 'The Rook Ladder', cat: 'Endgames', icon: 'R',

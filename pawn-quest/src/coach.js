@@ -50,6 +50,16 @@ export function hangingPieces(pos, color) {
   return out.sort((a, b) => b.gain - a.gain);
 }
 
+// Why a hanging piece can be won: nothing protects it, a cheaper piece attacks it,
+// or there are more attackers than defenders.
+export function hangCause(pos, h) {
+  const cheapest = Math.min(...h.attackers.map(a => PV[typeOf(pos.b[a])]));
+  const cheapType = h.attackers.map(a => typeOf(pos.b[a])).find(t => PV[t] === cheapest);
+  if (!h.defenders.length) return { kind: 'free', attacker: cheapType };
+  if (cheapest < PV[h.type]) return { kind: 'cheaper', attacker: cheapType };
+  return { kind: 'outnumbered', attacker: cheapType, attackers: h.attackers.length, defenders: h.defenders.length };
+}
+
 // Squares attacked by `color` (count per square, 0x88 indexed).
 export function attackMap(pos, color) {
   const map = new Int8Array(128);
@@ -293,6 +303,11 @@ export function explainMove(pos, m, { depth = 4, timeMs = 900, history = [], use
   else if (loss < 0.17) grade = 'inaccuracy';
   else if (loss < 0.3) grade = 'mistake';
   else grade = 'blunder';
+  // Losing a whole piece is always serious, even when you're already behind.
+  if (scoreAfter < 1200 && !isMateScore(scoreBest)) {
+    if (cpLoss >= 450 && grade !== 'blunder') grade = 'blunder';
+    else if (cpLoss >= 250 && ['best', 'good', 'ok', 'inaccuracy'].includes(grade)) grade = 'mistake';
+  }
   // Missing a forced mate or allowing one is always serious.
   if (isMateScore(scoreBest) && scoreBest > 0 && !(isMateScore(scoreAfter) && scoreAfter > 0)) grade = scoreAfter > 600 ? 'inaccuracy' : 'blunder';
   if (isMateScore(scoreAfter) && scoreAfter < 0 && !(isMateScore(scoreBest) && scoreBest < 0)) grade = 'blunder';
@@ -323,7 +338,12 @@ export function explainMove(pos, m, { depth = 4, timeMs = 900, history = [], use
     const capturedType = (mFlags(m) & F_CAPTURE) ? (typeOf(pos.b[mTo(m)]) || PAWN) : 0;
     if (isMateScore(scoreAfter) && scoreAfter > 0) parts.push(`You have a forced checkmate coming. Keep finding the checks!`);
     else if (tacticNow && tacticNow.type !== 'check') { parts.push(tacticNow.text); out.arrows.push(...tacticNow.arrows.map(a => ({ from: a[0], to: a[1], color: 'good' }))); out.tags.push(tacticNow.type); }
-    else if (capturedType && to === lastTo) parts.push(`You take back the ${N(capturedType)}. Recapturing keeps the trade even.`);
+    else if (capturedType && to === lastTo) {
+      const lostType = last.capType || 0, diff = PV[capturedType] - PV[lostType];
+      parts.push(!lostType || Math.abs(diff) <= 50 ? `You take back the ${N(capturedType)}. Recapturing keeps the trade even.`
+        : diff > 0 ? `You take back, and come out ahead: their ${N(capturedType)} is worth more than the ${N(lostType)} you lost.`
+          : `You take back the ${N(capturedType)}, but you lost a ${N(lostType)}, which is worth more.`);
+    }
     else if (capturedType && gained >= 80) parts.push(`You win material: the ${N(capturedType)} on [${sqName(to)}] was there for the taking.`);
     else if (capturedType) {
       pos.make(m);
@@ -503,7 +523,11 @@ export function techniqueMove(pos) {
   if (walk.length) return { move: walk[0].move, kind: 'walk', area0, area: walk[0].area };
   // Otherwise let the engine find the precise move (king + rook needs tempo play).
   const r = search(pos, { depth: 5, timeMs: 700 });
-  return r.move ? { move: r.move, kind: 'engine', area0, area: area0 } : null;
+  if (!r.move) return null;
+  pos.make(r.move);
+  const area = boxArea(pos, them), check = pos.inCheck();
+  pos.unmake();
+  return { move: r.move, kind: check ? 'check' : area < area0 ? 'shrink' : area > area0 ? 'precise' : 'engine', area0, area };
 }
 
 function loneKingHint(pos) {
@@ -516,6 +540,8 @@ function loneKingHint(pos) {
     shrink: [`Squeeze the box! His king can roam ${sq(tm.area0)}. Find a safe move that makes his box smaller, without stalemating him.`, `It shrinks the box from ${sq(tm.area0)} to ${sq(tm.area)}.`],
     walk: ['The box can\'t shrink any more on its own. Walk your king closer: checkmate needs teamwork!', 'Your king steps toward his king to help.'],
     engine: ['Keep the box closed. Sometimes you need a clever waiting move so his king has to step back.', 'It keeps the box tight and forces his king to give way.'],
+    check: ['A check can push his king back toward the edge. Which one?', `Check! His king must step back${tm.area < tm.area0 ? ` and his box shrinks to ${sq(tm.area)}` : ''}.`],
+    precise: ['Sometimes you have to reorganise before you can squeeze again.', 'It repositions your piece so the box can shrink on the next moves.'],
   }[tm.kind];
   return { move: tm.move, nudge: texts[0], why: texts[1] };
 }
@@ -541,6 +567,11 @@ export function hint(pos, { depth = 4, timeMs = 900, history = [] } = {}) {
   const t = typeOf(pos.b[from]);
   const san = pos.san(m);
   const out = { move: m, uci: uci(m), san, from, to, piece: t, score: best.score };
+  // A pawn that can promote safely should usually do so right away.
+  if (v === 'standard' && !(isMateScore(best.score) && best.score > 0 && Math.ceil((MATE - best.score) / 2) === 1)) {
+    const promo = pos.legalMoves().find(x => (mFlags(x) & F_PROMO) && mPromo(x) === QUEEN && !pos.attackers(mTo(x), us ^ 1).filter(a => typeOf(pos.b[a]) !== KING || !pos.attackers(mTo(x), us).length).length);
+    if (promo && best.score > 300) return { ...out, move: promo, uci: uci(promo), san: pos.san(promo), from: mFrom(promo), to: mTo(promo), piece: PAWN, nudge: 'Your pawn can reach the last rank! Promote it to a queen.', why: 'A brand-new queen, and nothing can capture it.' };
+  }
   const lone = loneKingHint(pos);
   if (lone) { const lm = lone.move; return { ...out, move: lm, uci: uci(lm), san: pos.san(lm), from: mFrom(lm), to: mTo(lm), piece: typeOf(pos.b[mFrom(lm)]), nudge: lone.nudge, why: lone.why }; }
   const hanging = hangingPieces(pos, us);
@@ -597,7 +628,10 @@ export function threatSummary(pos) {
   const t = out.length ? null : opponentThreat(pos, 2);
   if (t && t.mate) out.push({ kind: 'mate', move: t.move, text: `Danger: your opponent threatens checkmate with **${t.san}**!` });
   const hanging = hangingPieces(pos, us).filter(h => h.gain >= 200);
-  for (const h of hanging.slice(0, 2)) out.push({ kind: 'hanging', sq: h.sq, text: `Your ${N(h.type)} on [${sqName(h.sq)}] is under attack${h.defenders.length ? ' and not protected enough' : ' and unprotected'}.` });
+  for (const h of hanging.slice(0, 2)) {
+    const c = hangCause(pos, h);
+    out.push({ kind: 'hanging', sq: h.sq, text: `Your ${N(h.type)} on [${sqName(h.sq)}] is ${c.kind === 'free' ? 'attacked and unprotected' : c.kind === 'cheaper' ? `attacked by a ${N(c.attacker)}: protecting it won't help, it's worth more` : `attacked ${c.attackers} times but protected only ${c.defenders} time${c.defenders > 1 ? 's' : ''}`}.` });
+  }
   if (!out.length && t && t.gain >= 200) out.push({ kind: 'threat', move: t.move, text: `Your opponent threatens **${t.san}**, winning material.` });
   return out;
 }

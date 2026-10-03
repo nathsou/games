@@ -126,7 +126,7 @@ function rush(app, nav) {
   const coordsToggle = h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: true, onchange: e => { board.coords = e.target.checked; } }), h('span', {}, h('b', {}, 'Show coordinates'), h('small', {}, 'Turn off for hard mode')));
   const flipToggle = h('label', { class: 'toggle' }, h('input', { type: 'checkbox', onchange: e => { board.flipped = e.target.checked; } }), h('span', {}, h('b', {}, 'Play from Black\'s side'), h('small', {}, 'The board is flipped')));
   ctx.setControls([button('Start ▶', () => start(), 'gold'), coordsToggle, flipToggle]);
-  speech.show('Tap the square I name. As many as you can in **30 seconds**! Remember: letter = file (column), number = rank (row).');
+  speech.show('Tap the square I name. As many as you can in **30 seconds**! Letter = file (column), number = rank (row). Careful: a wrong tap costs **1.5 seconds**.');
   let running = false, score = 0, want = -1, t0 = 0, raf = 0;
   function nextTarget() { let s; do { s = Math.floor(Math.random() * 8) * 16 + Math.floor(Math.random() * 8); } while (s === want); want = s; target.textContent = sqName(s); }
   async function start() {
@@ -147,7 +147,7 @@ function rush(app, nav) {
       const sq = await ctx.waitTap();
       if (!running || sq == null) break;
       if (sq === want) { score++; sfx.star(); board.burst(sq, ['#5ef2c4', '#ffd23f', '#fff'], 10); nextTarget(); }
-      else { sfx.wrong(); board.flash(sq, 'bad', 300); t0 -= 1500; }
+      else { sfx.wrong(); board.flash(sq, 'bad', 300); board.floatText(sq, '-1.5S', '#ff5e7a'); t0 -= 1500; }
       stats.firstChild.textContent = `Score ${score}`;
     }
   }

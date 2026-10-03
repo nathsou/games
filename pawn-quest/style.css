@@ -72,6 +72,7 @@ b { color: var(--gold); font-weight: 800; }
 .board-canvas:focus { outline: none; }
 .board-canvas:focus-visible { outline: 3px solid var(--mint); outline-offset: 4px; }
 .board-canvas { display: block; border-radius: 4px; box-shadow: 0 10px 0 var(--shadow), 0 20px 40px rgba(0,0,0,.35); }
+.side > * { flex-shrink: 0; }
 .side { width: 360px; flex: 0 0 360px; display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; padding: 2px 4px 12px; }
 .goal-card { background: var(--panel); border: 3px solid var(--edge); border-radius: 8px; padding: 10px 12px; box-shadow: 0 4px 0 var(--shadow); }
 .goal-card[hidden] { display: none; }
@@ -272,6 +273,7 @@ b { color: var(--gold); font-weight: 800; }
 .practice-card .card-icon { position: absolute; right: 14px; top: 14px; width: 48px; height: 48px; }
 .practice-card h3 { margin: 0; font-size: 18px; }
 .practice-card p { margin: 0; color: var(--dim); font-size: 14px; }
+:root[data-color-theme=light] .practice-card .meta, :root[data-color-theme=light] .lvl { color: #9a5a00; }
 .practice-card .meta { font-size: 12px; font-weight: 900; color: var(--gold); text-transform: uppercase; letter-spacing: .08em; }
 .rush-target { font-size: 64px; font-weight: 900; text-align: center; font-family: var(--mono); color: var(--gold); text-shadow: 0 5px 0 var(--ink); }
 .rush-stats { display: flex; justify-content: space-around; font-weight: 900; font-size: 20px; }
@@ -325,3 +327,5 @@ b { color: var(--gold); font-weight: 800; }
 .opp-info { min-width: 0; flex: 1; }
 .taunt { margin-top: 4px; font-size: 13px; font-style: italic; background: var(--panel2); border-radius: 6px; padding: 3px 8px; position: relative; animation: pop .2s; }
 .taunt[hidden] { display: none; }
+
+.start-bar { position: sticky; bottom: 0; padding: 12px 0; background: linear-gradient(transparent, var(--bg0) 40%); }

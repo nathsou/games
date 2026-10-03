@@ -1,7 +1,7 @@
 // Turn-by-turn coaching for quest battles: what should a beginner look at right now?
 // Priorities: king danger > free material > own pieces in danger > pawn races > a gentle routine reminder.
 import { WHITE, PAWN, KING, typeOf, sqName, NAMES } from './chess.js';
-import { hangingPieces, see, PV, mateInOne } from './coach.js';
+import { hangingPieces, see, PV, mateInOne, hangCause } from './coach.js';
 
 const N = t => NAMES[t];
 const ROUTINE = [
@@ -56,20 +56,30 @@ export function turnAdvice(pos, me, { variant = 'standard', coaching = true, nam
   if (loot.length) {
     const h = loot[0];
     const free = !h.defenders.length;
-    return { text: free ? `Look! ${name}'s ${N(h.type)} on [${sqName(h.sq)}] is **unprotected**. Can you grab it?` : `You can **win** the ${N(h.type)} on [${sqName(h.sq)}]: you attack it with something cheaper.`, tone: 'good', opportunities: loot.slice(0, 2).map(x => x.sq) };
+    const c = hangCause(pos, h);
+    return { text: free ? `Look! ${name}'s ${N(h.type)} on [${sqName(h.sq)}] is **unprotected**. Can you grab it?` : c.kind === 'cheaper' ? `You can **win** the ${N(h.type)} on [${sqName(h.sq)}]: your ${N(c.attacker)} attacking it is worth less.` : `You can **win** the ${N(h.type)} on [${sqName(h.sq)}]: you attack it ${c.attackers} times and it's protected only ${c.defenders} time${c.defenders > 1 ? 's' : ''}.`, tone: 'good', opportunities: loot.slice(0, 2).map(x => x.sq) };
   }
   const mine = hangingPieces(pos, me).filter(h => h.gain >= (variant === 'pawn-wars' ? 100 : 200) && h.type !== KING);
   if (mine.length) {
     const h = mine[0];
-    return { text: `Careful: your ${N(h.type)} on [${sqName(h.sq)}] is in danger${h.defenders.length ? ' (not protected enough)' : ' (nothing protects it)'}. Move it, protect it, or block!`, tone: 'bad', danger: mine.map(x => x.sq) };
+    const c = hangCause(pos, h);
+    const why = c.kind === 'free' ? 'nothing protects it. Move it, protect it, or block!' : c.kind === 'cheaper' ? `a ${N(c.attacker)} attacks it, and protecting won't help. Move it!` : `it's attacked ${c.attackers} times but protected only ${c.defenders}. Move it or add a defender!`;
+    return { text: `Careful: your ${N(h.type)} on [${sqName(h.sq)}] is in danger: ${why}`, tone: 'bad', danger: mine.map(x => x.sq) };
   }
   return { text: ROUTINE[turn % ROUTINE.length] };
 }
 
 // After the opponent captures one of our pieces: say why it happened, or that we can take back.
-export function captureNote(pos, entry, me, name) {
+export function captureNote(pos, entry, me, name, prev = null) {
   const sq = entry.to, victim = entry.capturedType;
   if (!victim) return null;
+  // They just took back after our capture: judge the whole trade.
+  if (prev && prev.capturedType && prev.to === sq) {
+    const won = PV[prev.capturedType], lost = PV[victim];
+    if (won > lost + 50) return { text: `Good trade! You won a ${N(prev.capturedType)} and only lost a ${N(victim)}.`, tone: 'good' };
+    if (Math.abs(won - lost) <= 50) return { text: `An even trade: ${N(prev.capturedType)} for ${N(victim)}.`, tone: '' };
+    return { text: `That trade cost you: you took a ${N(prev.capturedType)} but lost a ${N(victim)}, which is worth more.`, tone: 'bad' };
+  }
   const attacker = typeOf(pos.b[sq]);
   const back = see(pos, sq); // our turn now
   if (back >= PV[attacker] - 50 || (back > 0 && PV[victim] <= PV[attacker])) return { text: `${name} took your ${N(victim)}. You can **take back** on [${sqName(sq)}]!`, tone: '' };
