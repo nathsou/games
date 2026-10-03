@@ -2942,3 +2942,9 @@ input[type=range] { user-select:none; -webkit-user-select:none; }
   .last-moves { grid-column:1/-1; }
   .last-moves p { overflow-wrap:anywhere; }
 }
+.move-pop { max-width:calc(100vw - 32px); white-space:normal; text-align:center; font-size:clamp(24px,4vw,34px); }
+@media(hover:none) {
+  .flip-card:hover:not(:disabled) { transform:none; }
+  .flip-card.selected:hover { transform:translateY(-26px); }
+  .hand-card:hover:not(:has(.selected)) { z-index:auto; }
+}
