@@ -1,5 +1,5 @@
 // Engine-side request handler, shared by the Web Worker and the main-thread fallback.
-import { Position, uci, mFrom, mTo } from './chess.js';
+import { Position, uci, mFrom, mTo, mFlags, F_CAPTURE } from './chess.js';
 import { search, rootScores, botMove } from './engine.js';
 import { explainMove, hint, threatSummary } from './coach.js';
 import { bookMove } from './book.js';
@@ -11,7 +11,7 @@ function rebuild({ fen, rules, moves = [] }) {
   for (const u of moves) {
     const m = pos.moveFromUci(u);
     if (!m) break;
-    hist.push({ from: mFrom(m), to: mTo(m) });
+    hist.push({ from: mFrom(m), to: mTo(m), cap: !!(mFlags(m) & F_CAPTURE) });
     pos.make(m);
   }
   pos.stack.length = 0; // keep hash history for repetitions, drop undo info

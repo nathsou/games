@@ -7,6 +7,7 @@ import { DRILLS } from './gen.js';
 import { ask } from './ai.js';
 import { sfx, playMusic } from './audio.js';
 import { pixelText } from './font.js';
+import { pieceSprite, starSprite, spriteCanvas } from './sprites.js';
 import { Position } from './chess.js';
 
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -22,13 +23,15 @@ export function practiceScreen(app, nav, arg) {
     button('◀ Back', () => nav.title(), 'small ghost back'),
     h('div', { class: 'hud-title' }, h('span', { class: 'hud-sub' }, 'Sharpen your eye'), h('span', { class: 'hud-main' }, 'Practice')),
     h('div', { class: 'hud-right' }, button('Map', () => nav.map(), 'small ghost')));
-  const card = (title, meta, text, onclick, disabled = false) => h('button', { class: 'practice-card', onclick, disabled }, h('span', { class: 'meta' }, meta), h('h3', {}, title), richEl('p', text));
+  const icon = (t, c = 0) => spriteCanvas(typeof t === 'number' ? pieceSprite(t, c) : t, 3, 'card-icon');
+  const card = (title, meta, text, onclick, disabled = false, ic = null) => h('button', { class: 'practice-card', onclick, disabled }, ic, h('span', { class: 'meta' }, meta), h('h3', {}, title), richEl('p', text));
+  const DRILL_ICON = { 'mate1-queen': 5, 'mate1-rook': 4, mate1: 6, 'free-piece': 3, 'save-piece': 1, fork: 2 };
   const d = save.practice.daily[today()];
   const grid = h('div', { class: 'practice-grid' },
-    card('Daily Puzzle', d ? '✓ Solved today' : 'New every day', 'One fresh puzzle each day. Come back tomorrow for another!', () => go('daily')),
-    card('Coordinate Rush', `Best: ${save.practice.rush || 0}`, 'Tap the named square as fast as you can. 30 seconds. Knowing squares makes you faster at everything!', () => go('rush')),
-    card('Mistake Gym', `${save.gym.length} position${save.gym.length === 1 ? '' : 's'}`, save.gym.length ? 'Replay the positions where you slipped in Arena games, and find the better move.' : 'Play Arena games, then use **Review** to save your mistakes here.', () => go('gym'), !save.gym.length),
-    ...Object.entries(DRILLS).map(([id, dr]) => card(dr.title, `Best streak: ${save.practice.drills[id] || 0}`, dr.blurb + ' Endless: how long can your streak go?', () => go(id))),
+    card('Daily Puzzle', d ? '✓ Solved today' : 'New every day', 'One fresh puzzle each day. Come back tomorrow for another!', () => go('daily'), false, icon(starSprite(true))),
+    card('Coordinate Rush', `Best: ${save.practice.rush || 0}`, 'Tap the named square as fast as you can. 30 seconds. Knowing squares makes you faster at everything!', () => go('rush'), false, icon(4, 1)),
+    card('Mistake Gym', `${save.gym.length} position${save.gym.length === 1 ? '' : 's'}`, save.gym.length ? 'Replay the positions where you slipped in Arena games, and find the better move.' : 'Play Arena games, then use **Review** to save your mistakes here.', () => go('gym'), !save.gym.length, icon(6, 1)),
+    ...Object.entries(DRILLS).map(([id, dr]) => card(dr.title, `Best streak: ${save.practice.drills[id] || 0}`, dr.blurb + ' Endless: how long can your streak go?', () => go(id), false, icon(DRILL_ICON[id] || 1))),
   );
   app.replaceChildren(h('div', { class: 'screen' }, header, h('div', { class: 'arena-setup' }, h('div', { class: 'arena-inner' }, h('div', { class: 'section-title' }, 'Training'), grid))));
   function go(id) { location.hash = '#/practice/' + id; }

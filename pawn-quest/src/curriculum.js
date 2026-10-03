@@ -376,8 +376,8 @@ const W6 = {
         'To castle, just move your king two squares toward the rook.',
       ],
       puzzles: [
-        { fen: 'r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4', prompt: 'Castle **kingside** (the short side)!', accept: 'list', solution: ['e1g1'], explain: 'Your king is safe behind its pawns, and your rook joins the game.' },
-        { fen: 'r2qkbnr/ppp1pppp/2n5/3p1b2/3P1B2/2N5/PPPQPPPP/R3KBNR w KQkq - 4 4', prompt: 'Now castle **queenside** (the long side)!', accept: 'list', solution: ['e1c1'], explain: 'Long castling puts your rook right on the open d-file.' },
+        { fen: 'r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4', prompt: 'Castle **kingside** (the short side)!', accept: 'list', solution: ['e1g1'], wrong: 'To castle, move your **king** two squares toward the rook on [h1]: drag it from [e1] to [g1].', explain: 'Your king is safe behind its pawns, and your rook joins the game.' },
+        { fen: 'r2qkbnr/ppp1pppp/2n5/3p1b2/3P1B2/2N5/PPPQPPPP/R3KBNR w KQkq - 4 4', prompt: 'Now castle **queenside** (the long side)!', accept: 'list', solution: ['e1c1'], wrong: 'Move your **king** two squares toward the rook on [a1]: from [e1] to [c1].', explain: 'Long castling puts your rook right on the open d-file.' },
       ],
     },
     {
@@ -398,8 +398,8 @@ const W6 = {
         'But only on the very next move. Use it or lose it!',
       ],
       puzzles: [
-        { fen: '6k1/8/8/3pP3/8/8/8/4K3 w - d6 0 2', lastMove: 'd7d5', prompt: 'Black\'s pawn just jumped from d7 to d5. Capture it **en passant**!', accept: 'list', solution: ['e5d6'], explain: 'Your pawn lands on d6, and the black pawn disappears!' },
-        { fen: '7k/8/8/1Pp5/8/8/8/K7 w - c6 0 1', lastMove: 'c7c5', prompt: 'That pawn is trying to sneak past. Stop it with en passant!', accept: 'list', solution: ['b5c6'], explain: 'Gotcha! And now your pawn is the one running for promotion.' },
+        { fen: '6k1/8/8/3pP3/8/8/8/4K3 w - d6 0 2', lastMove: 'd7d5', prompt: 'Black\'s pawn just jumped from d7 to d5. Capture it **en passant**!', accept: 'list', solution: ['e5d6'], wrong: 'Your pawn on [e5] captures diagonally onto [d6], the square the black pawn skipped over.', explain: 'Your pawn lands on d6, and the black pawn disappears!' },
+        { fen: '7k/8/8/1Pp5/8/8/8/K7 w - c6 0 1', lastMove: 'c7c5', prompt: 'That pawn is trying to sneak past. Stop it with en passant!', accept: 'list', solution: ['b5c6'], wrong: 'Capture **en passant**: your pawn on [b5] moves diagonally to [c6].', explain: 'Gotcha! And now your pawn is the one running for promotion.' },
       ],
     },
     {
@@ -407,7 +407,7 @@ const W6 = {
       intro: ['When a pawn promotes, you choose its new piece. Almost always a queen... but not always!'],
       puzzles: [
         { setup: 'kh8 Kg6 Pe7', prompt: 'Promote and deliver checkmate!', accept: 'mate', explain: 'A brand-new piece, and checkmate. Glorious!' },
-        { fen: '8/2q1P1k1/8/8/8/8/8/1K6 w - - 0 1', prompt: 'Promoting to a queen isn\'t best here. Find the knight **fork**!', accept: 'list', solution: ['e7e8n'], explain: 'A knight with check! After the king moves, you capture the queen. That\'s an **underpromotion**.' },
+        { fen: '8/2q1P1k1/8/8/8/8/8/1K6 w - - 0 1', prompt: 'Promoting to a queen isn\'t best here. Find the knight **fork**!', accept: 'list', solution: ['e7e8n'], wrong: 'Push the pawn to [e8] and choose the **knight** when asked. Which squares would a knight there attack?', explain: 'A knight with check! After the king moves, you capture the queen. That\'s an **underpromotion**.' },
       ],
     },
     {
