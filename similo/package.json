@@ -1,0 +1,8 @@
+{
+  "name": "similo-arcade",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node tools/serve.mjs"
+  }
+}
