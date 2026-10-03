@@ -21,15 +21,15 @@ There is no hosted room registry. AI mode makes browser requests directly to the
 ## Play
 
 - **Play with a friend:** the creator is the clue giver. Create and send an invitation link. The friend opens it, creates a reply code, and sends it back. The creator pastes the reply; both browsers open the shared table. Keep both tabs open. This exchange contains connection metadata, not the secret, hand, notes, or API keys.
-- **Guess the AI's character:** the AI knows the secret and chooses one clue card and its direction each round.
-- **Give clues to AI:** you know the secret and play clues; the AI chooses characters to eliminate.
+- **Guess the AI's card:** the AI knows the secret and chooses one clue card and its direction each round.
+- **Give clues to AI:** you know the secret and play clues; the AI chooses cards to eliminate.
 - **Play on one screen:** pass the device between roles using a privacy curtain. No provider key is required.
 
-The board has twelve characters. The clue giver starts with five cards and plays one as **Similar** (upright) or **Different** (sideways). The guesser eliminates **1, 2, 3, 4, 1** characters across five rounds. Removing the secret loses immediately; leaving it alone wins. Clues accumulate and remain relevant.
+The board has twelve illustrated people or places. The clue giver starts with five cards and plays one as **Similar** (upright) or **Different** (sideways). The guesser eliminates **1, 2, 3, 4, 1** cards across five rounds. Removing the secret loses immediately; leaving it alone wins. Clues accumulate and remain relevant.
 
 **Classic hand:** draw one replacement after each clue. **Fixed five:** no replacements; use the initial five cards in a considered order.
 
-Six decks, each with 24 illustrated cards:
+Eleven decks, each with 24 illustrated cards (264 cards total):
 
 1. French History
 2. Global History
@@ -37,8 +37,15 @@ Six decks, each with 24 illustrated cards:
 4. Scientists
 5. Philosophers
 6. Writers
+7. Singers
+8. Actors
+9. Cities
+10. Countries
+11. French Regions
 
-Choose board and clue decks independently. When themes overlap, clue cards depicting someone on the board are excluded. The opening screen also offers future theme ideas and a collection browser.
+Cities include Paris, Rome, London, Berlin, Tokyo and New York City, with 18 more cities worldwide. French Regions includes [France's 18 present-day regions](https://www.insee.fr/fr/metadonnees/definition/c1696), including the five overseas regions, plus six clearly labelled historic regions: Alsace, Lorraine, Bourgogne, Champagne, Picardie and Auvergne. These historic regions overlap modern ones, which can itself become a clue.
+
+Choose board and clue decks independently, including people/place combinations. When themes overlap, clue cards depicting the same subject as a board card are excluded. The opening screen also offers future theme ideas and a collection browser. All decks use smaller WebP delivery images; the original generated PNGs are retained with their prompts.
 
 Select cards with a mouse, touch, or keyboard; activate focused buttons with Enter or Space. Right-click, double-click, or focus a card and press **I** to inspect it. The final round offers a larger side-by-side comparison of the last two candidates. The AI observation includes a matching close-up comparison. Standard browser zoom works. Reduced-motion preferences disable animation.
 
@@ -63,7 +70,7 @@ These are cooperative games between trusted players. A local browser that runs a
 ## Source
 
 - `src/game.js`: rules, dealing, move validation, role projections, replay/network validation.
-- `src/decks.js`: the six card rosters and future theme ideas.
+- `src/decks.js`: the eleven card rosters and future theme ideas.
 - `src/art.js`: Canvas card rendering, atlas loading, AI observation images and animated felt.
 - `src/app.js`: accessible native controls, game flow, pairing, local saving, replay and settings.
 - `src/peer.js`: compressed invitation/reply tokens and reliable ordered WebRTC messages.
