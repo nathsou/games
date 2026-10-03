@@ -257,7 +257,7 @@ async function createInvitation() {
     if (peer !== link) return;
     pairOut = makeLink(token, 'offer');
     pairMessage = 'Invitation ready. Share it, then accept the reply here.';
-  } catch (error) { pairError = error.message; }
+  } catch (error) { if (peer !== link) return; pairError = error.message; }
   pairBusy = false; renderPair(); render();
 }
 async function joinInvitation(input) {
@@ -269,7 +269,7 @@ async function joinInvitation(input) {
     const token = await link.join(input);
     if (peer !== link) return;
     pairOut = makeLink(token, 'answer'); pairMessage = 'Send your reply to the host to finish connecting.';
-  } catch (error) { pairError = error.message; }
+  } catch (error) { if (peer !== link) return; pairError = error.message; }
   pairBusy = false; renderPair(); render();
 }
 async function acceptReply(input) {

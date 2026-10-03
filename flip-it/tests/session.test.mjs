@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {FlipSession} from '../src/session.js';
-import {legalActions, playerView} from '../src/rules.js';
+import {FlipSession, validateView} from '../src/session.js';
+import {createMatch, legalActions, playerView} from '../src/rules.js';
 import {botAction} from '../src/bot.js';
 import {encodePairing, decodePairing, makeLink, iceConfig} from '../src/peer.js';
 
@@ -65,4 +65,10 @@ test('Pairing links round-trip and reject cross-game tokens or wrong types',asyn
   await assert.rejects(()=>decodePairing(token.replace('FI1','MT1'),'offer'));
   await assert.rejects(()=>decodePairing('not a link','offer'));
   assert.deepEqual(iceConfig(''),{iceServers:[]});assert.throws(()=>iceConfig('https://bad'));
+});
+test('Malformed end-of-round snapshots are rejected before the UI reads a missing result',()=>{
+  const view=playerView(createMatch({},14),1);
+  const missing=structuredClone(view);missing.phase='roundOver';assert.throws(()=>validateView(missing,1));
+  const score=structuredClone(view);score.scores=[2,0];assert.throws(()=>validateView(score,1));
+  const history=structuredClone(view);history.round=1;assert.throws(()=>validateView(history,1));
 });

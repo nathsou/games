@@ -1,0 +1,122 @@
+{
+  "results": [
+    {
+      "mode": "duel",
+      "config": 7,
+      "steps": 34,
+      "guestMoves": 17,
+      "rounds": 2,
+      "scores": [
+        2,
+        0
+      ]
+    },
+    {
+      "mode": "duel",
+      "config": 0,
+      "steps": 71,
+      "guestMoves": 35,
+      "rounds": 3,
+      "scores": [
+        1,
+        2
+      ]
+    },
+    {
+      "mode": "duel",
+      "config": 1,
+      "steps": 58,
+      "guestMoves": 28,
+      "rounds": 3,
+      "scores": [
+        1,
+        2
+      ]
+    },
+    {
+      "mode": "duel",
+      "config": 2,
+      "steps": 54,
+      "guestMoves": 27,
+      "rounds": 3,
+      "scores": [
+        1,
+        2
+      ]
+    },
+    {
+      "mode": "duel",
+      "config": 3,
+      "steps": 33,
+      "guestMoves": 15,
+      "rounds": 3,
+      "scores": [
+        2,
+        1
+      ]
+    },
+    {
+      "mode": "duel",
+      "config": 4,
+      "steps": 79,
+      "guestMoves": 38,
+      "rounds": 3,
+      "scores": [
+        2,
+        1
+      ]
+    },
+    {
+      "mode": "duel",
+      "config": 5,
+      "steps": 65,
+      "guestMoves": 31,
+      "rounds": 3,
+      "scores": [
+        1,
+        2
+      ]
+    },
+    {
+      "mode": "duel",
+      "config": 6,
+      "steps": 35,
+      "guestMoves": 17,
+      "rounds": 2,
+      "scores": [
+        0,
+        2
+      ]
+    },
+    {
+      "mode": "team",
+      "config": 7,
+      "steps": 42,
+      "guestMoves": 10,
+      "rounds": 3,
+      "scores": [
+        2,
+        1
+      ]
+    },
+    {
+      "mode": "team",
+      "config": 0,
+      "steps": 87,
+      "guestMoves": 21,
+      "rounds": 3,
+      "scores": [
+        1,
+        2
+      ]
+    }
+  ],
+  "kinds": {
+    "play": 394,
+    "add": 28,
+    "take": 0,
+    "flip": 56
+  },
+  "layouts": [],
+  "errors": []
+}
