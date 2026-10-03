@@ -86,7 +86,7 @@ export function validatePublicView(view) {
 }
 export function aiObservation(game, role) {
   const view = viewFor(game, role);
-  return {role, round: view.round + 1, variant: view.variant,
+  return {role, round: view.round + 1, variant: view.variant, requiredEliminations: REMOVALS[view.round],
     boardDeck: {name: DECKS[view.theme].name, kind: DECKS[view.theme].kind},
     clueDeck: {name: DECKS[view.clueTheme].name, kind: DECKS[view.clueTheme].kind},
     board: view.board.map(id => ({id, name: CARDS[id].name, subtitle: CARDS[id].subtitle,

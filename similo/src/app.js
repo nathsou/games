@@ -4,7 +4,9 @@ import {loadArt, cardElement, observationImage, startAmbience} from './art.js';
 import {PeerLink} from './peer.js';
 import {PROVIDERS, chooseMove, listModels} from './ai.js';
 import {loadSettings, read, write, erase} from './storage.js';
-import {chime} from './sound.js';
+import {chime, setMusic, unlockAudio} from './sound.js';
+import {THEME_MUSIC} from './music.js';
+import {animateOutcome} from './outcome.js';
 
 const app = document.getElementById('app');
 const modal = document.getElementById('modal');
@@ -15,12 +17,13 @@ if (!DECKS[setup.theme]) setup.theme='french';
 if (setup.clueTheme !== 'same' && !DECKS[setup.clueTheme]) setup.clueTheme='same';
 let game = null, mode = null, localRole='giver', screen='home', selected = new Set(), clueCard=null, relation='similar', draftNote='';
 let peer=null, peerStatus='', pendingGuess=false, pairingKind=null, pairingCode='', pairingError='', pairingBusy=false;
-let aiBusy=false, aiError='', aiController=null, aiGeneration=0, replayRound=0, toastTimer;
+let aiBusy=false, aiError='', aiController=null, aiGeneration=0, replayRound=0, toastTimer, lastOutcome;
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const options = (items, current) => items.map(([value,label]) => `<option value="${esc(value)}"${value===current?' selected':''}>${esc(label)}</option>`).join('');
 function toast(message) { const node=$('toast');node.textContent=message;node.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>node.hidden=true,5500); }
-function sound(kind) { chime(kind,settings.sound); }
+function sound(kind) { chime(kind,settings.sound&&!settings.muted); }
+function updateMusic(){setMusic({theme:screen==='home'?setup.theme:game?.theme||setup.theme,enabled:settings.music,volume:settings.musicVolume/100,muted:settings.muted});}
 function mountCard(parent,id,opts={}) { const element=cardElement(id,opts);parent.append(element);return element; }
 function humanRole() { return mode==='ai-giver'||mode==='peer-guest' ? 'guesser' : mode==='local' ? localRole : 'giver'; }
 function currentView() { return mode==='peer-guest' ? game : viewFor(game,humanRole()); }
@@ -32,6 +35,7 @@ function saveSession() {
 function resetTurn() { selected.clear();clueCard=null;relation='similar';draftNote='';aiError='';pendingGuess=false; }
 function cancelAI() { aiGeneration++;aiController?.abort();aiController=null;aiBusy=false; }
 function showModal(title,eyebrow,body) {
+  modal.classList.remove('outcome-dialog','win','loss');
   modalContent.innerHTML=`<div class="modal-header"><div><p class="eyebrow">${esc(eyebrow)}</p><h2 id="modal-title">${esc(title)}</h2></div><button class="modal-close" id="modal-close" aria-label="Close dialog">×</button></div>${body}`;
   $('modal-close').onclick=()=>modal.close();
   if (!modal.open) modal.showModal();
@@ -42,7 +46,7 @@ modal.addEventListener('close',()=>{
 });
 function inspectCard(id) {
   const card=CARDS[id];if(!card)return;
-  showModal(card.name,'Card collection',`<div class="inspect-layout"><div id="inspect-card"></div><div><p class="eyebrow">${esc(DECKS[card.deck].name)}</p><h3>${esc(card.name)}</h3><p>${esc(card.subtitle)}</p><p class="card-dates">${esc(card.dates)}</p><p class="card-description">${esc(card.description)}</p><p class="help-text">Look at the illustration and its story. Dates and context can suggest connections too. “c.” means approximate; “Trad.” marks a traditional attribution.</p></div></div>`);
+  showModal(card.name,'Card collection',`<div class="inspect-layout"><div id="inspect-card"></div><div><p class="eyebrow">${esc(DECKS[card.deck].name)}</p><h3>${esc(card.name)}</h3><p>${esc(card.subtitle)}</p><p class="card-dates">${esc(card.dates)}</p><p class="card-description">${esc(card.description)}</p></div></div>`);
   mountCard($('inspect-card'),id);
 }
 function attachInspect(element,id) {
@@ -51,7 +55,7 @@ function attachInspect(element,id) {
   element.addEventListener('keydown',event=>{if(event.key.toLowerCase()==='i'){event.preventDefault();inspectCard(id);}});
 }
 function renderHome() {
-  screen='home';
+  screen='home';updateMusic();
   const saved=read('session',null);
   app.innerHTML=`${saved?.game?.phase!=='over' && saved?.game ? '<div class="resume-banner"><p>There’s an unfinished game on this browser.</p><button class="button small secondary" id="resume">Resume game ↗</button></div>':''}
   <section class="hero"><div><p class="eyebrow">A cooperative game of almost alike</p><h1>Same cards.<br>Different <em>minds.</em></h1><p>One secret card. Five visual clues. Explore people, places and stories—and discover what your partner really meant.</p><div class="hero-tags"><span>2 minds</span><span>5 rounds</span><span>One shared victory</span></div></div><div class="hero-art" id="hero-art"><span class="hero-stamp">TRUST YOUR INTERPRETATION</span></div></section>
@@ -115,6 +119,7 @@ function showPassScreen(){
 function renderGame(){
   if(!game)return;
   if(game.phase==='over'){screen='reveal';renderReveal();return;}
+  screen='game';updateMusic();
   const focused=document.activeElement;
   const focusedId=focused?.id;
   const focusedCard=focused?.closest?.('.card');
@@ -198,7 +203,7 @@ function submitMove(){
 function commitGame(next){
   const oldPhase=game.phase;game=next;resetTurn();saveSession();
   if(mode==='peer-host'&&peer?.connected)sendState();
-  if(game.phase==='over'){sound(game.result);replayRound=Math.max(0,game.history.length-1);renderReveal();}
+  if(game.phase==='over'){replayRound=Math.max(0,game.history.length-1);renderReveal();}
   else{sound(oldPhase==='clue'?'clue':'select');renderGame();}
 }
 async function runAI(){
@@ -229,8 +234,8 @@ function confirmLeave(){
 }
 function renderReveal(){
   if(!game||game.phase!=='over')return;
-  screen='reveal';app.hidden=false;const view=currentView();replayRound=Math.min(replayRound,view.history.length-1);const round=view.history[replayRound];
-  app.innerHTML=`<section class="reveal-hero ${view.result}"><div><p class="eyebrow">${view.result==='win'?'A shared victory':'The secret slipped away'}</p><h1>${view.result==='win'?'You found each other.':'Same clue. Different story.'}</h1><p>The secret was <strong>${esc(CARDS[view.secret].name)}</strong>. ${view.result==='win'?'You kept it on the table through all five rounds.':'It was removed in round '+view.history.length+'.'} Now open the sealed interpretations.</p><div class="reveal-controls"><button class="button small" id="rematch">Deal again ↗</button><button class="button small secondary" id="export-replay">Save replay ↓</button><button class="button small secondary" id="reveal-home">Back to start</button></div></div><div id="reveal-secret"></div></section>
+  screen='reveal';app.hidden=false;updateMusic();const view=currentView();replayRound=Math.min(replayRound,view.history.length-1);const round=view.history[replayRound];
+  app.innerHTML=`<section class="reveal-hero ${view.result}"><div><p class="eyebrow">${view.result==='win'?'A shared victory':'The secret slipped away'}</p><h1>${view.result==='win'?'You both win!':'You both lose.'}</h1><p>The secret was <strong>${esc(CARDS[view.secret].name)}</strong>. ${view.result==='win'?'You kept it on the table through all five rounds.':'It was removed in round '+view.history.length+'.'} Now open the sealed interpretations.</p><div class="reveal-controls"><button class="button small" id="rematch">Deal again ↗</button><button class="button small secondary" id="export-replay">Save replay ↓</button><button class="button small secondary" id="reveal-home">Back to start</button></div></div><div id="reveal-secret"></div></section>
   <div class="section-title"><h2>WHAT DID YOU SEE?</h2><span>Recorded when each move was made.</span></div><nav class="replay-tabs" aria-label="Replay rounds">${view.history.map((r,i)=>`<button class="replay-tab ${replayRound===i?'selected':''}" data-round="${i}" aria-pressed="${replayRound===i}">Round ${i+1} ${r.removed.includes(view.secret)?'×':'✓'}</button>`).join('')}</nav>
   <div class="replay-layout"><section><div class="board-label"><span>THE BOARD BEFORE ROUND ${replayRound+1}</span><span>RED MARKS: REMOVED THIS ROUND</span></div><div class="board replay-board" id="replay-board"></div></section><aside class="side-panel"><div class="replay-clue"><div id="replay-clue"></div><div><h3>${esc(CARDS[round.card].name)}</h3><p>${round.relation==='similar'?'↑ Similar':'→ Different'}</p></div></div><div class="rationale"><h3>The clue giver meant</h3><p>${esc(round.giverNote||'No interpretation was recorded.')}</p><small>${esc(round.giverSource||'Human')}</small></div><div class="rationale"><h3>The guesser saw</h3><p>${esc(round.guesserNote||'No interpretation was recorded.')}</p><small>${esc(round.guesserSource||'Human')}</small></div><p class="removed-list">Removed: <strong>${esc(round.removed.map(id=>CARDS[id].name).join(', '))}</strong></p></aside></div>`;
   mountCard($('reveal-secret'),view.secret);
@@ -244,6 +249,17 @@ function renderReveal(){
   $('reveal-home').onclick=()=>{cancelAI();const old=peer;peer=null;old?.close();mode=null;game=null;pairingKind=null;erase('session');updateConnection();renderHome();};
   if(mode==='peer-guest'){$('rematch').textContent='Ask for another game ⇄';$('rematch').disabled=!peer?.connected;}
   if(mode==='replay'){$('rematch').textContent='Play this setup ↗';}
+  if(mode!=='replay'&&lastOutcome!==view.id){
+    lastOutcome=view.id;window.scrollTo({top:0,behavior:'instant'});sound(view.result);showOutcome(view);
+  }
+}
+function showOutcome(view){
+  const win=view.result==='win';
+  showModal(win?'GAME WON!':'GAME LOST',win?'One shared victory':'The secret was removed',`<canvas class="outcome-canvas" id="outcome-canvas" aria-hidden="true"></canvas><div class="outcome-content"><div class="outcome-emblem" aria-hidden="true">${win?'✦':'×'}</div><p class="outcome-summary">${win?'Five rounds. One card left. You did it together.':'The secret left the table in round '+view.history.length+'.'}</p><div id="outcome-secret"></div><p class="outcome-secret-name">${esc(CARDS[view.secret].name)}</p><p class="outcome-caption">${win?'The secret stayed safe.':'This was the card to protect.'}</p><button class="button wide ${win?'':'danger'}" id="outcome-continue">Open the interpretations ↗</button></div>`);
+  modal.classList.add('outcome-dialog',view.result);mountCard($('outcome-secret'),view.secret);
+  $('outcome-continue').onclick=()=>modal.close();$('outcome-continue').focus();
+  animateOutcome($('outcome-canvas'),view.result,settings.effects);
+  toast(win?'You both win! The secret survived all five rounds.':'You both lose. The secret was removed in round '+view.history.length+'.');
 }
 function rematch(){
   if(mode==='replay'){setup.theme=game.theme;setup.clueTheme=game.clueTheme===game.theme?'same':game.clueTheme;setup.variant=game.variant;game=null;mode=null;renderHome();return;}
@@ -316,7 +332,7 @@ function handlePeerMessage(message){
         if(game && game.id!==next.id && game.phase!=='over')throw new Error('Unexpected new game. Pair again to resynchronize.');
         if(game && next.id===game.id && next.revision>game.revision+1)toast('The table has been resynchronized.');
         const oldPhase=game?.phase;game=next;resetTurn();
-        if(next.phase==='over'){replayRound=next.history.length-1;sound(next.result);renderReveal();}
+        if(next.phase==='over'){replayRound=next.history.length-1;renderReveal();}
         else{if(oldPhase==='clue'&&next.phase==='guess')sound('clue');renderGame();}
         return;
       }
@@ -364,7 +380,7 @@ function renderPairing(initial=''){
 }
 function invitationLink(code){return location.href.split('#')[0]+'#pair='+encodeURIComponent(code);}
 function showRules(){
-  showModal('A little trust goes a long way.','How to play',`<p class="pair-copy">You’re a team. Keep one secret card on the table through five rounds.</p><ol class="rules-list"><li><strong>The clue giver sees the secret.</strong> There are 12 cards on the board and five private cards in the giver’s hand.</li><li><strong>Play one illustrated clue.</strong> Choose Similar ↑ for a shared trait, or Different → for a contrast. It can be a color, a prop, a story, a personality, or any association you think your partner will see. Only the card and its direction are shared.</li><li><strong>The guesser removes cards.</strong> Remove 1, then 2, then 3, then 4, then 1. All previous clues remain relevant.</li><li><strong>Leave the secret standing.</strong> Removing it ends the game immediately. If it’s the last card left, you both win.</li><li><strong>Open your sealed interpretations.</strong> Optional human notes and AI explanations are recorded with each move, then revealed together at the end.</li></ol><div class="rules-rounds"><span>1</span><span>2</span><span>3</span><span>4</span><span>1</span></div><p class="help-text"><strong>Classic:</strong> draw a new card after each clue.<br><strong>Fixed five:</strong> start with five cards and never draw replacements. Choose the order carefully.<br><strong>Mixed decks:</strong> use one theme for cards and another for clues.</p><p class="help-text">This is an independent game inspired by Similo, designed by Hjalmar Hach, Pierluca Zizzi and Martino Chiacchiera. The illustrations here are original generated artwork; they are not the commercial card art.</p>`);
+  showModal('A little trust goes a long way.','How to play',`<p class="pair-copy">You’re a team. Keep one secret card on the table through five rounds.</p><ol class="rules-list"><li><strong>The clue giver sees the secret.</strong> There are 12 cards on the board and five private cards in the giver’s hand.</li><li><strong>Play one illustrated clue.</strong> Choose Similar ↑ for a shared trait, or Different → for a contrast. It can be a job, an era, a date, geography, a story, a trait, or a visual detail. Inspect cards for their dates and biographies. Only the card and its direction are shared.</li><li><strong>The guesser removes cards.</strong> Remove 1, then 2, then 3, then 4, then 1. All previous clues remain relevant.</li><li><strong>Leave the secret standing.</strong> Removing it ends the game immediately. If it’s the last card left, you both win.</li><li><strong>Open your sealed interpretations.</strong> Optional human notes and AI explanations are recorded with each move, then revealed together at the end.</li></ol><div class="rules-rounds"><span>1</span><span>2</span><span>3</span><span>4</span><span>1</span></div><p class="help-text"><strong>Classic:</strong> draw a new card after each clue.<br><strong>Fixed five:</strong> start with five cards and never draw replacements. Choose the order carefully.<br><strong>Mixed decks:</strong> use one theme for cards and another for clues.</p><p class="help-text">This is an independent game inspired by Similo, designed by Hjalmar Hach, Pierluca Zizzi and Martino Chiacchiera. The illustrations here are original generated artwork; they are not the commercial card art.</p>`);
 }
 function showThemeIdeas(){showModal('More worlds to interpret.','Future deck ideas',`<div class="theme-ideas">${THEME_IDEAS.map(([name,description])=>`<div class="theme-idea"><h3>${esc(name)}</h3><p>${esc(description)}</p></div>`).join('')}</div><p class="help-text">All ${Object.keys(DECKS).length} illustrated decks are available now. These are suggestions for future additions.</p>`);}
 function showCollection(theme){
@@ -376,7 +392,7 @@ let settingsDraft, availableModels=[], settingsRemember=true;
 function captureSettings(){
   if(!$('provider'))return;const provider=settingsDraft.provider;
   settingsDraft.keys[provider]=$('api-key').value.trim();settingsDraft.models[provider]=$('model').value.trim();settingsDraft.efforts[provider]=$('effort').value;
-  settingsDraft.tokenBudget=Number($('token-budget').value);settingsDraft.stun=$('stun').value.trim();settingsDraft.effects=$('effects').checked;settingsDraft.sound=$('sound').checked;settingsRemember=$('remember-key').checked;
+  settingsDraft.tokenBudget=Number($('token-budget').value);settingsDraft.stun=$('stun').value.trim();settingsDraft.effects=$('effects').checked;settingsDraft.sound=$('sound').checked;settingsDraft.music=$('music').checked;settingsDraft.musicVolume=Number($('music-volume').value);settingsRemember=$('remember-key').checked;
 }
 function openSettings(){settingsDraft=structuredClone(settings);availableModels=[];settingsRemember=settings.rememberKeys!==false;renderSettings();}
 function renderSettings(){
@@ -385,8 +401,9 @@ function renderSettings(){
   <div class="form-field"><label class="field-label" for="api-key">${esc(info.name)} API key</label><div class="form-row"><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Your personal provider key" value="${esc(settingsDraft.keys[provider]||'')}"><button type="button" class="button small secondary" id="show-key">Show</button></div><label class="check-row"><input type="checkbox" id="remember-key" ${settingsRemember?'checked':''}>Remember keys on this browser</label><p class="help-text">${settingsRemember?'Saved in this browser’s local storage.':'Kept in memory for this visit.'} Keys go directly to your selected provider with AI requests. Browser storage is readable by scripts on this origin; use a personal key with a spending limit. <a href="${info.keyUrl}" target="_blank" rel="noopener noreferrer">Get a key ↗</a></p><button type="button" class="text-button" id="forget-keys">Forget all saved keys</button></div>
   <div class="form-field"><label class="field-label" for="model">Vision model</label><div class="form-row"><input id="model" list="model-list" autocomplete="off" spellcheck="false" value="${esc(settingsDraft.models[provider])}" required><button type="button" class="button small secondary" id="load-models">Load models</button></div><datalist id="model-list">${availableModels.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('')}</datalist><p class="help-text" id="model-status">${availableModels.length?`${availableModels.length} models available. Select one or enter an exact model ID.`:'Enter an exact model ID, or load the provider’s list. Choose a model that accepts images.'}</p></div>
   <div class="modal-grid"><div class="form-field"><label class="field-label" for="effort">Reasoning effort</label><select id="effort">${options(info.efforts.map(e=>[e,e==='default'?'Provider default':e[0].toUpperCase()+e.slice(1)]),settingsDraft.efforts[provider])}</select></div><div class="form-field"><label class="field-label" for="token-budget">Response token budget</label><select id="token-budget">${options([2048,4096,8192,16384,32768].map(n=>[String(n),n.toLocaleString()]),String(settingsDraft.tokenBudget))}</select></div></div><p class="help-text">Effort support depends on the model. “Provider default” leaves it unset. Higher effort may take longer and needs more response tokens. Unsupported choices are reported; they are never silently changed.</p>
-  <details style="margin-top:20px"><summary class="field-label">Table preferences & connection</summary><label class="check-row"><input id="sound" type="checkbox" ${settingsDraft.sound?'checked':''}>Soft arcade sounds</label><label class="check-row"><input id="effects" type="checkbox" ${settingsDraft.effects?'checked':''}>Animated felt & subtle scanlines</label><label class="field-label" for="stun">STUN server for direct pairing</label><input id="stun" value="${esc(settingsDraft.stun)}" spellcheck="false" placeholder="stun:stun.l.google.com:19302"><p class="help-text">Comma-separated STUN URLs. Leave blank to try local-network connections only. No relay server is used.</p></details>
+  <details style="margin-top:20px"><summary class="field-label">Table preferences & connection</summary><label class="check-row"><input id="sound" type="checkbox" ${settingsDraft.sound?'checked':''}>Arcade sounds & outcome fanfares</label><label class="check-row"><input id="music" type="checkbox" ${settingsDraft.music?'checked':''}>Theme background music</label><label class="field-label" for="music-volume">Music volume · <span id="music-volume-value">${settingsDraft.musicVolume}%</span></label><input id="music-volume" type="range" min="0" max="70" step="1" value="${settingsDraft.musicVolume}"><p class="help-text">Original composition: ${esc(THEME_MUSIC[screen==='home'?setup.theme:game?.theme||setup.theme].title)}.<br>Music follows the board theme, fades between tracks and pauses when this tab is hidden. The top audio button mutes everything.</p><label class="check-row"><input id="effects" type="checkbox" ${settingsDraft.effects?'checked':''}>Animated felt & subtle scanlines</label><label class="field-label" for="stun">STUN server for direct pairing</label><input id="stun" value="${esc(settingsDraft.stun)}" spellcheck="false" placeholder="stun:stun.l.google.com:19302"><p class="help-text">Comma-separated STUN URLs. Leave blank to try local-network connections only. No relay server is used.</p></details>
   <div class="modal-footer"><span class="help-text">No account with this game.<br>No keys in invitations or replays.</span><button class="button" type="submit">Save settings ✓</button></div></form>`);
+  $('music-volume').oninput=()=>{$('music-volume-value').textContent=$('music-volume').value+'%';};
   $('provider').onchange=event=>{const next=event.target.value;captureSettings();settingsDraft.provider=next;availableModels=[];renderSettings();};
   $('show-key').onclick=()=>{const field=$('api-key');field.type=field.type==='password'?'text':'password';$('show-key').textContent=field.type==='password'?'Show':'Hide';};
   $('forget-keys').onclick=()=>{settings.keys={};settingsDraft.keys={};write('settings',{...settings,keys:{}});$('api-key').value='';toast('All saved provider keys were removed.');};
@@ -403,9 +420,15 @@ function renderSettings(){
     if(screen==='home')renderHome();else if(screen==='game')renderGame();
   };
 }
-function applyPreferences(){document.body.classList.toggle('no-effects',!settings.effects);$('sound-toggle').textContent=settings.sound?'♪':'♩';$('sound-toggle').setAttribute('aria-pressed',String(settings.sound));}
+function applyPreferences(){
+  document.body.classList.toggle('no-effects',!settings.effects);
+  const audible=!settings.muted&&(settings.sound||settings.music),button=$('sound-toggle');
+  button.textContent=audible?'♪':'♩';button.setAttribute('aria-pressed',String(audible));
+  button.setAttribute('aria-label',settings.muted?'Unmute music and sounds':'Mute music and sounds');button.title=settings.muted?'Unmute audio':'Mute audio';updateMusic();
+}
 $('settings-button').onclick=openSettings;$('rules-button').onclick=showRules;
-$('sound-toggle').onclick=()=>{settings.sound=!settings.sound;write('settings',{...settings,keys:settings.rememberKeys===false?{}:settings.keys});applyPreferences();sound('select');};
+$('sound-toggle').onclick=()=>{settings.muted=!settings.muted;write('settings',{...settings,keys:settings.rememberKeys===false?{}:settings.keys});applyPreferences();sound('select');};
+for(const event of ['pointerdown','keydown'])document.addEventListener(event,e=>{if(e.isTrusted)unlockAudio();},{passive:true});
 $('home-link').onclick=event=>{event.preventDefault();if(game&&game.phase!=='over')confirmLeave();else{if(screen==='reveal')$('reveal-home').click();else renderHome();}};
 window.addEventListener('beforeunload',()=>saveSession());
 applyPreferences();startAmbience($('ambience'),()=>settings.effects);
