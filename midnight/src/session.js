@@ -40,6 +40,26 @@ export function validateView(view) {
         !/^h[01][0-5]$/.test(card.id) || !['alarm', 'bluff'].includes(card.kind)) throw new Error('Invalid card update.');
     }
   }
+  const integer = (n, max) => Number.isInteger(n) && n >= 0 && n <= max;
+  const pair = (a, check) => Array.isArray(a) && a.length === 2 && a.every(check);
+  const checkEvent = event => {
+    if (!event || event.kind !== view.type) return false;
+    if (event.kind === 'backhand') return pair(event.played, c => c && integer(c.value, 5) && c.value > 0) && [null, 0, 1].includes(event.winner) && integer(event.value, 18) && integer(event.discarded, 18);
+    if (event.kind === 'closing') return pair(event.cubes, n => integer(n, 5)) && [null, 0, 1].includes(event.winner) && [1, 2, 3].includes(event.value);
+    return pair(event.gain, n => integer(n, 20)) && pair(event.outcomes, n => ['safe', 'caught', 'clean'].includes(n)) && pair(event.defenses, n => ['alarm', 'bluff'].includes(n)) && pair(event.raids, n => ['safe', 'raid'].includes(n));
+  };
+  if (view.log.some(event => !checkEvent(event) || view.type !== 'closing' && (!Number.isInteger(event.round) || event.round < 1 || event.round > GAMES[view.type].rounds)) || view.result !== null && !checkEvent(view.result)) throw new Error('Invalid round result.');
+  if (view.type === 'closing') {
+    if (!integer(view.ticks, 27) || !integer(view.closed, 9) || !integer(view.deckCount, 6)) throw new Error('Invalid auction count.');
+  } else if (view.type === 'backhand') {
+    if (!integer(view.carry, 18) || ![1, 2, 3].includes(view.currentPrize) || ![null, 1, 2, 3].includes(view.nextPrize) ||
+      !pair(view.pending, n => n === null || typeof n === 'boolean' || typeof n === 'string' && /^b[01][1-5]$/.test(n))) throw new Error('Invalid bid update.');
+  } else {
+    if (!pair(view.loot, a => pair(a, c => c && [2, 3, 5].includes(c.value))) ||
+      !pair(view.used, a => Array.isArray(a) && a.length <= 5 && a.every(k => ['alarm', 'bluff'].includes(k))) ||
+      !pair(view.guards, n => n === null || typeof n === 'boolean' || typeof n === 'string' && /^h[01][0-5]$/.test(n)) ||
+      !pair(view.raids, n => n === null || typeof n === 'boolean' || ['safe', 'raid'].includes(n))) throw new Error('Invalid vault update.');
+  }
   return view;
 }
 export class TableSession {
@@ -68,11 +88,12 @@ export class TableSession {
   }
   setPeer(peer) {
     this.peer = peer;
+    this.readyForPlay = false;
     this.resetChoices();
     if (this.seat === 0 && this.state) this.epoch = randomHex(8);
   }
   opened() {
-    this.peer.send({type: 'hello', name: this.names[this.seat]});
+    this.peer.send({type: 'hello', name: this.members[this.seat]});
   }
   start(type, seed = crypto.getRandomValues(new Uint32Array(1))[0]) {
     if (this.seat !== 0 || !this.peer?.connected) throw new Error('Only the connected host can deal a new game.');
@@ -116,12 +137,12 @@ export class TableSession {
       } catch (error) { this.onError(error); }
     }, 400);
   }
-  simultaneous() { return this.view && ['choose', 'guard', 'raid'].includes(this.view.phase); }
+  simultaneous() { return !this.team && this.view && ['choose', 'guard', 'raid'].includes(this.view.phase); }
   context() { return contextFor(this.epoch, this.view); }
   locked(player = this.seat) { return Boolean(this.commits[player]) || this.busy && player === this.seat; }
   async choose(action) {
     if (!this.peer?.connected) throw new Error('Reconnect your partner before continuing.');
-    if (!this.view) throw new Error('Wait for the host to deal.');
+    if (!this.view || !this.readyForPlay) throw new Error('Wait for the host to deal.');
     if (this.team) {
       if (this.movePending) return;
       if (this.seat === 0) {
@@ -205,6 +226,7 @@ export class TableSession {
         if (typeof message.name !== 'string') throw new Error('Invalid player name.');
         this.members[1 - this.seat] = message.name.slice(0, 24) || 'Partner';
         if (this.seat === 0) {
+          this.readyForPlay = true;
           if (this.state) this.sync();
           else this.start(this.initialGame || 'backhand');
         }
@@ -220,6 +242,7 @@ export class TableSession {
         if (changed) this.resetChoices();
         this.epoch = message.epoch;
         this.view = next;
+        this.readyForPlay = true;
         this.names = message.names;
         this.members = message.members;
         this.team = message.team;
