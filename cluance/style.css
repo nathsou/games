@@ -3384,3 +3384,129 @@ body[data-screen="curtain"] .topbar {
     grid-row: 2;
   }
 }
+@media (max-width: 760px) {
+  body[data-screen="game"] .wordmark {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: var(--ink2);
+  }
+  body[data-screen="game"] .wordmark .logo-mark {
+    display: none;
+  }
+  body[data-screen="game"] .wordmark:after {
+    content: "✕";
+    font: 12px var(--text);
+  }
+  body[data-screen="reveal"] .topbar {
+    display: none;
+  }
+  .reveal-controls #reveal-home {
+    top: 22px;
+  }
+  .reveal-header > div:nth-child(2) {
+    padding-right: 28px;
+  }
+}
+#app.partner-turn .giver-zone {
+  display: none;
+}
+@media (min-width: 761px) and (max-width: 1250px) {
+  .clue-rail .clue-token:not(.latest) > div {
+    display: none;
+  }
+  .clue-rail .clue-slot {
+    width: 22px;
+  }
+  .clue-rail {
+    gap: 8px;
+  }
+  .giver-header .clue-rail {
+    max-width: 50%;
+    gap: 8px;
+  }
+  .giver-header .clue-slot {
+    width: 22px;
+  }
+}
+.board {
+  position: relative;
+}
+@keyframes deal-in {
+  0% {
+    opacity: 0;
+    transform: translate(var(--deal-x, 0px), var(--deal-y, 30px)) scale(0.65);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.025);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+@property --hold {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+.hold-ring.resetting {
+  transition: --hold 0.25s var(--ease);
+}
+@media (min-width: 1000px) and (max-height: 850px) {
+  .giver-board .board {
+    max-width: 780px;
+  }
+  .giver-zone .hand {
+    min-height: 110px;
+  }
+  .giver-zone .hand .card {
+    max-width: 80px;
+  }
+  .giver-zone .hand-section > .eyebrow {
+    margin-bottom: 16px;
+  }
+  .giver-zone .hand-section > small {
+    margin-top: 10px;
+  }
+}
+.home-hero {
+  min-height: calc(100svh - 138px);
+}
+@media (max-width: 760px) {
+  .hero-art {
+    display: none;
+  }
+  .home-hero {
+    min-height: calc(100svh - 175px);
+  }
+  body[data-screen="game"] #app {
+    padding-bottom: calc(90px + env(safe-area-inset-bottom));
+  }
+  body[data-screen="game"]:has(.giver-zone) #app {
+    padding-bottom: 0;
+  }
+}
+@media (min-width: 1000px) and (max-height: 850px) {
+  .board {
+    max-width: 910px;
+  }
+}
+@media (min-width: 761px) and (max-width: 1250px) {
+  .giver-header .clue-token.latest > div {
+    max-width: 70px;
+  }
+  .giver-header .clue-slot {
+    width: 18px;
+  }
+}
+@media (min-width: 761px) {
+  body[data-screen="collection"] #sound-toggle,
+  body[data-screen="collection"] #table-menu {
+    display: none;
+  }
+}

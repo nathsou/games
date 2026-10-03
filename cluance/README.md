@@ -2,6 +2,8 @@
 
 A cooperative visual deduction game with original retro pixel art. Play with a friend through link-based WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. **No runtime or development packages, CDNs, frameworks, build step, or backend. Martian Mono and DM Mono are self-hosted with their SIL OFL licences.**
 
+The interface follows the supplied [UX/UI redesign](UX_REDESIGN.md), with paper tones, full-bleed artwork and self-hosted mono typography.
+
 ## Run
 
 From this directory:

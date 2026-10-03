@@ -1,6 +1,6 @@
 import { loadTheme, THEME_KEY } from "../../shared/theme.js";
 import { loadAI, saveAI, CONFIG_KEY } from "../../shared/ai/config.js";
-import { DECKS, CARDS, THEME_IDEAS } from "./decks.js";
+import { DECKS, CARDS } from "./decks.js";
 import {
   createGame,
   playClue,
@@ -95,6 +95,7 @@ let homeRole =
         : "ai";
 let openToken = null,
   drawerCardId = null,
+  drawerReturnId = null,
   drawerCards = [],
   comparePins = [],
   collectionTheme = setup.theme,
@@ -185,6 +186,7 @@ function resetTurn() {
   relation = "similar";
   draftNote = "";
   noteOpen = false;
+  comparePins = [];
   aiError = "";
   pendingGuess = false;
 }
@@ -223,16 +225,21 @@ modal.addEventListener("close", () => {
   }
 });
 function closeDrawer() {
+  const wasOpen = drawerCardId !== null;
   drawerCardId = null;
   $("card-drawer").hidden = true;
   $("card-drawer").replaceChildren();
   $("drawer-scrim").hidden = true;
-  document
-    .querySelector("[data-details-focus]")
-    ?.focus({ preventScroll: true });
+  if (wasOpen && drawerReturnId)
+    app
+      .querySelector(`[data-card="${drawerReturnId}"]`)
+      ?.focus({ preventScroll: true });
 }
 function inspectCard(id, ids = null) {
   if (!CARDS[id]) return;
+  if (!drawerCardId)
+    drawerReturnId =
+      document.activeElement?.closest(".card")?.dataset.card || id;
   drawerCardId = id;
   drawerCards =
     ids ||
@@ -361,10 +368,15 @@ function attachInspect(element, id) {
 function setScreen(next) {
   screen = next;
   document.body.dataset.screen = next;
+  $("home-link").setAttribute(
+    "aria-label",
+    next === "game" ? "Leave table" : "Cluance home",
+  );
   $("menu-popover")?.remove();
   $("table-menu").setAttribute("aria-expanded", "false");
   closeDrawer();
   $("card-peek").hidden = true;
+  $("card-peek").replaceChildren();
   $("table-context").textContent =
     next === "game" || next === "reveal"
       ? "/ " + DECKS[game.theme].name + (next === "reveal" ? " · reveal" : "")
@@ -400,7 +412,7 @@ function updatePartner() {
   }
 }
 function progress(round, giver = false) {
-  return `<div class="round-progress ${giver ? "giver" : ""}" aria-label="Round ${round + 1} of 5">${REMOVALS.map((n, i) => `<span style="flex:${n}" class="${i < round ? "done" : i === round ? "current" : ""}" title="Round ${i + 1}: remove ${n}"></span>`).join("")}</div>`;
+  return `<div class="round-progress ${giver ? "giver" : ""}" role="img" aria-label="Round ${round + 1} of 5">${REMOVALS.map((n, i) => `<span style="flex:${n}" class="${i < round ? "done" : i === round ? "current" : ""}" title="Round ${i + 1}: remove ${n}"></span>`).join("")}</div>`;
 }
 
 function renderHome() {
@@ -568,9 +580,11 @@ function start(nextMode) {
   resetTurn();
   screen = "game";
   saveSession();
-  renderGame();
   if (mode === "local") showPassScreen();
-  else runAI();
+  else {
+    renderGame();
+    runAI();
+  }
 }
 function resumeGame() {
   const saved = read("session", null);
@@ -604,10 +618,10 @@ function resumeGame() {
       renderGame();
       openPairing("host", true);
     } else if (game.phase === "over") renderReveal();
+    else if (mode === "local") showPassScreen();
     else {
       renderGame();
-      if (mode === "local") showPassScreen();
-      else runAI();
+      runAI();
     }
   } catch {
     erase("session");
@@ -626,6 +640,7 @@ function showPassScreen() {
   const release = () => {
     holding = false;
     cancelAnimationFrame(frame);
+    $("pass-ready")?.classList.add("resetting");
     $("pass-ready")?.style.setProperty("--hold", "0%");
   };
   const ready = () => {
@@ -635,6 +650,7 @@ function showPassScreen() {
   const hold = () => {
     if (holding) return;
     holding = true;
+    $("pass-ready").classList.remove("resetting");
     startTime = performance.now();
     const tick = (now) => {
       if (!holding) return;
@@ -706,6 +722,7 @@ function renderGame() {
     giver = role === "giver",
     n = REMOVALS[view.round],
     latest = view.history.at(-1);
+  app.classList.toggle("partner-turn", !myTurn);
   const title = myTurn
     ? giver
       ? `Point them to <span class="gold">${esc(CARDS[view.secret].name)}</span>.`
@@ -732,7 +749,21 @@ function renderGame() {
     if (newDeal) {
       el.classList.add("dealt");
       el.style.animationDelay = i * 30 + "ms";
-    } else if (newMove && removed) el.classList.add("just-removed");
+    } else if (newMove && removed && view.history.at(-1)?.removed.includes(id))
+      el.classList.add("just-removed");
+  }
+  if (newDeal) {
+    const board = $("board");
+    for (const el of board.querySelectorAll(".dealt")) {
+      el.style.setProperty(
+        "--deal-x",
+        board.clientWidth / 2 - el.offsetLeft - el.offsetWidth / 2 + "px",
+      );
+      el.style.setProperty(
+        "--deal-y",
+        board.clientHeight / 2 - el.offsetTop - el.offsetHeight / 2 + "px",
+      );
+    }
   }
   renderClues($("clue-history"), view.history);
   if (newMove && view.phase === "guess")
@@ -756,6 +787,7 @@ function renderGame() {
         },
       });
       attachInspect(el, id);
+      el.setAttribute("aria-pressed", String(clueCard === id));
       if (myTurn) attachDrag(el, id);
     }
     for (const dir of ["similar", "different"]) {
@@ -832,6 +864,15 @@ function renderGame() {
     $("reconnect").onclick = () =>
       openPairing(mode === "peer-host" ? "host" : "guest", true);
   if ($("compare-final")) $("compare-final").onclick = () => compareFinal(view);
+  // Keep long secret names on one line on the desktop table.
+  if (giver && innerWidth >= 1000) {
+    const heading = app.querySelector(".turn-heading h1");
+    let size = parseFloat(getComputedStyle(heading).fontSize);
+    while (heading.getBoundingClientRect().height > size * 1.3 && size > 24) {
+      size -= 2;
+      heading.style.fontSize = size + "px";
+    }
+  }
   if (focusZone && focusedCard)
     $(focusZone)
       ?.querySelector(`[data-card="${focusedCard}"]`)
@@ -988,7 +1029,6 @@ function submitMove() {
     if (mode === "local" && game.phase !== "over") {
       localRole = role === "giver" ? "guesser" : "giver";
       saveSession();
-      renderGame();
       showPassScreen();
     } else runAI();
   } catch (error) {
@@ -1006,7 +1046,7 @@ function commitGame(next) {
     renderReveal();
   } else {
     sound(oldPhase === "clue" ? "clue" : "select");
-    renderGame();
+    if (mode !== "local") renderGame();
   }
 }
 async function runAI() {
@@ -1102,32 +1142,6 @@ function confirmLeave() {
     updateConnection();
     renderHome();
   };
-}
-function decisionDetails(round, role) {
-  const names = (ids) => esc(ids.map((id) => CARDS[id].name).join(", "));
-  const labels = {
-    role: "Role / domain",
-    dates: "Dates / era",
-    geography: "Geography",
-    stories: "Stories / achievements",
-    traits: "Traits",
-    appearance: "Appearance",
-  };
-  const dimensions =
-    role === "giver" ? round.giverDimensions : round.guesserDimensions;
-  const reasons =
-    role === "giver"
-      ? round.expectedRemovalReasons
-      : round.guesserRemovalReasons;
-  const details = reasons?.length
-    ? `<ul class="decision-reasons">${reasons.map((reason) => `<li><strong>${esc(CARDS[reason.card].name)}</strong> ${esc(reason.rationale)}</li>`).join("")}</ul>`
-    : "";
-  const basis = dimensions?.length
-    ? `<p class="decision-basis">Connections: ${esc(dimensions.map((value) => labels[value]).join(" · "))}</p>`
-    : "";
-  if (role === "giver")
-    return `${basis}<p class="decision-list">Expected removals: <strong>${round.expectedRemovals ? names(round.expectedRemovals) : "Not recorded."}</strong></p>${details}`;
-  return `${basis}${round.keptCards ? `<p class="decision-list">Chose to keep: <strong>${names(round.keptCards)}</strong></p>` : ""}${details}`;
 }
 function stopReplay() {
   clearTimeout(replayTimer);
@@ -1556,6 +1570,7 @@ function openPairing(kind, reconnect = false, initial = "") {
   pairingError = "";
   pairingBusy = false;
   pairingInput = initial;
+  clipboardReply = "";
   if (!reconnect) {
     game = null;
     resetTurn();
@@ -1567,6 +1582,7 @@ function openPairing(kind, reconnect = false, initial = "") {
     preparePair(kind === "host" ? "offer" : "answer", initial);
 }
 async function preparePair(type, input = "") {
+  if (type === "offer") clipboardReply = "";
   try {
     const config = readPairConfig();
     if (type === "answer") {
@@ -1792,13 +1808,6 @@ function showRules() {
     "A little trust goes a long way.",
     "How to play",
     `<p class="pair-copy">You’re a team. Keep one secret card on the table through five rounds.</p><ol class="rules-list"><li><strong>The clue giver sees the secret.</strong> There are 12 cards on the board and five private cards in the giver’s hand.</li><li><strong>Play one illustrated clue.</strong> Choose Similar ↑ for a shared trait, or Different → for a contrast. It can be a job, an era, a date, geography, a story, a trait, or a visual detail. Inspect cards for their dates and biographies. Only the card and its direction are shared.</li><li><strong>The guesser removes cards.</strong> Remove 1, then 2, then 3, then 4, then 1. All previous clues remain relevant.</li><li><strong>Leave the secret standing.</strong> Removing it ends the game immediately. If it’s the last card left, you both win.</li><li><strong>Open your sealed interpretations.</strong> Optional human notes and AI explanations are recorded with each move, then revealed together at the end.</li></ol><div class="rules-rounds"><span>1</span><span>2</span><span>3</span><span>4</span><span>1</span></div><p class="help-text"><strong>Classic:</strong> draw a new card after each clue.<br><strong>Fixed five:</strong> start with five cards and never draw replacements. Choose the order carefully.<br><strong>Mixed decks:</strong> use one theme for cards and another for clues.</p><p class="help-text">This is an independent game inspired by Similo, designed by Hjalmar Hach, Pierluca Zizzi and Martino Chiacchiera. The illustrations here are original generated artwork; they are not the commercial card art.</p>`,
-  );
-}
-function showThemeIdeas() {
-  showModal(
-    "More worlds to interpret.",
-    "Future deck ideas",
-    `<div class="theme-ideas">${THEME_IDEAS.map(([name, description]) => `<div class="theme-idea"><h3>${esc(name)}</h3><p>${esc(description)}</p></div>`).join("")}</div><p class="help-text">All ${Object.keys(DECKS).length} illustrated decks are available now. These are suggestions for future additions.</p>`,
   );
 }
 function collectionCards() {
@@ -2413,7 +2422,7 @@ window.addEventListener("beforeunload", () => saveSession());
 applyPreferences();
 app.innerHTML = `<section class="hero"><div><p class="eyebrow">Setting the table</p><h1>${Object.keys(DECKS).length} worlds.<br>One <em>connection.</em></h1><p>Shuffling the illustrated decks…</p></div></section>`;
 try {
-  await loadArt();
+  await Promise.all([loadArt(), document.fonts.ready]);
   renderHome();
   await openPairHash();
 } catch (error) {
