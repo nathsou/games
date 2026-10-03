@@ -73,3 +73,22 @@ test('Malformed end-of-round snapshots are rejected before the UI reads a missin
   const score=structuredClone(view);score.scores=[2,0];assert.throws(()=>validateView(score,1));
   const history=structuredClone(view);history.round=1;assert.throws(()=>validateView(history,1));
 });
+
+test('a five-win online match survives round transitions, host saves and replay validation',async()=>{
+  const {saveTable,loadTable}=await import('../src/resume.js');
+  const {ReplayStore}=await import('../src/replays.js');
+  const data=new Map(),storage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};
+  const {host,guest,errors}=pair({target:5});const records=new ReplayStore(storage);
+  for(let moves=0;host.state.phase!=='matchOver';moves++){
+    assert(moves<3000);assert.equal(guest.view.options.target,5);
+    records.record({id:host.state.id,mode:'online',names:host.names,seat:0,view:host.view});
+    if(host.state.phase==='roundOver'){host.choose({kind:'next'});guest.choose({kind:'next'});}
+    else{const actor=host.state.turn?guest:host;actor.choose(botAction(actor.view,actor.seat));}
+    if(moves%20===0){saveTable(host,storage);const saved=loadTable(storage);assert(saved);assert.equal(saved.view.options.target,5);assert.equal(saved.view.revision,host.view.revision);}
+    validateView(host.view,0);validateView(guest.view,1);
+  }
+  assert(host.state.scores.includes(5));assert.deepEqual(errors,[]);
+  records.record({id:host.state.id,mode:'online',names:host.names,seat:0,view:host.view});
+  const loaded=new ReplayStore(storage);assert.equal(loaded.records[0].entries.at(-1).view.phase,'matchOver');
+  const bad=structuredClone(guest.view);bad.options.target=4;assert.throws(()=>validateView(bad,1));
+});

@@ -6,7 +6,8 @@ export function connectionSettings(stun='stun:stun.l.google.com:19302') {
 }
 export function pairingBody({host, output='', busy=false, error='', message='', initial='', setup='', stun, canScan=false}) {
   const settings=connectionSettings(stun), kind=host?'INVITE':'REPLY';
-  let html=`<div class="pair-steps"><div class="pair-step ${!output?'active':''}">01<br>HOST SHARES AN INVITE</div><div class="pair-step ${output?'active':''}">02<br>GUEST SHARES A REPLY</div><div class="pair-step">03<br>HOST ACCEPTS. PLAY.</div></div>`;
+  const steps=host?['Share invite','Paste reply','Play']:['Paste invite','Send reply','Play'];
+  let html='<div class="pair-steps" aria-label="Connection steps">'+steps.map((label,i)=>`<div class="pair-step ${i===(output?1:0)?'active':output&&i===0?'done':''}" ${i===(output?1:0)?'aria-current="step"':''}>0${i+1}<br>${label}</div>`).join('')+'</div>';
   if(output) {
     html+=`<p class="modal-copy pair-copy">${host?'Send this invitation to your friend, or let them scan the QR code.':'Send this reply to the host. They can open it beside their hosting tab or paste it.'} Keep this tab open.</p><div class="pair-output-grid"><div><label class="field-label label" for="pair-output">YOUR ${kind} LINK</label><textarea id="pair-output" class="link-output code-box" readonly spellcheck="false">${esc(output)}</textarea><div class="button-row">${button('COPY '+kind+' ↗','copy',false,'gold')}${button('SHARE','share',false,'dark')}</div></div><div class="qr-wrap"><canvas id="pair-qr" aria-label="Scan this ${kind.toLowerCase()} QR code"></canvas></div></div>`;
     if(host) html+=`<label class="field-label label" for="pair-input">PASTE YOUR FRIEND’S REPLY LINK</label><textarea id="pair-input" class="code-box" placeholder="Their reply link goes here…" spellcheck="false">${esc(initial)}</textarea>${button(busy?'CONNECTING…':'ACCEPT REPLY →','accept-reply',busy)}${canScan?button('SCAN REPLY QR','scan-reply',busy):''}`;
