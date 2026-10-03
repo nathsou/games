@@ -433,14 +433,25 @@ function renderHome() {
       : homePartner === "local"
         ? "a friend on this screen"
         : "a friend";
-  app.innerHTML = `<section class="home-hero"><div class="home-copy"><p class="eyebrow">SAME CARDS. DIFFERENT MINDS.</p><h1 class="setup-sentence">I’ll ${token("role", homeRole === "guesser" ? "guess" : "give the clues")} while ${token("partner", partner)} ${homeRole === "guesser" ? "gives the clues" : "guesses"}, with ${token("deck", DECKS[setup.theme].name)} cards.</h1><p class="secondary-clause">Clues come from <button data-token="clues">${setup.clueTheme === "same" ? "the same deck" : esc(DECKS[setup.clueTheme].name)}</button>. The clue giver <button data-token="variant">${setup.variant === "fixed" ? "keeps the same five cards" : "draws a new card after each clue"}</button>.</p><div class="home-cta"><button class="button deal-button" id="start-game">${homePartner === "friend" ? (homeRole === "giver" ? "Invite a friend →" : "Join a friend →") : "Deal the cards →"}</button><button class="text-button" id="join-friend">Have an invite? Join a friend</button></div><div id="token-picker" class="token-picker" ${openToken ? "" : "hidden"}></div></div><div class="hero-art" id="hero-art"></div></section><div class="home-footer"><span>One secret card. Five rounds. Win or lose together.</span><button class="text-button" id="open-replay">Open a replay ↓</button><a href="https://www.gigamic.com/blog/post/tout-sur-la-gamme-similo" target="_blank" rel="noopener noreferrer">Inspired by Similo ↗</a><input id="replay-file" type="file" accept="application/json,.json" hidden></div>`;
+  app.innerHTML = `<section class="home-hero"><div class="home-copy"><p class="eyebrow">SAME CARDS. DIFFERENT MINDS.</p><h1 class="setup-sentence">I’ll ${token("role", homeRole === "guesser" ? "guess" : "give the clues")} while ${token("partner", partner)} ${homeRole === "guesser" ? "gives the clues" : "guesses"}, with ${token("deck", DECKS[setup.theme].name)} cards.</h1><p class="secondary-clause">Clues come from <button data-token="clues">${setup.clueTheme === "same" ? "the same deck" : esc(DECKS[setup.clueTheme].name)}</button>. The clue giver <button data-token="variant">${setup.variant === "fixed" ? "keeps the same five cards" : "draws a new card after each clue"}</button>.</p><div class="home-cta"><button class="button deal-button" id="start-game">${homePartner === "friend" ? (homeRole === "giver" ? "Invite a friend →" : "Join a friend →") : "Deal the cards →"}</button><div class="home-friend-actions">${homePartner === "friend" && homeRole === "giver" ? "" : `<button class="text-button" id="invite-friend">${homePartner === "friend" ? "Give clues & invite a friend →" : "Invite a friend →"}</button>`}${homePartner === "friend" && homeRole === "guesser" ? "" : `<button class="text-button" id="join-friend">Have an invite? Join a friend</button>`}</div></div><div id="token-picker" class="token-picker" ${openToken ? "" : "hidden"}></div></div><div class="hero-art" id="hero-art"></div></section><div class="home-footer"><span>One secret card. Five rounds. Win or lose together.</span><button class="text-button" id="open-replay">Open a replay ↓</button><a href="https://www.gigamic.com/blog/post/tout-sur-la-gamme-similo" target="_blank" rel="noopener noreferrer">Inspired by Similo ↗</a><input id="replay-file" type="file" accept="application/json,.json" hidden></div>`;
   const deck = DECKS[setup.theme],
-    hero =
+    preferred =
       setup.theme === "french"
         ? [17, 21, 5]
-        : [0, Math.min(15, deck.cards.length - 1), deck.preview ?? 5];
-  hero.forEach((i) =>
-    mountCard($("hero-art"), deck.cards[i].id, { caption: "none" }),
+        : [0, Math.min(15, deck.cards.length - 1), deck.preview ?? 5],
+    hero = [],
+    used = new Set();
+  // Keep the foreground preview, replacing repeated cards in the back of the fan.
+  for (let slot = preferred.length - 1; slot >= 0; slot--) {
+    const preferredCard = deck.cards[preferred[slot]],
+      card = used.has(preferredCard.id)
+        ? deck.cards.find((candidate) => !used.has(candidate.id))
+        : preferredCard;
+    used.add(card.id);
+    hero[slot] = card;
+  }
+  hero.forEach((card) =>
+    mountCard($("hero-art"), card.id, { caption: "none" }),
   );
   app.querySelectorAll("[data-token]").forEach(
     (button) =>
@@ -456,7 +467,19 @@ function renderHome() {
       openPairing("guest");
     else start(setup.mode);
   };
-  $("join-friend").onclick = () => openPairing("guest");
+  if ($("invite-friend"))
+    $("invite-friend").onclick = () => {
+      // In direct pairing the inviter gives clues and their friend guesses.
+      homeRole = "giver";
+      homePartner = "friend";
+      setup.mode = "peer-host";
+      openToken = null;
+      saveSetup();
+      renderHome();
+      start("peer-host");
+    };
+  if ($("join-friend"))
+    $("join-friend").onclick = () => openPairing("guest");
   $("open-replay").onclick = () => $("replay-file").click();
   $("replay-file").onchange = (event) => importReplay(event.target.files[0]);
 }

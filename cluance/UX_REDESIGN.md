@@ -4,7 +4,7 @@ The supplied **Cluance redesign from ground up** handoff is the visual reference
 
 ## Implemented surfaces
 
-- Home: role/partner/deck sentence tokens, independent clue deck and hand variant, responsive pickers, selected-deck hero, resume pill and replay import.
+- Home: role/partner/deck sentence tokens, independent clue deck and hand variant, responsive pickers, three distinct selected-deck hero cards, resume pill and replay import. Invite and join actions are available in every setup mode; inviting switches to giving clues and preserves the chosen decks and variant. Long sentence tokens wrap on phones.
 - Guesser: proportional round progress, six-by-two desktop/four-by-three phone board, upright/sideways clue trail, sealed-note control, removal count, clear and named confirmation.
 - Giver: secret thumbnail and gold ring, compact board, private hand fan, pointer dragging and tap/keyboard direction selection, clue/note controls inside the desktop drop zone and a phone action bar. Waiting/error states use the action bar.
 - Reveal: outcome moment, board as it stood in each round, round removal tags, expected-removal match/mismatch chips when recorded, both interpretations and per-card reasons, arrow-key scrubber, autoplay, rematch/swap and replay export.
@@ -27,8 +27,11 @@ Verification uses temporary Playwright scripts with system Chromium; no test dep
 - Checked home, giver and guesser layouts at 1440×900, 1366×768, 1024×768, 820×1180, 390×844, 375×667 and 320×568 without horizontal overflow. The reference 1440×900 table and 390×844 phone table fit vertically; shorter screens allow vertical scrolling.
 - Intercepted provider requests to verify thinking, cancellation, retry, provider-error display, AI settings shortcuts and role-filtered UI without paid API calls.
 - Native pairing generated/accepted real validated invitation/reply links and rendered QR codes. This managed environment produced no WebRTC ICE candidates, so a live data channel could not be established here. A temporary BroadcastChannel transport stand-in, retaining the real invitation parser and game flow, verified connected host/guest rendering, synchronized clue/removal moves and guest privacy. The production WebRTC transport is unchanged.
+- Invitation follow-up: checked invite/join discovery in all five stored setup modes at four desktop/phone widths, generated and copied a native invitation from the guessing setup, and opened it in a second tab to generate a matching reply. Checked distinct card IDs and rendered images in all eleven home fans and no identical rendered card images within any of the eleven active decks (330 cards).
 - Module syntax and whitespace checks passed with no browser JavaScript errors in completed checks.
 
 ## Review screenshots
 
 [Home](screenshots/redesign-home.png), [guesser table](screenshots/redesign-table.png), [phone table](screenshots/redesign-phone.png), [giver table](screenshots/redesign-giver.png), [dark giver table](screenshots/redesign-giver-dark.png), and [reveal](screenshots/redesign-reveal.png). The French table examples use a reproducible demonstration position; the replay capture is from the completed expanded-card browser game.
+
+Invitation follow-up: [Cities home](screenshots/redesign-cities-home.png) and [invitation link](screenshots/redesign-invitation.png).
