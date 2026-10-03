@@ -9,7 +9,7 @@ import {botAction} from './bot.js';
 import {FlipSession, REACTIONS} from './session.js';
 import {ReplayStore,highlights} from './replays.js';
 import {saveTable, loadTable, forgetTable} from './resume.js';
-import {captureTable, animateMove, motionEnabled} from './effects.js';
+import {captureTable, animateMove, cancelMotion, motionEnabled} from './effects.js';
 import {PeerLink, decodePairing, makeLink, iceConfig} from './peer.js';
 import {pairingBody} from '../../shared/pairing.js';
 import {drawQR} from './qr.js';
@@ -230,7 +230,7 @@ function recordView() {
   if(!replayStore.persistent&&!storageNotified){storageNotified=true;notify('Browser storage is unavailable. This replay stays in memory until you close the tab.');}
 }
 function currentRecording(){recordView();return replayStore.records.find(r=>r.id===recordingId());}
-function pauseReplay(){clearInterval(replayTimer);replayTimer=null;}
+function pauseReplay(){clearInterval(replayTimer);replayTimer=null;cancelMotion(modalContent);}
 function beginReplayDialog(){
   stopScan();pairingOpen=false;replayOpen=true;clearTimeout(botTimer);generation++;stopAI();
   modal.classList.add('replay-dialog');if(!modal.open)modal.showModal();
@@ -268,6 +268,7 @@ function replayBoard(entry){
 }
 function renderReplay(scrubbing=false){
   if(!replayRecord)return;
+  cancelMotion(modalContent);
   const before=captureTable(modalContent);
   const r=replayRecord,entry=r.entries[replayIndex],marks=highlights(r),markMap=new Map(marks.map(m=>[m.index,m.label]));
   const items=r.entries.map((e,index)=>({entry:e,index})).filter(({index})=>!replayOnlyHighlights||markMap.has(index));
@@ -309,7 +310,7 @@ function toggleReplay(){
 
 function resetSelection() { expandedSet=null; chosen = []; preview = false; if (view()) lane = availableLanes(view())[0]; }
 function startOffline(nextMode, options = prefs.options) {
-  clearTimeout(botTimer); generation++; stopAI(); aiHistory.clear();matchId=crypto.randomUUID();
+  cancelMotion(app);clearTimeout(botTimer); generation++; stopAI(); aiHistory.clear();matchId=crypto.randomUUID();
   animating=false; animationGeneration++; renderedPosition=null;
   forgetTable(); const old=peer; peer=null; old?.close(); session=null; linkStatus='idle';
   mode=nextMode; seat=0; scene='game'; offlineControllers=[...Array(mode==='solo'?1:2).fill('human'),...aiPlayers(mode==='solo'?4:3,mode==='solo'?1:0)];
@@ -551,7 +552,7 @@ function dragPreview(current){
   return ghost;
 }
 document.addEventListener('pointerdown',event=>{
-  if(event.button!==0||modal.open||!myTurn()||preview)return;
+  if(event.button!==0||event.isPrimary===false||drag||modal.open||!myTurn()||preview)return;
   const card=event.target.closest('.hand [data-card]'),space=event.target.closest('[data-space-seat]');
   if(card){drag={pointer:event.pointerId,x:event.clientX,y:event.clientY,kind:'cards',cards:chosen.includes(card.dataset.card)?[...chosen]:[card.dataset.card],source:card};}
   else if(space&&Number(space.dataset.spaceSeat)!==mySeat()&&!event.target.closest('button')){
@@ -633,7 +634,7 @@ document.addEventListener('click',async event=>{
     else if (action==='take') act({kind:'take',lane,target:Number(target.dataset.target),...(view().hands.length>2?{targetSeat:Number(target.dataset.owner)}:{})});
     else if (action==='flip') act({kind:'flip',lane});
     else if (action==='clear') { chosen=[]; render(); }
-    else if (action==='preview') { preview=!preview; chosen=[]; render(); }
+    else if (action==='preview') {cancelMotion(app); preview=!preview; chosen=[]; render(); }
     else if (action==='uncover') { handoff=false; render(); }
     else if (action==='game-highlights') {openRecording(currentRecording());replayOnlyHighlights=true;renderReplay();}
     else if (action==='game-log') openRecording(currentRecording());
@@ -645,7 +646,7 @@ document.addEventListener('click',async event=>{
     else if (action==='replay-play') toggleReplay();
     else if (action==='replay-filter') {replayOnlyHighlights=!replayOnlyHighlights;renderReplay();}
     else if (action==='rules') showRules();
-    else if (action==='menu') { event.preventDefault(); scene='menu'; clearTimeout(botTimer);generation++;stopAI();render(); }
+    else if (action==='menu') { event.preventDefault();cancelMotion(app); scene='menu'; clearTimeout(botTimer);generation++;stopAI();render(); }
     else if (action==='resume') { scene='game'; render(); scheduleBot(); }
     else if (action==='next') act({kind:'next'});
     else if (action==='rematch') {
@@ -666,7 +667,7 @@ document.addEventListener('click',async event=>{
     else if (action==='share') {
       if (navigator.share) { try { await navigator.share({title:'Flip it',text:pairKind==='host'?'Your seat is waiting.':'Here’s my reply. Meet you at the table.',url:pairOut}); } catch(error) { if (error.name!=='AbortError') await copyOutput(); } }
       else await copyOutput();
-    } else if (action==='close-modal') modal.close();
+    } else if (action==='close-modal') {pauseReplay();modal.close();}
     else if (action==='cancel-pair') {
       stopScan(); const old=peer; peer=null; old?.close(); pairOut=''; pairBusy=false; pairError=''; pairMessage=''; linkStatus='idle';
       if (!session?.view) { mode='solo'; session=null; }
@@ -708,6 +709,7 @@ document.addEventListener('keydown',event=>{
     try { act({kind:'play',lane,cards:chosen}); } catch(error) { notify(error.message); } event.preventDefault();
   }
 });
+modal.addEventListener('cancel',pauseReplay);
 modal.addEventListener('close',()=>{modal.classList.remove('rules-dialog');stopScan();pairingOpen=false;pauseReplay();replayOpen=false;modal.classList.remove('replay-dialog');delete modal.dataset.kind;scheduleBot();});
 modal.addEventListener('click',event=>{
   if (event.target===modal) { const r=modal.getBoundingClientRect(); if (event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom) modal.close(); }
@@ -719,7 +721,7 @@ function applySettings() {
   document.body.classList.toggle('no-fx',prefs.fx===false); document.querySelector('#effects').textContent='FX '+(prefs.fx===false?'OFF':'ON');
 }
 document.querySelector('#sound').addEventListener('click',()=>{prefs.sound=!prefs.sound;savePrefs();applySettings();sound('deal');});
-document.querySelector('#effects').addEventListener('click',()=>{prefs.fx=prefs.fx===false;savePrefs();applySettings();});
+document.querySelector('#effects').addEventListener('click',()=>{prefs.fx=prefs.fx===false;savePrefs();applySettings();if(prefs.fx===false){cancelMotion(app);cancelMotion(modalContent);}});
 bus?.addEventListener('message',async event=>{
   const message=event.data; if (!message || typeof message!=='object') return;
   if (message.type==='reply' && session?.seat===0 && peer && message.room===peer.room && !peer.connected) {

@@ -63,6 +63,19 @@ await p.waitForFunction(()=>!document.querySelector('[data-action=flip]').disabl
 v=await state(p);const take=legalActions(v,0).filter(a=>a.kind==='take').find(a=>v.table[1][a.target].length>1);assert(take,'bot exposes a multiple-card set');
 const source=p.locator('[data-space-seat="1"][data-space-lane="'+take.target+'"] .flip-card').last(),r=await source.boundingBox();await p.mouse.move(r.x+r.width/2,r.y+r.height/2);await p.mouse.down();await p.mouse.move(r.x+r.width/2+14,r.y+r.height/2+16);const count=v.table[1][take.target].length;assert.equal(await p.locator('.drag-ghost .flip-card').count(),count);
 const hand=await p.locator('.hand').boundingBox();await p.mouse.move(hand.x+hand.width/2,hand.y+hand.height/2);assert.equal(await p.locator('.drop-valid').count(),1);await p.mouse.up();assert.equal((await state(p)).log.at(-1).kind,'take');assert((await p.locator('.flying-card').count())>=count);await p.waitForFunction(()=>!document.querySelector('.flying-card'));
+await p.locator('[data-action=game-log]').click();
+// Interrupt a flight by scrubbing, then close during another flight. No cards
+// from an old frame may remain over the current frame or the live table.
+await p.locator('#replay-scrubber').fill('0');
+await p.locator('[data-action=replay-step][data-step="1"]').click();
+assert(await p.locator('#modal .flying-card').count());
+await p.locator('#replay-scrubber').fill('0');
+assert.equal(await p.locator('#modal .flying-card,#modal .move-pop').count(),0);
+await p.locator('[data-action=replay-step][data-step="1"]').click();
+assert(await p.locator('#modal .flying-card').count());
+await p.locator('[data-action=close-modal]').click();
+assert.equal(await p.locator('#modal .flying-card,#modal .move-pop').count(),0);
+await p.waitForFunction(()=>!document.querySelector('#modal').classList.contains('replay-dialog'));
 await p.locator('[data-action=game-log]').click();const range=p.locator('#replay-scrubber');await range.evaluate(n=>{window.auditRange=n;window.getSelection().removeAllRanges();});const b=await range.boundingBox();await p.mouse.move(b.x+b.width-8,b.y+b.height/2);await p.mouse.down();for(let i=0;i<=10;i++){await p.mouse.move(b.x+b.width-8-(b.width-16)*i/10,b.y+b.height/2);assert(await p.evaluate(()=>document.querySelector('#replay-scrubber')===window.auditRange));}await p.mouse.up();assert.equal(await range.inputValue(),'0');assert.equal(await p.evaluate(()=>window.getSelection().toString()),'');await range.focus();await p.keyboard.press('ArrowRight');assert.equal(await range.inputValue(),'1');assert(await p.evaluate(()=>document.activeElement===window.auditRange));await p.keyboard.press('End');assert.equal(await range.inputValue(),await range.getAttribute('max'));await screenshot(p,'40-replay-controls.png');
 await p.locator('[data-action=close-modal]').click();await p.locator('[data-action=rules]').click();await p.locator('#modal-content').evaluate(n=>n.scrollTop=n.scrollHeight);await screenshot(p,'41-rules-scroll.png');
 
