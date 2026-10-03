@@ -1,8 +1,18 @@
 import {loadTheme,saveTheme} from '../../shared/theme.js';
 import {loadAI, saveAI} from '../../shared/ai/config.js';
-const PREFIX = 'similo-arcade-v1:';
+const PREFIX = 'cluance-v1:';
+const LEGACY_PREFIX = 'similo-arcade-v1:';
 export function read(name, fallback) {
-  try { const value = localStorage.getItem(PREFIX + name); return value === null ? fallback : JSON.parse(value); }
+  try {
+    const current = localStorage.getItem(PREFIX + name), legacy = current === null ? localStorage.getItem(LEGACY_PREFIX + name) : null;
+    const value = current ?? legacy;
+    if (value === null) return fallback;
+    const parsed = JSON.parse(value);
+    if (legacy !== null) {
+      try { localStorage.setItem(PREFIX + name, legacy); localStorage.removeItem(LEGACY_PREFIX + name); } catch { /* Keep the legacy copy if migration cannot persist. */ }
+    }
+    return parsed;
+  }
   catch { return fallback; }
 }
 export function write(name, value) {
@@ -10,7 +20,7 @@ export function write(name, value) {
   try { localStorage.setItem(PREFIX + name, JSON.stringify(value)); return true; }
   catch { return false; }
 }
-export function erase(name) { try { localStorage.removeItem(PREFIX + name); } catch { /* Private browsing may deny storage. */ } }
+export function erase(name) { try { localStorage.removeItem(PREFIX + name); localStorage.removeItem(LEGACY_PREFIX + name); } catch { /* Private browsing may deny storage. */ } }
 export const DEFAULT_SETTINGS = {provider: 'openrouter', models: {openrouter: 'openai/gpt-6-luna', openai: 'gpt-6-luna', anthropic: 'claude-sonnet-4-6'},
   efforts: {openrouter: 'medium', openai: 'medium', anthropic: 'medium'}, keys: {}, tokenBudget: 8192,
   stun: 'stun:stun.l.google.com:19302', sound: true, music: true, musicVolume: 22, muted: false, effects: true,

@@ -298,15 +298,15 @@ function rematch(){
 }
 function exportReplay(){
   const view=viewFor(game,'guesser');
-  const blob=new Blob([JSON.stringify({format:'similo-arcade-replay',version:PROTOCOL,game:view},null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`similo-${game.theme}-${new Date().toISOString().slice(0,10)}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);toast('Replay saved. It contains the board and revealed notes, with no provider keys.');
+  const blob=new Blob([JSON.stringify({format:'cluance-replay',version:PROTOCOL,game:view},null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`cluance-${game.theme}-${new Date().toISOString().slice(0,10)}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);toast('Replay saved. It contains the board and revealed notes, with no provider keys.');
 }
 async function importReplay(file){
   if(!file)return;
   try{
     if(file.size>131072)throw new Error('This replay is too large.');
     const replay=JSON.parse(await file.text());
-    if(replay.format!=='similo-arcade-replay'||replay.version!==PROTOCOL||replay.game?.phase!=='over'||!replay.game.history?.length)throw new Error('Choose a completed Similo Arcade replay.');
+    if(!['cluance-replay','similo-arcade-replay'].includes(replay.format)||replay.version!==PROTOCOL||replay.game?.phase!=='over'||!replay.game.history?.length)throw new Error('Choose a completed Cluance replay.');
     const imported=validatePublicView(replay.game);
     if(imported.history.some(r=>!Number.isInteger(r.round)||r.round<1||r.round>5||['giverNote','guesserNote','giverSource','guesserSource'].some(k=>typeof r[k]!=='string'||r[k].length>1200)))throw new Error('This replay contains invalid round notes.');
     cancelAI();peer?.close();peer=null;mode='replay';game=imported;replayRound=0;resetTurn();updateConnection();renderReveal();
@@ -437,8 +437,8 @@ function refreshUsageViews(){
   if($('usage-panel'))$('usage-panel').innerHTML=usagePanelHTML();
   if($('usage-summary'))$('usage-summary').textContent=`API usage · ${formatSpend(usageSnapshot().total)} recorded`;
 }
-window.addEventListener('similo-usage-change',refreshUsageViews);
-window.addEventListener('storage',event=>{if(event.key==='similo-arcade-v1:usage')refreshUsageViews();});
+window.addEventListener('games-usage-change',refreshUsageViews);
+window.addEventListener('storage',event=>{if(['games-arcade:usage','cluance-v1:usage','similo-arcade-v1:usage'].includes(event.key))refreshUsageViews();});
 let settingsDraft, availableModels=[], settingsRemember=true, pricingError='';
 function renderPriceFields(){
   const provider=settingsDraft.provider, model=settingsDraft.models[provider], rate=modelPrice(settingsDraft,provider,model);

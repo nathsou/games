@@ -104,3 +104,16 @@ Applying the revised fourth-round predicted removals created a follow-up final p
 
 
 The final reveal with four per-card reasons was visually inspected on desktop and a 390-pixel phone, with no horizontal overflow. An older five-round replay loaded through the normal file control and labelled missing predictions as unrecorded. All three provider request builders were inspected at the revised final position: the giver received four own moves and four recorded per-card reasons from the revised round, while the guesser received neither private hand, target nor partner explanations. No additional OpenRouter or Anthropic move requests were sent. Module syntax and whitespace checks passed. No tests were written.
+
+
+## Cluance rename and main-branch integration
+
+Merged the current main branch, retaining the shared AI/provider, preference and usage integration together with the latest keep/remove schema, per-card removal reasons and sealed decision memory. The only textual conflict was in the provider request builder; the final version passes the complete Cluance schema and instructions to the shared transport.
+
+A live GPT-6 Luna medium-effort giver request used the merged adapter with Dumas as the target, Molière as the alternative and La Fontaine as the hand card. It chose Different, predicted Molière's removal and supplied a per-card reason. A subsequent guesser request received only the public observation and image, kept Dumas, removed Molière and completed a win with a coherent explanation. Both requests passed without correction, and the shared ledger recorded two completed turns with a combined estimate of $0.001923725.
+
+The renamed title, C emblem, Cluance wordmark and favicon were inspected in the browser, including narrow phone layouts. The preview loads the repository's shared modules. Actual legacy settings migrated to the new namespace while retaining Light appearance, Compact cards, music off and sound effects on. An ongoing saved fourth-round game migrated, resumed through the privacy curtain, accepted the four-card human move and reached its loss/reveal screen.
+
+A replay exported through the real button downloaded as `cluance-writers-2026-10-03.json` with the `cluance-replay` format. Its public snapshot contained neither private hand nor keys. A five-round legacy replay loaded through the unchanged file control. The static collection card links to `cluance/` and its renamed atlas path; the old `similo/` page redirects while preserving query parameters and the fragment. Original-game credits and legacy migration identifiers remain intentionally unchanged.
+
+No tests were written. Module syntax and whitespace checks passed; this verification used direct browser actions and live provider requests.

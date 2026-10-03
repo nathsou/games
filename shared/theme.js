@@ -1,6 +1,6 @@
 export const THEME_KEY='games-arcade:appearance';
 const valid=v=>['dark','light','system'].includes(v);
-export function loadTheme(){try {const value=localStorage.getItem(THEME_KEY);if(valid(value))return value;const old=JSON.parse(localStorage.getItem('similo-arcade-v1:settings')||'{}').appearance;return valid(old)?old:'system';}catch{return 'system';}}
+export function loadTheme(){try {const value=localStorage.getItem(THEME_KEY);if(valid(value))return value;const old=JSON.parse(localStorage.getItem('cluance-v1:settings')||localStorage.getItem('similo-arcade-v1:settings')||'{}').appearance;return valid(old)?old:'system';}catch{return 'system';}}
 let memoryTheme=loadTheme();
 export function saveTheme(value){if(!valid(value))return;memoryTheme=value;try{localStorage.setItem(THEME_KEY,value);}catch{}globalThis.dispatchEvent?.(new Event('games-theme-change'));}
 export function installThemeControls(parent) {
