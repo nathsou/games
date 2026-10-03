@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {legalActions} from '../src/rules.js';
+import {botAction} from '../src/bot.js';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH || undefined,args:process.env.CHROMIUM_NO_SANDBOX==='1'?['--no-sandbox']:[]});
 const origin=process.env.FLIP_IT_URL || 'http://localhost:8080/flip-it/';
@@ -61,6 +62,22 @@ const invalid=await p.locator('[data-space-seat="0"][data-space-lane="0"]').boun
 const target=await p.locator('[data-space-seat="0"][data-space-lane="1"]').boundingBox();await p.mouse.move(target.x+target.width/2,target.y+target.height/2);assert.equal(await p.locator('.drop-valid').count(),1);await screenshot(p,'39-multi-card-drag.png');await p.mouse.up();assert.equal((await state(p)).revision,v.revision+1);assert.equal(await p.locator('.flying-card').count(),play.cards.length);await p.waitForFunction(()=>!document.querySelector('.flying-card'));
 await p.waitForFunction(()=>!document.querySelector('[data-action=flip]').disabled,{},{timeout:10000});
 v=await state(p);const take=legalActions(v,0).filter(a=>a.kind==='take').find(a=>v.table[1][a.target].length>1);assert(take,'bot exposes a multiple-card set');
+// Public faces must not cover each other's reverse number. The enlarged
+// view reports the exact public composition, including duplicates.
+const group=p.locator('.exposed-cards[data-owner="1"][data-target="'+take.target+'"]');
+const publicCards=v.table[1][take.target];
+const bounds=await group.locator('.flip-card').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().toJSON()));
+for(let i=1;i<bounds.length;i++)assert(bounds[i].x>=bounds[i-1].right,'public cards overlap');
+await screenshot(p,'45-exposed-cards.png');
+await group.focus();await p.keyboard.press('Space');
+assert.deepEqual(await p.locator('.set-detail-card').evaluateAll(nodes=>nodes.map(n=>[Number(n.querySelector('.card-rank:not(.other)').textContent),Number(n.querySelector('.card-rank.other').textContent)])),publicCards.map(c=>[c.ends[c.face],c.ends[1-c.face]]));
+assert.equal(await p.locator('.set-detail-card').count(),publicCards.length);
+await screenshot(p,'46-exposed-set-details.png');
+await p.setViewportSize({width:320,height:740});
+assert(await p.locator('#modal-content').evaluate(n=>n.scrollWidth<=n.clientWidth));
+assert((await metrics(p)).sw<=320);
+await p.keyboard.press('Escape');await p.waitForFunction(()=>!document.querySelector('#modal').open&&!document.querySelector('#modal').dataset.kind);
+await p.setViewportSize({width:1280,height:720});
 const source=p.locator('[data-space-seat="1"][data-space-lane="'+take.target+'"] .flip-card').last(),r=await source.boundingBox();await p.mouse.move(r.x+r.width/2,r.y+r.height/2);await p.mouse.down();await p.mouse.move(r.x+r.width/2+14,r.y+r.height/2+16);const count=v.table[1][take.target].length;assert.equal(await p.locator('.drag-ghost .flip-card').count(),count);
 const hand=await p.locator('.hand').boundingBox();await p.mouse.move(hand.x+hand.width/2,hand.y+hand.height/2);assert.equal(await p.locator('.drop-valid').count(),1);await p.mouse.up();assert.equal((await state(p)).log.at(-1).kind,'take');assert((await p.locator('.flying-card').count())>=count);await p.waitForFunction(()=>!document.querySelector('.flying-card'));
 await p.locator('[data-action=game-log]').click();
@@ -81,6 +98,24 @@ await p.locator('[data-action=close-modal]').click();await p.locator('[data-acti
 
 await p.context().close();results.push('multi-card mouse Play/Take, invalid drops, per-card flights, continuous mouse/keyboard replay scrubbing');
 }
+async function populatedTable(){
+  const p=await page({width:1280,height:720},{name:'Alex',aiCount:4});
+  await p.evaluate(()=>{const timer=setTimeout;window.setTimeout=(fn,ms,...args)=>timer(fn,ms===1200?20:ms,...args);});
+  await p.locator('[data-action=start-game]').click();
+  for(let i=0;i<12;i++){
+    await p.waitForFunction(()=>window.__flipit.state.phase!=='playing'||!document.querySelector('[data-action=flip]').disabled);
+    const v=await state(p);if(v.phase!=='playing')break;
+    const m=await metrics(p);assert(m.sh<=720&&m.sw<=1280,JSON.stringify({moves:v.moves,...m}));
+    const move=botAction(v,0);
+    for(const id of move.cards||[]){await p.locator('[data-card="'+id+'"]').focus();await p.keyboard.press('Space');}
+    const selector=['take','add'].includes(move.kind)?'[data-action='+move.kind+'][data-owner="'+move.targetSeat+'"][data-target="'+move.target+'"]':'[data-action='+move.kind+']';
+    const control=p.locator(selector);
+    if(['take','add'].includes(move.kind)&&!await control.isVisible())await control.locator('xpath=ancestor::article').locator('.set-inspect').click();
+    await control.click();
+  }
+  await screenshot(p,'47-populated-five-player-table.png');await p.context().close();
+  results.push('populated five-player double-turn table through 12 player turns');
+}
 async function touch(){
  const p=await page({width:390,height:844},{name:'Alex',fx:true,options:{quickTurns:true,compactDeck:false,lastChance:true,target:5}},true);await p.evaluate(()=>document.fonts.ready);await p.locator('[data-action=start-game]').click();let v=await state(p);const play=legalActions(v,0).find(a=>a.kind==='play'&&a.cards.length===3);assert(play);
  for(const id of play.cards){await p.locator('[data-card="'+id+'"]').focus();await p.keyboard.press('Space');}const source=p.locator('[data-card="'+play.cards.at(-1)+'"]');await source.scrollIntoViewIfNeeded();const point=await source.evaluate(n=>{const r=n.getBoundingClientRect();for(let y=r.y+4;y<Math.min(innerHeight,r.bottom);y+=4)for(let x=r.x+4;x<r.right;x+=4)if(document.elementFromPoint(x,y)?.closest('[data-card]')===n)return {x,y};throw new Error('No visible touch target');});
@@ -92,6 +127,6 @@ async function touch(){
 results.push('three-card touch Play, edge scrolling, cancellation, native touch replay scrubbing');
 }
 try{
-  await layouts();await interactions();await touch();
+  await layouts();await interactions();await populatedTable();await touch();
   assert.equal(errors.length,0,JSON.stringify(errors));console.log(JSON.stringify({results,errors}));
 }finally{await browser.close();}

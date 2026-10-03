@@ -105,6 +105,7 @@ function render() {
   app.innerHTML = scene === 'menu' || !view() ? renderMenu() : renderGame();
   document.body.classList.toggle('in-game', scene==='game' && Boolean(view()));
   if (document.querySelector('#chat-list')) document.querySelector('#chat-list').scrollTop = document.querySelector('#chat-list').scrollHeight;
+  if(modal.open&&modal.dataset.kind==='set-details')renderSetDetails();
   renderedPosition=scene==='game' ? position : null;
   if (animate) {
     const token=++animationGeneration;
@@ -185,12 +186,12 @@ function renderTable(v) {
     html += '<section class="rival-zone '+(active?'rival-active':'')+'" aria-label="'+esc(ns[other])+'’s table"><div class="zone-title rival-heading"><div class="rival-identity"><span class="rival-name">'+esc(ns[other])+'</span>'+(active?'<span class="rival-turn">TURN</span>':'')+'</div><span class="rival-hand" data-hand-seat="'+other+'"><span class="mini-fan" aria-hidden="true">'+Array.from({length:Math.min(v.hands[other].length,14)},(_,i)=>'<i class="mini-back" style="--fan:'+ (i-(Math.min(v.hands[other].length,14)-1)/2)+'"></i>').join('')+'</span><span class="rival-count">'+v.hands[other].length+' cards</span></span></div><div class="table-row ' + (v.options.quickTurns?'single-space':'') + '">';
     for(const target of (v.options.quickTurns?[0]:[0,1])) {
       const set=v.table[other][target],owner=v.hands.length===2?{}:{targetSeat:other},add={kind:'add',lane,target,cards:chosen,...owner},take={kind:'take',lane,target,...owner};
-      html += '<article data-space-seat="'+other+'" data-space-lane="'+target+'" class="play-space rival-space" '+(set.length?'data-action="inspect-set" data-owner="'+other+'" data-target="'+target+'"':'')+'><div class="space-header"><span>'+(v.options.quickTurns?'PLAY':target?'RIGHT':'LEFT')+' SPACE</span><strong>'+(set.length?set.length+' × '+setValue(set):'EMPTY')+'</strong>'+(set.length?'<button class="set-inspect" data-action="inspect-set" data-owner="'+other+'" data-target="'+target+'" aria-label="Actions for '+esc(ns[other])+'’s '+(target?'right':'left')+' set" aria-expanded="'+(expandedSet===other+':'+target)+'">▾</button>':'')+'</div><div class="space-cards" style="--set-count:'+set.length+'">'+(set.length?set.map(c=>cardHtml(c)).join(''):'<span class="space-empty">✦</span>')+'</div><div class="space-controls '+(expandedSet===other+':'+target?'expanded':'')+'">'+button('ADD 1','add','mint',!actionValid(actions,add)||preview,'data-target="'+target+'" data-owner="'+other+'"')+button('Grab & flip','take','gold',!actionValid(actions,take)||preview,'data-target="'+target+'" data-owner="'+other+'"')+'</div></article>';
+      html += '<article data-space-seat="'+other+'" data-space-lane="'+target+'" class="play-space rival-space" '+(set.length?'data-action="inspect-set" data-owner="'+other+'" data-target="'+target+'"':'')+'><div class="space-header"><span>'+(v.options.quickTurns?'PLAY':target?'RIGHT':'LEFT')+' SPACE</span><strong>'+(set.length?set.length+' × '+setValue(set):'EMPTY')+'</strong>'+(set.length?'<button class="set-inspect" data-action="inspect-set" data-owner="'+other+'" data-target="'+target+'" aria-label="Actions for '+esc(ns[other])+'’s '+(target?'right':'left')+' set" aria-expanded="'+(expandedSet===other+':'+target)+'">▾</button>':'')+'</div>'+(set.length?'<button type="button" class="space-cards exposed-cards" data-action="inspect-cards" data-owner="'+other+'" data-target="'+target+'" aria-label="Inspect all '+set.length+' exposed cards in '+esc(ns[other])+'’s '+(v.options.quickTurns?'play':target?'right':'left')+' space">'+set.map(c=>cardHtml(c)).join('')+'</button>':'<div class="space-cards"><span class="space-empty">✦</span></div>')+'<div class="space-controls '+(expandedSet===other+':'+target?'expanded':'')+'">'+button('ADD 1','add','mint',!actionValid(actions,add)||preview,'data-target="'+target+'" data-owner="'+other+'"')+button('Grab & flip','take','gold',!actionValid(actions,take)||preview,'data-target="'+target+'" data-owner="'+other+'"')+'</div></article>';
     }
     html += '</div></section>';
   }
   html += '</div>';
-  html += '<p class="table-instruction '+(v.pending!==null?'chance-instruction':'')+'" role="status">' + (v.pending!==null ? 'LAST CHANCE' : animating ? 'CARDS IN MOTION' : turn ? preview ? 'PEEK AT THE OTHER SIDE' : 'YOUR TURN' : esc(ns[v.turn]).toUpperCase() + '’S TURN') + '<small>' + (v.pending!==null ? (v.pending===p ? 'Your hand is empty. '+v.repliesRemaining+' '+(v.repliesRemaining===1?'reply remains.':'replies remain.') : esc(ns[v.pending])+' has an empty hand. Send cards back to stop the win.') : turn ? v.options.quickTurns ? 'Select matching ranks. Play a set, or flip your hand.' : 'Use your ' + (v.beat ? 'right' : 'left') + ' space for this action.' : 'Waiting for their action.') + '</small></p><div class="zone-title"><span>YOUR PLAY SPACE' + (v.options.quickTurns?'':'S') + '</span><span>' + (v.options.quickTurns ? 'ONE ACTION / TURN' : (v.opening ? 'OPENING ACTION' : 'ACTION ' + (v.beat ? 1 : 2) + ' / 2')) + '</span></div><div class="table-row ' + (v.options.quickTurns?'single-space':'') + '">';
+  html += '<p class="table-instruction '+(v.pending!==null?'chance-instruction':'')+'" role="status">' + (v.pending!==null ? 'LAST CHANCE' : animating ? 'CARDS IN MOTION' : turn ? preview ? 'PEEK AT THE OTHER SIDE' : 'YOUR TURN' : esc(ns[v.turn]).toUpperCase() + '’S TURN') + '<small>' + (v.pending!==null ? (v.pending===p ? 'Your hand is empty. '+v.repliesRemaining+' '+(v.repliesRemaining===1?'reply remains.':'replies remain.') : esc(ns[v.pending])+' has an empty hand. Send cards back to stop the win.') : turn ? v.options.quickTurns ? 'Select matching ranks. Play a set, or flip your hand.' : 'Use your ' + (v.beat ? 'right' : 'left') + ' space for this action.' : 'Waiting for their action.') + '</small></p><div class="zone-title own-spaces-heading"><span>YOUR PLAY SPACE' + (v.options.quickTurns?'':'S') + '</span><span>' + (v.options.quickTurns ? 'ONE ACTION / TURN' : (v.opening ? 'OPENING ACTION' : 'ACTION ' + (v.beat ? 1 : 2) + ' / 2')) + '</span></div><div class="table-row ' + (v.options.quickTurns?'single-space':'') + '">';
   for (const own of (v.options.quickTurns?[0]:[0,1])) {
     const set = v.table[p][own], canChoose = turn && availableLanes(v).includes(own);
     html += '<article data-space-seat="'+p+'" data-space-lane="'+own+'" class="play-space ' + (own === lane && turn ? 'chosen' : '') + '"><button type="button" class="space-select" data-action="lane" data-lane="' + own + '" aria-pressed="' + (own===lane) + '" ' + (!canChoose ? 'disabled' : '') + '>' + (own === lane && turn ? '● ' : '○ ') + (v.options.quickTurns ? 'PLAY' : own ? 'RIGHT' : 'LEFT') + ' SPACE' + (set.length ? ' · ' + set.length + ' × ' + setValue(set) : '') + '</button><div class="space-cards" style="--set-count:' + set.length + '">' + (set.length ? set.map(c => cardHtml(c)).join('') : '<span class="space-empty">↕</span>') + '</div><p class="cash-note">' + (set.length ? own === lane && turn ? 'These ' + set.length + ' cards leave on your move.' : 'Leave exposed, or cash out next.' : own === lane && turn ? 'Your new set will go here.' : 'Available next turn.') + '</p></article>';
@@ -515,6 +516,23 @@ async function scanCode(target) {
 function ruleDiagram(ranks,label,flipped=false){
   return '<div class="diagram-set"><div>'+ranks.map((ends,i)=>cardHtml({id:'diagram-'+label+i,ends,face:flipped?1:0})).join('')+'</div><small>'+label+'</small></div>';
 }
+function showSetDetails(owner,target){
+  const v=view();
+  if(!v||owner===mySeat()||!v.table[owner]?.[target]?.length)return;
+  stopScan();pauseReplay();pairingOpen=false;
+  modal.dataset.kind='set-details';modal.dataset.setOwner=owner;modal.dataset.setLane=target;
+  renderSetDetails();if(!modal.open)modal.showModal();
+}
+function renderSetDetails(){
+  const owner=Number(modal.dataset.setOwner),target=Number(modal.dataset.setLane),v=view();
+  const set=v?.table[owner]?.[target]||[],ns=names();
+  const label=v?.options.quickTurns?'play space':target?'right space':'left space';
+  const closeFocused=document.activeElement?.dataset.action==='close-modal',scroll=modalContent.scrollTop;
+  modalContent.innerHTML=modalHead(esc(ns[owner])+'’s '+label,'EXPOSED CARDS')+'<p class="set-details-summary" role="status">'+(set.length?set.length+' card'+(set.length===1?'':'s')+' · Top rank '+setValue(set):'This space is now empty.')+'</p><div class="set-details-cards" role="list" aria-label="Every exposed card">'+set.map(c=>'<div class="set-detail-card" role="listitem">'+cardHtml(c)+'<span>Top <b>'+valueOf(c)+'</b></span><span>Flips to <b>'+reverseOf(c)+'</b></span></div>').join('')+'</div>'+button('Back to table','close-modal');
+  modalContent.scrollTop=scroll;
+  if(closeFocused)modalContent.querySelector('[data-action=close-modal]').focus({preventScroll:true});
+}
+
 function showRules() {
   stopScan();pairingOpen=false;delete modal.dataset.kind;modal.classList.add('rules-dialog');
   const options=scene==='game'&&view()?view().options:prefs.options;
@@ -555,7 +573,7 @@ document.addEventListener('pointerdown',event=>{
   if(event.button!==0||event.isPrimary===false||drag||modal.open||!myTurn()||preview)return;
   const card=event.target.closest('.hand [data-card]'),space=event.target.closest('[data-space-seat]');
   if(card){drag={pointer:event.pointerId,x:event.clientX,y:event.clientY,kind:'cards',cards:chosen.includes(card.dataset.card)?[...chosen]:[card.dataset.card],source:card};}
-  else if(space&&Number(space.dataset.spaceSeat)!==mySeat()&&!event.target.closest('button')){
+  else if(space&&Number(space.dataset.spaceSeat)!==mySeat()&&!event.target.closest('button:not(.exposed-cards)')){
     const owner=Number(space.dataset.spaceSeat),target=Number(space.dataset.spaceLane);
     if(view().table[owner][target].length)drag={pointer:event.pointerId,x:event.clientX,y:event.clientY,kind:'take',owner,target,source:space};
   }
@@ -610,6 +628,7 @@ document.addEventListener('click',async event=>{
     if(action==='ai-settings')openAISettings(()=>{generation++;stopAI();render();scheduleBot();});
     else if(action==='cancel-ai'){generation++;stopAI('AI paused. Retry when ready.');render();}
     else if(action==='retry-ai'){stopAI();render();scheduleBot();}
+    else if(action==='inspect-cards')showSetDetails(Number(target.dataset.owner),Number(target.dataset.target));
     else if(action==='inspect-set'){const key=target.dataset.owner+':'+target.dataset.target;expandedSet=expandedSet===key?null:key;render();}
     else if(action==='table-chat'){pairingOpen=false;delete modal.dataset.kind;modalContent.innerHTML=modalHead('Table talk','JUST YOU AND YOUR FRIEND')+renderSocial();if(!modal.open)modal.showModal();modal.querySelector('#chat-input')?.focus();}
     else if(action==='table-settings')showTableSettings();
