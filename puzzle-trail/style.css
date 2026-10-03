@@ -8,5 +8,8 @@
 
 /* Keep the board comfortable on wide displays; retain full-size readable cells on phones. */
 .board-frame,.board-tools{max-width:500px;margin-inline:auto;width:100%}.board-objective,.mobile-guide{display:none}
+.nav-icon{width:17px;height:17px;vertical-align:-3px}.square.target.legal:not(.occupied):after{display:none}
+@media(max-height:780px){#map-dialog{padding:24px}#map-dialog h2{font-size:28px;margin-top:8px;margin-bottom:12px}#map-dialog .dialog-intro{margin-bottom:12px}#map-dialog .full-world{max-width:760px;margin:14px auto}.map-region{padding:10px 12px}.map-region>span{display:none}.map-region small{display:block;margin-top:5px}}
 @media(min-width:901px){.masthead{height:86px}.page-intro{padding:26px 0}h1{font-size:36px}.scene-strip{height:75px}.board-heading{padding-top:15px;padding-bottom:13px}}
 @media(max-width:650px){.board-objective{display:block;color:#dbd9b9;font-size:11px;line-height:1.6;margin:7px 0 0}.mobile-guide{display:block;margin:0 15px 15px;padding:12px 14px;background:#dcd5b6;color:#304835;border-radius:4px}.mobile-guide>.eyebrow{color:#6d775b;font-size:6px;letter-spacing:1.3px}.mobile-guide p{font-size:11px;line-height:1.75;margin:6px 0 0}.mobile-hint{padding-top:9px;border-top:1px dashed #aaad8d;color:#566349}.guide-card,.goal-strip{display:none}.scene-strip{height:60px}.encounter-actions{padding-bottom:13px}.keyboard-note{display:none}.guide-rail{margin-top:0}}
+@media(max-width:650px){.full-world{aspect-ratio:1000/440}}
