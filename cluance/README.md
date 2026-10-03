@@ -1,6 +1,6 @@
 # Cluance
 
-A cooperative visual deduction game with original retro pixel art. Play with a friend through link-based WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. **No runtime or development packages, CDNs, frameworks, fonts, build step, or backend.**
+A cooperative visual deduction game with original retro pixel art. Play with a friend through link-based WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. **No runtime or development packages, CDNs, frameworks, build step, or backend. Martian Mono and DM Mono are self-hosted with their SIL OFL licences.**
 
 ## Run
 
@@ -47,11 +47,15 @@ Cities include Paris, Rome, London, Berlin, Tokyo and New York City, with 24 mor
 
 Every card displays a date caption and has a short description available in card inspection. People have lifespans or labelled birth years; places have labelled landmarks or milestones. Approximate and traditional dates are marked, and mythological figures are identified as myths. The [card context notes](CARD_CONTEXT.md) explain these conventions and link selected references.
 
-Choose board and clue decks independently, including people/place combinations. When themes overlap, clue cards depicting the same subject as a board card are excluded. The opening screen also offers future theme ideas and a collection browser. All decks use smaller WebP delivery images; the original generated PNGs are retained with their prompts.
+Choose board and clue decks independently, including people/place combinations. When themes overlap, clue cards depicting the same subject as a board card are excluded. The opening sentence chooses your role, partner, board deck, clue deck and hand variant. Collection is a searchable full page with all 330 cards. All decks use smaller WebP delivery images; the original generated PNGs are retained with their prompts.
 
-Select cards with a mouse, touch, or keyboard; activate focused buttons with Enter or Space. Click **Details** below a board or hand card to see its artwork, dates and short biography without changing your selection. Click a clue to inspect it. Right-click, double-click, and the **I** shortcut remain available. The final round offers a larger side-by-side comparison of the last two candidates. The AI observation includes a matching close-up comparison. Choose **Compact**, **Comfortable** or **Large** from the table’s card-size control, or in **Settings**; the board rearranges to fit the screen. Settings also offers **Light**, **Dark** and **System** appearance. System follows your operating system, including changes during play. These preferences are saved locally. Standard browser zoom works. Reduced-motion preferences disable animation.
+Select cards with a mouse, touch, or keyboard. The table keeps the board and clue trail together, with the giver’s hand between Similar and Different drop zones. Tap a hand card then a zone, or drag it there. Arrow keys browse the hand; **S**/**D** choose a direction and **Enter** plays the selected clue. Different clues stay sideways throughout the table and replay.
 
-Each board theme has an [original WebAudio composition](MUSIC.md), with music starting after a user gesture and pausing in hidden tabs. The top music button pauses only background music, leaving the sound-effects setting unchanged; Settings offers independent music and effect switches and a music-volume slider. Wins and losses open an explicit result dialog with the revealed card, a brief celebration or falling-card effect, and a corresponding musical cue before opening the sealed interpretations.
+Click the **ⓘ** affordance on a card, right-click, double-click or press **I** to open its details drawer. Use **←/→** to browse, **M** to mark an eligible card, and **Esc** to close. Compare the latest clue with up to two candidates, including the final two. The AI observation retains its explicit labels and final comparison. Settings offers Drawer or Peek details, Compact/Comfortable/Large cards, Light/Dark/System appearance and Reduce motion. These preferences are saved locally; System follows operating-system changes. Reduced-motion preferences disable animation.
+
+One-screen play removes card elements while covered. Hold the reveal ring for 800 ms with a pointer, Space or Enter, or use the confirmation fallback. Closed drawers also discard their artwork. Explanations remain sealed until the game ends. The reveal scrubber supports arrow keys and 1.6-second autoplay, compares expected and actual removals when recorded, and exports compatible JSON replays.
+
+Each board theme has an [original WebAudio composition](MUSIC.md), with music starting after a user gesture and pausing in hidden tabs. The top music button pauses only background music, leaving the sound-effects setting unchanged; Settings offers a music-volume slider and a sound-effects switch. Wins and losses open an explicit result dialog with the revealed card, a brief celebration or falling-card effect, and a corresponding musical cue before opening the sealed interpretations.
 
 ## AI settings
 
@@ -88,7 +92,7 @@ These are cooperative games between trusted players. A local browser that runs a
 - `src/expansion.js`: the 63 appended subjects, date captions and biographies.
 - `src/artwork.js`: subject-based redraw mappings shared across overlapping themes.
 - `src/context.js`: shared dates and descriptions for all card subjects.
-- `src/art.js`: Canvas card rendering, atlas loading, AI observation images and animated felt.
+- `src/art.js`: full-bleed Canvas artwork, captions, atlas loading and labelled AI observation images.
 - `src/app.js`: accessible native controls, game flow, pairing, local saving, replay and settings.
 - `src/peer.js`: Cluance configuration for the shared invitation tokens and WebRTC transport.
 - `src/ai.js`: image requests and provider-specific authentication, models and reasoning controls.
