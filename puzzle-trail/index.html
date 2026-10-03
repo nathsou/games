@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#102e2b">
+  <meta name="description" content="One square at a time. A playful, complete chess adventure for absolute beginners. 36 encounters, six places to restore, and no downloads or accounts.">
+  <title>Puzzle Trail — One square at a time</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="src/app.js"></script>
+</head>
+<body>
+  <div class="sky-grain" aria-hidden="true"></div>
+  <main class="shell">
+    <header class="masthead">
+      <a class="brand" href="./" aria-label="Puzzle Trail home"><span id="brand-lantern"></span><span>PUZZLE <b>TRAIL</b><small>A CHESS ADVENTURE</small></span></a>
+      <nav class="header-actions" aria-label="Game navigation">
+        <button id="map-button" class="nav-button"><span aria-hidden="true"><svg viewBox="0 0 24 24" class="nav-icon"><path d="M3 5l6-2 6 2 6-2v16l-6 2-6-2-6 2zM9 3v16M15 5v16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span> Trail map</button>
+        <button id="book-button" class="nav-button"><span aria-hidden="true">▤</span> Field guide</button>
+        <button id="practice-button" class="nav-button"><span aria-hidden="true">♟</span> Play chess</button>
+        <button id="settings-button" class="round-button" aria-label="Settings" title="Settings">⚙</button>
+      </nav>
+    </header>
+    <section class="page-intro">
+      <div><p class="eyebrow"><span class="tiny-spark">✦</span> EVERY GREAT PLAYER STARTED SOMEWHERE</p><h1>A little courage.<br><em>One square at a time.</em></h1></div>
+      <div class="journey-meter"><div class="meter-caption"><span>YOUR JOURNEY</span><strong id="total-count">0 / 36</strong></div><div class="meter-track"><div id="total-fill"></div></div><p id="journey-note">A whole world, waiting to light up.</p></div>
+    </section>
+    <div class="game-layout">
+      <aside class="trail-rail" aria-label="Your trail">
+        <div class="rail-label">THE ROAD AHEAD <span>06 PLACES</span></div>
+        <div id="region-list" class="region-list"></div>
+        <div class="trail-postcard"><div id="mini-world" class="mini-world"></div><div class="postcard-caption"><span>THE OBSERVATORY AWAITS</span><span aria-hidden="true">↗</span></div><p>Every little discovery<br>brings a little more light.</p></div>
+        <div class="save-note"><i></i><span id="save-label">Progress saved on this device</span></div>
+      </aside>
+      <section class="encounter" aria-label="Chess encounter">
+        <div class="encounter-header"><div><span id="region-icon" class="region-icon">✦</span><span id="region-name">Lantern Meadow</span></div><span id="lesson-number">ENCOUNTER 01 / 08</span></div>
+        <div class="scene-strip"><div id="region-scene"></div><span class="scene-caption" id="scene-caption">A first step into the meadow.</span><div class="firefly f1"></div><div class="firefly f2"></div><div class="firefly f3"></div></div>
+        <div class="board-heading"><div><p class="eyebrow" id="mode-label">MOVEMENT DRILL</p><h2 id="lesson-title">Meet the rook</h2><p class="board-objective" id="board-objective">Light the lantern on a4.</p></div><button id="lesson-list-button" class="text-button" title="Choose an encounter">Encounters <span aria-hidden="true">⌄</span></button></div>
+        <div class="mobile-guide" id="mobile-guide"><span class="eyebrow">MILO’S NOTE</span><p id="mobile-feedback" role="status" aria-live="polite"></p><p class="mobile-hint" id="mobile-hint" aria-live="polite" hidden></p></div>
+        <div class="board-frame" id="board-frame">
+          <div class="ranks" id="ranks" aria-hidden="true"></div>
+          <div id="board" class="board" role="grid" aria-label="Chessboard. Use arrow keys to navigate, Enter to select a piece or move." aria-rowcount="8" aria-colcount="8"></div>
+          <div class="files" id="files" aria-hidden="true"></div>
+        </div>
+        <div class="board-tools"><div class="turn-label"><i id="turn-dot"></i><span id="turn-label">YOUR IVORY PIECES</span></div><div class="board-tool-actions"><button id="moves-button" class="tool-button" aria-pressed="true" title="Show legal destinations">Move guide</button><button id="threats-button" class="tool-button" aria-pressed="false" title="Mark squares attacked by violet pieces">Threats</button><button id="flip-button" class="tool-button icon-tool" aria-label="Flip board" title="Flip board">↕</button></div></div>
+        <div class="goal-strip"><span id="goal-icon"></span><div><span class="eyebrow">YOUR LITTLE MISSION</span><p id="objective">Light the lantern on a4.</p></div><span class="goal-progress" id="goal-progress"></span></div>
+        <div class="encounter-actions"><button id="undo-button" class="secondary-button" disabled><span aria-hidden="true">↶</span> Undo</button><button id="retry-button" class="secondary-button"><span aria-hidden="true">↻</span> Start over</button><button id="hint-button" class="hint-button"><span aria-hidden="true">✧</span> A little hint <span id="hint-count"></span></button></div>
+        <div class="result-card" id="result" hidden aria-live="polite"></div>
+        <div class="keyboard-note">SELECT A PIECE, THEN ITS DESTINATION <span>·</span> <kbd>H</kbd> HINT <span>·</span> <kbd>U</kbd> UNDO</div>
+      </section>
+      <aside class="guide-rail" aria-label="Your chess guide">
+        <section class="guide-card"><div class="guide-identity"><div id="guide-portrait" class="guide-portrait"></div><div><h2>Milo</h2><span>YOUR TRAIL GUIDE</span></div><span class="guide-star" aria-hidden="true">✦</span></div><p class="guide-greeting" id="guide-greeting">Small steps. Big discoveries.</p><div id="feedback" class="guide-copy" role="status" aria-live="polite"></div><div class="hint-note" id="hint-note" hidden></div></section>
+        <section class="inspector-card"><div class="rail-label">A CLOSER LOOK <span aria-hidden="true">⌕</span></div><div id="inspector"><p class="quiet-copy">Select a piece to discover<br>where it can go.</p></div></section>
+        <section class="pocket-note"><span class="note-pin" aria-hidden="true">✧</span><p id="pocket-tip">You don’t need to be clever.<br><em>Just curious.</em></p><span>A NOTE FOR YOUR POCKET</span></section>
+        <section id="move-log-card" class="move-log-card" hidden><div class="rail-label">THE STORY SO FAR</div><div id="move-log" class="move-log"></div><div id="game-extra" class="game-extra"></div></section>
+      </aside>
+    </div>
+    <footer><span>NO CLOCK. NO PRESSURE. JUST CHESS.</span><span>BUILT FOR LITTLE DISCOVERIES <span aria-hidden="true">✦</span></span></footer>
+  </main>
+  <dialog id="map-dialog" class="wide-dialog" aria-labelledby="map-title"><button class="dialog-close" data-close aria-label="Close trail map">×</button><p class="eyebrow">YOUR JOURNEY, ONE LANTERN AT A TIME</p><h2 id="map-title">A world waiting for light.</h2><p class="dialog-intro">Six places. Thirty-six small discoveries. Take the next step, or revisit a familiar one.</p><div class="full-world" id="full-world"></div><div id="map-regions" class="map-regions"></div></dialog>
+  <dialog id="lessons-dialog" aria-labelledby="lessons-title"><button class="dialog-close" data-close aria-label="Close encounters">×</button><p class="eyebrow" id="lessons-subtitle">LANTERN MEADOW</p><h2 id="lessons-title">Small steps along the trail.</h2><div id="lesson-choices" class="lesson-choices"></div></dialog>
+  <dialog id="book-dialog" class="wide-dialog" aria-labelledby="book-title"><button class="dialog-close" data-close aria-label="Close field guide">×</button><p class="eyebrow">A LITTLE KNOWLEDGE TO TAKE WITH YOU</p><h2 id="book-title">Your chess field guide.</h2><p class="dialog-intro">Short reminders, whenever you need them. Entries gain a discovery stamp as you explore the trail.</p><div id="book-entries" class="book-entries"></div><p class="book-footnote">A rough piece value helps compare exchanges. It never outweighs the safety of your king.</p></dialog>
+  <dialog id="practice-dialog" aria-labelledby="practice-title"><button class="dialog-close" data-close aria-label="Close chess practice">×</button><p class="eyebrow">A FRIENDLY TABLE, ALWAYS OPEN</p><h2 id="practice-title">Let’s play some chess.</h2><p class="dialog-intro">Take your time. Keep the move guide, inspect threats, and rewind whenever you like. White (ivory) moves first in a new game. Endgame practice gives you the stronger pieces and the next move.</p><label class="select-label" for="practice-position">Start from</label><select id="practice-position"><option value="standard">An ordinary starting position</option><option value="queen">King & queen endgame</option><option value="rook">King & rook endgame</option></select><label class="select-label" for="practice-side">Your pieces</label><select id="practice-side"><option value="w">Ivory · White</option><option value="b">Violet · Black</option></select><label class="select-label" for="practice-level">Your opponent</label><select id="practice-level"><option value="gentle">Gentle · a little room to explore</option><option value="thoughtful">Thoughtful · looks a little further ahead</option></select><button id="start-game-button" class="primary-button">Pull up a chair <span aria-hidden="true">↗</span></button><button id="resume-game-button" class="secondary-button" hidden>Resume your saved game</button><p class="small-print">Milo explains visible threats and rules. Your opponent is a modest local chess player, not an expert engine.</p></dialog>
+  <dialog id="settings-dialog" aria-labelledby="settings-title"><button class="dialog-close" data-close aria-label="Close settings">×</button><p class="eyebrow">MAKE YOURSELF AT HOME</p><h2 id="settings-title">A few small comforts.</h2><label class="setting"><span><strong>Little sounds</strong><small>Soft notes for moves and discoveries</small></span><input id="setting-sound" type="checkbox"></label><label class="setting"><span><strong>Move guide</strong><small>Mark legal destinations when selecting a piece</small></span><input id="setting-moves" type="checkbox"></label><label class="setting"><span><strong>Board coordinates</strong><small>Show the a–h and 1–8 labels</small></span><input id="setting-coords" type="checkbox"></label><label class="setting"><span><strong>Less motion</strong><small>Keep the fireflies and celebrations still</small></span><input id="setting-motion" type="checkbox"></label><p class="small-print">Your progress and preferences stay in this browser. There are no accounts or online services.</p><button id="reset-button" class="danger-button">Reset trail progress…</button></dialog>
+  <dialog id="reset-dialog" aria-labelledby="reset-title"><button class="dialog-close" data-close aria-label="Cancel reset">×</button><p class="eyebrow">A FRESH JOURNEY</p><h2 id="reset-title">Start the trail again?</h2><p class="dialog-intro">This clears completed encounters and discovery stamps on this device. Your preferences and saved chess game stay.</p><div class="dialog-actions"><button class="secondary-button" data-close>Keep my progress</button><button id="confirm-reset-button" class="danger-button">Reset the trail</button></div></dialog>
+  <dialog id="promotion-dialog" aria-labelledby="promotion-title"><p class="eyebrow">A NEW POSSIBILITY</p><h2 id="promotion-title">Choose your new piece.</h2><p class="dialog-intro">Your pawn reached the final row. Queen, rook, bishop, or knight—the choice is yours.</p><div id="promotion-choices" class="promotion-choices"></div></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <noscript><p class="noscript-note">Puzzle Trail needs JavaScript enabled to play. All code and artwork are included locally.</p></noscript>
+</body>
+</html>

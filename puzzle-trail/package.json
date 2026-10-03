@@ -1,0 +1,8 @@
+{
+  "name": "puzzle-trail",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A complete, offline-friendly chess adventure for absolute beginners. Zero dependencies.",
+  "scripts": { "start": "node tools/serve.mjs" }
+}
