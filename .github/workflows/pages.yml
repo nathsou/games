@@ -78,6 +78,8 @@ jobs:
           cp -r shared _site/shared
           cp -r nonocube/dist _site/nonocube
           cp nonocube/preview.jpg _site/nonocube/
+          mkdir -p _site/mosslight
+          cp -r mosslight/. _site/mosslight/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
