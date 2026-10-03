@@ -4,7 +4,6 @@ Small browser games in vanilla JavaScript. The index page lists them as cards an
 
 | Game | Folder |
 | --- | --- |
-| **Ink Riot**: retro 3-on-3 turf war, three weapons and arenas, adjustable AI, canvas UI and fullscreen, no dependencies | [`ink-riot/`](ink-riot/) |
 | **Flip it**: configurable two-to-five-player card game, WebRTC, local play and team play, no dependencies | [`flip-it/`](flip-it/) |
 | **Midnight Table**: three card games, solo/local/WebRTC duel and co-op, no dependencies | [midnight/](midnight/) |
 | **Cluance**: cooperative deduction, eleven decks, vision AI and WebRTC | [cluance/](cluance/) |
