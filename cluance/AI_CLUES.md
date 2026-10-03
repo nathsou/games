@@ -31,3 +31,20 @@ Current provider guidance used: [GPT-6 Luna](https://developers.openai.com/api/d
 ## Decision memory
 
 Every request carries the full public clue/removal trail and the model’s own short explanations. Explicit `ownPreviousActions` records now pair each earlier AI move with its explanation: givers see their chosen clue and direction plus the public removals in response; guessers see their removals and the clue they received. Earlier sources are retained when the player changes models or effort. The prompt asks the model to preserve coherent associations and reconsider them after feedback. The partner’s sealed notes remain excluded, and a guesser never receives the target or private hand. This is recorded game memory, not a stored provider conversation or an internal reasoning transcript.
+
+
+## Explicit keep/remove decisions and clue progression
+
+A reported final round had Alexandre Dumas and Molière remaining, with La Fontaine/Different as the latest clue. The guesser's explanation identified Dumas as the clearer contrast with La Fontaine's era but its returned removal discarded Dumas. The engine applies the returned removal IDs directly; no inversion was found in that path. This is an action/explanation contradiction, although the complete earlier trail was not available to reconstruct the original game.
+
+The previous generic `cards` output is replaced with explicit `keepCards` and `removeCards`. Both roles partition the surviving board; the giver's removal list is its prediction, while the guesser's list is the actual action. The lists must be disjoint, cover every survivor and have the required counts. The giver's prediction must keep the target safe. OpenAI's strict schema restricts card IDs to the active board and clue IDs to the current hand. All providers pass through the same local validation before a move is applied; an invalid response uses the existing single correction attempt and paid-attempt accounting.
+
+The guesser is instructed to decide which cards stay first, explain both sides explicitly in the final round, and ensure that the names and IDs agree. Different describes the target's contrast with the clue; it does not mean discarding the candidate that provides the strongest contrast. Structural checks cannot prove that free-text explanations or interpretations are semantically correct, and models can still choose the wrong interpretation.
+
+Each removed-card ID also has one brief factual explanation, checked for complete coverage and unique IDs. The giver must explain why that alternative fits its selected card/direction less well than the target; a feature shared equally by both cannot justify the removal. These explanations describe the selected move, rather than recording exploratory deliberation.
+
+Giver predictions, per-card explanations and the dimensions supporting each move are recorded when the move is made, sealed during play, and shown beside actual removals in the final reveal. Guesser decisions also record the chosen keep list. Each model receives only its own earlier intentions, choices, dimensions and explanations, alongside public feedback. Predictions and dimension labels are excluded from active public views, multiplayer state and the partner's AI observation. Older saved games and replays need no migration; missing predictions are labelled as unrecorded.
+
+The prompt now evaluates what a clue adds among the current survivors. It encourages complementary era, role, geography, story, trait and visual connections, including several readings that converge on the same safe removal. Compatibility with the target does not make a single dimension the theme of every round. Repetition remains appropriate when it still resolves ambiguity; there is no dimension quota.
+
+Provider references: [Structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs) and [prompt engineering](https://developers.openai.com/api/docs/guides/prompt-engineering). Schema validity and sensible gameplay are separate concerns.

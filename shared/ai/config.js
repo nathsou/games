@@ -5,7 +5,7 @@ export const AI_FIELDS = Object.freeze(Object.keys(DEFAULT_AI));
 let ephemeralKeys = {}, memoryConfig = null;
 function read(key) { try {return JSON.parse(localStorage.getItem(key)||'null');} catch {return null;} }
 export function loadAI() {
-  const shared=read(CONFIG_KEY) || memoryConfig, legacy=read('similo-arcade-v1:settings') || {};
+  const shared=read(CONFIG_KEY) || memoryConfig, legacy=read('cluance-v1:settings') || read('similo-arcade-v1:settings') || {};
   const saved=shared || legacy;
   const rememberKeys=saved.rememberKeys === true || !shared && Object.keys(saved.keys||{}).length>0 && saved.rememberKeys!==false;
   return {...DEFAULT_AI,provider:['openrouter','openai','anthropic'].includes(saved.provider)?saved.provider:DEFAULT_AI.provider,
@@ -21,8 +21,10 @@ export function saveAI(settings) {
   try {
     localStorage.setItem(CONFIG_KEY,JSON.stringify(persisted));
     // Erase migrated credentials from the old store when remembering is disabled.
-    const legacy=read('similo-arcade-v1:settings');
-    if (legacy) localStorage.setItem('similo-arcade-v1:settings',JSON.stringify({...legacy,...persisted}));
+    for (const key of ['cluance-v1:settings','similo-arcade-v1:settings']) {
+      const legacy=read(key);
+      if (legacy) localStorage.setItem(key,JSON.stringify({...legacy,...persisted}));
+    }
   } catch {saved=false;}
   globalThis.dispatchEvent?.(new Event('games-ai-settings-change'));
   return saved;
