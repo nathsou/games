@@ -1,4 +1,4 @@
-/** Rendering style knobs, set by the active design (see ui/design.ts). */
+/** Rendering style knobs, set by the Mono appearance (see ui/theme.ts). */
 export interface RenderStyle {
   /** Rounded-edge width as a fraction of a face. */
   bevel: number;

@@ -3,12 +3,11 @@ import { hashString } from './core/rng.ts';
 import type { ModelDef, PuzzleDef } from './core/types.ts';
 import { onSettingsChange, store, save, maskFromString, maskToString } from './game/storage.ts';
 import { OrbitCamera } from './render/camera.ts';
-import { hexToRgb } from './render/math.ts';
 import { Renderer, type DrawList } from './render/renderer.ts';
 import { BlockScene, NO_GLYPHS } from './render/scene.ts';
 import { generateMask } from './solver/generator.ts';
 import { Gestures, type GestureTarget } from './ui/gestures.ts';
-import { applyTheme } from './ui/theme.ts';
+import { applyTheme, layerColor, onThemeChange } from './ui/theme.ts';
 
 export interface Screen {
   el: HTMLElement;
@@ -26,13 +25,12 @@ export interface Screen {
 }
 
 /**
- * Fill a scene with a model in its own colors (no clues). `appear` (seconds) animates the
+ * Fill a scene with a model in Mono layer tones (no clues). `appear` (seconds) animates the
  * cubes dropping in from the bottom up; omit for the finished model.
  */
 export function modelScene(scene: BlockScene, m: ModelDef, appear = Infinity): BlockScene {
   scene.reset(m.dims);
   const g = scene.grid;
-  const colors = m.palette.map(hexToRgb);
   for (let i = 0; i < g.size; i++) scene.solid[i] = m.cells[i] ? 1 : 0;
   for (let i = 0; i < g.size; i++) {
     const c = m.cells[i];
@@ -43,10 +41,10 @@ export function modelScene(scene: BlockScene, m: ModelDef, appear = Infinity): B
       const t = Math.min(1, Math.max(0, (appear - delay) / 0.45));
       if (t <= 0) continue;
       const e = 1 + 2.2 * Math.pow(t - 1, 3) + 1.2 * Math.pow(t - 1, 2);
-      scene.add(x, y + (1 - t) * 1.5, z, e, colors[c - 1], NO_GLYPHS);
+      scene.add(x, y + (1 - t) * 1.5, z, e, layerColor(y, m.dims[1]), NO_GLYPHS);
       continue;
     }
-    scene.add(x, y, z, 1, colors[c - 1], NO_GLYPHS);
+    scene.add(x, y, z, 1, layerColor(y, m.dims[1]), NO_GLYPHS);
   }
   scene.computeAO();
   return scene;
@@ -68,6 +66,7 @@ export class App {
     this.canvas = canvas;
     this.root = root;
     this.renderer = new Renderer(canvas);
+    onThemeChange(() => this.thumbs.clear());
     const syncMomentum = () => (this.camera.momentum = store.settings.reducedMotion ? 'off' : store.settings.momentum);
     syncMomentum();
     onSettingsChange(syncMomentum);
@@ -132,9 +131,9 @@ export class App {
     requestAnimationFrame(this.loop);
   };
 
-  /** Colored thumbnail of a model (cached). */
+  /** Mono thumbnail of a model (cached). */
   thumbnail(m: ModelDef, size = 220): string {
-    const key = `${m.id}:${hashString(Array.from(m.cells).join(','))}`;
+    const key = `${document.documentElement.dataset.theme}:${m.id}:${hashString(Array.from(m.cells).join(','))}`;
     const cached = this.thumbs.get(key);
     if (cached) return cached;
     const cam = new OrbitCamera();

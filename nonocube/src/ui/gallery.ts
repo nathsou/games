@@ -8,12 +8,12 @@ import { BlockScene, NO_GLYPHS, Particles } from '../render/scene.ts';
 import { button, h, icon, iconButton } from './dom.ts';
 import type { GestureTarget } from './gestures.ts';
 import { I } from './icons.ts';
-import { applyTheme, sceneColors, themeFor } from './theme.ts';
+import { applyTheme, layerColor, onThemeChange, sceneColors, themeFor } from './theme.ts';
 import { renderStyle } from '../render/style.ts';
 import type { Nav } from './menus.ts';
 
 /** Exhibit layout (world units). */
-export const PLINTH = 3.2;
+export const PLINTH = 1.5;
 const PLINTH_W = 4.8;
 const MODEL_SIZE = 4.2;
 const SPACING = 9;
@@ -63,7 +63,6 @@ function progressScene(scene: BlockScene, p: PuzzleDef): BlockScene {
 function revealScene(scene: BlockScene, m: ModelDef, t: number): BlockScene {
   scene.reset(m.dims);
   const g = scene.grid;
-  const colors = m.palette.map(hexToRgb);
   for (let i = 0; i < g.size; i++) scene.solid[i] = m.cells[i] ? 1 : 0;
   const col = [0, 0, 0];
   const UNSOLVED = sceneColors.cube;
@@ -74,7 +73,8 @@ function revealScene(scene: BlockScene, m: ModelDef, t: number): BlockScene {
     const delay = (y / Math.max(1, m.dims[1])) * 0.55 + (((i * 7919) % 97) / 97) * 0.25;
     const k = clamp((t * 1.8 - delay) / 0.45, 0, 1);
     const e = k * k * (3 - 2 * k);
-    for (let j = 0; j < 3; j++) col[j] = UNSOLVED[j] + (colors[c - 1][j] - UNSOLVED[j]) * e;
+    const tone = layerColor(y, m.dims[1]);
+    for (let j = 0; j < 3; j++) col[j] = UNSOLVED[j] + (tone[j] - UNSOLVED[j]) * e;
     scene.add(x, y, z, 1 + 0.14 * Math.sin(Math.PI * k), col, NO_GLYPHS);
   }
   scene.computeAO();
@@ -109,6 +109,7 @@ export class GalleryScreen implements Screen {
   private fresh: { index: number; t: number } | null = null;
   private time = 0;
   private ui: Record<string, HTMLElement> = {};
+  private offTheme = () => {};
 
   constructor(app: App, nav: Nav, col: Collection, focus = -1) {
     this.app = app;
@@ -147,8 +148,8 @@ export class GalleryScreen implements Screen {
     const stars = this.col.puzzles.reduce((n, p) => n + (store.records[p.id]?.stars ?? 0), 0);
     this.ui.plaque = h('div', { class: 'gallery-plaque' });
     this.ui.dots = h('div', { class: 'gallery-dots', role: 'tablist', 'aria-label': 'Exhibits' },
-      ...this.items.map((e, i) => h('button', { class: `gdot ${e.solved ? 'solved' : ''}`, 'aria-label': `Exhibit ${i + 1}`, 'data-tip': e.solved ? e.puzzle.name : `No. ${i + 1}`, onclick: () => this.goTo(i) })));
-    return h('div', { class: 'gallery', style: `--t1:${this.col.tint[0]};--t2:${this.col.tint[1]}` },
+      ...this.items.map((e, i) => h('button', { class: `gdot ${e.solved ? 'solved' : ''}`, 'aria-label': `Exhibit ${i + 1}`, role: 'tab', 'data-tip': e.solved ? e.puzzle.name : `No. ${i + 1}`, onclick: () => this.goTo(i) }, String(i + 1))));
+    return h('div', { class: 'gallery' },
       h('header', { class: 'gallery-head' },
         iconButton(I.back, 'All galleries', () => this.nav.collections()),
         h('div', { class: 'gallery-title' },
@@ -171,16 +172,16 @@ export class GalleryScreen implements Screen {
     const starsEl = h('span', { class: 'mini-stars' }, ...[1, 2, 3].map((k) => icon(k <= (rec?.stars ?? 0) ? I.star : I.starOutline, k <= (rec?.stars ?? 0) ? 'on' : '')));
     this.ui.plaque.replaceChildren(
       h('div', { class: 'plaque-eyebrow' }, fresh ? 'New acquisition' : `No. ${this.focus + 1}`),
-      h('h2', { class: 'plaque-title' }, e.solved ? p.name : 'Untitled'),
+      h('h2', { class: 'plaque-title' }, e.solved ? p.name : '???'),
       h('div', { class: 'plaque-meta' },
         h('span', null, p.dims.join(' × ')),
         rec ? starsEl : prog ? h('span', { class: 'badge-inline' }, 'In progress') : h('span', null, 'Not yet solved')),
-      button(e.solved ? 'Play again' : prog ? 'Continue' : 'Solve', () => this.play(), 'primary', I.play),
+      button(e.solved ? 'Play again' : prog ? 'Continue' : 'Play', () => this.play(), 'primary', I.play),
     );
     this.ui.plaque.classList.remove('swap');
     void this.ui.plaque.offsetWidth;
     this.ui.plaque.classList.add('swap');
-    [...this.ui.dots.children].forEach((d, i) => d.classList.toggle('on', i === this.focus));
+    [...this.ui.dots.children].forEach((d, i) => { d.classList.toggle('on', i === this.focus); d.setAttribute('aria-selected', String(i === this.focus)); });
     (this.el.querySelector('.gallery-arrow.left') as HTMLElement).toggleAttribute('disabled', this.focus === 0);
     (this.el.querySelector('.gallery-arrow.right') as HTMLElement).toggleAttribute('disabled', this.focus === this.items.length - 1);
   }
@@ -262,6 +263,7 @@ export class GalleryScreen implements Screen {
   }
 
   enter(): void {
+    this.offTheme = onThemeChange(() => this.items.forEach((e) => e.solved ? modelScene(e.scene, e.puzzle) : progressScene(e.scene, e.puzzle)));
     const cam = this.app.camera;
     cam.yaw = 0.3;
     cam.pitch = 0.2;
@@ -271,6 +273,7 @@ export class GalleryScreen implements Screen {
   }
 
   exit(): void {
+    this.offTheme();
     document.body.classList.remove('in-gallery');
     this.app.canvas.style.cursor = '';
   }
@@ -282,8 +285,8 @@ export class GalleryScreen implements Screen {
     const head = (this.el.querySelector('.gallery-head') as HTMLElement).getBoundingClientRect().bottom;
     const foot = (this.el.querySelector('.gallery-foot') as HTMLElement).getBoundingClientRect().top;
     cam.frame(head, 30, cam.height - foot, 30, dt);
-    cam.target = [this.scroll * SPACING, (MODEL_SIZE - PLINTH) / 2, 0];
-    cam.fit([12, MODEL_SIZE + PLINTH + 1.2, 5], 1.0);
+    cam.target = [clamp(this.scroll, window.innerWidth > 760 ? 1.5 : 0.6, this.items.length - (window.innerWidth > 760 ? 2.5 : 1.6)) * SPACING, (MODEL_SIZE - PLINTH) / 2, 0];
+    cam.fit([window.innerWidth > 760 ? 36 : 20, MODEL_SIZE + PLINTH + 1.2, 5], 1.0);
     cam.yaw += (0.3 - cam.yaw) * damp(3, dt);
     cam.pitch += (0.2 - cam.pitch) * damp(3, dt);
     // the centered piece turns slowly; the others settle to a three-quarter view

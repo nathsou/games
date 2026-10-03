@@ -27,7 +27,7 @@ type Mode = 'build' | 'clues';
 
 const MAX_DIM = 16;
 const MAX_COLORS = 15;
-const DEFAULT_PALETTE = ['#e5534b', '#f28b30', '#f5c542', '#5cb85c', '#2f7d4a', '#7cc4f2', '#3d7be0', '#8e6bd6', '#f28bb3', '#8b5a3c', '#f7f7f2', '#2a2d34'];
+const DEFAULT_PALETTE = ['#000000', '#4d4d4d', '#8c8c8c', '#c9c9c9', '#e5534b', '#f28b30', '#f5c542', '#5cb85c', '#2f7d4a', '#7cc4f2', '#3d7be0', '#8e6bd6', '#f28bb3', '#8b5a3c', '#f7f7f2', '#2a2d34'];
 
 interface Snapshot {
   dims: Dims;
@@ -52,7 +52,7 @@ export class EditorScreen implements Screen {
   private dims: Dims = [6, 6, 6];
   private grid: Grid = gridFor([6, 6, 6]);
   private cells: Uint8Array = new Uint8Array(216);
-  private palette = DEFAULT_PALETTE.slice();
+  private palette = DEFAULT_PALETTE.slice(0, MAX_COLORS);
   private color = 1;
   private name = 'My puzzle';
   private difficulty: Difficulty = 'medium';
@@ -82,6 +82,7 @@ export class EditorScreen implements Screen {
   private ui: Record<string, HTMLElement> = {};
   private dirtySinceSave = false;
   private analyzeTimer = 0;
+  private layer = 0;
 
   constructor(app: App, nav: Nav, puzzle?: PuzzleDef, userId?: string) {
     this.app = app;
@@ -109,7 +110,7 @@ export class EditorScreen implements Screen {
   }
 
   private starter(): void {
-    this.dims = [6, 6, 6];
+    this.dims = [4, 4, 4];
     this.grid = gridFor(this.dims);
     this.cells = new Uint8Array(this.grid.size);
   }
@@ -158,7 +159,10 @@ export class EditorScreen implements Screen {
     this.ui.mirX = h('button', { class: 'chip', onclick: () => { this.mirrorX = !this.mirrorX; this.refresh(); } }, 'Mirror X');
     this.ui.mirZ = h('button', { class: 'chip', onclick: () => { this.mirrorZ = !this.mirrorZ; this.refresh(); } }, 'Mirror Z');
 
+    this.ui.layers = h('div', { class: 'layer-tabs', role: 'group', 'aria-label': 'Layers' });
+    this.ui.layerGrid = h('div', { class: 'layer-grid' });
     const buildPanel = h('div', { class: 'panel-sec build-only' },
+      h('div', { class: 'eyebrow' }, 'Layer, bottom to top'), this.ui.layers, this.ui.layerGrid,
       h('div', { class: 'tools4' }, toolBtn('add', I.addCube, 'Add', ''), toolBtn('remove', I.eraser, 'Remove', ''), toolBtn('paint', I.paintBucket, 'Paint', ''), toolBtn('pick', I.dropper, 'Pick', '')),
       h('h4', null, 'Color'), this.ui.swatches,
       h('h4', null, 'Symmetry'), h('div', { class: 'chips' }, this.ui.mirX, this.ui.mirZ),
@@ -184,7 +188,6 @@ export class EditorScreen implements Screen {
       ...(['easy', 'medium', 'hard'] as Difficulty[]).map((d) =>
         h('label', null, h('input', { type: 'radio', name: 'ed-diff', value: d, checked: this.difficulty === d, onchange: () => { this.difficulty = d; this.saveDraft(); } }), h('span', null, d[0].toUpperCase() + d.slice(1)))));
     const cluePanel = h('div', { class: 'panel-sec clues-only' },
-      this.ui.status,
       h('h4', null, 'Auto-generate'),
       this.ui.diff,
       h('div', { class: 'chips' },
@@ -204,7 +207,7 @@ export class EditorScreen implements Screen {
 
     this.ui.panel = h('aside', { class: 'editor-panel' },
       h('div', { class: 'tabs' }, this.ui.tabBuild, this.ui.tabClues),
-      h('div', { class: 'panel-scroll' }, buildPanel, cluePanel, share),
+      h('div', { class: 'panel-scroll' }, this.ui.status, buildPanel, cluePanel, share),
     );
     this.ui.panelToggle = h('button', { class: 'panel-toggle icon-btn', 'aria-label': 'Toggle panel', onclick: () => this.el.classList.toggle('panel-closed') }, icon(I.sliders));
 
@@ -242,6 +245,18 @@ export class EditorScreen implements Screen {
         ? [h('label', { class: 'swatch add', 'data-tip': 'Add a color' }, icon(I.plus), h('input', { type: 'color', value: '#ffffff', onchange: (e: Event) => this.addColor((e.target as HTMLInputElement).value) }))]
         : []),
     );
+    this.layer = Math.min(this.layer, this.dims[1] - 1);
+    this.ui.layers.replaceChildren(...Array.from({ length: this.dims[1] }, (_, y) => h('button', { class: `chip ${y === this.layer ? 'active' : ''}`, 'aria-pressed': String(y === this.layer), onclick: () => { this.layer = y; this.refresh(); } }, `L${y + 1}`)));
+    this.ui.layerGrid.style.gridTemplateColumns = `repeat(${this.dims[0]}, minmax(40px, 1fr))`;
+    this.ui.layerGrid.replaceChildren(...Array.from({ length: this.dims[0] * this.dims[2] }, (_, n) => {
+      const x = n % this.dims[0], z = Math.floor(n / this.dims[0]);
+      const filled = !!this.cells[this.grid.idx(x, this.layer, z)];
+      return h('button', { class: `layer-cell ${filled ? 'filled' : ''}`, 'aria-label': `Layer ${this.layer + 1}, column ${x + 1}, row ${z + 1}`, 'aria-pressed': String(filled), onclick: () => {
+        this.pushUndo();
+        this.setCell(x, this.layer, z, filled ? 0 : this.color);
+        this.modelChanged();
+      } });
+    }));
     // dims
     this.ui.dimsRow.replaceChildren(
       ...[0, 1, 2].map((a) =>
@@ -263,24 +278,26 @@ export class EditorScreen implements Screen {
     const filled = this.cells.reduce((n, c) => n + (c ? 1 : 0), 0);
     if (!filled) {
       cls = 'bad';
-      text = 'The model is empty';
+      text = 'Empty: add some cubes';
     } else if (this.analyzing) {
       text = 'Checking…';
     } else if (a) {
       sub = `${a.visible} of ${a.total} clues shown`;
       if (a.status === 'unique') {
         cls = 'good';
-        text = a.level === 1 ? 'Unique solution · logic only' : a.level === 2 ? 'Unique · needs advanced logic' : 'Unique · needs guessing';
+        text = 'Unique solution';
+        sub = `${a.level === 1 ? 'Logic only' : a.level === 2 ? 'Advanced logic' : 'Needs guessing'} · ${sub}`;
         if (a.level === 3) cls = 'warn';
       } else if (a.status === 'multiple') {
         cls = 'bad';
-        text = 'More than one solution';
+        text = 'Several solutions';
         sub = 'Glowing cubes are ambiguous — show more clues nearby.';
       } else if (a.status === 'unknown') {
         cls = 'warn';
         text = 'Too complex to verify';
       }
     }
+    if (filled) text += ` · ${filled} cubes`;
     this.ui.status.className = `status ${cls}`;
     this.ui.status.replaceChildren(h('b', null, text), sub ? h('small', null, sub) : '');
   }
@@ -388,6 +405,7 @@ export class EditorScreen implements Screen {
     this.dirtySinceSave = true;
     this.saveDraft();
     if (this.mode === 'clues') void this.generate();
+    else this.scheduleAnalyze();
     this.refresh();
   }
 
@@ -549,6 +567,7 @@ export class EditorScreen implements Screen {
   }
 
   private scheduleAnalyze(): void {
+    this.reqId++;
     clearTimeout(this.analyzeTimer);
     this.analyzing = true;
     this.renderStatus();
@@ -556,10 +575,10 @@ export class EditorScreen implements Screen {
   }
 
   private async runAnalyze(): Promise<void> {
-    if (!this.mask) return;
+    if (!this.cells.some((c) => c)) { this.analyzing = false; this.refresh(); return; }
     const id = ++this.reqId;
     try {
-      const a = await solverClient.analyze(this.dims, this.cells.slice(), this.mask.slice());
+      const a = await solverClient.analyze(this.dims, this.cells.slice(), this.mask?.slice() ?? new Uint8Array(this.grid.lineCount).fill(1));
       if (id !== this.reqId) return;
       this.analysis = a;
     } catch {
@@ -662,11 +681,11 @@ export class EditorScreen implements Screen {
     cam.yaw = DEFAULT_YAW;
     cam.pitch = DEFAULT_PITCH;
     cam.resetZoom();
-    if (this.mask) this.scheduleAnalyze();
-    if (window.innerWidth < 760) this.el.classList.add('panel-closed');
+    if (this.cells.some((c) => c)) this.scheduleAnalyze();
   }
 
   exit(): void {
+    this.reqId++;
     this.offSettings();
     this.app.canvas.style.cursor = '';
     clearTimeout(this.analyzeTimer);
@@ -684,9 +703,9 @@ export class EditorScreen implements Screen {
     for (const el of this.el.querySelectorAll<HTMLElement>('.topbar')) top = el.getBoundingClientRect().bottom;
     for (const el of this.el.querySelectorAll<HTMLElement>('.bottom > *')) if (el.offsetParent) bottom = Math.min(bottom, el.getBoundingClientRect().top);
     if (open && !wide) bottom = Math.min(bottom, pr.top);
-    const right = open && wide ? cam.width - pr.left : 0;
+    const left = open && wide ? pr.right : 0;
     const room = this.slicer.pill.offsetParent ? 8 : 44;
-    cam.frame(top + room, right + room, cam.height - bottom + room, room, dt);
+    cam.frame(top + room, room, cam.height - bottom + room, left + room, dt);
     cam.fit(this.dims, 1.1);
     this.slicer.update(true);
     // tool cursor over the model, grab over empty space
@@ -935,10 +954,10 @@ export class EditorScreen implements Screen {
     const pts: number[] = [];
     for (let x = 0; x <= W; x++) pts.push(x - W / 2, -H / 2, -D / 2, x - W / 2, -H / 2, D / 2);
     for (let z = 0; z <= D; z++) pts.push(-W / 2, -H / 2, z - D / 2, W / 2, -H / 2, z - D / 2);
-    lines.push({ points: Float32Array.from(pts), color: [0.45, 0.47, 0.62, 0.35] });
-    lines.push({ points: boxEdges([-W / 2, -H / 2, -D / 2], [W / 2, H / 2, D / 2]), color: [0.45, 0.47, 0.62, 0.3] });
-    if (this.mirrorX) lines.push({ points: boxEdges([0, -H / 2, -D / 2], [0, H / 2, D / 2]), color: [0.9, 0.35, 0.3, 0.6] });
-    if (this.mirrorZ) lines.push({ points: boxEdges([-W / 2, -H / 2, 0], [W / 2, H / 2, 0]), color: [0.24, 0.48, 0.88, 0.6] });
+    lines.push({ points: Float32Array.from(pts), color: [...sceneColors.ink, 0.2] });
+    lines.push({ points: boxEdges([-W / 2, -H / 2, -D / 2], [W / 2, H / 2, D / 2]), color: [...sceneColors.ink, 0.18] });
+    if (this.mirrorX) lines.push({ points: boxEdges([0, -H / 2, -D / 2], [0, H / 2, D / 2]), color: [...sceneColors.ink, 0.45] });
+    if (this.mirrorZ) lines.push({ points: boxEdges([-W / 2, -H / 2, 0], [W / 2, H / 2, 0]), color: [...sceneColors.ink, 0.45] });
     const t = this.hover.target;
     if (!clueMode && this.activeTool === 'add' && t) {
       const pulse = 0.6 + 0.3 * Math.sin(this.time * 6);
