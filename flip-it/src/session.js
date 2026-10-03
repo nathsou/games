@@ -29,6 +29,11 @@ export function validateView(view, visibleSeat) {
   const resultOK = result => result && [null, 0, 1].includes(result.winner) && ['empty', 'survived', 'repeat', 'limit'].includes(result.reason) && integer(result.moves, 10000) && Number.isInteger(result.round) && result.round > 0 && result.round <= 10001;
   if (!Array.isArray(view.history) || view.history.length > 10001 || view.history.some(r => !resultOK(r)) ||
       view.result !== null && !resultOK(view.result) || !Array.isArray(view.log) || view.log.length > 12) throw new Error('Invalid round update.');
+  const ended = view.phase !== 'playing';
+  if (ended !== (view.result !== null) || ended && (view.pending !== null || view.result.round !== view.round + 1) ||
+      (view.phase === 'matchOver') !== view.scores.includes(2) ||
+      view.history.length !== view.round + Number(ended) ||
+      view.scores.some((score, seat) => score !== view.history.filter(r => r.winner === seat).length)) throw new Error('Inconsistent round update.');
   for (const event of view.log) {
     if (!event || ![0, 1].includes(event.seat) || !['play', 'add', 'take', 'flip'].includes(event.kind) || ![0, 1].includes(event.lane) || !integer(event.cashed, 8) ||
         !Array.isArray(event.returned) || event.returned.length > 3 || event.returned.some(r => !r || ![0, 1].includes(r.seat) || !integer(r.count, 8) || !integer(r.from, 10) || !Array.isArray(r.to) || r.to.length !== r.count || r.to.some(n => !integer(n, 10) || !n))) throw new Error('Invalid move update.');

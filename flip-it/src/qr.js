@@ -1,6 +1,6 @@
 // Purpose-built QR Model 2 byte encoder: seven size profiles, level L.
 // No imports, network services or QR package. Four-module quiet zone is added
-// by drawQR. Parameters are from the QR standard; see README for references.
+// by drawQR. Independently decoded profile fixtures live in tests/qr.test.mjs.
 const PROFILES = [[1, 7, 1], [10, 18, 4], [15, 22, 6], [20, 28, 8], [25, 26, 12], [30, 30, 15], [40, 30, 25]];
 function rawWords(v) {
   let bits = (16 * v + 128) * v + 64;

@@ -2,7 +2,7 @@
 
 A two-player shedding duel with original pixel-art cards and three independent match options. Vanilla HTML, CSS and JavaScript: no build, npm dependencies, CDN scripts, remote images or external fonts.
 
-Run `npm start` from this folder and open `http://localhost:8080/flip-it/`. Run `npm test` for deterministic rule, privacy, peer session and QR tests. The server serves the collection root too. Publish this folder's index, stylesheet, src, assets and preview together; the repository's Pages workflow does this.
+Run `npm start` from this folder and open `http://localhost:8080/flip-it/`. Run `npm test` for deterministic rule, privacy, peer session and QR tests, or `npm run playtest` for 400 reproducible dealer rounds. The server serves the collection root too. Publish this folder's index, stylesheet, src, assets and preview together; the repository's Pages workflow does this.
 
 ## Match options
 
