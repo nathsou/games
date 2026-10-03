@@ -7,9 +7,11 @@ import {describeTurn} from './ai.js';
 import {DEFAULT_OPTIONS, OPTION_KEYS, optionsFor, createMatch, applyAction, playerView, availableLanes, legalActions, valueOf, reverseOf, setValue, previewMove} from './rules.js';
 import {botAction} from './bot.js';
 import {FlipSession, REACTIONS} from './session.js';
+import {ReplayStore,highlights} from './replays.js';
 import {saveTable, loadTable, forgetTable} from './resume.js';
 import {captureTable, animateMove, motionEnabled} from './effects.js';
 import {PeerLink, decodePairing, makeLink, iceConfig} from './peer.js';
+import {pairingBody} from '../../shared/pairing.js';
 import {drawQR} from './qr.js';
 import {setSound, sound} from './sound.js';
 
@@ -22,12 +24,14 @@ let aiController=null,aiBusy=false,aiError='',offlineControllers=[],aiHistory=ne
 let scene = 'menu', mode = 'solo', game = null, seat = 0, lane = 1, chosen = [], handoff = false, preview = false;
 let session = null, peer = null, linkStatus = 'idle', botTimer = null, generation = 0, lastViewKey = '';
 let pairKind = 'host', pairBusy = false, pairOut = '', pairError = '', pairMessage = '', pairingOpen = false, pairOffer = '';
+const replayStore=new ReplayStore();
+let replayOpen=false,replayRecord=null,replayIndex=0,replayTimer=null,replayOnlyHighlights=false,storageNotified=false;
 let chatDraft = '', animating = false, renderedPosition = null, animationGeneration = 0;
 let scanStream = null, scanTimer = null, scanGeneration = 0, canScan = false, toastTimer;
 const bus = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('flip-it-pairing') : null;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const optionInfo = {
-  quickTurns: ['Quick turns', 'ON: one action each; choose either space.', 'OFF: two actions, right then left.'],
+  quickTurns: ['Quick turns', 'ON: one action each, one play space.', 'OFF: two actions, right then left.'],
   compactDeck: ['Compact deck', 'ON: 24 cards, ranks 1–6.', 'OFF: 40 cards, ranks 1–10.'],
   lastChance: ['Last chance', 'ON: one reply to counter an empty hand.', 'OFF: empty your hand and win immediately.']
 };
@@ -71,6 +75,7 @@ function optionBadges(options) {
   return '<div class="match-options">' + OPTION_KEYS.map(key => '<span><i class="option-dot ' + (options[key] ? '' : 'off') + '"></i>' + optionInfo[key][0] + ': ' + (options[key] ? 'ON' : 'OFF') + '</span>').join('') + '</div>';
 }
 function render() {
+  recordView();
   const current=view(), before=captureTable(app), position=current ? {revision:current.revision, round:current.round, moves:current.moves, seat:mySeat(), handoff, mode} : null;
   const changed=scene==='game' && !handoff && !renderedPosition?.handoff && position && renderedPosition && position.mode===renderedPosition.mode && position.seat===renderedPosition.seat && position.round===renderedPosition.round && position.moves===renderedPosition.moves+1 && position.revision===renderedPosition.revision+1;
   const animate=changed && motionEnabled();
@@ -104,11 +109,12 @@ function renderMenu() {
   if (view()) html += button('RESUME CURRENT MATCH', 'resume', 'outline');
   if (prefs.lastPlayer?.name && !online) html += '<div class="last-player"><span>LAST AT YOUR TABLE</span><strong>'+esc(prefs.lastPlayer.name)+'</strong>'+button('RECONNECT ↗','reconnect-last','outline compact')+'</div>';
   html += '<hr class="divider"><p class="small">A friend. Two screens. One table.</p>' + button(online ? 'CONNECTION DETAILS' : 'INVITE A FRIEND ↗', 'host', 'gold') + (!online ? button('JOIN A FRIEND', 'join', 'outline') : '') + '</aside></div>';
+  html += '<div class="replay-library-link">'+button('SAVED GAMES · '+replayStore.records.length,'replay-library','outline compact')+'</div>';
   return html;
 }
 function renderGame() {
   const v = view(), p = mySeat(), ns = names();
-  let html = '<section class="game-heading"><div><p class="eyebrow">PLAY YOUR SIDE. FLIP YOUR FORTUNE.</p><h1>Flip it.</h1></div><div class="heading-actions">' + tag() + (mode==='online'?button('INVITE ↗','host','outline compact'):'') + button('RULES ?', 'rules', 'outline compact') + button('MENU', 'menu', 'outline compact') + '</div></section>';
+  let html = '<section class="game-heading"><div><p class="eyebrow">PLAY YOUR SIDE. FLIP YOUR FORTUNE.</p><h1>Flip it.</h1></div><div class="heading-actions">' + tag() + (mode==='online'?button('INVITE ↗','host','outline compact'):'') + button('LOG & REPLAY', 'game-log', 'outline compact') + button('RULES ?', 'rules', 'outline compact') + button('MENU', 'menu', 'outline compact') + '</div></section>';
   if (mode === 'online' && !connected()) html += '<div class="disconnect" role="status"><span>Your friend is offline. Reconnect to continue this saved match.</span>' + button(session.seat ? 'JOIN AGAIN' : 'RECONNECT', session.seat ? 'join' : 'host', 'compact gold') + '</div>';
   html += aiStatusHtml({busy:aiBusy,error:aiError,controller:mode!=='online'||session?.seat===0});
   html += '<div class="table-layout"><aside class="sidebar"><div class="panel"><p class="eyebrow">FIRST TO TWO</p><div class="scoreboard">';
@@ -117,7 +123,7 @@ function renderGame() {
   if (handoff) html += '<div class="handoff"><div class="card-back" aria-hidden="true"></div><p class="eyebrow">KEEP YOUR CARDS CLOSE</p><h2>Over to ' + esc(ns[seat]) + '.</h2><p>Pass the screen, then reveal your hand when you’re ready.</p>' + button('I’M READY →', 'uncover', 'gold') + '</div>';
   else if (v.phase !== 'playing') html += renderEnd(v);
   else html += renderTable(v);
-  if (!handoff && v.log.length) html += '<div class="move-banner" role="status" aria-live="polite"><span>LAST MOVE</span><p>'+eventText(v.log.at(-1))+'</p></div><details class="journal"><summary>LAST MOVES · ' + v.moves + ' ACTIONS</summary><ol>' + v.log.map(event => '<li>' + eventText(event) + '</li>').join('') + '</ol></details>';
+  if (!handoff && v.log.length) html += '<div class="move-banner" role="status" aria-live="polite"><span>LAST MOVE</span><p>'+eventText(v.log.at(-1))+'</p>'+button('ALL ACTIONS ↗','game-log','outline compact')+'</div>';
   return html + '</section></div>';
 }
 function chatEntries() {
@@ -160,18 +166,18 @@ function renderTable(v) {
   let html = '<div class="rivals rivals-'+(v.hands.length-1)+'">';
   for (let other=0;other<v.hands.length;other++) {
     if(other===p)continue;
-    html += '<div class="rival-zone"><div class="zone-title"><span>'+esc(ns[other])+(v.turn===other?' · TO PLAY':'')+'</span><span class="rival-hand" data-hand-seat="'+other+'"><span class="mini-fan" aria-hidden="true">'+Array.from({length:Math.min(v.hands[other].length,7)},()=>'<i class="mini-back"></i>').join('')+'</span>'+v.hands[other].length+' CARDS</span></div><div class="table-row">';
-    for(let target=0;target<2;target++) {
+    html += '<div class="rival-zone"><div class="zone-title"><span>'+esc(ns[other])+(v.turn===other?' · TO PLAY':'')+'</span><span class="rival-hand" data-hand-seat="'+other+'"><span class="mini-fan" aria-hidden="true">'+Array.from({length:Math.min(v.hands[other].length,7)},()=>'<i class="mini-back"></i>').join('')+'</span>'+v.hands[other].length+' CARDS</span></div><div class="table-row ' + (v.options.quickTurns?'single-space':'') + '">';
+    for(const target of (v.options.quickTurns?[0]:[0,1])) {
       const set=v.table[other][target],owner=v.hands.length===2?{}:{targetSeat:other},add={kind:'add',lane,target,cards:chosen,...owner},take={kind:'take',lane,target,...owner};
       html += '<article data-space-seat="'+other+'" data-space-lane="'+target+'" class="play-space"><div class="space-header"><span>'+(target?'RIGHT':'LEFT')+' SPACE</span><strong>'+(set.length?set.length+' × '+setValue(set):'EMPTY')+'</strong></div><div class="space-cards">'+(set.length?set.map(c=>cardHtml(c)).join(''):'<span class="space-empty">✦</span>')+'</div><div class="space-controls">'+button('ADD 1','add','mint',!actionValid(actions,add)||preview,'data-target="'+target+'" data-owner="'+other+'"')+button('TAKE & FLIP','take','dark',!actionValid(actions,take)||preview,'data-target="'+target+'" data-owner="'+other+'"')+'</div></article>';
     }
     html += '</div></div>';
   }
   html += '</div>';
-  html += '<p class="table-instruction '+(v.pending!==null?'chance-instruction':'')+'" role="status">' + (v.pending!==null ? 'LAST CHANCE!' : animating ? 'Watch the cards.' : turn ? preview ? 'A peek at your other side.' : 'Your move.' : esc(ns[v.turn]) + ' is thinking…') + '<small>' + (v.pending!==null ? (v.pending===p ? 'Your hand is empty. '+v.repliesRemaining+' '+(v.repliesRemaining===1?'reply remains.':'replies remain.') : esc(ns[v.pending])+' has an empty hand. Send cards back to stop the win.') : turn ? v.options.quickTurns ? 'Select matching ranks. Play a set, or flip your hand.' : 'Use your ' + (v.beat ? 'right' : 'left') + ' space for this action.' : 'Watch their move. Plan your next flip.') + '</small></p><div class="zone-title"><span>YOUR PLAY SPACES</span><span>' + (v.options.quickTurns ? 'CHOOSE EITHER' : (v.opening ? 'OPENING ACTION' : 'ACTION ' + (v.beat ? 1 : 2) + ' / 2')) + '</span></div><div class="table-row">';
-  for (let own=0;own<2;own++) {
+  html += '<p class="table-instruction '+(v.pending!==null?'chance-instruction':'')+'" role="status">' + (v.pending!==null ? 'LAST CHANCE!' : animating ? 'Watch the cards.' : turn ? preview ? 'A peek at your other side.' : 'Your move.' : esc(ns[v.turn]) + ' is thinking…') + '<small>' + (v.pending!==null ? (v.pending===p ? 'Your hand is empty. '+v.repliesRemaining+' '+(v.repliesRemaining===1?'reply remains.':'replies remain.') : esc(ns[v.pending])+' has an empty hand. Send cards back to stop the win.') : turn ? v.options.quickTurns ? 'Select matching ranks. Play a set, or flip your hand.' : 'Use your ' + (v.beat ? 'right' : 'left') + ' space for this action.' : 'Watch their move. Plan your next flip.') + '</small></p><div class="zone-title"><span>YOUR PLAY SPACE' + (v.options.quickTurns?'':'S') + '</span><span>' + (v.options.quickTurns ? 'ONE ACTION / TURN' : (v.opening ? 'OPENING ACTION' : 'ACTION ' + (v.beat ? 1 : 2) + ' / 2')) + '</span></div><div class="table-row ' + (v.options.quickTurns?'single-space':'') + '">';
+  for (const own of (v.options.quickTurns?[0]:[0,1])) {
     const set = v.table[p][own], canChoose = turn && availableLanes(v).includes(own);
-    html += '<article data-space-seat="'+p+'" data-space-lane="'+own+'" class="play-space ' + (own === lane && turn ? 'chosen' : '') + '"><button type="button" class="space-select" data-action="lane" data-lane="' + own + '" aria-pressed="' + (own===lane) + '" ' + (!canChoose ? 'disabled' : '') + '>' + (own === lane && turn ? '● ' : '○ ') + (own ? 'RIGHT' : 'LEFT') + ' SPACE' + (set.length ? ' · ' + set.length + ' × ' + setValue(set) : '') + '</button><div class="space-cards">' + (set.length ? set.map(c => cardHtml(c)).join('') : '<span class="space-empty">↕</span>') + '</div><p class="cash-note">' + (set.length ? own === lane && turn ? 'These ' + set.length + ' cards leave on your move.' : 'Leave exposed, or cash out next.' : own === lane && turn ? 'Your new set will go here.' : 'An empty place for a new idea.') + '</p></article>';
+    html += '<article data-space-seat="'+p+'" data-space-lane="'+own+'" class="play-space ' + (own === lane && turn ? 'chosen' : '') + '"><button type="button" class="space-select" data-action="lane" data-lane="' + own + '" aria-pressed="' + (own===lane) + '" ' + (!canChoose ? 'disabled' : '') + '>' + (own === lane && turn ? '● ' : '○ ') + (v.options.quickTurns ? 'PLAY' : own ? 'RIGHT' : 'LEFT') + ' SPACE' + (set.length ? ' · ' + set.length + ' × ' + setValue(set) : '') + '</button><div class="space-cards">' + (set.length ? set.map(c => cardHtml(c)).join('') : '<span class="space-empty">↕</span>') + '</div><p class="cash-note">' + (set.length ? own === lane && turn ? 'These ' + set.length + ' cards leave on your move.' : 'Leave exposed, or cash out next.' : own === lane && turn ? 'Your new set will go here.' : 'An empty place for a new idea.') + '</p></article>';
   }
   const hand = v.hands[p].slice().sort((a,b) => (preview ? reverseOf(a)-reverseOf(b) : valueOf(a)-valueOf(b)) || a.id.localeCompare(b.id));
   html += '</div><div class="hand-tools"><span class="zone-title" style="margin:0">' + (preview ? 'AFTER A FLIP' : 'YOUR HAND') + ' · ' + hand.length + '</span><button class="text-button" data-action="preview" aria-pressed="' + preview + '">' + (preview ? 'Back to active ranks ↕' : 'Preview a flip ↕') + '</button></div><div class="hand '+(hand.length>20?'crowded':'')+'" data-hand-seat="'+p+'" style="--hand-count:'+hand.length+'" aria-label="' + (preview ? 'Preview of flipped hand' : 'Your hand') + '">' + hand.map(c => cardHtml(c,true,preview)).join('') + '</div><div class="table-controls">' + button(chosen.length ? 'PLAY ' + chosen.length + ' CARD' + (chosen.length===1?'':'S') + ' →' : 'SELECT A MATCHING SET', 'play', '', !canPlay || preview) + button('FLIP MY HAND ↕', 'flip', 'gold', !turn || preview) + (chosen.length ? button('CLEAR', 'clear', 'outline compact') : '') + '</div>';
@@ -192,13 +198,75 @@ function renderEnd(v) {
   const ready = mode === 'online' && session.ready[session.seat], guest = mode === 'online' && session.seat === 1;
   return '<div class="ending pop"><div class="trophy" aria-hidden="true">✦</div><p class="eyebrow">' + (match ? 'GOOD COMPANY. GOOD GAME.' : 'A MOMENT TO CATCH YOUR BREATH.') + '</p><h2>' + title + '</h2><p>' + reason + '</p><div class="ending-score"><span>' + v.scores.join(' : ') + '</span></div>' + (match ? button(guest ? 'HOST CAN DEAL A REMATCH' : 'ONE MORE MATCH →', 'rematch', 'gold', guest || mode==='online' && !connected()) : button(ready ? 'WAITING FOR YOUR FRIEND…' : 'NEXT ROUND →', 'next', 'gold', ready || mode==='online' && !connected())) + button('CHANGE MATCH OPTIONS', 'menu', 'outline') + '</div>';
 }
-function eventText(e) {
-  const who = esc(names()[e.seat]);
-  let text = who + (e.kind==='flip' ? ' flipped their hand.' : e.kind==='take' ? ' took ' + e.count + ' cards and flipped them.' : e.kind==='add' ? ' added a ' + e.value + ' to '+esc(names()[e.targetSeat])+'’s set.' : ' played ' + e.count + ' × ' + e.value + '.');
+function eventText(e,ns=names()) {
+  if (!e || e.kind==='deal') return 'A fresh deal.';
+  const who = esc(ns[e.seat]);
+  let text = who + (e.kind==='flip' ? ' flipped their hand.' : e.kind==='take' ? ' took ' + e.count + ' cards and flipped them.' : e.kind==='add' ? ' added a ' + e.value + ' to '+esc(ns[e.targetSeat])+'’s set.' : ' played ' + e.count + ' × ' + e.value + '.');
   if (e.cashed) text += ' Cashed out ' + e.cashed + '.';
-  if (e.returned.length) text += ' ' + e.returned.map(r => esc(names()[r.seat]) + ' received ' + r.count + ' flipped cards ('+r.from+' → '+r.to.join(', ')+')').join('; ') + '.';
+  if (e.returned.length) text += ' ' + e.returned.map(r => esc(ns[r.seat]) + ' received ' + r.count + ' flipped cards ('+r.from+' → '+r.to.join(', ')+')').join('; ') + '.';
   return text;
 }
+function recordingId() {return mode==='online' ? session?.view?.id || (session?.view ? 'legacy-'+session.members.join('/') : '') : matchId;}
+function recordView() {
+  const v=view();if(!v)return;
+  replayStore.record({id:recordingId(),mode,names:names(),seat:mySeat(),view:v});
+  if(!replayStore.persistent&&!storageNotified){storageNotified=true;notify('Browser storage is unavailable. This replay stays in memory until you close the tab.');}
+}
+function currentRecording(){recordView();return replayStore.records.find(r=>r.id===recordingId());}
+function pauseReplay(){clearInterval(replayTimer);replayTimer=null;}
+function beginReplayDialog(){
+  stopScan();pairingOpen=false;replayOpen=true;clearTimeout(botTimer);generation++;stopAI();
+  modal.classList.add('replay-dialog');if(!modal.open)modal.showModal();
+}
+function showReplayLibrary(){
+  pauseReplay();beginReplayDialog();
+  modalContent.innerHTML=modalHead('A few memorable flips.','SAVED ON THIS BROWSER')+'<p class="modal-copy">Your last eight games, with every recorded move and its highlights. Older games are removed as browser storage fills. Recordings include only the cards visible to this browser.</p><div class="replay-library">'+(replayStore.records.length?replayStore.records.map(r=>'<article><div><h3>'+r.names.map(esc).join(' / ')+'</h3><p>'+esc(new Date(r.updated).toLocaleString())+' · '+r.entries.filter(e=>e.event?.kind!=='deal').length+' actions · '+(r.entries.at(-1).view.phase==='matchOver'?'Finished':'In progress')+'</p></div><div>'+button('WATCH ↗','open-recording','gold compact',false,'data-recording="'+esc(r.id)+'"')+button('DELETE','delete-recording','outline compact',false,'data-recording="'+esc(r.id)+'"')+'</div></article>').join(''):'<p class="modal-copy">Play a game to start your collection.</p>')+'</div>';
+}
+function openRecording(record){
+  if(!record){notify('No moves have been recorded yet.');return;}
+  pauseReplay();replayRecord=record;replayIndex=record.entries.length-1;replayOnlyHighlights=false;beginReplayDialog();renderReplay();
+}
+function eventVisual(e){
+  if(!e||e.kind==='deal')return '<span class="log-symbol">▥</span><span class="log-label">DEAL</span>';
+  let html=e.kind==='flip'?'<span class="log-symbol">↕</span><span class="log-label">HAND FLIPPED</span>':e.kind==='take'?'<span class="log-rank">'+e.value+'</span><span class="log-arrow">× '+e.count+' → ↕</span>':'<span class="log-rank">'+e.value+'</span><span class="log-arrow">× '+e.count+(e.kind==='add'?' · +1':'')+'</span>';
+  if(e.cashed)html+='<span class="log-bank">▤ +'+e.cashed+'</span>';
+  for(const r of e.returned)html+='<span class="log-return"><span class="log-rank">'+r.from+'</span> × '+r.count+' ↩ <span class="log-flips">'+r.to.join(' · ')+'</span></span>';
+  return html;
+}
+function replayBoard(entry){
+  const v=entry.view,ns=replayRecord.names;
+  let html='<div class="replay-board"><div class="table-meta"><span>ROUND '+(v.round+1)+' · ACTION '+v.moves+'</span><span>▤ BANK '+v.discardCount+'</span></div><div class="replay-seats">';
+  for(let i=0;i<v.hands.length;i++) {
+    html+='<section class="replay-seat"><div class="zone-title"><span>'+esc(ns[i])+'</span><span>'+v.hands[i].length+' IN HAND · '+v.scores[i]+' WINS</span></div><div class="table-row '+(v.options.quickTurns?'single-space':'')+'">';
+    for(const lane of(v.options.quickTurns?[0]:[0,1]))html+='<div class="play-space"><span class="eyebrow">'+(v.options.quickTurns?'PLAY SPACE':lane?'RIGHT':'LEFT')+'</span><div class="space-cards">'+(v.table[i][lane].map(c=>cardHtml(c)).join('')||'<span class="space-empty">✦</span>')+'</div></div>';
+    html+='</div></section>';
+  }
+  // During pass-and-play the replay shows the public table. Private hands stay
+  // behind the handoff curtain, including in recordings opened from the menu.
+  if(replayRecord.mode!=='local')html+='</div><div class="replay-hand"><p class="eyebrow">'+esc(ns[entry.seat])+'’S RECORDED HAND</p><div class="hand">'+v.hands[entry.seat].map(c=>cardHtml(c)).join('')+'</div></div>';
+  else html+='</div><p class="small">Pass & play recordings show the public table.</p>';
+  if(v.result)html+='<p class="replay-result">'+(v.result.winner===null?'Drawn round':esc(ns[v.result.winner])+' won the '+(v.phase==='matchOver'?'match':'round'))+'.</p>';
+  return html+'</div>';
+}
+function renderReplay(){
+  if(!replayRecord)return;
+  const r=replayRecord,entry=r.entries[replayIndex],marks=highlights(r),markMap=new Map(marks.map(m=>[m.index,m.label]));
+  const items=r.entries.map((e,index)=>({entry:e,index})).filter(({index})=>!replayOnlyHighlights||markMap.has(index));
+  const scroll=modal.querySelector('.action-timeline')?.scrollTop;
+  modalContent.innerHTML=modalHead('Every twist, remembered.','ACTION LOG / REPLAY')+'<div class="replay-controls">'+button('←','replay-step','outline compact',replayIndex===0,'data-step="-1" aria-label="Previous action"')+button(replayTimer?'PAUSE':'PLAY ▶','replay-play','gold compact')+button('→','replay-step','outline compact',replayIndex===r.entries.length-1,'data-step="1" aria-label="Next action"')+'<label class="replay-scrubber">'+(replayIndex+1)+' / '+r.entries.length+'<input id="replay-scrubber" type="range" min="0" max="'+(r.entries.length-1)+'" value="'+replayIndex+'" aria-label="Replay action"></label>'+button('SAVED GAMES','replay-library','outline compact')+'</div>'+(r.partial?'<p class="small">This recording started partway through the game or missed updates while this browser was away.</p>':'')+'<div class="replay-layout"><section><div class="replay-caption" aria-live="polite">'+eventVisual(entry.event)+'<p>'+eventText(entry.event,r.names)+'</p></div>'+replayBoard(entry)+'</section><aside class="replay-log"><div class="replay-log-head"><span>'+r.entries.filter(e=>e.event?.kind!=='deal').length+' ACTIONS</span>'+button(replayOnlyHighlights?'ALL ACTIONS':'HIGHLIGHTS · '+marks.length,'replay-filter','outline compact',false,'aria-pressed="'+replayOnlyHighlights+'"')+'</div><ol class="action-timeline" aria-label="Complete game action log">'+items.map(({entry:e,index})=>'<li><button type="button" data-action="replay-jump" data-index="'+index+'" class="log-entry '+(index===replayIndex?'current':'')+'" aria-current="'+(index===replayIndex?'step':'false')+'"><span class="log-meta">R'+(e.view.round+1)+' / '+(e.event?.kind==='deal'?'DEAL':'MOVE '+e.view.moves)+(markMap.has(index)?' · ★ '+esc(markMap.get(index)):'')+'</span><span class="log-visual">'+eventVisual(e.event)+'</span><span class="log-text">'+eventText(e.event,r.names)+'</span></button></li>').join('')+'</ol></aside></div>';
+  modal.querySelector('#replay-scrubber').oninput=event=>{pauseReplay();replayIndex=Number(event.target.value);renderReplay();};
+  if(scroll!==undefined)modal.querySelector('.action-timeline').scrollTop=scroll;
+}
+function toggleReplay(){
+  if(replayTimer){pauseReplay();renderReplay();return;}
+  if(replayIndex===replayRecord.entries.length-1)replayIndex=0;
+  replayTimer=setInterval(()=>{
+    if(replayIndex>=replayRecord.entries.length-1){pauseReplay();renderReplay();return;}
+    replayIndex++;renderReplay();
+    modal.querySelector('.log-entry.current')?.scrollIntoView({block:'nearest'});
+  },1100);renderReplay();
+}
+
 function resetSelection() { chosen = []; preview = false; if (view()) lane = availableLanes(view())[0]; }
 function startOffline(nextMode, options = prefs.options) {
   clearTimeout(botTimer); generation++; stopAI(); aiHistory.clear();matchId=crypto.randomUUID();
@@ -209,6 +277,7 @@ function startOffline(nextMode, options = prefs.options) {
   handoff=mode==='local'; resetSelection(); sound('deal'); render(); scheduleBot();
 }
 function afterOfflineMove(previousTurn) {
+  recordView();
   trackArcadeGame(matchId,'flip-it',game,mode);
   resetSelection();
   if (mode==='local' && game.phase==='playing' && offlineControllers[game.turn]==='human') { const oldSeat=seat;seat=game.turn;handoff=oldSeat!==seat; }
@@ -225,7 +294,7 @@ function act(action) {
 function scheduleBot() {
   clearTimeout(botTimer);
   const state=mode==='online'?session?.state:game;
-  if(animating||scene!=='game'||!state||state.phase!=='playing'||controllers()[state.turn]==='human'||aiBusy||aiError||mode==='online'&&(session.seat||!connected()))return;
+  if(replayOpen||animating||scene!=='game'||!state||state.phase!=='playing'||controllers()[state.turn]==='human'||aiBusy||aiError||mode==='online'&&(session.seat||!connected()))return;
   const revision=state.revision,epoch=generation,actor=state.turn;
   botTimer=setTimeout(async()=>{
     if(generation!==epoch||scene!=='game')return;
@@ -293,9 +362,6 @@ function readConfig() {
 function modalHead(title, eyebrow = 'FLIP IT') {
   return '<div class="modal-head"><div><p class="eyebrow">' + eyebrow + '</p><h2 id="modal-title">' + title + '</h2></div><button class="close-button" data-action="close-modal" aria-label="Close dialog">×</button></div>';
 }
-function settingsHtml() {
-  return '<details class="connection-settings"><summary>Connection settings</summary><p>For different networks, STUN helps the browsers find each other. Some networks need a TURN relay. Leave STUN blank for a local-network connection. Use a relay if your network blocks a direct connection.</p><label class="label" for="stun">STUN ADDRESS</label><input id="stun" spellcheck="false" value="' + esc(Object.hasOwn(prefs, 'stun') ? prefs.stun : 'stun:stun.l.google.com:19302') + '"><label class="label" for="turn">OPTIONAL TURN RELAY</label><input id="turn" placeholder="turn:your-relay.example:3478" spellcheck="false"><label class="label" for="turn-name">RELAY USERNAME</label><input id="turn-name" autocomplete="off"><label class="label" for="turn-password">RELAY PASSWORD (THIS SESSION ONLY)</label><input id="turn-password" type="password" autocomplete="off"></details>';
-}
 function openPair(kind) {
   pairKind = kind; pairError = ''; pairingOpen = true;
   if (!peer || (!peer.connected && peer.pc.signalingState !== 'have-local-offer' && session?.seat === 0) || linkStatus === 'closed' || linkStatus === 'failed' || !pairOut) { pairOut = ''; pairMessage = ''; pairBusy = false; }
@@ -313,21 +379,9 @@ function renderPair() {
   } else if (pairKind === 'return') {
     html += '<p class="modal-copy">' + esc(pairMessage || 'Looking for your original hosting tab…') + '</p><p class="modal-copy">Return to the hosting tab. Paste the reply there, or reconnect from the saved table after a reload.</p><label class="label" for="pair-output">REPLY LINK</label><textarea id="pair-output" class="link-output" readonly>' + esc(pairOut) + '</textarea>' + button('COPY REPLY LINK', 'copy', 'gold') + button('BACK TO GAMES', 'close-modal', 'outline');
   } else {
-    html += '<div class="pair-steps"><div class="pair-step ' + (!pairOut ? 'active' : '') + '">01<br>HOST SHARES AN INVITE</div><div class="pair-step ' + (pairOut ? 'active' : '') + '">02<br>GUEST SHARES A REPLY</div><div class="pair-step">03<br>HOST ACCEPTS. PLAY.</div></div>';
-    if (pairKind === 'host') {
-      if (pairOut) {
-        html += '<p class="modal-copy">Send this invitation to your friend, or let them scan the QR code. Keep this tab open.</p><label class="label" for="pair-output">YOUR INVITATION</label><textarea id="pair-output" class="link-output" readonly spellcheck="false">' + esc(pairOut) + '</textarea><div class="button-row">' + button('COPY INVITE ↗', 'copy', 'gold') + button('SHARE', 'share', 'dark') + '</div><div class="qr-wrap"><canvas id="pair-qr" aria-label="Scan this invitation QR code"></canvas></div><p class="qr-note">Scan with your phone’s camera to open the invite.</p><hr class="divider"><label class="label" for="pair-input">PASTE YOUR FRIEND’S REPLY LINK</label><textarea id="pair-input" placeholder="Their reply link goes here…" spellcheck="false"></textarea>' + button(pairBusy ? 'CONNECTING…' : 'ACCEPT REPLY →', 'accept-reply', '', pairBusy) + (canScan ? button('SCAN REPLY QR', 'scan-reply', 'outline', pairBusy) : '') + settingsHtml() + button('MAKE A FRESH INVITE','create-invite','outline compact',pairBusy);
-      } else {
-        html += '<p class="modal-copy">Send the invite. Your friend opens it and sends a reply. Paste that reply here to start playing.</p><p class="modal-copy"><strong>On the table:</strong> ' + 'Flip it' + '</p><label class="team-choice"><input type="checkbox" id="team" ' + (prefs.team ? 'checked' : '') + '> <span>Play together against the dealer<small>Share a hand, discuss the move, win as a team.</small></span></label>' + settingsHtml() + button(pairBusy ? 'PREPARING INVITATION…' : 'CREATE INVITATION ↗', 'create-invite', 'gold', pairBusy);
-      }
-    } else {
-      if (pairOut) {
-        html += '<p class="modal-copy">Your chair is ready. Send this reply to the host. They can open it beside their hosting tab, paste it, or scan it.</p><label class="label" for="pair-output">YOUR REPLY LINK</label><textarea id="pair-output" class="link-output" readonly spellcheck="false">' + esc(pairOut) + '</textarea><div class="button-row">' + button('COPY REPLY ↗', 'copy', 'gold') + button('SHARE', 'share', 'dark') + '</div><div class="qr-wrap"><canvas id="pair-qr" aria-label="Scan this reply QR code"></canvas></div><p class="qr-note">Waiting for the host to accept. Keep this tab open.</p>' + settingsHtml() + button('REMAKE REPLY','remake-reply','outline compact',pairBusy);
-      } else {
-        html += '<p class="modal-copy">Open your friend’s invitation link, paste it below, or scan their invitation. No account needed.</p><label class="label" for="pair-input">INVITATION LINK</label><textarea id="pair-input" placeholder="Paste the invitation link here…" spellcheck="false"></textarea>' + settingsHtml() + button(pairBusy ? 'PREPARING YOUR REPLY…' : 'JOIN THIS TABLE →', 'join-invite', 'gold', pairBusy) + (canScan ? button('SCAN INVITATION QR', 'scan-invite', 'outline', pairBusy) : '');
-      }
-    }
-    if (pairMessage) html += '<p class="modal-copy" role="status">' + esc(pairMessage) + '</p>';
+    html += pairingBody({host:pairKind==='host',output:pairOut,busy:pairBusy,message:pairMessage,canScan,
+      stun:Object.hasOwn(prefs,'stun')?prefs.stun:undefined,
+      setup:'<label class="team-choice"><input type="checkbox" id="team" '+(prefs.team?'checked':'')+'> <span>Play together against the dealer<small>Share a hand, discuss the move, win as a team.</small></span></label>'});
     html += button('CANCEL SETUP', 'cancel-pair', 'outline');
   }
   if (pairError) html += '<p class="pair-error" role="alert">' + esc(pairError) + '</p>';
@@ -446,6 +500,14 @@ document.addEventListener('click',async event=>{
     else if (action==='clear') { chosen=[]; render(); }
     else if (action==='preview') { preview=!preview; chosen=[]; render(); }
     else if (action==='uncover') { handoff=false; render(); }
+    else if (action==='game-log') openRecording(currentRecording());
+    else if (action==='replay-library') showReplayLibrary();
+    else if (action==='open-recording') openRecording(replayStore.records.find(r=>r.id===target.dataset.recording));
+    else if (action==='delete-recording') {replayStore.remove(target.dataset.recording);showReplayLibrary();}
+    else if (action==='replay-step') {pauseReplay();replayIndex=Math.max(0,Math.min(replayRecord.entries.length-1,replayIndex+Number(target.dataset.step)));renderReplay();}
+    else if (action==='replay-jump') {pauseReplay();replayIndex=Number(target.dataset.index);renderReplay();}
+    else if (action==='replay-play') toggleReplay();
+    else if (action==='replay-filter') {replayOnlyHighlights=!replayOnlyHighlights;renderReplay();}
     else if (action==='rules') showRules();
     else if (action==='menu') { event.preventDefault(); scene='menu'; clearTimeout(botTimer);generation++;stopAI();render(); }
     else if (action==='resume') { scene='game'; render(); scheduleBot(); }
@@ -503,12 +565,11 @@ document.addEventListener('keydown',event=>{
     const rank=event.key==='0'?10:Number(event.key), cards=view().hands[mySeat()].filter(c=>valueOf(c)===rank).map(c=>c.id);
     if (cards.length) { chosen=cards.every(id=>chosen.includes(id))?[]:cards; render(); event.preventDefault(); }
   } else if (event.key.toLowerCase()==='f') { act({kind:'flip',lane}); event.preventDefault(); }
-  else if (['ArrowLeft','ArrowRight'].includes(event.key) && view().options.quickTurns) { lane=event.key==='ArrowLeft'?0:1; render(); event.preventDefault(); }
   else if (event.key==='Enter' && chosen.length && (document.activeElement?.tagName!=='BUTTON' || document.activeElement.dataset.action==='select-card')) {
     try { act({kind:'play',lane,cards:chosen}); } catch(error) { notify(error.message); } event.preventDefault();
   }
 });
-modal.addEventListener('close',()=>{stopScan();pairingOpen=false;});
+modal.addEventListener('close',()=>{stopScan();pairingOpen=false;pauseReplay();replayOpen=false;modal.classList.remove('replay-dialog');scheduleBot();});
 modal.addEventListener('click',event=>{
   if (event.target===modal) { const r=modal.getBoundingClientRect(); if (event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom) modal.close(); }
 });

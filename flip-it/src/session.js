@@ -64,7 +64,7 @@ export class FlipSession {
     this.ready = [false, false]; this.movePending = false; this.readyForPlay = false;
   }
   get names() { return [...(this.team?[(this.members[0]+' + '+this.members[1]).slice(0,40)]:this.members),...this.controllers.filter(t=>t!=='human').map((t,i)=>(t==='model'?'AI ':'Dealer ')+(i+1))]; }
-  setPeer(peer) { this.peer = peer; this.movePending = false; this.readyForPlay = false; this.ready = [false, false]; if (this.seat) this.socialSequence = 0; if (!this.seat && this.state) this.epoch = randomHex(8); }
+  setPeer(peer) { this.peer = peer; this.movePending = false; this.readyForPlay = false; this.ready = [false, false]; if (this.seat) this.socialSequence = 0; if (!this.seat && this.state) { this.epoch = randomHex(8); this.state.id ||= randomHex(16); } }
   opened() { this.peer.send({type: 'hello', name: this.members[this.seat]}); }
   sendSocial(kind, text) {
     if (!this.peer?.connected || !this.readyForPlay) throw new Error('Reconnect to send a message.');
@@ -85,7 +85,7 @@ export class FlipSession {
   }
   start(options = this.options, seed = crypto.getRandomValues(new Uint32Array(1))[0]) {
     if (this.seat || !this.peer?.connected) throw new Error('The connected host deals the match.');
-    this.options = optionsFor(options); this.state = createMatch(this.options, seed, 0, this.controllers.length); this.epoch = randomHex(8);
+    this.options = optionsFor(options); this.state = createMatch(this.options, seed, 0, this.controllers.length); this.state.id = randomHex(16); this.epoch = randomHex(8);
     this.ready = [false, false]; this.readyForPlay = true; this.sync();
   }
   sync() {

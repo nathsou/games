@@ -5,7 +5,7 @@ import {botAction} from '../src/bot.js';
 import {validateView} from '../src/session.js';
 
 function fixture({hands = [[2], [3]], table = [[[], []], [[], []]], options = {}, turn = 0, beat = 0, pending = null} = {}) {
-  const state = createMatch(options, 7), pool = makeDeck(state.options.compactDeck);
+  const state = createMatch({...options, ...(table.some(row=>row[1].length)?{quickTurns:false}:{})}, 7), pool = makeDeck(state.options.compactDeck);
   function take(rank) {
     const index = pool.findIndex(c => c.ends.includes(rank));
     assert.ok(index >= 0, 'fixture has enough cards');

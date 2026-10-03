@@ -53,7 +53,7 @@ export function createMatch(options = {}, seed = 1, starter = 0, players = 2) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff || !Number.isInteger(players) || players < 2 || players > 5 || !Number.isInteger(starter) || starter < 0 || starter >= players) throw new Error('Invalid deal.');
   return deal({options: optionsFor(options), seed, starter, round: 0, revision: 0, scores: Array(players).fill(0), history: []});
 }
-export function availableLanes(state) { return state.options.quickTurns ? [1, 0] : [state.beat]; }
+export function availableLanes(state) { return state.options.quickTurns ? [0] : [state.beat]; }
 function clearLane(state, seat, lane) {
   state.discard.push(...state.table[seat][lane]);
   state.table[seat][lane] = [];
@@ -91,7 +91,7 @@ function execute(state, seat, action) {
   }
   if (action.kind === 'take' || action.kind === 'add') {
     const targetSeat = action.targetSeat ?? (state.hands.length === 2 ? 1 - seat : -1);
-    if (!Number.isInteger(targetSeat) || targetSeat < 0 || targetSeat >= state.hands.length || targetSeat === seat || ![0, 1].includes(action.target) || !state.table[targetSeat][action.target].length) throw new Error('Choose one of your opponent’s sets.');
+    if (!Number.isInteger(targetSeat) || targetSeat < 0 || targetSeat >= state.hands.length || targetSeat === seat || !(state.options.quickTurns ? [0] : [0, 1]).includes(action.target) || !state.table[targetSeat][action.target].length) throw new Error('Choose one of your opponent’s sets.');
     event.target = action.target; event.targetSeat = targetSeat;
     const target = state.table[targetSeat][action.target];
     if (action.kind === 'take') { event.count = target.length; event.value = setValue(target);
