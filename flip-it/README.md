@@ -1,6 +1,6 @@
 # Flip it
 
-A two-to-five-player shedding game with original retro double-value cards and a compact laptop table and three independent match options. Vanilla HTML, CSS and JavaScript: no build, npm dependencies, CDN scripts, remote images or external fonts.
+A two-to-five-player shedding game with a pixel HUD, diagonal double-number cards, a compact laptop table and configurable house rules. Vanilla HTML, CSS and JavaScript: no build, npm dependencies, CDN scripts, remote images or external fonts.
 
 Run `npm start` from this folder and open `http://localhost:8080/flip-it/`. Run `npm test` for deterministic rule, privacy, peer session and QR tests, or `npm run playtest` for 400 reproducible dealer rounds. The server serves the collection root too. Publish this folder's index, stylesheet, src, assets and preview together; the repository's Pages workflow does this.
 
@@ -14,11 +14,11 @@ All three default ON. The host chooses them before a match; both screens show th
 | Compact deck | 24 cards, six ranks, dealt clockwise | 40 cards, ten ranks, dealt clockwise |
 | Last chance | Emptying a hand gives every other player exactly one counter action | Emptying a hand wins immediately |
 
-First to two round wins. Exactly one physical card carries a star on both faces. Whoever receives it starts each freshly dealt round, including after draws. The star has no additional power during play. Three appearances of the same full position draw the round. A round also draws after 120 actions (compact) or 180 (full), except that a pending last-chance exchange finishes first. Draws award no win; deal again.
+Choose a match goal of 1–5 round wins (default 2); 1 is a single game. Exactly one physical card carries a star on both faces. Whoever receives it starts each freshly dealt round, including after draws. The star has no additional power during play. Three appearances of the same full position draw the round. A round also draws after 120 actions (compact) or 180 (full), except that a pending last-chance exchange finishes first. Draws award no win; deal again.
 
 ## Rules
 
-Each card has two ranks, an active top rank and an inactive opposite rank. The large upside-down number shows its inactive value; a corner badge repeats it upright. The entire hand flips only when taking a Flip action. Cards picked up from the table always flip individually. There is no draw pile.
+Each card has two ranks, an active top rank and an inactive opposite rank. The large upside-down number shows its inactive value; a diagonal color band identifies that reverse rank. The entire hand flips only when taking a Flip action. Cards picked up from the table always flip individually. There is no draw pile.
 
 At the beginning of an action, the set in the acting player's chosen (or prescribed) play space is discarded. Then perform one action:
 
@@ -50,7 +50,7 @@ QR encoding is the repository's existing dependency-free Model 2 byte encoder, w
 
 Online play requires HTTPS or localhost. The default configurable STUN address is `stun:stun.l.google.com:19302`, which is a network service rather than a shipped library. Leave it blank for local-network tests. Restrictive networks may require a TURN relay supplied in Connection settings. Relay passwords remain in memory and are not saved to preferences or pairing links. No relay is provided by this game.
 
-The host owns the authoritative state and sees the dealt hands internally. This design keeps normal opponent UI and network views private; it does not defend against a malicious host editing code. Invalid/stale actions cannot mutate state. Disconnects pause online actions and the team dealer. The last opponent and the host’s authoritative match are saved locally, with a redacted view on the guest. Reloading opens the saved table paused; Reconnect makes a fresh invite and resumes the same match after the reply. The lobby also remembers the last opponent. Explicitly leaving the online table or starting an offline game clears the saved match. Storage denial falls back to keeping the match in the open tab. TURN passwords and pairing links are never persisted. Both players must use the current protocol (v4) for starred-card starts.
+The host owns the authoritative state and sees the dealt hands internally. This design keeps normal opponent UI and network views private; it does not defend against a malicious host editing code. Invalid/stale actions cannot mutate state. Disconnects pause online actions and the team dealer. The last opponent and the host’s authoritative match are saved locally, with a redacted view on the guest. Reloading opens the saved table paused; Reconnect makes a fresh invite and resumes the same match after the reply. The lobby also remembers the last opponent. Explicitly leaving the online table or starting an offline game clears the saved match. Storage denial falls back to keeping the match in the open tab. TURN passwords and pairing links are never persisted. Both players must use the current protocol (v5) for starred-card starts and configurable match goals.
 
 ## Table talk and motion
 
@@ -81,3 +81,9 @@ Every observed action is recorded locally across rounds. Open **Log & replay** f
 Invitations, QR encoding and connection controls are shared with Cluance in `shared/peer.js`, `shared/pairing.js` and `shared/qr.js`. Existing quick-turn saves return any cards in the retired second space to their owner flipped without losing cards. Older invitation tokens must be regenerated.
 
 The lobby has one **Deal the cards** button. **Table settings** chooses one or two players on the same device and optional bot seats. These choices determine who is at the table; the dealt starred card determines who opens. Old unfinished saves keep their current turn, gain the visible card marker, and use starred-card starts on the next deal.
+
+## Felt design
+
+The HUD, cards, dialogs and arrow logo follow the supplied Felt mockups. **House rules** opens the turn/deck/ending and match-length controls; **Table settings** retains human, bot and AI seats plus online team play. Felt/Wood is saved per browser; Day/Night uses the shared Light/Dark/System appearance preference. Sound, FX and the game collection remain available below the HUD. Reduced motion and FX off disable the CRT overlay and decorative motion as well as card flights.
+
+Jersey 10/15 fonts are self-hosted in `assets/fonts/` with their SIL OFL licenses. The supplied procedural art was rendered to static PNGs in `assets/table/`; neither the mockup runtime nor its stand-in rules engine ships. The bank stack represents cards removed from play, not a draw pile. Drag matching cards onto your space, a single card onto a rival set to Add, or a rival set into your hand to Take; all use the same rule validation as buttons.

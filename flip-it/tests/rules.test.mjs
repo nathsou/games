@@ -177,3 +177,20 @@ test('a star cannot be forged onto an ordinary public card',()=>{
   view.hands[state.turn].find(c=>c.id!=='c0').star=true;
   assert.throws(()=>validateView(view,state.turn),/card update/);
 });
+
+test('match targets 1–5 finish at the chosen score and reject invalid targets',()=>{
+  for(const target of [1,2,3,4,5]){
+    let state=fixture({hands:[[6],[1]],options:{target,lastChance:false}});
+    state.scores=[target-1,0];
+    state=applyAction(state,0,{kind:'play',lane:0,cards:[state.hands[0][0].id]});
+    assert.equal(state.phase,'matchOver');assert.equal(state.scores[0],target);
+    assert.throws(()=>applyAction(state,0,{kind:'next'}));
+    if(target>1){
+      let early=fixture({hands:[[6],[1]],options:{target,lastChance:false}});
+      early=applyAction(early,0,{kind:'play',lane:0,cards:[early.hands[0][0].id]});
+      assert.equal(early.phase,'roundOver');early=applyAction(early,0,{kind:'next'});
+      assert.equal(early.options.target,target);assert.equal(early.round,1);
+    }
+  }
+  for(const target of [0,6,1.5,true,'3',null])assert.throws(()=>optionsFor({target}));
+});

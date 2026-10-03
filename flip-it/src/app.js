@@ -26,6 +26,7 @@ let session = null, peer = null, linkStatus = 'idle', botTimer = null, generatio
 let pairKind = 'host', pairBusy = false, pairOut = '', pairError = '', pairMessage = '', pairingOpen = false, pairOffer = '';
 const replayStore=new ReplayStore();
 let replayOpen=false,replayRecord=null,replayIndex=0,replayTimer=null,replayOnlyHighlights=false,storageNotified=false,replayPosition=null;
+let expandedSet=null;
 let chatDraft = '', animating = false, renderedPosition = null, animationGeneration = 0;
 let scanStream = null, scanTimer = null, scanGeneration = 0, canScan = false, toastTimer;
 const bus = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('flip-it-pairing') : null;
@@ -45,13 +46,14 @@ function aiPlayers(max=3,minimum=0) {
   return Array.from({length:count},(_,i)=>prefs.aiKinds?.[i]==='dealer'?'dealer':(prefs.aiKinds?.[i]==='model'?'model':prefs.opponent==='model'?'model':'dealer'));
 }
 function controllers() {return mode==='online'?session?.controllers||[]:offlineControllers;}
-function names() {return mode==='online'?session?.names||['You','Friend']:offlineControllers.map((kind,i)=>kind==='human'?(i===0?name():'Partner'):(kind==='model'?'AI ':'Bot ')+(i-(mode==='solo'?1:2)+1));}
+function names() {return mode==='online'?session?.names||['You','Friend']:offlineControllers.map((kind,i)=>kind==='human'?(mode==='local'&&name()==='You'?'Player '+(i+1):(i===0?name():'Partner')):(kind==='model'?'AI ':'Bot ')+(i-(mode==='solo'?1:2)+1));}
 function localHumans(){return prefs.localHumans===2?2:1;}
 function aiLobby(disabled=false) {
   const online=mode==='online'&&connected(),humans=online?(session.team?1:2):localHumans(),max=5-humans,min=humans===1?1:0;
-  const count=aiPlayers(max,min).length;
+  const kinds=disabled&&online?session.controllers.filter(t=>t!=='human'):aiPlayers(max,min),count=kinds.length;
+  const kindAt=i=>disabled&&online?kinds[i]:(prefs.aiKinds?.[i]||prefs.opponent);
   return (!online?'<label class="label" for="table-humans">PLAYERS ON THIS DEVICE</label><select id="table-humans"><option value="1" '+(humans===1?'selected':'')+'>1 · just me</option><option value="2" '+(humans===2?'selected':'')+'>2 · share this device</option></select>':'')+
-    '<label class="label" for="ai-count">BOT SEATS · UP TO FIVE PLAYERS TOTAL</label><select id="ai-count" '+(disabled?'disabled':'')+'>'+Array.from({length:max-min+1},(_,i)=>i+min).map(n=>'<option value="'+n+'" '+(n===count?'selected':'')+'>'+n+(n===0?' · humans only':' opponent'+(n===1?'':'s'))+'</option>').join('')+'</select>'+Array.from({length:count},(_,i)=>'<label class="label" for="ai-kind-'+i+'">OPPONENT '+(i+1)+'</label><select id="ai-kind-'+i+'" data-ai-seat="'+i+'" '+(disabled?'disabled':'')+'><option value="model" '+((prefs.aiKinds?.[i]||prefs.opponent)==='model'?'selected':'')+'>AI · shared provider & model</option><option value="dealer" '+((prefs.aiKinds?.[i]||prefs.opponent)!=='model'?'selected':'')+'>Bot · offline, no API calls</option></select>').join('')+'<p class="small">Choose the players here. After the deal, whoever receives the starred card starts. Sharing a device hides each hand between players.</p>'+button('AI SETTINGS ↗','ai-settings','outline compact');
+    '<label class="label" for="ai-count">BOT SEATS · UP TO FIVE PLAYERS TOTAL</label><select id="ai-count" '+(disabled?'disabled':'')+'>'+Array.from({length:max-min+1},(_,i)=>i+min).map(n=>'<option value="'+n+'" '+(n===count?'selected':'')+'>'+n+(n===0?' · humans only':' opponent'+(n===1?'':'s'))+'</option>').join('')+'</select>'+Array.from({length:count},(_,i)=>'<label class="label" for="ai-kind-'+i+'">OPPONENT '+(i+1)+'</label><select id="ai-kind-'+i+'" data-ai-seat="'+i+'" '+(disabled?'disabled':'')+'><option value="model" '+(kindAt(i)==='model'?'selected':'')+'>AI · shared provider & model</option><option value="dealer" '+(kindAt(i)!=='model'?'selected':'')+'>Bot · offline, no API calls</option></select>').join('')+'<p class="small">Choose the players here. After the deal, whoever receives the starred card starts. Sharing a device hides each hand between players.</p>'+button('AI SETTINGS ↗','ai-settings','outline compact');
 }
 function stopAI(message='') {aiController?.abort();aiController=null;aiBusy=false;aiError=message;}
 function mySeat() { return mode === 'online' ? session?.team ? 0 : session?.seat || 0 : seat; }
@@ -62,10 +64,6 @@ function myTurn() { return view()?.phase === 'playing' && view().turn === mySeat
 function notify(message) {
   const toast = document.querySelector('#toast'); toast.textContent = message; toast.classList.add('visible');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('visible'), 4500);
-}
-function tag() {
-  const label = mode === 'solo' ? (controllers().some(t=>t==='model')?'VS THE AI TABLE':'BOT TABLE') : mode === 'local' ? 'SHARED DEVICE' : connected() ? session.team ? 'TEAM CONNECTED' : 'FRIEND CONNECTED' : 'FRIEND OFFLINE';
-  return '<span class="tag ' + (mode === 'online' && !connected() ? 'offline' : '') + '"><span class="dot"></span>' + label + '</span>';
 }
 function cardHtml(card, interactive = false, isPreview = false, tilt = 0) {
   const rank = isPreview ? reverseOf(card) : valueOf(card), next = isPreview ? valueOf(card) : reverseOf(card);
@@ -90,13 +88,13 @@ function showTableSettings(){
 function showHouseRules(){
   modal.dataset.kind='house-rules';pairingOpen=false;stopScan();
   const disabled=mode==='online'&&connected()&&session.seat===1;
+  const options=disabled?session.view.options:prefs.options;
   const groups=[['quickTurns','Turns','Quick','Double','One action each, one play space.','Two actions: right, then left. The opener plays only right.'],['compactDeck','Deck','24 cards','40 cards','Ranks 1–6. A smaller, quicker deck.','Ranks 1–10. More cards, more possibilities.'],['lastChance','Ending','Last chance','Sudden win','Every rival gets one reply to an empty hand.','An empty hand wins the round immediately.']];
-  modalContent.innerHTML=modalHead('House rules','FIXED ONCE DEALT')+groups.map(([key,title,on,off,yes,no])=>'<section class="rule-setting"><label>'+title+'</label><div class="segmented">'+[true,false].map(value=>button(value?on:off,'house-option',prefs.options[key]===value?'selected':'dark',disabled,'data-key="'+key+'" data-value="'+value+'" aria-pressed="'+(prefs.options[key]===value)+'"')).join('')+'</div><p>'+ (prefs.options[key]?yes:no)+'</p></section>').join('')+'<section class="rule-setting"><label>Match length</label><div class="segmented">'+[1,2,3,4,5].map(n=>button(String(n),'match-target',(prefs.options.target||2)===n?'mint':'dark',disabled,'data-target="'+n+'" aria-pressed="'+((prefs.options.target||2)===n)+'"')).join('')+'</div><p>'+((prefs.options.target||2)===1?'Single game: one round decides the match.':'First to '+(prefs.options.target||2)+' round wins takes the match.')+'</p></section><p class="small">Changes apply to the next match. '+goalText(prefs.options)+'.</p>'+button('Done','close-modal');
+  modalContent.innerHTML=modalHead('House rules','FIXED ONCE DEALT')+groups.map(([key,title,on,off,yes,no])=>'<section class="rule-setting" role="group" aria-label="'+title+'"><label>'+title+'</label><div class="segmented">'+[true,false].map(value=>button(value?on:off,'house-option',options[key]===value?'selected':'dark',disabled,'data-key="'+key+'" data-value="'+value+'" aria-pressed="'+(options[key]===value)+'"')).join('')+'</div><p>'+ (options[key]?yes:no)+'</p></section>').join('')+'<section class="rule-setting" role="group" aria-label="Match length"><label>Match length</label><div class="segmented">'+[1,2,3,4,5].map(n=>button(String(n),'match-target',(options.target||2)===n?'mint':'dark',disabled,'data-target="'+n+'" aria-pressed="'+((options.target||2)===n)+'"')).join('')+'</div><p>'+((options.target||2)===1?'Single game: one round decides the match.':'First to '+(options.target||2)+' round wins takes the match.')+'</p></section><p class="small">Changes apply to the next match. '+goalText(options)+'.</p>'+button('Done','close-modal');
   if(!modal.open)modal.showModal();
 }
 function render() {
   recordView();
-  const tableSettingsOpen=app.querySelector('.lobby-ai')?.open;
   const current=view(), before=captureTable(app), position=current ? {revision:current.revision, round:current.round, moves:current.moves, seat:mySeat(), handoff, mode} : null;
   const changed=scene==='game' && !handoff && !renderedPosition?.handoff && position && renderedPosition && position.mode===renderedPosition.mode && position.seat===renderedPosition.seat && position.round===renderedPosition.round && position.moves===renderedPosition.moves+1 && position.revision===renderedPosition.revision+1;
   const animate=changed && motionEnabled();
@@ -105,7 +103,6 @@ function render() {
   const focus = document.activeElement?.dataset;
   const remembered = focus?.action ? {...focus} : null;
   app.innerHTML = scene === 'menu' || !view() ? renderMenu() : renderGame();
-  if(tableSettingsOpen&&app.querySelector('.lobby-ai'))app.querySelector('.lobby-ai').open=true;
   document.body.classList.toggle('in-game', scene==='game' && Boolean(view()));
   if (document.querySelector('#chat-list')) document.querySelector('#chat-list').scrollTop = document.querySelector('#chat-list').scrollHeight;
   renderedPosition=scene==='game' ? position : null;
@@ -130,9 +127,9 @@ function renderMenu() {
 }
 function renderGame() {
   const v=view(),p=mySeat(),ns=names(),target=v.options.target||2;
-  let html='<div class="table-layout"><aside class="sidebar panel"><h2 class="hud-title">Round '+(v.round+1)+' <small>'+ (ns.length===2?'vs '+esc(ns[1-p]):'· '+ns.length+' players')+'</small></h2><div class="scoreboard"><p>'+goalText(v.options)+'</p>';
+  let html='<div class="table-layout"><aside class="sidebar panel sidebar-seats-'+v.hands.length+'"><h2 class="hud-title">Round '+(v.round+1)+' <small>'+ (ns.length===2?'vs '+esc(ns[1-p]):'· '+ns.length+' players')+'</small></h2><div class="scoreboard"><p>'+goalText(v.options)+'</p>';
   for(let i=0;i<v.hands.length;i++)html+='<div data-score-seat="'+i+'" class="score-seat '+(v.turn===i&&v.phase==='playing'?'active':'')+'"><b>'+esc(ns[i])+'</b><div class="wins" aria-label="'+v.scores[i]+' rounds won">'+Array.from({length:target},(_,j)=>'<span class="win-dot '+(j<v.scores[i]?'won':'')+'"></span>').join('')+'</div></div>';
-  html+='</div><div class="stat-grid">'+[['Your hand',v.hands[p].length,'aqua'],[ns.length===2?ns[1-p]:'Other hands',v.hands.filter((_,i)=>i!==p).reduce((n,h)=>n+h.length,0),'coral'],['Banked',v.discardCount,'amber'],['Moves',v.moves,'lime']].map(([label,value,color])=>'<div class="stat"><span>'+esc(label)+'</span><b style="color:var(--'+color+')">'+value+'</b></div>').join('')+'</div><section class="last-moves"><span>Last moves</span>'+ (v.log.length?v.log.slice(-3).reverse().map((e,i)=>'<p style="opacity:'+ (1-i*.2)+'">'+eventText(e)+'</p>').join(''):'<p>Fresh deal. '+esc(ns[v.firstPlayer??v.turn])+' opens.</p>')+button('All actions & replay →','game-log','outline compact')+'</section>'+renderSocial()+'<div class="hud-nav">'+button('Rules','rules','coral')+button(prefs.table==='wood'?'Felt':'Wood','table-style','pink')+button('Leave','menu','gold')+'</div>'+ (mode==='online'?tag()+button(connected()?'Connection details':'Reconnect','host','outline compact'):'')+'</aside><section class="felt-table table-size-'+v.hands.length+'" aria-label="Flip it game table">';
+  html+='</div><div class="stat-grid">'+[['Your hand',v.hands[p].length,'aqua'],[ns.length===2?ns[1-p]:'Other hands',v.hands.filter((_,i)=>i!==p).reduce((n,h)=>n+h.length,0),'coral'],['Banked',v.discardCount,'amber'],['Moves',v.moves,'lime']].map(([label,value,color])=>'<div class="stat" title="'+esc(label)+'"><span>'+esc(v.hands.length>3?(label==='Your hand'?'My hand':label==='Other hands'?'Rivals':label):label)+'</span><b style="color:var(--'+color+')">'+value+'</b></div>').join('')+'</div><section class="last-moves"><span>Last moves</span>'+ (v.log.length?v.log.slice(-3).reverse().map((e,i)=>'<p style="opacity:'+ (1-i*.2)+'">'+eventText(e)+'</p>').join(''):'<p>Fresh deal. '+esc(ns[v.firstPlayer??v.turn])+' opens.</p>')+button('All actions & replay →','game-log','outline compact')+'</section>'+(mode==='online'?button('Chat & reactions · '+session.messages.length,'table-chat','pink compact'):'')+'<div class="hud-nav">'+button('Rules','rules','coral')+button(prefs.table==='wood'?'Felt':'Wood','table-style','pink')+button('Leave','menu','gold')+'</div>'+ (mode==='online'?button(connected()?'● Connected · details':'● Offline · reconnect','host','outline compact'):'')+'</aside><section class="felt-table table-size-'+v.hands.length+'" aria-label="Flip it game table">';
   if(mode==='online'&&!connected())html+='<div class="disconnect" role="status"><span>Your friend is offline. Reconnect to continue.</span>'+button(session.seat?'Join again':'Reconnect',session.seat?'join':'host','gold compact')+'</div>';
   html+=aiStatusHtml({busy:aiBusy,error:aiError,controller:mode!=='online'||session?.seat===0});
   html+='<div class="table-meta">'+starterHtml(v,ns)+'<span class="bank" data-bank><i class="card-back" aria-hidden="true"></i><span><b>'+v.discardCount+'</b> banked</span></span></div>';
@@ -150,6 +147,7 @@ function renderSocial() {
   return '<section class="table-chat"><div class="chat-heading"><span>TABLE TALK</span><i class="dot"></i></div><ol id="chat-list" aria-label="Table chat" aria-live="polite" aria-relevant="additions">'+chatEntries()+'</ol><form id="chat-form"><input id="chat-input" maxlength="240" value="'+esc(chatDraft)+'" placeholder="Say something…" aria-label="Chat message" autocomplete="off" '+(!connected()?'disabled':'')+'><button type="submit" aria-label="Send message" '+(!connected()?'disabled':'')+'>↗</button></form><div class="reactions" aria-label="Send a reaction">'+REACTIONS.map(r=>button(r,'reaction','',!connected(),'data-reaction="'+r+'" aria-label="React '+r+'"')).join('')+'</div><p class="chat-note">Just you and your friend.</p></section>';
 }
 function updateSocial(entry) {
+  const chatButton=app.querySelector('[data-action=table-chat]');if(chatButton)chatButton.textContent='Chat & reactions · '+session.messages.length;
   const list=document.querySelector('#chat-list');
   if (list) { list.innerHTML=chatEntries(); list.scrollTop=list.scrollHeight; }
   if (entry.kind==='reaction') {
@@ -186,7 +184,7 @@ function renderTable(v) {
     html += '<div class="rival-zone"><div class="zone-title"><span>'+esc(ns[other])+(v.turn===other?' · TO PLAY':'')+'</span><span class="rival-hand" data-hand-seat="'+other+'"><span class="mini-fan" aria-hidden="true">'+Array.from({length:Math.min(v.hands[other].length,14)},(_,i)=>'<i class="mini-back" style="--fan:'+ (i-(Math.min(v.hands[other].length,14)-1)/2)+'"></i>').join('')+'</span>'+v.hands[other].length+' cards</span></div><div class="table-row ' + (v.options.quickTurns?'single-space':'') + '">';
     for(const target of (v.options.quickTurns?[0]:[0,1])) {
       const set=v.table[other][target],owner=v.hands.length===2?{}:{targetSeat:other},add={kind:'add',lane,target,cards:chosen,...owner},take={kind:'take',lane,target,...owner};
-      html += '<article data-space-seat="'+other+'" data-space-lane="'+target+'" class="play-space"><div class="space-header"><span>'+(v.options.quickTurns?'PLAY':target?'RIGHT':'LEFT')+' SPACE</span><strong>'+(set.length?set.length+' × '+setValue(set):'EMPTY')+'</strong></div><div class="space-cards">'+(set.length?set.map(c=>cardHtml(c)).join(''):'<span class="space-empty">✦</span>')+'</div><div class="space-controls '+(set.length?'':'empty-controls')+'">'+button('ADD 1','add','mint',!actionValid(actions,add)||preview,'data-target="'+target+'" data-owner="'+other+'"')+button('TAKE & FLIP','take','dark',!actionValid(actions,take)||preview,'data-target="'+target+'" data-owner="'+other+'"')+'</div></article>';
+      html += '<article data-space-seat="'+other+'" data-space-lane="'+target+'" class="play-space rival-space" '+(set.length?'data-action="inspect-set" data-owner="'+other+'" data-target="'+target+'"':'')+'><div class="space-header"><span>'+(v.options.quickTurns?'PLAY':target?'RIGHT':'LEFT')+' SPACE</span><strong>'+(set.length?set.length+' × '+setValue(set):'EMPTY')+'</strong>'+(set.length?'<button class="set-inspect" data-action="inspect-set" data-owner="'+other+'" data-target="'+target+'" aria-label="Actions for '+esc(ns[other])+'’s '+(target?'right':'left')+' set" aria-expanded="'+(expandedSet===other+':'+target)+'">▾</button>':'')+'</div><div class="space-cards">'+(set.length?set.map(c=>cardHtml(c)).join(''):'<span class="space-empty">✦</span>')+'</div><div class="space-controls '+(expandedSet===other+':'+target?'expanded':'')+'">'+button('ADD 1','add','mint',!actionValid(actions,add)||preview,'data-target="'+target+'" data-owner="'+other+'"')+button('Grab & flip','take','gold',!actionValid(actions,take)||preview,'data-target="'+target+'" data-owner="'+other+'"')+'</div></article>';
     }
     html += '</div></div>';
   }
@@ -197,7 +195,7 @@ function renderTable(v) {
     html += '<article data-space-seat="'+p+'" data-space-lane="'+own+'" class="play-space ' + (own === lane && turn ? 'chosen' : '') + '"><button type="button" class="space-select" data-action="lane" data-lane="' + own + '" aria-pressed="' + (own===lane) + '" ' + (!canChoose ? 'disabled' : '') + '>' + (own === lane && turn ? '● ' : '○ ') + (v.options.quickTurns ? 'PLAY' : own ? 'RIGHT' : 'LEFT') + ' SPACE' + (set.length ? ' · ' + set.length + ' × ' + setValue(set) : '') + '</button><div class="space-cards">' + (set.length ? set.map(c => cardHtml(c)).join('') : '<span class="space-empty">↕</span>') + '</div><p class="cash-note">' + (set.length ? own === lane && turn ? 'These ' + set.length + ' cards leave on your move.' : 'Leave exposed, or cash out next.' : own === lane && turn ? 'Your new set will go here.' : 'An empty place for a new idea.') + '</p></article>';
   }
   const hand = v.hands[p].slice().sort((a,b) => (preview ? reverseOf(a)-reverseOf(b) : valueOf(a)-valueOf(b)) || a.id.localeCompare(b.id));
-  html += '</div><div class="hand-tools"><span class="zone-title" style="margin:0">' + (preview ? 'AFTER A FLIP' : 'YOUR HAND') + ' · ' + hand.length + '</span><button class="text-button" data-action="preview" aria-pressed="' + preview + '">' + (preview ? 'Back to active ranks ↕' : 'Preview a flip ↕') + '</button></div><div class="hand '+(hand.length>20?'crowded':'')+'" data-hand-seat="'+p+'" style="--hand-count:'+hand.length+'" aria-label="' + (preview ? 'Preview of flipped hand' : 'Your hand') + '">' + hand.map((c,i) => '<span class="hand-card" style="--d:'+ (i-(hand.length-1)/2)+';--fan-step:'+Math.min(3.2,30/Math.max(1,hand.length))+'deg">'+cardHtml(c,true,preview)+'</span>').join('') + '</div><div class="table-controls">' + button(chosen.length ? 'Play ' + chosen.length + ' × '+valueOf(hand.find(c=>c.id===chosen[0])) : 'Play a set', 'play', '', !canPlay || preview) + button('Flip hand ↕', 'flip', 'gold', !turn || preview) +button(preview?'Stop peek ↕':'Peek ↕','preview','lavender',false,'aria-pressed="'+preview+'"')+ (chosen.length ? button('Clear', 'clear', 'outline compact') : '') + '</div>';
+  html += '</div><div class="hand-tools"><span class="zone-title" style="margin:0">' + (preview ? 'OTHER SIDES' : 'YOUR HAND') + ' · ' + hand.length + '</span><span class="hand-caption">' + (preview ? 'Preview only' : 'The top number plays') + '</span></div><div class="hand '+(hand.length>16?'crowded':'')+'" data-hand-seat="'+p+'" style="--hand-count:'+hand.length+'" aria-label="' + (preview ? 'Preview of flipped hand' : 'Your hand') + '">' + hand.map((c,i) => '<span class="hand-card" style="--d:'+ (i-(hand.length-1)/2)+';--fan-rise:'+Math.min(18,Math.pow(i-(hand.length-1)/2,2)*.45)+'px;--fan-step:'+Math.min(3.2,30/Math.max(1,hand.length))+'deg">'+cardHtml(c,true,preview)+'</span>').join('') + '</div><div class="table-controls">' + button(chosen.length ? 'Play ' + chosen.length + ' × '+valueOf(hand.find(c=>c.id===chosen[0])) : 'Play a set', 'play', '', !canPlay || preview) + button('Flip hand ↕', 'flip', 'gold', !turn || preview) +button(preview?'Stop peek ↕':'Peek ↕','preview','lavender',false,'aria-pressed="'+preview+'"')+ (chosen.length ? button('Clear', 'clear', 'outline compact') : '') + '</div>';
   let hint = 'Select cards with the same top rank. Add uses exactly one card.';
   if (preview) hint = 'Preview only. Return to active ranks to make your move.';
   else if (chosen.length && turn) {
@@ -289,7 +287,7 @@ function toggleReplay(){
   },1100);renderReplay();
 }
 
-function resetSelection() { chosen = []; preview = false; if (view()) lane = availableLanes(view())[0]; }
+function resetSelection() { expandedSet=null; chosen = []; preview = false; if (view()) lane = availableLanes(view())[0]; }
 function startOffline(nextMode, options = prefs.options) {
   clearTimeout(botTimer); generation++; stopAI(); aiHistory.clear();matchId=crypto.randomUUID();
   animating=false; animationGeneration++; renderedPosition=null;
@@ -392,7 +390,7 @@ function openPair(kind) {
   if (peer?.connected) pairKind = 'connected';
   else if (kind === 'join' && session?.seat === 0 && pairOut) pairOut = '';
   renderPair();
-  delete modal.dataset.kind;
+  modal.dataset.kind='pairing';
   if (!modal.open) modal.showModal();
 }
 function renderPair() {
@@ -559,6 +557,8 @@ document.addEventListener('click',async event=>{
     if(action==='ai-settings')openAISettings(()=>{generation++;stopAI();render();scheduleBot();});
     else if(action==='cancel-ai'){generation++;stopAI('AI paused. Retry when ready.');render();}
     else if(action==='retry-ai'){stopAI();render();scheduleBot();}
+    else if(action==='inspect-set'){const key=target.dataset.owner+':'+target.dataset.target;expandedSet=expandedSet===key?null:key;render();}
+    else if(action==='table-chat'){pairingOpen=false;delete modal.dataset.kind;modalContent.innerHTML=modalHead('Table talk','JUST YOU AND YOUR FRIEND')+renderSocial();if(!modal.open)modal.showModal();modal.querySelector('#chat-input')?.focus();}
     else if(action==='table-settings')showTableSettings();
     else if(action==='house-rules')showHouseRules();
     else if(action==='table-style'){prefs.table=prefs.table==='wood'?'felt':'wood';savePrefs();applySettings();render();}
@@ -668,7 +668,6 @@ function applySettings() {
 }
 document.querySelector('#sound').addEventListener('click',()=>{prefs.sound=!prefs.sound;savePrefs();applySettings();sound('deal');});
 document.querySelector('#effects').addEventListener('click',()=>{prefs.fx=prefs.fx===false;savePrefs();applySettings();});
-document.querySelector('.brand').dataset.action='menu';
 bus?.addEventListener('message',async event=>{
   const message=event.data; if (!message || typeof message!=='object') return;
   if (message.type==='reply' && session?.seat===0 && peer && message.room===peer.room && !peer.connected) {
