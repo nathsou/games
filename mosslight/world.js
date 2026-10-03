@@ -45,11 +45,11 @@ export function blocked(x, y, world, swim = false, radius = 9) {
 export class Navigation {
   constructor(world) { this.world=world; this.cols=WORLD.w/WORLD.cell; this.rows=WORLD.h/WORLD.cell; this.rebuild(); }
   rebuild() {
-    this.maps=[false,true].map(swim=>Array.from({length:this.cols*this.rows},(_,i)=>!blocked((i%this.cols+.5)*40,(Math.floor(i/this.cols)+.5)*40,this.world,swim,17)));
+    this.maps=[false,true].map(swim=>Array.from({length:this.cols*this.rows},(_,i)=>!blocked((i%this.cols+.5)*40,(Math.floor(i/this.cols)+.5)*40,this.world,swim,28)));
   }
   clear(a,b,swim=false) {
     const d=distance(a,b), steps=Math.ceil(d/10);
-    for(let i=1;i<=steps;i++){const t=i/steps;if(blocked(a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,this.world,swim,11))return false;}
+    for(let i=1;i<=steps;i++){const t=i/steps;if(blocked(a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,this.world,swim,28))return false;}
     return true;
   }
   path(a,b,swim=false) {
