@@ -19,7 +19,7 @@ function reversedNode(original) {
   active.textContent=rank; reverse.textContent=next;
   active.classList.toggle('ten',rank===10); reverse.classList.toggle('ten',next===10);
   node.querySelector('.card-corner').innerHTML=rank+'<small>↕'+next+'</small>';
-  node.querySelector('.card-emblem').textContent=['✦','◆','✳','✹','✿','❖','✺','✸','♢','★'][rank-1];
+  node.querySelector('.card-emblem').textContent=['●','◆','✳','✹','✿','❖','✺','✸','♢','♜'][rank-1];
   const ink=node.style.getPropertyValue('--active-color');
   node.style.setProperty('--active-color',node.style.getPropertyValue('--reverse-color')); node.style.setProperty('--reverse-color',ink);
   return node;

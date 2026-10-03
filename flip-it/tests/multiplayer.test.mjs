@@ -26,7 +26,7 @@ test('each other player gets one last-chance reply and the first empty hand reta
   next=applyAction(next,3,{kind:'flip',lane:0});assert.equal(next.phase,'roundOver');assert.equal(next.result.winner,0);assertState(next);
 });
 test('targets name an opponent seat and an illegal target is atomic',()=>{
-  let state=createMatch({lastChance:false},13,0,4);
+  let state=createMatch({lastChance:false},13,0,4);state.turn=0;
   const action=legalActions(state,0).find(a=>a.kind==='play'&&a.cards.length===1);state=applyAction(state,0,action);
   const take=legalActions(state,1).find(a=>a.kind==='take');assert.equal(take.targetSeat,0);
   const before=structuredClone(state);assert.throws(()=>applyAction(state,1,{...take,targetSeat:1}));assert.deepEqual(state,before);
@@ -43,6 +43,7 @@ test('mixed online tables send only public controller types and the guest hand',
   let host,guest;const errors=[];
   host=new FlipSession({aiPlayers:['model','dealer','model'],onError:e=>errors.push(e.message)});guest=new FlipSession({seat:1,onError:e=>errors.push(e.message)});
   host.setPeer({connected:true,send:m=>guest.receive(structuredClone(m))});guest.setPeer({connected:true,send:m=>host.receive(structuredClone(m))});guest.opened();
+  let seed=1;while(createMatch({},seed,0,5).turn!==0)seed++;host.start({},seed);
   assert.equal(guest.view.hands.length,5);assert.equal(guest.controllers.length,5);
   assert(guest.view.hands.filter((_,p)=>p!==1).flat().every(c=>c.hidden));
   host.choose(botAction(host.view,0));guest.choose(botAction(guest.view,1));

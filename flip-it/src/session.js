@@ -20,12 +20,13 @@ export function validateView(view, visibleSeat, {legacySpaces=false} = {}) {
       !Array.isArray(view.hands) || view.hands.length !== seats || view.hands.some(h => !Array.isArray(h) || h.length > deck.length) ||
       !Array.isArray(view.table) || view.table.length !== seats || view.table.some(row => !Array.isArray(row) || row.length !== 2 || row.some(s => !Array.isArray(s) || s.length > 8))) throw new Error('Invalid game update.');
   if (view.id !== undefined && (typeof view.id !== 'string' || !/^[a-f0-9]{32}$/.test(view.id)) ||
+      view.firstPlayer !== undefined && !players.includes(view.firstPlayer) ||
       !legacySpaces && options.quickTurns && view.table.some(row=>row[1].length)) throw new Error('Invalid play spaces.');
   if (!integer(view.repliesRemaining, seats-1) || (view.pending === null) !== (view.repliesRemaining === 0)) throw new Error('Invalid reply window.');
   const seen = new Set(), sizes = new Set();
   function checkCard(card) {
     const source = deck.find(c => c.id === card?.id);
-    if (!source || !Array.isArray(card.ends) || card.ends.length !== 2 || card.ends.some((n, i) => n !== source.ends[i]) || ![0, 1].includes(card.face) || seen.has(card.id)) throw new Error('Invalid card update.');
+    if (!source || !Array.isArray(card.ends) || card.ends.length !== 2 || card.ends.some((n, i) => n !== source.ends[i]) || ![0, 1].includes(card.face) || seen.has(card.id) || card.star !== undefined && card.star !== source.star) throw new Error('Invalid card update.');
     seen.add(card.id);
   }
   for (const card of view.hands[visibleSeat]) checkCard(card);
@@ -65,7 +66,7 @@ export class FlipSession {
     this.state = null; this.view = null; this.epoch = null;
     this.ready = [false, false]; this.movePending = false; this.readyForPlay = false;
   }
-  get names() { return [...(this.team?[(this.members[0]+' + '+this.members[1]).slice(0,40)]:this.members),...this.controllers.filter(t=>t!=='human').map((t,i)=>(t==='model'?'AI ':'Dealer ')+(i+1))]; }
+  get names() { return [...(this.team?[(this.members[0]+' + '+this.members[1]).slice(0,40)]:this.members),...this.controllers.filter(t=>t!=='human').map((t,i)=>(t==='model'?'AI ':'Bot ')+(i+1))]; }
   setPeer(peer) { this.peer = peer; this.movePending = false; this.readyForPlay = false; this.ready = [false, false]; if (this.seat) this.socialSequence = 0; if (!this.seat && this.state) { this.epoch = randomHex(8); this.state.id ||= randomHex(16); } }
   opened() { this.peer.send({type: 'hello', name: this.members[this.seat]}); }
   sendSocial(kind, text) {

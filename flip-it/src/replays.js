@@ -5,7 +5,7 @@ const clone = value => structuredClone(value);
 function validEntry(entry) {
   if (!entry || !Number.isInteger(entry.seat) || !entry.view) throw new Error('Invalid replay frame.');
   validateView({...entry.view,log:entry.event && entry.event.kind !== 'deal' ? [entry.event] : []},entry.seat);
-  if (entry.event?.kind === 'deal' && entry.view.moves !== 0) throw new Error('Invalid deal.');
+  if (entry.event?.kind === 'deal' && (entry.view.moves !== 0 || entry.event.firstPlayer !== undefined && entry.event.firstPlayer !== entry.view.firstPlayer)) throw new Error('Invalid deal.');
 }
 export function highlights(record) {
   return record.entries.flatMap((entry,index) => {
@@ -43,7 +43,7 @@ export class ReplayStore {
     const snapshot=clone(view);snapshot.log=[];
     // Only the received/visible perspective enters storage, never host state,
     // the deal seed, chat, credentials or the other players' private hands.
-    const event=view.moves ? clone(view.log.at(-1)||null) : {kind:'deal'};
+    const event=view.moves ? clone(view.log.at(-1)||null) : {kind:'deal',...(Number.isInteger(view.firstPlayer)?{firstPlayer:view.firstPlayer}:{})};
     const entry={seat,view:snapshot,event};validEntry(entry);
     if(!record){record={id,mode,names:[...names],started:Date.now(),updated:Date.now(),entries:[],partial:view.revision!==0};this.records.unshift(record);}
     else if(view.revision!==record.entries.at(-1).view.revision+1)record.partial=true;
