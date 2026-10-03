@@ -29,8 +29,19 @@ jobs:
         run: npm test
         working-directory: flip-it
 
+  midnight-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Midnight Table rules and protocol tests
+        run: npm test
+        working-directory: midnight
+
   deploy:
-    needs: test
+    needs: [test, midnight-test]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -45,6 +56,11 @@ jobs:
           cp -r flip-it/src flip-it/assets _site/flip-it/
           cp spacegolf/index.html spacegolf/preview.jpg _site/spacegolf/
           cp -r spacegolf/src _site/spacegolf/src
+          mkdir -p _site/midnight
+          cp midnight/index.html midnight/style.css midnight/preview.png _site/midnight/
+          cp -r midnight/src midnight/assets _site/midnight/
+          cp -r similo _site/similo
+          cp -r shared _site/shared
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
