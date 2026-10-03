@@ -1,4 +1,4 @@
-import { NAMES, VALUES, START, opposite, square, index, row, file, fromFEN, toFEN, attacksFrom, attackers, attacked, attackMap, kingSquare, inCheck, legalMoves, applyMove, status, positionKey, notation, explainIllegal, evaluate, chooseMove } from './chess.js';
+import { NAMES, VALUES, START, opposite, square, index, row, file, fromFEN, toFEN, attacksFrom, attackers, attacked, attackMap, kingSquare, inCheck, legalMoves, applyMove, status, positionKey, notation, explainIllegal, chooseMove } from './chess.js';
 import { LESSONS, REGIONS, HANDBOOK } from './lessons.js';
 import { pieceSVG, lanternSVG, guideSVG, worldSVG } from './art.js';
 import { sound, setSound } from './sound.js';
@@ -93,7 +93,8 @@ function renderBoard() {
   $('lesson-list-button').textContent = mode === 'game' ? 'Return to trail ↗' : 'Encounters ⌄';
   $('turn-dot').className = `${state.turn === 'b' ? 'violet' : ''} ${busy ? 'thinking' : ''}`;
   $('turn-label').textContent = mode === 'game' ? finished ? 'GAME COMPLETE' : busy ? 'MILO IS THINKING…' : state.turn === human ? `YOUR ${human === 'w' ? 'IVORY' : 'VIOLET'} PIECES` : 'MILO’S TURN' : finished ? 'A LITTLE DISCOVERY' : failed ? 'A CHANCE TO REWIND' : lesson.mode === 'inspect' ? 'LOOK CLOSELY' : 'YOUR IVORY PIECES';
-  $('goal-progress').textContent = mode === 'trail' ? lesson.goal.type === 'route' ? `${route} / ${lesson.goal.squares.length}` : history.length ? `${history.length} ${history.length === 1 ? 'MOVE' : 'MOVES'}` : '' : history.length ? `${Math.ceil(history.length/2)} TURNS` : '';
+  const turns = Math.ceil(history.length/2);
+  $('goal-progress').textContent = mode === 'trail' ? lesson.goal.type === 'route' ? `${route} / ${lesson.goal.squares.length}` : history.length ? `${history.length} ${history.length === 1 ? 'MOVE' : 'MOVES'}` : '' : history.length ? `${turns} ${turns === 1 ? 'TURN' : 'TURNS'}` : '';
   renderInspector();
 }
 function renderInspector() {
@@ -102,7 +103,7 @@ function renderInspector() {
   const threatened = attackers(state,selected,opposite(p.color));
   const defended = attackers(state,selected,p.color);
   const detail = p.type === 'p' ? 'Forward to move, diagonal to capture. Attack markings show diagonal threats, not forward moves.' : p.type === 'k' ? 'One square in any direction, always away from attacks. Castling may also be available.' : HANDBOOK.find(h=>h[0]===NAMES[p.type])?.[2] || `${NAMES[p.type]} movement follows the usual chess rules.`;
-  $('inspector').innerHTML = `<div class="piece-inspection">${pieceSVG(p.type,p.color)}<div><strong>${NAMES[p.type]}</strong><small>${p.color === 'w' ? 'IVORY' : 'VIOLET'} · ${square(selected).toUpperCase()}${VALUES[p.type] ? ` · ≈ ${Math.round(VALUES[p.type]/100)} PAWNS` : ''}</small></div></div><p class="inspection-detail">${detail}</p><p class="inspection-detail">${destinations.size} legal destination${destinations.size === 1 ? '' : 's'}${threatened.length ? ` · attacked from ${threatened.map(square).join(', ')}` : ' · not currently attacked'}${defended.length ? ` · defended from ${defended.map(square).join(', ')}` : ''}</p>`;
+  $('inspector').innerHTML = `<div class="piece-inspection">${pieceSVG(p.type,p.color)}<div><strong>${NAMES[p.type]}</strong><small>${p.color === 'w' ? 'IVORY' : 'VIOLET'} · ${square(selected).toUpperCase()}${VALUES[p.type] ? ` · ≈ ${Math.round(VALUES[p.type]/100)} ${p.type==='p' ? 'PAWN' : 'PAWNS'}` : ''}</small></div></div><p class="inspection-detail">${detail}</p><p class="inspection-detail">${destinations.size} legal destination${destinations.size === 1 ? '' : 's'}${threatened.length ? ` · attacked from ${threatened.map(square).join(', ')}` : ' · not currently attacked'}${defended.length ? ` · defended from ${defended.map(square).join(', ')}` : ''}</p>`;
 }
 function loadLesson(id) {
   if (!unlocked(id)) { toast('A few earlier discoveries will prepare you for this encounter.'); return; }
@@ -151,6 +152,7 @@ function goalReached(move, before, captured) {
     }
     case 'skewer': {
       if (!inCheck(state,'b')) return false;
+      if (legalMoves(state,'b').some(reply=>reply.to===move.to)) return false;
       const removed = { ...state, board:state.board.slice() }; removed.board[kingSquare(state,'b')] = null;
       return attacksFrom(removed,move.to).includes(index(g.square)) && state.board[index(g.square)]?.color === 'b';
     }
@@ -169,8 +171,8 @@ function completeLesson() {
   finished = true; failed = false; selected = null; hinted = [];
   const newlyCompleted = !progress.completed.includes(lesson.id);
   if (newlyCompleted) progress.completed.push(lesson.id);
-  const regionDone = regionCount(lesson.region) === regionLessons(lesson.region).length;
-  const allDone = progress.completed.length === LESSONS.length;
+  const regionDone = regionCount(lesson.region) === regionLessons(lesson.region).length && (newlyCompleted || lesson.id === regionLessons(lesson.region).at(-1).id);
+  const allDone = progress.completed.length === LESSONS.length && lesson.id === LESSONS.length-1;
   const next = LESSONS[lesson.id+1];
   $('result').className = 'result-card';
   $('result').innerHTML = `<p class="eyebrow">${allDone ? 'THE OBSERVATORY IS AWAKE' : regionDone ? REGIONS[lesson.region].badge.toUpperCase() + ' STAMP DISCOVERED' : 'A LANTERN LIT'}</p><h3>${allDone ? 'Look how far you’ve come.' : regionDone ? REGIONS[lesson.region].name + ', restored.' : 'A lovely little discovery.'}</h3><p>${lesson.success}${regionDone ? '<br><br>' + REGIONS[lesson.region].reward : ''}</p><button id="continue-button" class="primary-button">${next ? 'Keep exploring' : 'Play a friendly game'} <span aria-hidden="true">↗</span></button>${allDone ? '<button id="complete-map-button" class="secondary-button">See your restored world</button>' : ''}`;
@@ -209,7 +211,8 @@ function makeLessonMove(move) {
   let replyText = '';
   const replyCode = lesson.replies?.[history.length-1];
   if (replyCode) {
-    const reply = legalMoves(state,'b').find(m=>m.from===index(replyCode.slice(0,2)) && m.to===index(replyCode.slice(2,4)));
+    // Unexpected human moves still get a legal reply instead of skipping a turn.
+    const reply = legalMoves(state,'b').find(m=>m.from===index(replyCode.slice(0,2)) && m.to===index(replyCode.slice(2,4))) || chooseMove(state,'thoughtful');
     if (reply) { replyText = notation(state,reply); state = applyMove(state,reply); lastMove = reply; sound('move'); }
   }
   // A trade is judged before the deliberate recapture; other goals use the final board.
@@ -286,6 +289,7 @@ function giveHint() {
   renderBoard(); sound('hint');
 }
 function showMap() {
+  $('map-title').textContent = progress.completed.length === LESSONS.length ? 'A world full of light.' : 'A world waiting for light.';
   $('full-world').innerHTML = worldSVG(restored()) + REGIONS.map((r,i)=>`<button class="map-node ${restored().includes(i) ? 'complete' : ''}" data-map-region="${i}" style="left:${r.x/10}%;top:${r.y/4.4}%" ${unlocked(regionLessons(i)[0].id) ? '' : 'disabled'} aria-label="Explore ${r.name}">${restored().includes(i) ? '✓' : i+1}</button>`).join('');
   $('map-regions').innerHTML = REGIONS.map((r,i)=>`<button class="map-region" data-map-region="${i}" ${unlocked(regionLessons(i)[0].id) ? '' : 'disabled'}><strong>${r.symbol} ${r.name}</strong><span>${r.subtitle}</span><small>${regionCount(i)} / ${regionLessons(i).length} DISCOVERIES${restored().includes(i) ? ' · RESTORED' : ''}</small></button>`).join('');
   openDialog('map-dialog'); sound('map');
@@ -324,7 +328,7 @@ function startGame(resume = false) {
     history = []; gameInitial = toFEN(state); lastMove = null;
   }
   flipped = human === 'b'; focusSquare = kingSquare(state,human);
-  setGameUI(); feedback(`You are playing ${human === 'w' ? 'ivory' : 'violet'}. ${state.turn === human ? 'Your move.' : 'Milo moves first.'} Select a piece to inspect its moves. The Threats button marks squares attacked by your opponent.`); save();
+  setGameUI(); feedback(`You are playing ${human === 'w' ? 'ivory (White)' : 'violet (Black)'}. ${state.turn === human ? 'Your move.' : 'Milo moves first.'} Select a piece to inspect its moves. The Threats button marks squares attacked by your opponent.`); save();
   if (!finishGameIfNeeded() && state.turn !== human) requestOpponent();
 }
 function coachSelection(i) {
@@ -463,6 +467,5 @@ $('promotion-choices').addEventListener('click',event=> {
 });
 $('promotion-dialog').addEventListener('cancel',()=> { pendingPromotion=null; });
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
-document.querySelectorAll('dialog').forEach(d=>d.addEventListener('click',event=> { if(event.target!==d) return; const rect=d.getBoundingClientRect(); if(event.clientX<rect.left || event.clientX>rect.right || event.clientY<rect.top || event.clientY>rect.bottom) d.close(); }));
 // Start where the traveller left off, without making completed exercises a gate.
 loadLesson(unlocked(progress.current) ? progress.current : firstUnfinished());

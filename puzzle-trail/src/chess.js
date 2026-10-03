@@ -193,7 +193,8 @@ export function evaluate(s, perspective = 'b') {
     if (!p) return;
     const center = 7 - Math.abs(3.5 - file(i)) - Math.abs(3.5 - row(i));
     const advance = p.color === 'w' ? 6 - row(i) : row(i) - 1;
-    let bonus = p.type === 'p' ? advance * 9 + center * 3 : ['n', 'b'].includes(p.type) ? center * 10 : p.type === 'q' ? center * 2 : 0;
+    const centralPawn = [3,4].includes(file(i)) ? 8 : [2,5].includes(file(i)) ? 3 : 0;
+    let bonus = p.type === 'p' ? advance * (9 + centralPawn) + center * 3 : ['n', 'b'].includes(p.type) ? center * 10 : p.type === 'q' ? center * 2 : 0;
     if (p.type === 'k') bonus = s.full < 15 ? (file(i) < 3 || file(i) > 5 ? 35 : 0) : center * 4;
     total += (p.color === perspective ? 1 : -1) * (VALUES[p.type] + bonus);
   });
