@@ -16,7 +16,8 @@ export function createGame({theme = 'french', clueTheme = theme, variant = 'clas
   const deck = shuffle(DECKS[theme].cards.map(c => c.id), random);
   const board = deck.slice(0, 12);
   const secret = board[Math.floor((random ? random() : crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296) * 12)];
-  const clues = shuffle(DECKS[clueTheme].cards.map(c => c.id).filter(id => !board.includes(id)), random);
+  const boardNames = new Set(board.map(id => CARDS[id].name));
+  const clues = shuffle(DECKS[clueTheme].cards.map(c => c.id).filter(id => !boardNames.has(CARDS[id].name)), random);
   return {version: PROTOCOL, id: crypto.randomUUID(), theme, clueTheme, variant, board, secret,
     hand: clues.slice(0, 5), draw: clues.slice(5), eliminated: [], history: [], round: 0,
     revision: 0, phase: 'clue', result: null, started: Date.now()};
