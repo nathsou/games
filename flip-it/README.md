@@ -89,3 +89,9 @@ The HUD, cards, dialogs and arrow logo follow the supplied Felt mockups. **House
 Jersey 10/15 fonts are self-hosted in `assets/fonts/` with their SIL OFL licenses. The supplied procedural art was rendered to static PNGs in `assets/table/`; neither the mockup runtime nor its stand-in rules engine ships. The bank stack represents cards removed from play, not a draw pile. Drag matching cards onto your space, a single card onto a rival set to Add, or a rival set into your hand to Take; all use the same rule validation as buttons.
 
 The desktop table fits common laptop viewports, including 1280×720 and 1440×900, with larger hand cards on taller screens. Opponent sets open Add/Grab controls on tap; recent moves stay compact, and Chat & reactions opens a separate HUD dialog. Card drags support mouse and touch.
+
+## Browser UI regression checks
+
+With the local server running, `npm run test:ui` checks laptop and phone layouts, rules/settings/replay dialog scrolling, both deck sizes and turn modes, multi-card mouse/touch drags, invalid drop indicators, cancellation, per-card flights, and native replay slider dragging and keyboard focus. It uses real controls and the read-only, redacted diagnostics.
+
+Playwright and Chromium are optional test tools; neither ships with the game. Install Playwright in your development environment or set `PLAYWRIGHT_MODULE` to its module path. `CHROMIUM_PATH` selects a system browser; `CHROMIUM_NO_SANDBOX=1` supports isolated Linux test containers that require it. `FLIP_IT_URL` overrides the local server URL, and `FLIP_IT_ARTIFACTS` optionally writes fresh screenshots to a directory. The ordinary `npm test` remains dependency-free.
