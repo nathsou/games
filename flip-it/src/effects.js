@@ -34,7 +34,7 @@ export async function animateMove(root, before, event, ownSeat, view) {
     node.removeAttribute('data-action'); node.removeAttribute('data-visual-card'); node.removeAttribute('data-card');
     node.classList.remove('selected'); node.disabled=true; node.setAttribute('aria-hidden','true'); node.classList.add('flying-card');
     Object.assign(node.style,{position:'fixed',left:start.x+'px',top:start.y+'px',width:start.width+'px',height:start.height+'px','--card-w':start.width+'px',margin:'0',zIndex:'100',pointerEvents:'none'});
-    document.body.append(node);
+    (root.closest('dialog') || document.body).append(node);
     const dx=target.x+(target.width-start.width)/2-start.x, dy=target.y+(target.height-start.height)/2-start.y;
     const delay=Math.min(index,10)*28, duration=650;
     const finishScale=bank ? .28 : next?.rect ? target.width/start.width : .48;

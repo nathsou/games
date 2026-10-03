@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {FlipSession} from '../src/session.js';
 import {saveTable, loadTable, forgetTable} from '../src/resume.js';
-import {legalActions} from '../src/rules.js';
+import {legalActions,playerView} from '../src/rules.js';
 
 function pair() {
   const errors = [];
@@ -59,4 +59,15 @@ test('guest persistence is redacted and damaged or inaccessible saves fail grace
   assert.equal(loadTable(storage),null);
   assert.equal(loadTable({getItem(){throw new Error('Denied');}}),null);
   assert.doesNotThrow(()=>saveTable(guest,{setItem(){throw new Error('Full');}}));
+});
+
+test('legacy two-space quick saves preserve retired cards flipped without exposing guest hands',()=>{
+  const {host}=pair(),storage=memory();
+  const card=host.state.hands[1].pop();host.state.table[1][1]=[card];
+  host.view=playerView(host.state,0);
+  saveTable(host,storage);const raw=JSON.parse(storage.getItem('flip-it.last-table.v2'));raw.version=2;
+  storage.setItem('flip-it.last-table.v2',JSON.stringify(raw));
+  const saved=loadTable(storage);assert(saved?.migrated);
+  assert.equal(saved.state.table[1][1].length,0);assert.equal(saved.state.hands[1].at(-1).face,1-card.face);
+  assert(saved.view.hands[1].every(c=>c.hidden));assert.equal(saved.view.hands[1].length,host.state.hands[1].length+1);
 });

@@ -9,7 +9,7 @@ export function validateSocial(message) {
       message.kind === 'reaction' && !REACTIONS.includes(message.text)) throw new Error('Invalid chat message.');
   return message;
 }
-export function validateView(view, visibleSeat) {
+export function validateView(view, visibleSeat, {legacySpaces=false} = {}) {
   const seats = view?.hands?.length, players = Array.from({length:Number.isInteger(seats)?seats:0},(_,i)=>i);
   if (!view || !Number.isInteger(seats) || seats < 2 || seats > 5 || !players.includes(visibleSeat)) throw new Error('Invalid game update.');
   const options = optionsFor(view.options), deck = makeDeck(options.compactDeck);
@@ -19,6 +19,8 @@ export function validateView(view, visibleSeat) {
       !Array.isArray(view.scores) || view.scores.length !== seats || view.scores.some(n => !integer(n, 2)) ||
       !Array.isArray(view.hands) || view.hands.length !== seats || view.hands.some(h => !Array.isArray(h) || h.length > deck.length) ||
       !Array.isArray(view.table) || view.table.length !== seats || view.table.some(row => !Array.isArray(row) || row.length !== 2 || row.some(s => !Array.isArray(s) || s.length > 8))) throw new Error('Invalid game update.');
+  if (view.id !== undefined && (typeof view.id !== 'string' || !/^[a-f0-9]{32}$/.test(view.id)) ||
+      !legacySpaces && options.quickTurns && view.table.some(row=>row[1].length)) throw new Error('Invalid play spaces.');
   if (!integer(view.repliesRemaining, seats-1) || (view.pending === null) !== (view.repliesRemaining === 0)) throw new Error('Invalid reply window.');
   const seen = new Set(), sizes = new Set();
   function checkCard(card) {

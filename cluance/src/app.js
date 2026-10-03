@@ -438,6 +438,7 @@ async function openPairHash(){
     else{const link=makeLink(reply,'answer');pairingBus?.postMessage({type:'reply',link});showModal('Back to your table.','Reply ready','<p class="pair-copy">Return to your original hosting tab. The reply was sent there. If it is on another browser, paste this link in that tab.</p><textarea id="return-reply" class="code-box" readonly>'+esc(link)+'</textarea>');}
   }catch(error){toast(error.message);}
 }
+window.addEventListener('hashchange',openPairHash);
 function showRules(){
   showModal('A little trust goes a long way.','How to play',`<p class="pair-copy">You’re a team. Keep one secret card on the table through five rounds.</p><ol class="rules-list"><li><strong>The clue giver sees the secret.</strong> There are 12 cards on the board and five private cards in the giver’s hand.</li><li><strong>Play one illustrated clue.</strong> Choose Similar ↑ for a shared trait, or Different → for a contrast. It can be a job, an era, a date, geography, a story, a trait, or a visual detail. Inspect cards for their dates and biographies. Only the card and its direction are shared.</li><li><strong>The guesser removes cards.</strong> Remove 1, then 2, then 3, then 4, then 1. All previous clues remain relevant.</li><li><strong>Leave the secret standing.</strong> Removing it ends the game immediately. If it’s the last card left, you both win.</li><li><strong>Open your sealed interpretations.</strong> Optional human notes and AI explanations are recorded with each move, then revealed together at the end.</li></ol><div class="rules-rounds"><span>1</span><span>2</span><span>3</span><span>4</span><span>1</span></div><p class="help-text"><strong>Classic:</strong> draw a new card after each clue.<br><strong>Fixed five:</strong> start with five cards and never draw replacements. Choose the order carefully.<br><strong>Mixed decks:</strong> use one theme for cards and another for clues.</p><p class="help-text">This is an independent game inspired by Similo, designed by Hjalmar Hach, Pierluca Zizzi and Martino Chiacchiera. The illustrations here are original generated artwork; they are not the commercial card art.</p>`);
 }
@@ -554,3 +555,9 @@ try{
 }catch(error){app.innerHTML=`<p class="inline-error">${esc(error.message)}</p><button class="button" id="reload">Reload artwork</button>`;$('reload').onclick=()=>location.reload();}
 
 window.addEventListener('storage',event=>{if(event.key===CONFIG_KEY){Object.assign(settings,loadAI());if(!aiBusy&&screen==='home')renderHome();}if(event.key===THEME_KEY){settings.appearance=loadTheme();applyPreferences();}});
+
+// Redacted, read-only diagnostics for browser verification.
+Object.defineProperty(window,'__cluance',{value:{
+  get state(){return game?structuredClone(currentView()):null;},
+  get connected(){return Boolean(peer?.connected);},get mode(){return mode;}
+}});
