@@ -1,13 +1,13 @@
-import {CARDS, DECKS, LEGACY_REGION_ATLAS} from './decks.js';
+import {CARDS, DECKS} from './decks.js';
 
 const atlases = new Map();
 export async function loadArt() {
-  const sources=[...Object.values(DECKS).map(d=>({atlas:d.atlas,name:d.name})),{atlas:LEGACY_REGION_ATLAS,name:'archived French Regions'}];
-  await Promise.all(sources.map(deck => new Promise((resolve, reject) => {
+  const sources = new Map(Object.values(CARDS).map(card => [card.atlas || DECKS[card.deck].atlas, DECKS[card.deck].name]));
+  await Promise.all([...sources].map(([source, name]) => new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => { atlases.set(deck.atlas, img); resolve(); };
-    img.onerror = () => reject(new Error(`Could not load ${deck.name} artwork. Reload the page to try again.`));
-    img.src = deck.atlas;
+    img.onload = () => { atlases.set(source, img); resolve(); };
+    img.onerror = () => reject(new Error(`Could not load ${name} artwork. Reload the page to try again.`));
+    img.src = source;
   })));
 }
 function fitText(ctx, text, maxWidth, size) {
@@ -27,7 +27,8 @@ export function drawCard(canvas, id, {label = '', secret = false} = {}) {
   if (atlas) {
     const columns=card.columns||deck.columns, rows=card.rows||deck.rows;
     const sw = atlas.naturalWidth / columns, sh = atlas.naturalHeight / rows;
-    const x = card.index % columns * sw, y = Math.floor(card.index / columns) * sh;
+    const atlasIndex = card.atlasIndex ?? card.index;
+    const x = atlasIndex % columns * sw, y = Math.floor(atlasIndex / columns) * sh;
     const ratio = 264 / 304;
     let cropW = sw, cropH = sh;
     if (sw / sh > ratio) cropW = sh * ratio;
