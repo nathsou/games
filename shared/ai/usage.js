@@ -39,11 +39,19 @@ export function trackGame(game, mode) {
   if(existing)Object.assign(existing,entry);else data.games.push(entry);
   save(data);
 }
+export function trackArcadeGame(id,kind,state,mode='AI table') {
+  if(!id||!state)return;
+  const data=ledger(),existing=data.games.find(g=>g.id===id),finished=['over','matchOver'].includes(state.phase);
+  const winner=state.phase==='matchOver'?state.scores?.indexOf(2):state.scores?.[0]===state.scores?.[1]?null:state.scores?.[0]>state.scores?.[1]?0:1;
+  const entry={id,game:kind,theme:kind,mode,started:existing?.started||Date.now(),state:finished?'finished':'in progress',result:finished?(winner===null?'draw':winner===0?'win':'loss'):null,aiTurns:[]};
+  if(existing&&JSON.stringify(existing)===JSON.stringify(entry))return;
+  if(existing)Object.assign(existing,entry);else data.games.push(entry);save(data);
+}
 export function beginUsage(game, role, settings) {
-  trackGame(game,`ai-${role}`);
+  if(game.arcadeGame)trackArcadeGame(game.id,game.arcadeGame,game);else trackGame(game,`ai-${role}`);
   const data=ledger(), entry={id:crypto.randomUUID(), gameId:game.id, round:game.round+1, role,
     provider:settings.provider, model:settings.models[settings.provider], effort:settings.efforts[settings.provider],
-    started:Date.now(), status:'pending', costUSD:null, costKind:'unknown', rates:modelPrice(settings)};
+    ...(game.arcadeGame?{turn:game.revision}:{}),started:Date.now(), status:'pending', costUSD:null, costKind:'unknown', rates:modelPrice(settings)};
   data.requests.push(entry);save(data);return entry.id;
 }
 export function markUsage(id, status) {
@@ -86,7 +94,7 @@ export function usageSummary(requests, games=[]) {
   const unknown=requests.filter(r=>r.costUSD===null).length+untracked;
   return {costUSD:requests.reduce((sum,r)=>sum+(number(r.costUSD)||0),0), unknown, untracked,
     pending:requests.filter(r=>r.status==='pending' && Date.now()-r.started<180000).length,
-    requests:requests.length, completedTurns:new Set(requests.filter(r=>r.status==='completed').map(r=>`${r.gameId}:${r.round}:${r.role}`)).size,
+    requests:requests.length, completedTurns:new Set(requests.filter(r=>r.status==='completed').map(r=>`${r.gameId}:${r.round}:${r.role}:${r.turn??''}`)).size,
     inputTokens:requests.reduce((sum,r)=>sum+(r.inputTokens||0),0),
     outputTokens:requests.reduce((sum,r)=>sum+(r.outputTokens||0),0),
     cachedTokens:requests.reduce((sum,r)=>sum+(r.cachedTokens||0),0),

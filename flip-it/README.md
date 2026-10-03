@@ -1,6 +1,6 @@
 # Flip it
 
-A two-player shedding duel with original pixel-art cards and three independent match options. Vanilla HTML, CSS and JavaScript: no build, npm dependencies, CDN scripts, remote images or external fonts.
+A two-to-five-player shedding game with large, crisp double-value cards and three independent match options. Vanilla HTML, CSS and JavaScript: no build, npm dependencies, CDN scripts, remote images or external fonts.
 
 Run `npm start` from this folder and open `http://localhost:8080/flip-it/`. Run `npm test` for deterministic rule, privacy, peer session and QR tests, or `npm run playtest` for 400 reproducible dealer rounds. The server serves the collection root too. Publish this folder's index, stylesheet, src, assets and preview together; the repository's Pages workflow does this.
 
@@ -11,14 +11,14 @@ All three default ON. The host chooses them before a match; both screens show th
 | Option | ON | OFF |
 | --- | --- | --- |
 | Quick turns | One action each, alternating; choose either play space | Two actions, left then right. Opening player gets only the right action |
-| Compact deck | 24 cards, six ranks, 12 cards each | 40 cards, ten ranks, 20 cards each |
-| Last chance | Emptying a hand gives the opponent exactly one counter action | Emptying a hand wins immediately |
+| Compact deck | 24 cards, six ranks, dealt clockwise | 40 cards, ten ranks, dealt clockwise |
+| Last chance | Emptying a hand gives every other player exactly one counter action | Emptying a hand wins immediately |
 
-First to two round wins. Starting player alternates after every round, including draws. Three appearances of the same full position draw the round. A round also draws after 120 actions (compact) or 180 (full), except that a pending last-chance exchange finishes first. Draws award no win; deal again.
+First to two round wins. Starting player rotates after every round, including draws. Three appearances of the same full position draw the round. A round also draws after 120 actions (compact) or 180 (full), except that a pending last-chance exchange finishes first. Draws award no win; deal again.
 
 ## Rules
 
-Each card has two ranks, an active top rank and an inactive opposite rank. The small ↕ number repeats its inactive value upright. The entire hand flips only when taking a Flip action. Cards picked up from the table always flip individually. There is no draw pile.
+Each card has two ranks, an active top rank and an inactive opposite rank. The large upside-down number shows its inactive value; a corner badge repeats it upright. The entire hand flips only when taking a Flip action. Cards picked up from the table always flip individually. There is no draw pile.
 
 At the beginning of an action, the set in the acting player's chosen (or prescribed) play space is discarded. Then perform one action:
 
@@ -57,3 +57,13 @@ The host owns the authoritative state and sees the dealt hands internally. This 
 Touch and mouse controls have text labels. Keyboard: 1–9 or 0 selects all cards of rank 1–10; Enter plays; F flips; left/right changes space in quick-turn mode; Escape clears selection or closes a dialog. Sound is synthesized with Web Audio and defaults off. Reduced motion is respected, and FX can be disabled. Preferences are stored locally; storage denial falls back to memory.
 
 Generated assets and exact prompt: [assets/README.md](assets/README.md). Browser playtest findings: [PLAYTEST.md](PLAYTEST.md).
+
+## AI opponents and shared appearance
+
+Choose zero to four AI seats in the lobby, up to five total players. Solo includes at least one opponent. A WebRTC duel has two human seats and room for three additional opponents; team play shares one human seat and can face four opponents. Each opponent can use the configured model or the free offline dealer. The host runs every AI move, including during a human duel; guests never receive the host's key or any other hand. Lobby changes apply to a new match.
+
+AI settings are shared with Similo and Midnight Table: provider, per-provider model and reasoning effort, output budget, pricing, and opt-in remembered credentials. Unremembered keys stay in tab memory. OpenAI uses Responses with a strict candidate-index schema. One invalid response gets one correction attempt. Pause, retry, timeout and settings controls preserve the game. Other players' names and logs are data, not instructions. AI memory contains only its own previous short explanations; other players' sealed notes remain private.
+
+Light, Dark and System are available in the top bar, shared with the other card games. System tracks device appearance changes live. Cards remain accessible text rather than baked image numerals.
+
+Prompt evaluations and live browser checks are documented in [shared AI notes](../shared/ai/README.md).

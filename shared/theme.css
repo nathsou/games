@@ -31,3 +31,4 @@
 
 html[data-game=midnight][data-color-theme=light]{--cream:#233d35;--paper:#fff0c8;--felt-deep:#e0e9d5;--night:#f9f1e0;--panel:#fff9eb;--line:#9aa98d80}
 html[data-game=midnight][data-color-theme=light] body{color:var(--cream)}
+[data-color-theme=light] .arcade-ai-dialog input:not([type=checkbox]),[data-color-theme=light] .arcade-ai-dialog select{background:#fffdf3;color:#233d35;border-color:#9bae93}

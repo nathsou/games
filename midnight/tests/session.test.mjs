@@ -113,3 +113,13 @@ test('untrusted round labels and discard amounts cannot enter rendered snapshots
   assert.throws(()=>validateView(view));
   room.close();
 });
+test('a model co-op dealer is requested only on its own auction turn',async()=>{
+ const {legalActions,playerView}=await import('../src/rules.js');let calls=0;const errors=[];
+ let host,guest;
+ host=new TableSession({seat:0,team:true,onUpdate:()=>{},onError:e=>errors.push(e.message),chooseBot:(view,seat)=>{calls++;const actions=legalActions(view,seat);assert(actions.length>0);return actions[0];}});
+ guest=new TableSession({seat:1,team:true,onUpdate:()=>{},onError:e=>errors.push(e.message)});
+ host.setPeer({connected:true,send:m=>guest.receive(structuredClone(m))});guest.setPeer({connected:true,send:m=>host.receive(structuredClone(m))});host.start('closing',8);host.readyForPlay=true;
+ await Promise.resolve();assert.equal(calls,0);
+ await host.choose(legalActions(host.state,0)[0]);await Promise.resolve();assert.equal(calls,0);
+ await host.choose(legalActions(host.state,0)[0]);await new Promise(resolve=>setTimeout(resolve,5));assert.equal(calls,1);assert.deepEqual(errors,[]);clearTimeout(host.botTimer);
+});

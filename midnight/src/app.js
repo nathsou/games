@@ -1,3 +1,4 @@
+import {trackArcadeGame} from '../../shared/ai/usage.js';
 import {installThemeControls} from '../../shared/theme.js';
 import {loadAI} from '../../shared/ai/config.js';
 import {chooseTurn} from '../../shared/ai/turn.js';
@@ -54,7 +55,7 @@ function otherLocked() {
   return v.type === 'backhand' ? Boolean(v.pending[p]) : v.phase === 'guard' ? Boolean(v.guards[p]) : Boolean(v.raids[p]);
 }
 function tag() {
-  const label = mode === 'solo' ? 'VS THE DEALER' : mode === 'local' ? 'PASS & PLAY' : connected() ? session.team ? 'TEAM CONNECTED' : 'PEER CONNECTED' : linkStatus === 'idle' ? 'PRIVATE TABLE' : 'PARTNER OFFLINE';
+  const label = mode === 'solo' ? (selectedOpponent==='model'?'VS AI':'VS THE DEALER') : mode === 'local' ? 'PASS & PLAY' : connected() ? session.team ? 'TEAM CONNECTED' : 'PEER CONNECTED' : linkStatus === 'idle' ? 'PRIVATE TABLE' : 'PARTNER OFFLINE';
   return '<span class="tag"><span class="dot"></span>' + label + '</span>';
 }
 function render() {
@@ -226,6 +227,7 @@ function scheduleBot() {
   },450);
 }
 function afterOfflineMove(previousPhase) {
+  trackArcadeGame(matchId,'midnight-'+game.type,game,mode);
   if (game.phase !== previousPhase) { chosen = null; source = null; }
   if (game.phase === 'over' && countedGame !== game) {
     const win = winner(game);
@@ -266,6 +268,7 @@ async function act(action) {
 }
 function updateOnline() {
   if (!session?.view) return render();
+  if(session.seat===0)trackArcadeGame(session.epoch,'midnight-'+session.state.type,session.state,session.team?'Online team':'Online duel');
   const v = session.view;
   const key = session.epoch + '/' + v.type + '/' + v.round + '/' + v.phase;
   if (lastViewKey !== key) {

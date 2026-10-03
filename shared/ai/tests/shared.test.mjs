@@ -30,3 +30,13 @@ test('one malformed move gets a correction, usage is recorded, and provider erro
 test('Midnight role observations are idempotent and exclude future prizes, opposing cards and sealed choices',()=>{
  for(const type of ['backhand','closing','heist']){const state=createGame(type,13),view=playerView(state,1),d=describeTurn(view,1);assert.equal(d.observation.seed,undefined);assert.equal(d.observation.deck,undefined);assert.equal(d.observation.prizes,undefined);if(type!=='closing')assert(d.observation.hands[0].every(c=>c.hidden));}
 });
+test('the offline dealer can finish every Midnight game using only redacted observations',async()=>{
+ const {botAction}=await import('../../../midnight/src/bot.js');const {applyAction,legalActions}=await import('../../../midnight/src/rules.js');
+ for(const type of ['backhand','closing','heist'])for(let seed=0;seed<10;seed++) {
+  let game=createGame(type,seed),moves=0;
+  while(game.phase!=='over') {
+   const seat=game.phase==='reveal'?0:type==='closing'?game.turn:legalActions(game,0).length?0:1;
+   const view=playerView(game,seat),action=botAction(view,seat,()=>.5);assert(action);game=applyAction(game,seat,action);assert(++moves<100);
+  }
+ }
+});

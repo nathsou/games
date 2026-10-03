@@ -1,0 +1,25 @@
+{
+  "results": [
+    {
+      "game": "flip-it",
+      "errorRedaction": true,
+      "pausePreservesState": true,
+      "retry": true,
+      "calls": 3
+    },
+    {
+      "game": "midnight",
+      "errorRedaction": true,
+      "pausePreservesState": true,
+      "retry": true,
+      "calls": 3
+    },
+    {
+      "game": "similo",
+      "sharedResponsesClient": true,
+      "bothRoleImages": true,
+      "guesserPrivacy": true
+    }
+  ],
+  "errors": []
+}

@@ -115,6 +115,7 @@ export class TableSession {
   }
   prepareBot() {
     if (!this.team || this.seat !== 0 || !this.state || ['over', 'reveal'].includes(this.state.phase)) return;
+    if(this.state.type==='closing'&&this.state.turn!==1)return;
     const key = contextFor(this.epoch, this.state)+(this.state.type==='closing'?'/'+this.state.revision:'');
     if (this.botKey !== key) {
       this.botKey = key;
