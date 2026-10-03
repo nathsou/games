@@ -6,3 +6,4 @@ export const ART_OVERRIDES = Object.fromEntries([
   ...['Kenya', 'Cronus', 'Pandora', 'Beijing'].map((name, atlasIndex) => [name, {atlas: mixedAtlas, atlasIndex, columns: 2, rows: 2}]),
 ]);
 ART_OVERRIDES['Ibn al-Haytham'] = {atlas: 'assets/optics-final.webp', atlasIndex: 0, columns: 1, rows: 1};
+ART_OVERRIDES['France'] = {atlas: 'assets/france-chenonceau.webp', atlasIndex: 0, columns: 1, rows: 1};
