@@ -40,7 +40,7 @@ Six decks, each with 24 illustrated cards:
 
 Choose board and clue decks independently. When themes overlap, clue cards depicting someone on the board are excluded. The opening screen also offers future theme ideas and a collection browser.
 
-Select cards with a mouse, touch, or keyboard; activate focused buttons with Enter or Space. Right-click, double-click, or focus a card and press **I** to inspect it. Standard browser zoom works. Reduced-motion preferences disable animation.
+Select cards with a mouse, touch, or keyboard; activate focused buttons with Enter or Space. Right-click, double-click, or focus a card and press **I** to inspect it. The final round offers a larger side-by-side comparison of the last two candidates. The AI observation includes a matching close-up comparison. Standard browser zoom works. Reduced-motion preferences disable animation.
 
 ## AI settings
 
@@ -71,7 +71,7 @@ These are cooperative games between trusted players. A local browser that runs a
 - `src/storage.js`, `src/sound.js`: local persistence and synthesized arcade sounds.
 - `assets/PROMPTS.md`: the complete image-generation prompts and provenance.
 
-No tests or test suites are included, as requested. Verification is performed directly in the browser.
+No tests or test suites are included, as requested. Verification is performed directly in the browser. [Play notes](PLAY_NOTES.md) record the live GPT-6 Luna games, prompt refinements, interface checks and remaining limitations.
 
 ## Credits and documentation
 

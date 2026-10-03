@@ -130,6 +130,7 @@ function renderGame(){
   ${role==='giver'?`<section class="hand-section"><div class="section-title"><h2>YOUR PRIVATE HAND</h2><span>${view.variant==='fixed'?`${view.hand.length} LEFT · NO REFILLS`:'5 CARDS · REFILLS AFTER PLAY'}</span></div><div class="hand" id="hand"></div></section>`:''}</section>
   <aside class="side-panel"><p class="eyebrow">Round ${view.round+1} / 5</p><div class="round-track">${REMOVALS.map((n,i)=>`<span class="round-step ${i===view.round?'current':i<view.round?'done':''}" title="Round ${i+1}: remove ${n}">${i<view.round?'✓':n}</span>`).join('')}</div>${latest?`<div class="current-clue ${latest.relation}"><div id="current-clue-art"></div><div><small>CLUE ${latest.round}</small><p>${esc(CARDS[latest.card].name)}</p><strong>${latest.relation==='similar'?'↑ Similar':'→ Different'}</strong></div></div>`:''}<h2 class="turn-title">${turnTitle}</h2><p class="turn-copy">${turnCopy}</p>
   ${role==='giver'?'<div class="secret-preview"><div id="secret-preview"></div><div><p>'+esc(CARDS[view.secret].name)+'</p><small>Your secret character.<br>Keep it on the table.</small></div></div>':''}
+  ${myTurn&&role==='guesser'&&view.round===4?'<button class="button small secondary wide" id="compare-final">Compare the final two ▣</button>':''}
   ${myTurn?`<form id="turn-form" class="turn-form">${role==='giver'?`<span class="field-label">The connection</span><div class="segmented"><button type="button" id="similar" class="${relation==='similar'?'selected':''}" aria-pressed="${relation==='similar'}">↑ Similar</button><button type="button" id="different" class="${relation==='different'?'selected':''}" aria-pressed="${relation==='different'}">→ Different</button></div>`:''}<label class="private-label" for="turn-note">Your interpretation <span>SEALED UNTIL THE END</span></label><textarea id="turn-note" maxlength="1200" placeholder="Optional: what connection are you making?">${esc(draftNote)}</textarea><button class="button wide ${role==='guesser'?'danger':''}" id="confirm-move" type="submit">${role==='giver'?'Play this clue ↑':'Confirm removal ×'}</button><p class="selection-count" id="selection-count"></p></form>`:''}
   ${aiBusy?'<div class="thinking" role="status"><i></i><i></i><i></i><span>Reading the table…</span></div><button class="text-button" id="cancel-ai">Cancel request</button>':''}
   ${aiError?`<div class="inline-error" role="alert">${esc(aiError)}</div><div class="pair-actions"><button class="button small" id="retry-ai">Retry turn</button><button class="button small secondary" id="fix-ai">AI Settings</button></div>`:''}
@@ -161,8 +162,15 @@ function renderGame(){
   if($('fix-ai'))$('fix-ai').onclick=openSettings;
   if($('cancel-ai'))$('cancel-ai').onclick=()=>{cancelAI();aiError='Request cancelled. Retry when you’re ready.';renderGame();};
   if($('reconnect'))$('reconnect').onclick=()=>openPairing(mode==='peer-host'?'host':'guest',true);
+  if($('compare-final'))$('compare-final').onclick=()=>compareFinal(view);
   if(focusedId && $(focusedId))$(focusedId).focus({preventScroll:true});
   else if(focusZone && focusedCard){const replacement=$(focusZone)?.querySelector(`[data-card="${focusedCard.dataset.card}"]`);replacement?.focus({preventScroll:true});}
+}
+function compareFinal(view){
+  const latest=view.history.at(-1);
+  showModal('One connection decides it.','The final two',`<div class="replay-clue"><div id="compare-clue"></div><div><h3>${esc(CARDS[latest.card].name)}</h3><p>${latest.relation==='similar'?'↑ Similar':'→ Different'}</p></div></div><div class="final-pair" id="final-pair"></div><p class="help-text">Look for a trait that distinguishes these two. Consider the portrait as well as the person’s story.</p>`);
+  mountCard($('compare-clue'),latest.card,{className:latest.relation==='different'?'sideways':''});
+  for(const id of remaining(view))mountCard($('final-pair'),id,{interactive:true,onClick:()=>{selected.clear();selected.add(id);modal.close();renderGame();toast(`${CARDS[id].name} marked for removal. Confirm your choice on the table.`);}});
 }
 function renderClues(parent,history){
   if(!history.length){parent.innerHTML='<p class="empty-clues">The first clue will appear here. Similar ↑ · Different →</p>';return;}

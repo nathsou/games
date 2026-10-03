@@ -61,7 +61,9 @@ export function cardElement(id, {interactive = false, label = '', selected = fal
 export function observationImage(game, role) {
   const canvas = document.createElement('canvas');
   const hasHand = role === 'giver';
-  canvas.width = 1200; canvas.height = hasHand ? 1510 : 1200;
+  const finalists = game.board.filter(id => !game.eliminated.includes(id));
+  const comparison = game.round === 4 && game.history.length && finalists.length === 2;
+  canvas.width = 1200; canvas.height = comparison ? (hasHand ? 2030 : 1720) : (hasHand ? 1510 : 1200);
   const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled=false;
   ctx.fillStyle='#102d30'; ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle='#f2e4c5'; ctx.font='bold 24px monospace';
@@ -84,6 +86,17 @@ export function observationImage(game, role) {
   if (hasHand) {
     ctx.fillStyle='#f2e4c5';ctx.font='bold 22px monospace';ctx.fillText(`YOUR HAND · ${game.variant === 'fixed' ? 'NO REFILLS' : 'REFILL AFTER PLAY'}`,24,1220);
     for (let i=0;i<game.hand.length;i++) {drawCard(temp,game.hand[i],{label:game.hand[i]});ctx.drawImage(temp,24+i*232,1240,176,240);}
+  }
+  if (comparison) {
+    const y = hasHand ? 1540 : 1230;
+    ctx.fillStyle='#f2e4c5';ctx.font='bold 22px monospace';ctx.fillText('FINAL TWO · COMPARE BOTH PORTRAITS WITH THE LATEST CLUE',24,y);
+    const latest=game.history.at(-1);
+    [latest.card,...finalists].forEach((id,i)=>{
+      drawCard(temp,id,{label:id,secret:hasHand && id===game.secret});
+      ctx.drawImage(temp,24+i*390,y+35,288,392);
+      ctx.fillStyle='#f2e4c5';ctx.font='bold 18px monospace';
+      ctx.fillText(i===0?`LATEST CLUE: ${latest.relation.toUpperCase()}`:'REMAINING CANDIDATE',24+i*390,y+459);
+    });
   }
   return canvas.toDataURL('image/png');
 }
