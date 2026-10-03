@@ -32,6 +32,12 @@ function dimensionList(values) {
   return Array.isArray(values) && values.length > 0 && values.length <= DIMENSIONS.length &&
     new Set(values).size === values.length && values.every(value => DIMENSIONS.includes(value));
 }
+export function validRemovalReasons(reasons, ids) {
+  return Array.isArray(reasons) && reasons.length === ids.length &&
+    new Set(reasons.map(reason => reason?.card)).size === ids.length &&
+    reasons.every(reason => ids.includes(reason?.card) && typeof reason.rationale === 'string' &&
+      reason.rationale.trim().length > 0 && reason.rationale.length <= 300);
+}
 export function playClue(game, action) {
   if (game.phase !== 'clue') throw new Error('Wait for the next clue turn.');
   if (!game.hand.includes(action.card)) throw new Error('Choose a card from your hand.');
@@ -41,11 +47,15 @@ export function playClue(game, action) {
     throw new Error('Expected removals must name exactly the required number of remaining alternatives, keeping the secret safe.');
   }
   if (action.dimensions !== undefined && !dimensionList(action.dimensions)) throw new Error('Choose valid clue dimensions.');
+  if (action.removalReasons !== undefined && !validRemovalReasons(action.removalReasons, action.expectedRemovals || [])) {
+    throw new Error('Explain each expected removal once.');
+  }
   const next = structuredClone(game);
   next.history.push({round: game.round + 1, active: remaining(game), card: action.card,
     relation: action.relation, giverNote: note(action.rationale), removed: [], guesserNote: '',
     giverSource: note(action.source), guesserSource: '',
     ...(action.expectedRemovals !== undefined ? {expectedRemovals:[...action.expectedRemovals]} : {}),
+    ...(action.removalReasons !== undefined ? {expectedRemovalReasons:structuredClone(action.removalReasons)} : {}),
     ...(action.dimensions !== undefined ? {giverDimensions:[...action.dimensions]} : {})});
   next.hand = next.hand.filter(id => id !== action.card);
   if (next.variant === 'classic' && next.draw.length) next.hand.push(next.draw.shift());
@@ -65,10 +75,12 @@ export function eliminate(game, action) {
     throw new Error('Keep and remove must be separate lists that together cover every remaining card.');
   }
   if (action.dimensions !== undefined && !dimensionList(action.dimensions)) throw new Error('Choose valid interpretation dimensions.');
+  if (action.removalReasons !== undefined && !validRemovalReasons(action.removalReasons, ids)) throw new Error('Explain each removal once.');
   const next = structuredClone(game);
   Object.assign(next.history.at(-1), {removed: [...ids], guesserNote: note(action.rationale), guesserSource: note(action.source)});
   if (action.keptCards !== undefined) next.history.at(-1).keptCards = [...action.keptCards];
   if (action.dimensions !== undefined) next.history.at(-1).guesserDimensions = [...action.dimensions];
+  if (action.removalReasons !== undefined) next.history.at(-1).guesserRemovalReasons = structuredClone(action.removalReasons);
   next.eliminated.push(...ids);
   if (ids.includes(next.secret)) { next.phase = 'over'; next.result = 'loss'; }
   else if (next.round === 4) { next.phase = 'over'; next.result = 'win'; }
@@ -79,7 +91,8 @@ export function eliminate(game, action) {
 export function viewFor(game, role) {
   const {draw, hand, secret, history, ...publicState} = game;
   const view = {...structuredClone(publicState), role, history: history.map(({giverNote, guesserNote, giverSource, guesserSource,
-    expectedRemovals, keptCards, giverDimensions, guesserDimensions, ...round}) => ({...structuredClone(round)}))};
+    expectedRemovals, keptCards, giverDimensions, guesserDimensions, expectedRemovalReasons, guesserRemovalReasons,
+    ...round}) => ({...structuredClone(round)}))};
   if (role === 'giver' && game.phase !== 'over') { view.secret = secret; view.hand = [...hand]; }
   if (game.phase === 'over') {
     view.secret = secret;
@@ -105,12 +118,14 @@ export function validatePublicView(view) {
         (r.keptCards !== undefined && (!cardList(r.keptCards, r.active) ||
           r.keptCards.length !== r.active.length - r.removed.length || r.keptCards.some(id => r.removed.includes(id)))) ||
         (r.giverDimensions !== undefined && !dimensionList(r.giverDimensions)) ||
-        (r.guesserDimensions !== undefined && !dimensionList(r.guesserDimensions)))) {
+        (r.guesserDimensions !== undefined && !dimensionList(r.guesserDimensions)) ||
+        (r.expectedRemovalReasons !== undefined && !validRemovalReasons(r.expectedRemovalReasons, r.expectedRemovals || [])) ||
+        (r.guesserRemovalReasons !== undefined && !validRemovalReasons(r.guesserRemovalReasons, r.removed)))) {
     throw new Error('Your partner sent an incompatible game state.');
   }
   if (view.phase !== 'over' && ('secret' in view || 'hand' in view || 'draw' in view ||
       view.history.some(r => ['giverNote','guesserNote','giverSource','guesserSource','expectedRemovals','keptCards',
-        'giverDimensions','guesserDimensions'].some(key => key in r)))) throw new Error('Unexpected private information in the game update.');
+        'giverDimensions','guesserDimensions','expectedRemovalReasons','guesserRemovalReasons'].some(key => key in r)))) throw new Error('Unexpected private information in the game update.');
   if (view.phase === 'over' && (!view.board.includes(view.secret) || !['win','loss'].includes(view.result))) throw new Error('Invalid final reveal.');
   return view;
 }
@@ -137,6 +152,7 @@ export function aiObservation(game, role) {
         action: role === 'giver' ? {clue, ...(r.expectedRemovals ? {expectedRemovals:r.expectedRemovals.map(id => ({id,name:CARDS[id].name}))} : {})} :
           {removedCards, ...(r.keptCards ? {keptCards:r.keptCards.map(id => ({id,name:CARDS[id].name}))} : {})},
         dimensions: (role === 'giver' ? r.giverDimensions : r.guesserDimensions) || [],
+        removalReasons: (role === 'giver' ? r.expectedRemovalReasons : r.guesserRemovalReasons) || [],
         ...(role === 'giver' ? {publicResponse:{removedCards, resolved:r.removed.length>0}} : {receivedClue:clue}),
         explanation:role === 'giver' ? r.giverNote : r.guesserNote}];
     }),
