@@ -10,53 +10,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="shell">
-    <header class="masthead">
-      <a href="../" class="back" aria-label="Back to all games">↖ THE PLAYGROUND</a>
-      <div class="wordmark">mosslight<span>✳</span></div>
-      <div class="edition">A SMALL WOODLAND ADVENTURE <span>VOL. 01</span></div>
-    </header>
-    <section class="game-frame" aria-label="Mosslight game">
-      <canvas id="game" tabindex="0" aria-label="Woodland game. Click ground to move, click cargo or enemies to send your crew, right click or Q to whistle. WASD moves; E works on nearby tasks; 1, 2, 3 select crew types."></canvas>
-      <div class="hud" id="hud" hidden>
-        <div class="objective"><span class="eyebrow">BRING THE LIGHT HOME</span><strong id="cores">0 / 3 <small>lanterns</small></strong><div class="core-pips" id="pips"><i></i><i></i><i></i></div></div>
-        <div class="day"><span id="day-label">UNTIL DUSK</span><strong id="clock">8:00</strong><div class="day-track"><i id="day-progress"></i></div></div>
-        <div class="hud-buttons"><button id="sound" aria-label="Mute sound" title="Sound (M)">♫</button><button id="pause" aria-label="Pause game" title="Pause (Esc)">Ⅱ</button></div>
-      </div>
-      <div id="notice" class="notice" role="status" aria-live="polite"></div>
-      <div id="tooltip" class="tooltip" hidden></div>
-      <div class="crew-bar" id="crew-bar" hidden>
-        <button data-type="all" class="selected"><span class="crew-icon all">✳</span><span>Everyone<small>4 · all crew</small></span><b id="count-all">12</b></button>
-        <button data-type="0"><span class="crew-icon ember">♠</span><span>Ember<small>1 · fighters</small></span><b id="count-0">4</b></button>
-        <button data-type="1"><span class="crew-icon tide">♠</span><span>Tide<small>2 · swimmers</small></span><b id="count-1">4</b></button>
-        <button data-type="2"><span class="crew-icon honey">♠</span><span>Honey<small>3 · strong carriers</small></span><b id="count-2">4</b></button>
-        <div class="crew-total"><strong id="following">12</strong><span>with you</span></div>
-      </div>
-      <div class="overlay" id="title-screen">
-        <div class="title-card">
-          <span class="eyebrow">LITTLE FRIENDS. BIG ADVENTURE.</span>
-          <h1>The woods are<br>full of <em>wonder.</em></h1>
-          <p>Your ship has gone dark. Gather a leafy crew, recover three lost lanterns, and find your way home.</p>
-          <div class="title-actions"><button class="primary" id="start">Venture into the woods <span>↗</span></button><button class="quiet" id="cozy">Take your time <span>no dusk timer</span></button></div>
-          <div class="starter-controls"><span><b>CLICK</b> move / send crew</span><span><b>RIGHT CLICK</b> whistle them back</span><span><b>WASD</b> move</span></div>
-          <div class="best" id="best"></div>
-        </div>
-      </div>
-      <div class="overlay" id="pause-screen" hidden>
-        <div class="modal"><span class="eyebrow">A MOMENT IN THE MOSS</span><h2 id="pause-title">Take a breather.</h2><p>The woods can wait.</p><button id="resume" class="primary">Keep exploring <span>↗</span></button><button id="restart" class="quiet">Start a fresh expedition</button></div>
-      </div>
-      <div class="overlay" id="end-screen" hidden>
-        <div class="modal"><span class="eyebrow" id="end-kicker">EXPEDITION COMPLETE</span><h2 id="end-title">A little light<br>goes a long way.</h2><p id="end-copy"></p><div class="end-stats" id="end-stats"></div><button id="again" class="primary">One more adventure <span>↗</span></button><button id="end-cozy" class="quiet">Explore without a timer</button></div>
-      </div>
-      <div id="touch-controls" class="touch-controls" hidden><button id="touch-work">Send crew</button><button id="touch-whistle">Whistle</button></div>
-    </section>
-    <footer class="field-notes">
-      <div><span class="note-number">01</span><p><strong>A crew, not an army.</strong><br>Feed berries to your ship to grow more friends.</p></div>
-      <div><span class="note-number">02</span><p><strong>Small but mighty.</strong><br>Embers fight. Tides swim. Honeys carry twice as much.</p></div>
-      <button id="help" class="help">FIELD GUIDE <span>↗</span></button>
-    </footer>
-    <dialog id="guide"><form method="dialog"><button class="guide-close" aria-label="Close field guide">×</button></form><span class="eyebrow">THE CAPTAIN’S FIELD GUIDE</span><h2>Leave no leaf behind.</h2><p>Bring all three golden lanterns to the ship. Send enough crew to a task, then let them work while you explore. Carriers find their own way home.</p><dl><dt>Move</dt><dd>WASD / arrows, or click empty ground. Hold Shift while moving to sprint. Click the map to travel farther.</dd><dt>Send crew</dt><dd>Click a berry, lantern, enemy, or bridge to send your selected crew. E sends crew to the nearest task. Space sends them toward your pointer.</dd><dt>Throw one</dt><dd>Shift + click sends a single friend. Useful for splitting jobs.</dd><dt>Whistle</dt><dd>Right click to call friends near the pointer. Hold Q to call friends around you. Calling workers takes them off their task.</dd><dt>Select</dt><dd>1 Ember · 2 Tide · 3 Honey · 4 Everyone. Or use the crew buttons.</dd><dt>Rest</dt><dd>Esc / P pauses. M toggles sound. The game pauses when you switch tabs.</dd></dl><p><b>Look for glowing sprouts.</b> Walk close to recruit them. Honey friends count as two carriers. Tide friends can cross the stream; everyone else needs the bridge or the southern ford. If a friend wilts in a fight, whistle them awake before their glow fades. Your crew can never be permanently wiped out: the ship grows reinforcements when only a few remain.</p><p class="guide-tip">Try “Take your time” for a relaxed expedition with no deadline.</p></dialog>
-  </main>
+  <canvas id="game" tabindex="0" aria-label="Mosslight. A woodland squad adventure. Click to interact; WASD to move; E to send crew; Q to whistle; F for fullscreen; Escape to pause. Menus support Tab and Enter.">Mosslight needs a browser with Canvas 2D support and JavaScript enabled.</canvas>
   <script type="module" src="main.js"></script>
 </body>
 </html>
