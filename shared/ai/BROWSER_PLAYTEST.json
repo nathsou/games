@@ -1,0 +1,101 @@
+{
+  "results": [
+    {
+      "game": "shared",
+      "themes": true,
+      "crossTabSettings": true,
+      "layouts": [
+        320,
+        390,
+        768,
+        1280
+      ]
+    },
+    {
+      "game": "flip-it",
+      "mode": "solo",
+      "seats": 4,
+      "scores": [
+        0,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "game": "backhand",
+      "mode": "solo-model",
+      "scores": [
+        1,
+        9
+      ]
+    },
+    {
+      "game": "closing",
+      "mode": "solo-model",
+      "scores": [
+        4,
+        14
+      ]
+    },
+    {
+      "game": "heist",
+      "mode": "solo-model",
+      "scores": [
+        34,
+        35
+      ]
+    },
+    {
+      "game": "flip-it",
+      "mode": "mixed-human-duel",
+      "seats": 5,
+      "guestMoves": 14,
+      "scores": [
+        0,
+        0,
+        0,
+        0,
+        2
+      ]
+    },
+    {
+      "game": "flip-it",
+      "mode": "mixed-team",
+      "seats": 4,
+      "guestMoves": 9,
+      "scores": [
+        2,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "game": "backhand",
+      "mode": "team-model",
+      "scores": [
+        4,
+        13
+      ]
+    },
+    {
+      "game": "closing",
+      "mode": "team-model",
+      "scores": [
+        4,
+        13
+      ]
+    },
+    {
+      "game": "heist",
+      "mode": "team-model",
+      "scores": [
+        30,
+        38
+      ]
+    }
+  ],
+  "mockedProviderCalls": 199,
+  "errors": []
+}

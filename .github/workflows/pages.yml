@@ -25,6 +25,12 @@ jobs:
       - name: Spacegolf tests
         run: npm test
         working-directory: spacegolf
+      - name: Shared AI tests
+        run: node --test shared/ai/tests/*.test.mjs
+      - name: Flip it tests
+        run: npm test
+        working-directory: flip-it
+
       - name: Nonocube install
         run: npm ci
         working-directory: nonocube
@@ -32,8 +38,19 @@ jobs:
         run: npm run typecheck && npm test
         working-directory: nonocube
 
+  midnight-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Midnight Table rules and protocol tests
+        run: npm test
+        working-directory: midnight
+
   deploy:
-    needs: test
+    needs: [test, midnight-test]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -48,10 +65,17 @@ jobs:
         working-directory: nonocube
       - name: Assemble site
         run: |
-          mkdir -p _site/spacegolf
+          mkdir -p _site/spacegolf _site/flip-it
           cp index.html _site/
+          cp flip-it/index.html flip-it/style.css flip-it/preview.png _site/flip-it/
+          cp -r flip-it/src flip-it/assets _site/flip-it/
           cp spacegolf/index.html spacegolf/preview.jpg _site/spacegolf/
           cp -r spacegolf/src _site/spacegolf/src
+          mkdir -p _site/midnight
+          cp midnight/index.html midnight/style.css midnight/preview.png _site/midnight/
+          cp -r midnight/src midnight/assets _site/midnight/
+          cp -r similo _site/similo
+          cp -r shared _site/shared
           cp -r nonocube/dist _site/nonocube
           cp nonocube/preview.jpg _site/nonocube/
           touch _site/.nojekyll
