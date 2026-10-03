@@ -51,6 +51,8 @@ Choose board and clue decks independently, including people/place combinations. 
 
 Select cards with a mouse, touch, or keyboard; activate focused buttons with Enter or Space. Right-click, double-click, or focus a card and press **I** to inspect it. The final round offers a larger side-by-side comparison of the last two candidates. The AI observation includes a matching close-up comparison. Standard browser zoom works. Reduced-motion preferences disable animation.
 
+Each board theme has an [original WebAudio composition](MUSIC.md), with music starting after a user gesture and pausing in hidden tabs. The top audio button mutes everything; Settings offers independent music and effect switches and a music-volume slider. Wins and losses open an explicit result dialog with the revealed card, a brief celebration or falling-card effect, and a corresponding musical cue before opening the sealed interpretations.
+
 ## AI settings
 
 Open **AI Settings**, choose OpenRouter, OpenAI, or Anthropic, and supply a personal key. Keys are stored in this browser's local storage when **Remember keys** is selected; otherwise they remain in memory for the visit. **Forget all saved keys** removes them. Browser storage is not a secret vault and is shared by pages on the same origin. Keys are sent only to the corresponding fixed provider endpoint and never included in multiplayer messages, saved games, or replay exports. Environment files are ignored by Git.
@@ -62,6 +64,8 @@ Reasoning effort is configurable, including a **Provider default** option that o
 Every AI decision gets a freshly rendered image of its permitted board, public clues, and, for the giver, its hand and target. A matching observation supplies IDs, names, public dates and descriptions, elimination status and legal move counts. The model also gets its own previously recorded explanations as a memory of its earlier associations. It never receives its partner's sealed explanations. The guesser receives no target, private hand, or draw pile. There is no persistent provider conversation that could accidentally leak a previous role's private information. The OpenAI Responses adapter sets `store: false`.
 
 The game requests a brief player-facing explanation with the decision. This is a contemporaneous explanation of the association, not an internal reasoning transcript. Human notes are optional. Both are sealed during play and shown round by round at the end. Save a replay as JSON and reopen it from the opening screen; replays contain no credentials.
+
+The AI is instructed to give equal consideration to roles and jobs, dates and era, geography, history and stories, supported traits, and appearance. It compares plausible interpretations across these dimensions and checks whether a clue could mislead the human about the target, including unintended patterns across several clues. The giver considers both directions for each available card; neither sign is imposed by a quota. A clear direct Similar connection breaks an otherwise equal tie. Brief public explanations remain sealed, rather than exposing the candidate deliberation. [Clue-direction notes](AI_CLUES.md) record the investigation and live prompt comparisons.
 
 ## Reconnection and saving
 
@@ -78,7 +82,8 @@ These are cooperative games between trusted players. A local browser that runs a
 - `src/app.js`: accessible native controls, game flow, pairing, local saving, replay and settings.
 - `src/peer.js`: compressed invitation/reply tokens and reliable ordered WebRTC messages.
 - `src/ai.js`: image requests and provider-specific authentication, models and reasoning controls.
-- `src/storage.js`, `src/sound.js`: local persistence and synthesized arcade sounds.
+- `src/storage.js`, `src/sound.js`: local persistence, audio controls and synthesized arcade sounds.
+- `src/music.js`, `src/outcome.js`: eleven original scores, WebAudio playback and finite result animations.
 - `assets/PROMPTS.md`: the complete image-generation prompts and provenance.
 
 No tests or test suites are included, as requested. Verification is performed directly in the browser. [Play notes](PLAY_NOTES.md) record the live GPT-6 Luna games, prompt refinements, interface checks and remaining limitations.

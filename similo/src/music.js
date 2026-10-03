@@ -90,7 +90,7 @@ export function scheduleTrackStep(ctx,output,track,step,time){
     const variation=bar>=4&&beat===0&&bar!==7?7:0;
     tone(ctx,output,pitch(track,degree+variation),when,interval*length*.88,track.voice,.13,-.16);
   }
-  if(beat===0||beat===Math.ceil(track.steps/2))tone(ctx,output,pitch(track,chord+(beat?4:0),-2),when,interval*1.8,'warm',.17,0);
+  if(beat===0||(track.arp!=='waltz'&&beat===Math.ceil(track.steps/2)))tone(ctx,output,pitch(track,chord+(beat?4:0),-2),when,interval*1.8,'warm',.17,0);
   let arp;
   if(track.arp==='waltz')arp=beat===2?2:beat===4?4:null;
   else if(track.arp==='sparse')arp=beat===2?4:null;
@@ -107,13 +107,18 @@ export function scheduleTrackStep(ctx,output,track,step,time){
   }
 }
 export class ThemeMusic{
-  constructor(context,destination){this.context=context;this.destination=destination;this.enabled=false;this.theme='french';this.volume=.22;this.timer=null;this.channel=null;}
+  constructor(context,destination){this.context=context;this.destination=destination;this.enabled=false;this.theme='french';this.volume=.22;this.timer=null;this.channel=null;this.duckedUntil=0;}
   configure({theme,enabled,volume}){
     const next=THEME_MUSIC[theme]?theme:'french',changed=next!==this.theme;
-    this.theme=next;this.enabled=Boolean(enabled);this.volume=Math.max(0,Math.min(.7,Number(volume)||0));
+    const nextVolume=Math.max(0,Math.min(.7,Number(volume)||0)),volumeChanged=nextVolume!==this.volume;
+    this.theme=next;this.enabled=Boolean(enabled);this.volume=nextVolume;
     if(!this.enabled||document.hidden||this.context.state!=='running'){this.stop();return;}
     if(changed||!this.timer){this.stop();this.start();}
-    else this.channel.gain.setTargetAtTime(this.volume,this.context.currentTime,.08);
+    else if(volumeChanged){
+      const now=this.context.currentTime,ducked=now<this.duckedUntil;
+      this.channel.gain.cancelScheduledValues(now);this.channel.gain.setTargetAtTime(this.volume*(ducked?.2:1),now,.08);
+      if(ducked)this.channel.gain.setTargetAtTime(this.volume,this.duckedUntil,.3);
+    }
   }
   start(){
     const ctx=this.context;this.channel=ctx.createGain();this.channel.connect(this.destination);
@@ -127,11 +132,11 @@ export class ThemeMusic{
     schedule();this.timer=setInterval(schedule,25);
   }
   stop(){
-    clearInterval(this.timer);this.timer=null;
+    clearInterval(this.timer);this.timer=null;this.duckedUntil=0;
     if(this.channel){const retiring=this.channel,now=this.context.currentTime;retiring.gain.cancelScheduledValues(now);retiring.gain.setTargetAtTime(0,now,.045);setTimeout(()=>retiring.disconnect(),400);this.channel=null;}
   }
   duck(seconds=2.4){
     if(!this.channel)return;const now=this.context.currentTime;this.channel.gain.cancelScheduledValues(now);
-    this.channel.gain.setTargetAtTime(this.volume*.2,now,.03);this.channel.gain.setTargetAtTime(this.volume,now+seconds,.3);
+    this.duckedUntil=now+seconds;this.channel.gain.setTargetAtTime(this.volume*.2,now,.03);this.channel.gain.setTargetAtTime(this.volume,this.duckedUntil,.3);
   }
 }
