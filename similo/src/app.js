@@ -246,9 +246,11 @@ function decisionDetails(round, role){
   const names = ids => esc(ids.map(id=>CARDS[id].name).join(', '));
   const labels = {role:'Role / domain',dates:'Dates / era',geography:'Geography',stories:'Stories / achievements',traits:'Traits',appearance:'Appearance'};
   const dimensions = role==='giver' ? round.giverDimensions : round.guesserDimensions;
+  const reasons = role==='giver' ? round.expectedRemovalReasons : round.guesserRemovalReasons;
+  const details = reasons?.length ? `<ul class="decision-reasons">${reasons.map(reason=>`<li><strong>${esc(CARDS[reason.card].name)}</strong> ${esc(reason.rationale)}</li>`).join('')}</ul>` : '';
   const basis = dimensions?.length ? `<p class="decision-basis">Connections: ${esc(dimensions.map(value=>labels[value]).join(' · '))}</p>` : '';
-  if(role==='giver')return `${basis}<p class="decision-list">Expected removals: <strong>${round.expectedRemovals ? names(round.expectedRemovals) : 'Not recorded.'}</strong></p>`;
-  return `${basis}${round.keptCards ? `<p class="decision-list">Chose to keep: <strong>${names(round.keptCards)}</strong></p>` : ''}`;
+  if(role==='giver')return `${basis}<p class="decision-list">Expected removals: <strong>${round.expectedRemovals ? names(round.expectedRemovals) : 'Not recorded.'}</strong></p>${details}`;
+  return `${basis}${round.keptCards ? `<p class="decision-list">Chose to keep: <strong>${names(round.keptCards)}</strong></p>` : ''}${details}`;
 }
 function renderReveal(){
   if(!game||game.phase!=='over')return;
