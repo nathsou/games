@@ -5,6 +5,8 @@ Small browser games in vanilla JavaScript. The index page lists them as cards an
 | Game | Folder |
 | --- | --- |
 | **Flip it**: configurable two-player card duel, WebRTC, local play and team play, no dependencies | [`flip-it/`](flip-it/) |
+| **Midnight Table**: three card games, solo/local/WebRTC duel and co-op, no dependencies | [midnight/](midnight/) |
+| **Similo Arcade**: cooperative deduction, eleven decks, vision AI and WebRTC | [similo/](similo/) |
 | **Spacegolf**: golf in space, WebGL2, no dependencies | [`spacegolf/`](spacegolf/) |
 
 To add a game: put it in its own folder with an `index.html`, add a card to the root `index.html`, and copy its files in the workflow's "Assemble site" step.
