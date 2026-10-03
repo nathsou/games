@@ -25,6 +25,45 @@ const definitions = {
       ['Albert Einstein', 'Theoretical physicist'], ['Nelson Mandela', 'South African president'], ['Wangari Maathai', 'Kenyan environmentalist'],
     ],
   },
+  scientists: {
+    name: 'Scientists', subtitle: 'Equations, inventions & great discoveries', color: '#9ab780', symbol: '⌁',
+    cards: [
+      ['Archimedes', 'Mathematician and inventor'], ['Hypatia', 'Mathematician and philosopher'], ['Al-Khwarizmi', 'Mathematician and astronomer'],
+      ['Ibn al-Haytham', 'Physicist and pioneer of optics'], ['Leonardo da Vinci', 'Artist and engineer'], ['Galileo Galilei', 'Astronomer and physicist'],
+      ['Isaac Newton', 'Physicist and mathematician'], ['Émilie du Châtelet', 'Physicist and mathematician'], ['Michael Faraday', 'Physicist and chemist'],
+      ['James Clerk Maxwell', 'Physicist'], ['Charles Darwin', 'Naturalist and biologist'], ['Nikola Tesla', 'Electrical engineer and inventor'],
+      ['Ada Lovelace', 'Mathematician and computing pioneer'], ['Louis Pasteur', 'Chemist and microbiologist'], ['Marie Curie', 'Physicist and chemist'],
+      ['Albert Einstein', 'Theoretical physicist'], ['Emmy Noether', 'Mathematician'], ['Srinivasa Ramanujan', 'Mathematician'],
+      ['Alan Turing', 'Mathematician and computer scientist'], ['Grace Hopper', 'Computer scientist and naval officer'], ['Rosalind Franklin', 'Chemist and crystallographer'],
+      ['Katherine Johnson', 'Mathematician'], ['Chien-Shiung Wu', 'Experimental physicist'], ['Hedy Lamarr', 'Inventor and actor'],
+    ],
+  },
+  philosophers: {
+    name: 'Philosophers', subtitle: 'Big questions & unexpected connections', color: '#d9ad76', symbol: '◈',
+    cards: [
+      ['Socrates', 'Greek philosopher'], ['Plato', 'Greek philosopher'], ['Aristotle', 'Greek philosopher and polymath'],
+      ['Epicurus', 'Greek philosopher'], ['Diogenes', 'Greek Cynic philosopher'], ['Hypatia', 'Mathematician and philosopher'],
+      ['Confucius', 'Chinese philosopher'], ['Laozi', 'Traditional Daoist sage'], ['Zhuangzi', 'Chinese Daoist philosopher'],
+      ['Mencius', 'Chinese Confucian philosopher'], ['Nāgārjuna', 'Indian Buddhist philosopher'], ['Ibn Sina', 'Persian philosopher and physician'],
+      ['Ibn Rushd', 'Andalusian philosopher and physician'], ['Thomas Aquinas', 'Italian philosopher and theologian'], ['Niccolò Machiavelli', 'Florentine political thinker'],
+      ['René Descartes', 'French philosopher and mathematician'], ['Baruch Spinoza', 'Dutch philosopher'], ['John Locke', 'English philosopher'],
+      ['David Hume', 'Scottish philosopher'], ['Immanuel Kant', 'German philosopher'], ['Mary Wollstonecraft', 'English philosopher and writer'],
+      ['Friedrich Nietzsche', 'German philosopher'], ['Simone de Beauvoir', 'French philosopher and writer'], ['Hannah Arendt', 'Political thinker'],
+    ],
+  },
+  writers: {
+    name: 'Writers', subtitle: 'Poets, novelists & storytellers', color: '#d99aaa', symbol: '¶',
+    cards: [
+      ['Homer', 'Ancient Greek epic poet'], ['Sappho', 'Ancient Greek lyric poet'], ['Dante Alighieri', 'Italian poet'],
+      ['Geoffrey Chaucer', 'English poet'], ['Miguel de Cervantes', 'Spanish novelist'], ['William Shakespeare', 'Playwright and poet'],
+      ['Molière', 'Playwright and actor'], ['Jean de La Fontaine', 'French fabulist'], ['Voltaire', 'Enlightenment writer'],
+      ['Johann Wolfgang von Goethe', 'German poet and novelist'], ['Jane Austen', 'English novelist'], ['Mary Shelley', 'English novelist'],
+      ['Victor Hugo', 'Poet and novelist'], ['Alexandre Dumas', 'French novelist'], ['George Sand', 'French novelist'],
+      ['Fyodor Dostoevsky', 'Russian novelist'], ['Leo Tolstoy', 'Russian novelist'], ['Charles Dickens', 'English novelist'],
+      ['Oscar Wilde', 'Irish playwright and poet'], ['Virginia Woolf', 'English novelist'], ['Franz Kafka', 'Prague-born writer'],
+      ['Rabindranath Tagore', 'Bengali poet and polymath'], ['Jorge Luis Borges', 'Argentine writer'], ['Toni Morrison', 'American novelist'],
+    ],
+  },
   greek: {
     name: 'Greek Mythology', subtitle: 'Gods, monsters & dangerously good clues', color: '#b5a3ec', symbol: '✦',
     cards: [
