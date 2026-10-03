@@ -41,6 +41,7 @@ function toast(message) {
 function feedback(message, kind = '') {
   $('feedback').textContent = message;
   $('feedback').className = 'guide-copy' + (kind ? ' feedback-' + kind : '');
+  $('mobile-feedback').textContent = message;
 }
 function closeDialogs() { document.querySelectorAll('dialog[open]').forEach(d => d.close()); }
 function openDialog(id) { closeDialogs(); $(id).showModal(); }
@@ -71,8 +72,10 @@ function renderBoard() {
   const hadFocus = document.activeElement?.closest('#board');
   const side = mode === 'game' ? human : 'w';
   const moves = !busy && !finished && !failed ? legalMoves(state, side) : [];
-  const destinations = new Set(selected === null ? [] : moves.filter(m => m.from === selected).map(m => m.to));
+  const inspectingOpponent = selected !== null && state.board[selected]?.color !== side;
+  const destinations = new Set(selected === null || inspectingOpponent ? [] : moves.filter(m => m.from === selected).map(m => m.to));
   const threats = progress.settings.threats ? attackMap(state, opposite(side)) : new Set();
+  if (inspectingOpponent) attacksFrom(state,selected).forEach(i=>threats.add(i));
   const targets = targetSquares().map(index), king = kingSquare(state, state.turn), check = inCheck(state) ? king : -1;
   $('board').innerHTML = Array.from({length:64},(_,v) => {
     const i = flipped ? 63-v : v, p = state.board[i], target = targets.includes(i);
@@ -83,7 +86,7 @@ function renderBoard() {
   $('ranks').innerHTML = Array.from({length:8},(_,i) => `<span>${flipped ? i+1 : 8-i}</span>`).join('');
   $('files').innerHTML = (flipped ? 'hgfedcba' : 'abcdefgh').split('').map(f=>`<span>${f}</span>`).join('');
   if (hadFocus) $('board').querySelector(`[data-square="${focusSquare}"]`)?.focus({preventScroll:true});
-  $('undo-button').disabled = !history.length || busy;
+  $('undo-button').disabled = !history.length || busy || (mode === 'game' && !history.some(h=>h.color===human));
   $('retry-button').disabled = busy;
   $('hint-button').disabled = busy || finished || mode === 'game';
   $('hint-button').hidden = mode === 'game';
@@ -113,11 +116,13 @@ function loadLesson(id) {
   $('lesson-number').textContent = `ENCOUNTER ${String(number).padStart(2,'0')} / ${String(local.length).padStart(2,'0')}`;
   $('region-scene').innerHTML = worldSVG(restored(),lesson.region);
   $('scene-caption').textContent = ['A first step into the meadow.','Listen. Look. A little further.','A safe place for a small king.','Good ideas grow in high places.','A few surprises across the river.','The stars are closer than you think.'][lesson.region];
-  $('mode-label').textContent = lesson.mode === 'drill' ? 'MOVEMENT DRILL · NO OPPONENT TURNS' : lesson.mode === 'inspect' ? 'OBSERVATION CHALLENGE' : lesson.maxMoves > 1 ? 'A SHORT CHESS ENCOUNTER' : 'CHESS PUZZLE · IVORY TO MOVE';
+  $('mode-label').textContent = lesson.mode === 'drill' ? 'MOVEMENT DRILL · NO OPPONENT TURNS' : lesson.mode === 'inspect' ? 'OBSERVATION CHALLENGE' : lesson.maxMoves > 1 ? 'CHESS ENCOUNTER · TWO OF YOUR MOVES' : 'CHESS PUZZLE · SOLVE IN ONE MOVE';
   $('lesson-title').textContent = lesson.title; $('objective').textContent = lesson.objective;
+  $('board-objective').textContent = lesson.objective;
   $('guide-greeting').textContent = 'Small steps. Big discoveries.';
   $('pocket-tip').innerHTML = ['You don’t need to be clever.<br><em>Just curious.</em>','Before you leap,<br><em>take a little look.</em>','Even a king<br><em>needs a friend.</em>','A little foresight.<br><em>A lovely surprise.</em>','The small pieces<br><em>have big futures.</em>','You know more<br><em>than when you arrived.</em>'][lesson.region];
-  $('hint-note').hidden = true; $('hint-count').textContent = ''; $('result').hidden = true; $('move-log-card').hidden = true;
+  $('hint-note').hidden = true; $('mobile-hint').hidden = true; $('hint-count').textContent = ''; $('result').hidden = true; $('move-log-card').hidden = true;
+  $('retry-button').innerHTML = '<span aria-hidden="true">↻</span> Start over';
   feedback(lesson.intro); applySettings(); renderJourney(); renderBoard(); save();
 }
 function goalReached(move, before, captured) {
@@ -149,7 +154,10 @@ function goalReached(move, before, captured) {
       const removed = { ...state, board:state.board.slice() }; removed.board[kingSquare(state,'b')] = null;
       return attacksFrom(removed,move.to).includes(index(g.square)) && state.board[index(g.square)]?.color === 'b';
     }
-    case 'material': return evaluate(state,'w') - evaluate(fromFEN(lesson.fen),'w') >= g.gain;
+    case 'material': {
+      const material = position => position.board.reduce((total,p)=>total+(p ? (p.color==='w' ? 1 : -1)*VALUES[p.type] : 0),0);
+      return material(state) - material(fromFEN(lesson.fen)) >= g.gain;
+    }
     case 'trade': return Boolean(captured) && move.to === index(g.square) && VALUES[captured.type] === VALUES[moved.type];
     case 'promotion': return Boolean(move.promotion);
     case 'castle': return Boolean(move.castling) && (g.side === 'king' ? move.to > move.from : move.to < move.from);
@@ -230,6 +238,12 @@ function activateSquare(i) {
     if (mode === 'game' && selected !== null) coachSelection(i);
     return;
   }
+  if (p && (selected === null || state.board[selected]?.color !== side)) {
+    selected = selected === i ? null : i;
+    feedback(`Inspecting the ${p.color==='w' ? 'ivory' : 'violet'} ${NAMES[p.type]} on ${square(i)}. The × marks show its attacks. Select one of your own pieces when you are ready to move.`);
+    renderBoard(); sound('select'); return;
+  }
+  if (selected !== null && state.board[selected]?.color !== side) { feedback('You are inspecting an opponent’s piece. Select one of your own pieces to make a move.'); return; }
   if (selected === null) { feedback('Select one of your pieces first, then select where you want it to go.'); return; }
   const moves = legalMoves(state,side).filter(m=>m.from===selected && m.to===i);
   if (!moves.length) { feedback(explainIllegal(state,selected,i),'error'); sound('error'); return; }
@@ -263,6 +277,8 @@ function giveHint() {
   hintLevel = Math.min(hintLevel+1,lesson.hints.length);
   $('hint-note').innerHTML = `<span>HINT ${hintLevel} OF ${lesson.hints.length} · NO PENALTY</span>${lesson.hints[hintLevel-1]}`;
   $('hint-note').hidden = false; $('hint-count').textContent = `${hintLevel}/${lesson.hints.length}`;
+  $('mobile-hint').textContent = `Hint ${hintLevel} of ${lesson.hints.length}: ${lesson.hints[hintLevel-1]}`;
+  $('mobile-hint').hidden = false;
   if (hintLevel === lesson.hints.length) {
     const words = lesson.hints.at(-1).match(/\b[a-h][1-8]\b/g) || [];
     hinted = [...new Set(words.map(index))];
@@ -290,8 +306,9 @@ function setGameUI() {
   $('region-name').textContent = 'The Friendly Table'; $('region-icon').textContent = '♟'; $('lesson-number').textContent = 'NO CLOCK · NO PRESSURE';
   $('region-scene').innerHTML = worldSVG(restored(),5); $('scene-caption').textContent = 'A quiet table under the stars.';
   $('mode-label').textContent = 'ORDINARY CHESS · ALL THE USUAL RULES'; $('lesson-title').textContent = 'A game with Milo'; $('objective').textContent = 'Keep your king safe, make a plan, and aim for checkmate.';
+  $('board-objective').textContent = 'Take your time. Keep your king safe and aim for checkmate.';
   $('guide-greeting').textContent = 'A friendly game. Take your time.'; $('pocket-tip').innerHTML = 'What changed?<br><em>What could happen next?</em>';
-  $('hint-note').hidden = true; $('result').hidden = true; $('move-log-card').hidden = false; $('retry-button').innerHTML = '<span aria-hidden="true">↻</span> New game';
+  $('hint-note').hidden = true; $('mobile-hint').hidden = true; $('result').hidden = true; $('move-log-card').hidden = false; $('retry-button').innerHTML = '<span aria-hidden="true">↻</span> New game';
   applySettings(); renderJourney(); renderBoard(); renderMoveLog();
 }
 function startGame(resume = false) {
@@ -302,7 +319,9 @@ function startGame(resume = false) {
   } else {
     human = $('practice-side').value; level = $('practice-level').value;
     const endgames = { queen:'5k2/8/8/8/8/3Q1K2/8/8 w - - 0 1', rook:'5k2/8/8/8/8/R4K2/8/8 w - - 0 1' };
-    state = fromFEN(endgames[$('practice-position').value] || START); history = []; gameInitial = toFEN(state); lastMove = null;
+    state = fromFEN(endgames[$('practice-position').value] || START);
+    if ($('practice-position').value !== 'standard' && human === 'b') state = { ...state, turn:'b', board:state.board.map(p=>p ? {...p,color:opposite(p.color)} : null) };
+    history = []; gameInitial = toFEN(state); lastMove = null;
   }
   flipped = human === 'b'; focusSquare = kingSquare(state,human);
   setGameUI(); feedback(`You are playing ${human === 'w' ? 'ivory' : 'violet'}. ${state.turn === human ? 'Your move.' : 'Milo moves first.'} Select a piece to inspect its moves. The Threats button marks squares attacked by your opponent.`); save();
@@ -389,7 +408,7 @@ function renderMoveLog() {
     }
   }
   $('move-log').scrollTop = $('move-log').scrollHeight;
-  const canClaim = !finished && (state.half >= 100 || repetitionCount() >= 3);
+  const canClaim = !finished && !busy && state.turn === human && (state.half >= 100 || repetitionCount() >= 3);
   $('game-extra').innerHTML = `${canClaim ? '<button id="claim-draw-button" class="secondary-button">Claim a draw</button>' : ''}${finished ? '' : '<button id="resign-button" class="danger-button">End this game…</button>'}`;
   $('claim-draw-button')?.addEventListener('click',()=>gameResult('A draw, claimed.',state.half>=100 ? 'Fifty moves by each side without a pawn move or capture: you may claim a draw.' : 'This position occurred three times: you may claim a draw.'));
   $('resign-button')?.addEventListener('click',()=> {
