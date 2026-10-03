@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" data-game="midnight">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#103b36">
+  <meta name="description" content="Three quick card duels. One midnight table. Play the dealer, pass the screen, or invite a friend peer-to-peer.">
+  <title>Midnight Table · Three little rivalries</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../shared/theme.css">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Midnight Table home"><span class="brand-mark" aria-hidden="true">✦</span><span>MIDNIGHT<br><b>TABLE</b></span></a>
+    <div class="top-actions"><a class="text-link games-link" href="../">← All games</a><button class="icon-button" id="sound" aria-label="Enable sound">Sound OFF</button><button class="icon-button" id="effects" aria-label="Toggle visual effects">FX ON</button><button class="icon-button" id="fullscreen" aria-label="Toggle fullscreen">⛶</button></div>
+  </header>
+  <main id="app"><p class="loading">Shuffling the deck…</p></main>
+  <footer class="site-footer"><span>MADE FOR A LITTLE FRIENDLY RIVALRY</span><span>2 PLAYERS · NO DOWNLOADS · ONE MORE ROUND</span></footer>
+  <dialog id="modal" aria-labelledby="modal-title"><div id="modal-content"></div></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <noscript>This game needs JavaScript. Enable it to join the table.</noscript>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>

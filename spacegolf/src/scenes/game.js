@@ -3,12 +3,25 @@
 
 import {
   createWorld, newState, cloneState, shoot, step, simulateShot, recall, strokes,
-  DT, MAX_DRAG, MIN_DRAG, BALL_R, CAPTURE_R, PORTAL_R, accelerationAt, ensureBodies,
+  DT, MAX_DRAG, MIN_DRAG, BALL_R, CAPTURE_R, PORTAL_R, accelerationAt, ensureBodies, waitUntil, hasMovingBodies,
 } from '../physics.js';
 import { T } from '../renderer.js';
 import { COL, ICON, hex, withAlpha } from '../ui.js';
 import { drawLevel, fieldBodies } from '../worldview.js';
 import { paletteFor } from '../level.js';
+
+// Seconds of flight shown by the aim hint: a base length (Settings: off / short / normal / long),
+// nudged by the level's own difficulty setting.
+export const PREVIEW_BASE = 0.7;
+export function previewSeconds(level, assist) {
+  const k = Math.min(1.5, Math.max(0.5, (level.previewSec ?? 4) / 4));
+  return PREVIEW_BASE * (assist ?? 1) * k;
+}
+
+const REPLAY_AIM = 1.0; // seconds of animated aiming before each replayed shot
+
+// the ball is drawn a little bigger than its collision radius so it reads at any zoom
+const BALL_VIS = BALL_R * 1.6;
 
 export function scoreName(strokes, par) {
   if (strokes === 1) return 'Hole in one!';
@@ -35,8 +48,6 @@ const FIELD_NAMES = ['Gravity view: off', 'Gravity view: contours', 'Gravity vie
 const LOST_TEXT = {
   swallowed: 'Swallowed by a black hole! +1 stroke',
   burned: 'Burned up in a sun! +1 stroke',
-  space: 'Lost in space! +1 stroke',
-  drift: 'Ball recalled to its last position',
 };
 
 export class GameScene {
@@ -71,6 +82,11 @@ export class GameScene {
     this.pal = paletteFor(this.level, this.cfg.paletteSalt || 0);
     this.fieldAlpha = 0;
     this.aimPulse = 0;
+    this.camState = null;
+    // Every shot (and manual recall) is logged with the exact world time it happened, so a run can be replayed.
+    this.shotLog = [];
+    this.moving = hasMovingBodies(this.level);
+    this.rep = this.cfg.replay ? { shots: this.cfg.replay.shots, i: 0, timer: 0, endT: 0, over: false } : null;
   }
 
   leave() {
@@ -94,14 +110,56 @@ export class GameScene {
     this.shake = Math.max(0, this.shake - dt * 2.2);
     this.flash = Math.max(0, this.flash - dt * 1.8);
     const sh = this.shake > 0 ? { x: (Math.random() - 0.5) * this.shake * 10 * u, y: (Math.random() - 0.5) * this.shake * 10 * u } : null;
-    const b = this.level.bounds || { w: 1600, h: 900 };
-    r.fitCamera(b.w, b.h, region, sh);
+    this.updateCamera(dt, region, sh);
 
     this.drawHUD(dt, topH);
     this.handleInput(dt);
     this.update(dt);
     this.render(dt);
     if (this.state === 'won') this.drawWin(dt);
+  }
+
+  // The view starts framing the whole level. If the ball escapes it, the camera zooms out and
+  // follows (never closer than ~28% of the starting zoom, after which it just tracks the ball).
+  updateCamera(dt, region, shake) {
+    const r = this.app.r;
+    const b = this.level.bounds || { w: 1600, h: 900 };
+    const hw = b.w / 2;
+    const hh = b.h / 2;
+    const sFit = Math.min(region.w / b.w, region.h / b.h);
+    const ball = this.S.ball;
+    let minX = -hw;
+    let maxX = hw;
+    let minY = -hh;
+    let maxY = hh;
+    const out = Math.abs(ball.x) > hw + 40 || Math.abs(ball.y) > hh + 40;
+    if (out) {
+      const ahead = ball.mode === 'fly' ? 0.45 : 0;
+      for (const [x, y] of [[ball.x, ball.y], [ball.x + ball.vx * ahead, ball.y + ball.vy * ahead]]) {
+        minX = Math.min(minX, x - 90);
+        maxX = Math.max(maxX, x + 90);
+        minY = Math.min(minY, y - 90);
+        maxY = Math.max(maxY, y + 90);
+      }
+    }
+    let ts = Math.min(region.w / (maxX - minX), region.h / (maxY - minY));
+    let tx = (minX + maxX) / 2;
+    let ty = (minY + maxY) / 2;
+    if (ts < sFit * 0.28) {
+      ts = sFit * 0.28;
+      tx = ball.x;
+      ty = ball.y;
+    }
+    const c = this.camState;
+    if (!c) this.camState = { x: tx, y: ty, s: ts };
+    else {
+      const k = 1 - Math.exp(-dt * 3.2);
+      c.x += (tx - c.x) * k;
+      c.y += (ty - c.y) * k;
+      c.s *= Math.pow(ts / c.s, k);
+    }
+    const cs = this.camState;
+    r.view(cs.x, cs.y, cs.s, region, shake);
   }
 
   // ---- HUD ----------------------------------------------------------------------------
@@ -119,10 +177,10 @@ export class GameScene {
 
     // right-hand buttons
     const buttons = [];
-    if (cfg.onSkip) buttons.push(['skip', ICON.dice, () => cfg.onSkip(), false]);
+    if (cfg.onSkip && !this.rep) buttons.push(['skip', ICON.dice, () => cfg.onSkip(), false]);
     buttons.push(['field', ICON.field, () => this.cycleField(), this.fieldMode > 0]);
     buttons.push(['ff', ICON.ffwd, () => { this.ff = !this.ff; }, this.ff]);
-    buttons.push(['undo', ICON.undo, () => this.undo(), false, this.history.length === 0 || this.state === 'won']);
+    if (!this.rep) buttons.push(['undo', ICON.undo, () => this.undo(), false, this.history.length === 0 || this.state === 'won']);
     buttons.push(['retry', ICON.retry, () => this.restart(), false]);
     let x = ui.w - 12 * u - bh;
     for (const [id, icon, fn, active, disabled] of buttons) {
@@ -137,14 +195,14 @@ export class GameScene {
     const leftEdge = 12 * u + bh + 10 * u;
     const tight = cx < leftEdge + 120 * u || cx + cw > rightEdge - 8 * u;
     const chipX = tight ? Math.max(leftEdge, Math.min(cx, rightEdge - cw - 8 * u)) : cx;
-    ui.rect(chipX, y, cw, bh, { fill: COL.panel, border: 1.5, borderColor: COL.panelEdge, radius: 16 * u });
+    ui.glass(chipX, y, cw, bh, { radius: bh / 2, shadowAlpha: 0.35 });
     const st = strokes(S);
-    ui.text('STROKES', chipX + 16 * u, y + bh * 0.3, 10.5 * u, COL.dim, { spacing: 0.1 });
-    ui.text(String(st), chipX + 16 * u, y + bh * 0.68, 22 * u, COL.text);
-    ui.text('PAR', chipX + 100 * u, y + bh * 0.3, 10.5 * u, COL.dim, { spacing: 0.1 });
-    ui.text(String(this.level.par ?? '–'), chipX + 100 * u, y + bh * 0.68, 22 * u, COL.accent);
+    ui.text('STROKES', chipX + 24 * u, y + bh * 0.3, 9.5 * u, COL.dim, { spacing: 0.16, weight: 'medium' });
+    ui.text(String(st), chipX + 24 * u, y + bh * 0.68, 23 * u, COL.text, { weight: 'heavy' });
+    ui.text('PAR', chipX + 108 * u, y + bh * 0.3, 9.5 * u, COL.dim, { spacing: 0.16, weight: 'medium' });
+    ui.text(String(this.level.par ?? '–'), chipX + 108 * u, y + bh * 0.68, 23 * u, COL.accent, { weight: 'heavy' });
     if (w.stars.length) {
-      for (let i = 0; i < w.stars.length; i++) ui.icon(ICON.star, chipX + 160 * u + i * 24 * u + 12 * u, y + bh * 0.5, 20 * u, S.stars[i] ? COL.gold : hex('#3a4670', 0.9));
+      for (let i = 0; i < w.stars.length; i++) ui.icon(ICON.star, chipX + 168 * u + i * 24 * u + 12 * u, y + bh * 0.5, 19 * u, S.stars[i] ? COL.gold : hex('#4a5686', 0.85));
     }
 
     // title block (only when there is room)
@@ -153,22 +211,32 @@ export class GameScene {
     const title = cfg.title || '';
     if (room > 90 * u) {
       const tw = ui.measure(title, 18 * u);
-      ui.text(title, tx, y + bh * 0.32, tw > room ? 14 * u : 18 * u, COL.text, { shadow: true });
-      if (cfg.subtitle) ui.text(cfg.subtitle, tx, y + bh * 0.73, 12 * u, COL.dim);
+      ui.text(title, tx, y + bh * 0.32, tw > room ? 14 * u : 18 * u, COL.text, { shadow: true, weight: 'heavy' });
+      if (cfg.subtitle) ui.text(cfg.subtitle, tx, y + bh * 0.73, 12 * u, COL.dim, { weight: 'light' });
+    }
+
+    if (this.rep && this.state === 'play') {
+      const total = this.rep.shots.filter((q) => !q.recall).length;
+      const label = `REPLAY  ·  SHOT ${Math.min(S.shots + (S.ball.mode === 'rest' ? 1 : 0), total)} / ${total}`;
+      const bw2 = ui.measure(label, 12 * u, 0.12) + 44 * u;
+      ui.glass((ui.w - bw2) / 2, ui.h - 58 * u, bw2, 36 * u, { radius: 18 * u, shadowAlpha: 0.3, tint: [0.1, 0.18, 0.5, 0.5], edge: [0.6, 0.9, 1, 0.5] });
+      ui.icon(ICON.eye, (ui.w - bw2) / 2 + 22 * u, ui.h - 40 * u, 16 * u, COL.accent);
+      ui.text(label, (ui.w - bw2) / 2 + 36 * u, ui.h - 40 * u, 12 * u, COL.text, { spacing: 0.12, weight: 'heavy' });
     }
 
     // recall button for balls stuck in orbit
-    if (S.ball.mode === 'fly' && S.flightT > 5) {
+    if (S.ball.mode === 'fly' && S.flightT > 4 && !this.rep) {
       const rw = 170 * u;
       if (ui.button('recall', (ui.w - rw) / 2, ui.h - 62 * u, rw, 42 * u, { label: 'Recall ball', icon: ICON.undo, size: 15 })) {
+        this.shotLog.push({ recall: true, t: S.t });
         recall(w, S);
         this.trail.length = 0;
-        ui.toast('Ball recalled');
+        ui.toast('Ball returned to its last position');
       }
     }
 
     // hint banner
-    if (this.level.hint && S.shots === 0 && this.state === 'play' && this.hintT < 14) {
+    if (this.level.hint && S.shots === 0 && this.state === 'play' && this.hintT < 14 && !this.rep) {
       const a = Math.min(1, this.hintT * 2, (14 - this.hintT));
       const size = 16 * u;
       const lines = wrapText(ui, this.level.hint, size, Math.min(ui.w - 40 * u, 620 * u));
@@ -176,7 +244,7 @@ export class GameScene {
       const bw = Math.max(...lines.map((l) => ui.measure(l, size))) + 40 * u;
       const bx = (ui.w - bw) / 2;
       const by = ui.h - bhh - 22 * u;
-      ui.rect(bx, by, bw, bhh, { fill: withAlpha(COL.panel, a), border: 1.2, borderColor: withAlpha(COL.panelEdge, a), radius: 16 * u });
+      ui.glass(bx, by, bw, bhh, { radius: 18 * u, tint: [0.05, 0.08, 0.22, 0.4 * a], shadowAlpha: 0.35 * a, edge: [0.84, 0.91, 1, 0.3 * a], edge2: [0.55, 0.7, 1, 0.07 * a], sheen: 0.06 * a });
       lines.forEach((l, i) => ui.text(l, ui.w / 2, by + 22 * u + i * 22 * u - 2 * u, size, withAlpha(COL.text, a), { align: 'center' }));
     }
   }
@@ -196,6 +264,7 @@ export class GameScene {
   undo() {
     if (!this.history.length) return;
     const prev = this.history.pop();
+    while (this.shotLog.length && this.shotLog.pop().recall); // drop the shot and any recalls after it
     prev.ev = this.S.ev;
     this.S = prev;
     this.S.ev.length = 0;
@@ -222,6 +291,7 @@ export class GameScene {
   }
 
   currentAim() {
+    if (this.rep) return this.replayAim();
     if (this.aim) {
       const a = this.aimFromPointer();
       return a && a.power > 0 ? a : null;
@@ -230,10 +300,51 @@ export class GameScene {
     return null;
   }
 
+  // The aim arrow of a replay: swings round to the recorded angle, then "pulls back" to the recorded power.
+  replayAim() {
+    const rep = this.rep;
+    const sh = rep.shots[rep.i];
+    if (!sh || sh.recall || this.S.ball.mode !== 'rest') return null;
+    const p = this.moving ? Math.max(0, Math.min(1, 1 - (sh.t - this.S.t) / REPLAY_AIM)) : Math.min(1, rep.timer / REPLAY_AIM);
+    const ease = (k) => k * k * (3 - 2 * k);
+    const from = this.lastShot ? this.lastShot.angle : this.defaultAngle();
+    let d = sh.angle - from;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    const angle = from + d * ease(Math.min(1, p / 0.55));
+    const power = Math.max(0.04, sh.power * ease(Math.max(0, (p - 0.3) / 0.7)));
+    return { angle, power };
+  }
+
+  // Apply the next recorded entry (a shot, or a manual recall) to the live state.
+  replayStep() {
+    const rep = this.rep;
+    const S = this.S;
+    const sh = rep.shots[rep.i];
+    if (!sh) return;
+    if (sh.recall) {
+      if (S.ball.mode === 'fly' && S.t >= sh.t - 1e-9) {
+        recall(this.world, S);
+        this.trail.length = 0;
+        rep.i++;
+      }
+      return;
+    }
+    if (S.ball.mode !== 'rest') return;
+    if (this.moving && S.t < sh.t - 1e-9) return;
+    if (!this.moving && rep.timer < REPLAY_AIM) return;
+    if (sh.t > S.t) waitUntil(this.world, S, sh.t);
+    shoot(this.world, S, sh.angle, sh.power);
+    this.lastShot = { angle: sh.angle, power: sh.power };
+    this.trail.length = 0;
+    rep.i++;
+    rep.timer = 0;
+  }
+
   fire(angle, power) {
     const S = this.S;
     if (S.ball.mode !== 'rest' || this.state !== 'play') return;
     this.history.push(cloneState(S));
+    this.shotLog.push({ t: S.t, angle, power });
     shoot(this.world, S, angle, power);
     this.lastShot = { angle, power };
     this.kb = null;
@@ -250,6 +361,17 @@ export class GameScene {
     const S = this.S;
     if (this.state === 'won') return;
     const flying = S.ball.mode === 'fly';
+
+    if (this.rep) {
+      for (const k of ui.keys) {
+        if (k.key === 'r' || k.key === 'R') this.restart();
+        else if (k.key === 'g' || k.key === 'G') this.cycleField();
+        else if (k.key === 'f' || k.key === 'F') this.ff = !this.ff;
+        else if (k.key === 'Escape') this.exit();
+      }
+      this.ffHold = p.down && !ui.overUI();
+      return;
+    }
 
     for (const k of ui.keys) {
       const key = k.key;
@@ -306,10 +428,26 @@ export class GameScene {
     const S = this.S;
     const w = this.world;
     const snd = this.app.sound;
-    const speed = this.ff || (this.ffHold && S.ball.mode === 'fly') ? 3 : 1;
+    let speed = this.ff || (this.ffHold && S.ball.mode === 'fly') ? 3 : 1;
+    const rep = this.rep;
+    if (rep && this.state === 'play') {
+      const next = rep.shots[rep.i];
+      if (S.ball.mode === 'rest') {
+        if (!next) {
+          rep.endT += dt;
+          if (rep.endT > 1.5) this.finishReplay(false);
+        } else if (this.moving) {
+          // skip ahead quickly through the player's thinking time, then play the last moments of aiming normally
+          if (next.t - S.t > REPLAY_AIM + 0.05) speed = 12;
+        } else {
+          rep.timer += dt * (this.ff ? 3 : 1);
+        }
+      }
+    }
     this.acc += dt * speed;
     let n = 0;
-    while (this.acc >= DT && n < 400) {
+    while (this.acc >= DT && n < 600) {
+      if (this.rep && this.state === 'play') this.replayStep();
       step(w, S, DT);
       this.acc -= DT;
       n++;
@@ -396,10 +534,8 @@ export class GameScene {
         case 'lost':
           snd.lost(e.reason);
           this.burst(e.x, e.y, 30, e.reason === 'burned' ? [1, 0.5, 0.15] : [1, 0.4, 0.5], 220, 0.8, 3);
-          if (e.reason !== 'drift') {
-            this.shake = 0.8;
-            this.flash = 0.6;
-          }
+          this.shake = 0.8;
+          this.flash = 0.6;
           this.app.ui.toast(LOST_TEXT[e.reason] || 'Lost!');
           this.trail.length = 0;
           break;
@@ -412,14 +548,30 @@ export class GameScene {
     ev.length = 0;
   }
 
+  finishReplay(captured, e) {
+    if (this.state === 'won') return;
+    const S = this.S;
+    this.state = 'won';
+    this.win = { t: 0, replay: true, captured, strokes: strokes(S), bx: S.ball.x, by: S.ball.y };
+    if (captured) {
+      this.app.sound.capture();
+      this.burst(e.x, e.y, 60, [1, 0.9, 0.4], 300, 1.3, 3.4, 1.2);
+      this.burst(e.x, e.y, 30, [0.5, 0.9, 1], 220, 1.1, 2.8, 1.2);
+    }
+  }
+
   onCapture(e) {
     const S = this.S;
     const w = this.world;
     const snd = this.app.sound;
     const st = strokes(S);
     const par = this.level.par ?? 3;
+    if (this.rep) {
+      this.finishReplay(true, e);
+      return;
+    }
     const stars = computeStars(this.level, st, S.starsGot);
-    const result = { strokes: st, par, stars, pickups: S.starsGot, pickupsTotal: w.stars.length, shots: S.shots, penalties: S.penalties, name: scoreName(st, par) };
+    const result = { strokes: st, par, stars, pickups: S.starsGot, pickupsTotal: w.stars.length, shots: S.shots, penalties: S.penalties, name: scoreName(st, par), sequence: this.shotLog.map((q) => ({ ...q })) };
     const info = this.cfg.onWin ? this.cfg.onWin(result) || {} : {};
     this.win = { t: 0, result, info, bx: S.ball.x, by: S.ball.y };
     this.state = 'won';
@@ -442,7 +594,6 @@ export class GameScene {
     const w = this.world;
     const t = app.time;
     const b = S.ball;
-    const bs = this.level.bounds || { w: 1600, h: 900 };
 
     r.background({ c1: this.pal.c1, c2: this.pal.c2, seed: this.pal.seed, parX: b.x * 0.15, parY: b.y * 0.15 });
     ensureBodies(w, S.t);
@@ -451,16 +602,18 @@ export class GameScene {
     if (this.fieldAlpha > 0.02) r.field(this.fieldMode || 1, fieldBodies(w), this.fieldAlpha);
 
     drawLevel(r, w, S.t, { S });
-    this.drawBounds(r, bs, b);
 
     // trail
+    // trail: a tapering ribbon that warms up with speed
     const tr = this.trail;
     const tn = tr.length / 2;
-    for (let i = 0; i < tn; i++) {
-      const f = (i + 1) / tn;
-      const sp = Math.hypot(b.vx, b.vy);
-      const hot = Math.min(1, sp / 500);
-      r.dot(tr[i * 2], tr[i * 2 + 1], 2 + f * 3.4, 0.45 + hot * 0.55, 0.75 - hot * 0.2, 1 - hot * 0.65, f * f * 0.55);
+    const sp = Math.hypot(b.vx, b.vy);
+    const hot = Math.min(1, sp / 520);
+    for (let i = 1; i < tn; i++) {
+      const f = i / tn;
+      const wd = 0.5 + f * f * 3.1;
+      const al = f * f * 0.95;
+      r.line(tr[i * 2 - 2], tr[i * 2 - 1], tr[i * 2], tr[i * 2 + 1], wd, 0.35 + hot * 0.65, 0.75 - hot * 0.15, 1.0 - hot * 0.7, al);
     }
 
     // aim + preview
@@ -470,7 +623,7 @@ export class GameScene {
       if (aim) this.drawAim(r, aim);
       else {
         const pr = 0.5 + 0.5 * Math.sin(t * 3);
-        r.ringFx(b.x, b.y, 15 + pr * 5, 1.1, 0.5, 0.85, 1, 0.35 + 0.25 * pr);
+        r.ringFx(b.x, b.y, 16 + pr * 6, 1.0, 0.55, 0.88, 1, 0.28 + 0.3 * pr);
       }
     }
 
@@ -480,15 +633,16 @@ export class GameScene {
       const e = 1 - Math.pow(1 - k, 3);
       const x = this.win.bx + (w.hx - this.win.bx) * e;
       const y = this.win.by + (w.hy - this.win.by) * e;
-      if (k < 1) r.sprite(false, T.BALL, x, y, BALL_R * 3.6, BALL_R * (1 - 0.7 * e), 0, 0, 0, 1, 1, 1, 1 - e * 0.5);
+      if (k < 1) r.sprite(false, T.BALL, x, y, BALL_VIS * 3.6, BALL_VIS * (1 - 0.7 * e), 0, 0, 0, 1, 1, 1, 1 - e * 0.5);
     } else {
-      r.sprite(false, T.BALL, b.x, b.y, BALL_R * 3.8, BALL_R, 0, 0, 0, 1, 1, 1, 1);
+      r.sprite(false, T.BALL, b.x, b.y, BALL_VIS * 4.2, BALL_VIS, 0, 0, 0, 1, 1, 1, 1);
     }
 
     // particles
     for (const q of this.particles) {
       const f = q.life / q.max;
-      r.dot(q.x, q.y, q.size * (0.4 + f * 0.8), q.col[0], q.col[1], q.col[2], f * 0.9);
+      if (q.size > 2.9) r.sprite(true, T.SPARKLE, q.x, q.y, q.size * 3.2, q.size * (0.5 + f), 0, 0, 0, q.col[0], q.col[1], q.col[2], f);
+      else r.dot(q.x, q.y, q.size * (0.4 + f * 0.8), q.col[0], q.col[1], q.col[2], f * 0.9);
     }
     // floating labels
     for (const f of this.floaters) {
@@ -497,20 +651,6 @@ export class GameScene {
       ui.text(f.text, p.x, p.y - (1.2 - f.life) * 30 * ui.u - 16 * ui.u, 16 * ui.u, withAlpha(COL.gold, a), { align: 'center', shadow: true });
     }
     if (this.flash > 0) ui.rect(0, 0, ui.w, ui.h, { fill: [1, 0.15, 0.2, this.flash * 0.25], radius: 0 });
-  }
-
-  drawBounds(r, bs, b) {
-    const hw = bs.w / 2;
-    const hh = bs.h / 2;
-    const near = b.mode === 'fly' ? Math.min(hw - Math.abs(b.x), hh - Math.abs(b.y)) : 1e9;
-    const warn = Math.max(0, 1 - near / 120);
-    const c = [0.35 + warn * 0.65, 0.6 - warn * 0.3, 1 - warn * 0.6];
-    const a = 0.2 + warn * 0.5;
-    const dash = 26;
-    r.line(-hw, -hh, hw, -hh, 1.4, c[0], c[1], c[2], a, dash);
-    r.line(hw, -hh, hw, hh, 1.4, c[0], c[1], c[2], a, dash);
-    r.line(hw, hh, -hw, hh, 1.4, c[0], c[1], c[2], a, dash);
-    r.line(-hw, hh, -hw, -hh, 1.4, c[0], c[1], c[2], a, dash);
   }
 
   drawAim(r, aim) {
@@ -543,29 +683,17 @@ export class GameScene {
       r.line(b.x, b.y, b.x + dx * k * 0.55, b.y + dy * k * 0.55, 1.2, 1, 1, 1, 0.22 + lim * 0.2, 7);
     }
 
-    // trajectory preview
-    const assist = app.store.settings.assist;
-    const secs = Math.min(10, (this.level.previewSec ?? 4) * assist);
+    // Short trajectory hint: just the start of the flight. It fades out quickly and never
+    // marks where the ball ends up, so the player still has to work out the rest.
+    const secs = previewSeconds(this.level, app.store.settings.assist);
     if (secs > 0.05) {
-      const sim = simulateShot(w, S, aim.angle, power, { maxTime: secs, collect: true, stride: 4 });
+      const sim = simulateShot(w, S, aim.angle, power, { maxTime: secs, collect: true, stride: 7 });
       const pts = sim.pts;
       const n = pts.length / 2;
       for (let i = 1; i < n; i++) {
         const f = i / n;
-        const a = Math.pow(1 - f, 0.7) * 0.9;
-        r.dot(pts[i * 2], pts[i * 2 + 1], 2.1, 1, 1, 1, a, 1);
-      }
-      const end = sim.S.ball;
-      if (sim.steps * DT < secs - 0.05 || sim.S.ball.mode !== 'fly') {
-        const m = sim.S.ball.mode;
-        const lost = sim.S.penalties > S.penalties;
-        const ex = pts[pts.length - 2];
-        const ey = pts[pts.length - 1];
-        if (m === 'captured') r.ringFx(w.hx, w.hy, 16, 1.4, 1, 0.9, 0.3, 0.9);
-        else if (lost) {
-          r.line(ex - 6, ey - 6, ex + 6, ey + 6, 1.4, 1, 0.35, 0.4, 0.9);
-          r.line(ex - 6, ey + 6, ex + 6, ey - 6, 1.4, 1, 0.35, 0.4, 0.9);
-        } else if (m === 'rest') r.ringFx(end.x, end.y, 8, 1, 0.6, 1, 0.8, 0.8);
+        const a = Math.pow(1 - f, 1.4) * 0.9;
+        r.dot(pts[i * 2], pts[i * 2 + 1], 2.2 - f * 0.8, 0.88, 0.95, 1, a, 1);
       }
     }
 
@@ -575,7 +703,32 @@ export class GameScene {
   }
 
   // ---- result panel ----------------------------------------------------------------------
+  drawReplayEnd() {
+    const ui = this.app.ui;
+    const u = ui.u;
+    const win = this.win;
+    if (win.t < 0.8) return;
+    const a = Math.min(1, (win.t - 0.8) * 4);
+    ui.block(0, 0, ui.w, ui.h);
+    const pw = Math.min(400 * u, ui.w - 24);
+    const ph = 210 * u;
+    const px = (ui.w - pw) / 2;
+    const py = (ui.h - ph) / 2 + (1 - a) * 22 * u;
+    ui.rect(0, 0, ui.w, ui.h, { fill: [0.01, 0.015, 0.05, 0.4 * a], radius: 0 });
+    ui.glass(px, py, pw, ph, { radius: 28 * u, tint: [0.05, 0.08, 0.24, 0.5 * a], shadowAlpha: 0.5 * a, shadowBlur: 28 * u, shadowOffset: 12 * u, topGlow: withAlpha(hex('#6ab8ff'), 0.2 * a), edge: [0.86, 0.93, 1, 0.38 * a], edge2: [0.55, 0.7, 1, 0.08 * a] });
+    const cx = px + pw / 2;
+    ui.text(win.captured ? 'REPLAY COMPLETE' : 'REPLAY ENDED', cx, py + 48 * u, 24 * u, withAlpha(COL.text, a), { align: 'center', weight: 'heavy', spacing: 0.08, shadow: true });
+    ui.text(win.captured ? `${win.strokes} stroke${win.strokes === 1 ? '' : 's'}` : 'This recording no longer matches the level.', cx, py + 82 * u, 14 * u, withAlpha(COL.dim, a), { align: 'center', weight: 'light' });
+    const bw = (pw - 40 * u - 10 * u) / 2;
+    if (ui.button('rp-menu', px + 20 * u, py + ph - 70 * u, bw, 48 * u, { icon: ICON.home, label: 'Back', size: 16 })) this.exit();
+    if (ui.button('rp-again', px + 30 * u + bw, py + ph - 70 * u, bw, 48 * u, { icon: ICON.retry, label: 'Watch again', size: 16, kind: 'primary' })) this.restart();
+  }
+
   drawWin(dt) {
+    if (this.win && this.win.replay) {
+      this.drawReplayEnd();
+      return;
+    }
     const app = this.app;
     const ui = app.ui;
     const u = ui.u;
@@ -585,30 +738,34 @@ export class GameScene {
     if (win.t < delay) return;
     const t = win.t - delay;
     const a = Math.min(1, t * 4);
-    ui.rect(0, 0, ui.w, ui.h, { fill: [0.01, 0.02, 0.06, 0.55 * a], radius: 0 });
+    ui.rect(0, 0, ui.w, ui.h, { fill: [0.01, 0.015, 0.05, 0.5 * a], radius: 0 });
     ui.block(0, 0, ui.w, ui.h);
-    const pw = Math.min(440 * u, ui.w - 24);
-    const ph = 340 * u;
+    const pw = Math.min(460 * u, ui.w - 24);
+    const ph = 360 * u;
     const px = (ui.w - pw) / 2;
-    const py = (ui.h - ph) / 2 + (1 - a) * 24 * u;
-    ui.rect(px, py, pw, ph, { fill: withAlpha(COL.panel, 0.94 * a), border: 1.6, borderColor: withAlpha(COL.panelEdge, a), radius: 22 * u, glow: withAlpha(hex('#4c8cff'), 0.12 * a) });
+    const py = (ui.h - ph) / 2 + (1 - a) * 28 * u;
+    const gold = res.stars === 3;
+    ui.glass(px, py, pw, ph, { radius: 30 * u, tint: [0.05, 0.08, 0.24, 0.5 * a], shadowAlpha: 0.55 * a, shadowBlur: 30 * u, shadowOffset: 14 * u, glow: withAlpha(gold ? hex('#ffc94d') : hex('#4c8cff'), 0.14 * a), topGlow: withAlpha(gold ? hex('#ffd36b') : hex('#6ab8ff'), 0.2 * a), edge: [0.86, 0.93, 1, 0.38 * a], edge2: [0.55, 0.7, 1, 0.08 * a], sheen: 0.08 * a });
     const cx = px + pw / 2;
-    ui.text(res.name, cx, py + 52 * u, 34 * u, withAlpha(COL.text, a), { align: 'center', shadow: true, color2: withAlpha(res.stars === 3 ? COL.gold : COL.accent, a) });
-    ui.text(`${res.strokes} stroke${res.strokes === 1 ? '' : 's'}  ·  par ${res.par}`, cx, py + 88 * u, 16 * u, withAlpha(COL.dim, a), { align: 'center' });
+    ui.text(res.name.toUpperCase(), cx, py + 52 * u, 30 * u, withAlpha(COL.text, a), { align: 'center', shadow: true, weight: 'heavy', spacing: 0.08, color2: withAlpha(gold ? COL.gold : COL.accent, a) });
+    ui.text(`${res.strokes} stroke${res.strokes === 1 ? '' : 's'}  ·  par ${res.par}`, cx, py + 88 * u, 15 * u, withAlpha(COL.dim, a), { align: 'center', weight: 'light' });
     // stars pop in one by one
     for (let i = 0; i < 3; i++) {
       const k = Math.max(0, Math.min(1, (t - 0.25 - i * 0.22) * 4));
-      const pop = k < 1 ? 1 + Math.sin(k * Math.PI) * 0.4 : 1;
-      const col = i < res.stars ? withAlpha(COL.gold, a * k) : withAlpha(hex('#3a4670'), a * Math.max(0.5, k));
-      ui.icon(ICON.star, cx + (i - 1) * 62 * u, py + 150 * u, 52 * u * (i < res.stars ? pop * k : 1), col);
+      const pop = k < 1 ? 1 + Math.sin(k * Math.PI) * 0.45 : 1;
+      const on = i < res.stars;
+      const col = on ? withAlpha(COL.gold, a * k) : withAlpha(hex('#4a5686'), a * Math.max(0.55, k));
+      const yy = py + 154 * u - (i === 1 ? 10 * u : 0);
+      if (on && k > 0) ui.glow(cx + (i - 1) * 66 * u, yy, 110 * u, 110 * u, withAlpha(hex('#ffc94d'), 0.35 * a * k), 2.2);
+      ui.icon(ICON.star, cx + (i - 1) * 66 * u, yy, 56 * u * (on ? pop * Math.max(k, 0.01) : 1), col);
     }
-    if (res.pickupsTotal) ui.text(`Stars collected ${res.pickups}/${res.pickupsTotal}`, cx, py + 196 * u, 14 * u, withAlpha(COL.dim, a), { align: 'center' });
+    if (res.pickupsTotal) ui.text(`Pickups ${res.pickups}/${res.pickupsTotal}`, cx, py + 214 * u, 13 * u, withAlpha(COL.dim, a), { align: 'center' });
     const info = win.info;
-    if (info.newBest) ui.text('New best!', cx, py + 218 * u, 15 * u, withAlpha(COL.good, a), { align: 'center' });
-    else if (info.best) ui.text(`Best: ${info.best} strokes`, cx, py + 218 * u, 14 * u, withAlpha(COL.dim, a), { align: 'center' });
-    if (info.extra) ui.text(info.extra, cx, py + 240 * u, 13 * u, withAlpha(COL.faint, a), { align: 'center' });
+    if (info.newBest) ui.text('NEW BEST', cx, py + 238 * u, 12 * u, withAlpha(COL.good, a), { align: 'center', spacing: 0.25, weight: 'heavy' });
+    else if (info.best) ui.text(`Best: ${info.best} strokes`, cx, py + 238 * u, 13 * u, withAlpha(COL.dim, a), { align: 'center', weight: 'light' });
+    if (info.extra) ui.text(info.extra, cx, py + 260 * u, 12.5 * u, withAlpha(COL.faint, a), { align: 'center', weight: 'light' });
 
-    const by = py + ph - 70 * u;
+    const by = py + ph - 74 * u;
     const gap = 10 * u;
     const hasNext = !!this.cfg.onNext;
     const nb = hasNext ? 3 : 2;

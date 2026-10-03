@@ -1,7 +1,7 @@
 import { COL, ICON, hex, withAlpha } from '../ui.js';
 import { header } from './common.js';
 
-const ASSIST = [['Short', 0.6], ['Normal', 1], ['Long', 1.8]];
+const ASSIST = [['Off', 0], ['Short', 0.5], ['Normal', 1], ['Long', 2]];
 const FIELD = ['Off', 'Contours', 'Grid'];
 
 export class SettingsScene {
@@ -26,9 +26,9 @@ export class SettingsScene {
     const rowH = 64 * u;
 
     const row = (label, hint, draw) => {
-      ui.rect(x0, y, colW, rowH - 8 * u, { fill: hex('#0b1230', 0.62), border: 1, borderColor: hex('#7ea4ff', 0.2), radius: 14 * u });
-      ui.text(label, x0 + 18 * u, y + (hint ? 22 : 28) * u, 17 * u, COL.text);
-      if (hint) ui.text(hint, x0 + 18 * u, y + 43 * u, 12 * u, COL.dim);
+      ui.glass(x0, y, colW, rowH - 8 * u, { radius: 18 * u, shadowAlpha: 0.22, shadowBlur: 10 * u, shadowOffset: 4 * u });
+      ui.text(label, x0 + 20 * u, y + (hint ? 22 : 28) * u, 17 * u, COL.text, { weight: 'heavy' });
+      if (hint) ui.text(hint, x0 + 20 * u, y + 43 * u, 12 * u, COL.dim, { weight: 'light' });
       draw(x0 + colW - 14 * u, y + 6 * u, rowH - 20 * u);
       y += rowH;
     };
@@ -49,8 +49,9 @@ export class SettingsScene {
         st.save();
       });
     });
-    row('Aim preview', 'How far the dotted trajectory reaches', (rx, ry, h) => {
-      const cur = ASSIST.findIndex((a) => a[1] === s.assist);
+    row('Aim hint', 'How much of the shot\'s start is shown as dots', (rx, ry, h) => {
+      let cur = 0;
+      ASSIST.forEach((a, i) => { if (Math.abs(a[1] - s.assist) < Math.abs(ASSIST[cur][1] - s.assist)) cur = i; });
       segmented('as', rx, ry, h, ASSIST.map((a) => a[0]), cur, (i) => {
         s.assist = ASSIST[i][1];
         st.save();
@@ -60,6 +61,14 @@ export class SettingsScene {
       segmented('fl', rx, ry, h, FIELD, s.field | 0, (i) => {
         s.field = i;
         st.save();
+      });
+    });
+    row('Graphics quality', 'Auto lowers the resolution on slow devices', (rx, ry, h) => {
+      const opts = ['auto', 'high', 'low'];
+      segmented('gq', rx, ry, h, ['Auto', 'High', 'Low'], Math.max(0, opts.indexOf(s.quality || 'auto')), (i) => {
+        s.quality = opts[i];
+        st.save();
+        app.applyQuality();
       });
     });
     row('Glow effects', 'Bloom and lens flares (turn off on slow devices)', (rx, ry, h) => {

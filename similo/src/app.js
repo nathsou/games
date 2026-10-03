@@ -1,3 +1,5 @@
+import {loadTheme,THEME_KEY} from '../../shared/theme.js';
+import {loadAI, saveAI, CONFIG_KEY} from '../../shared/ai/config.js';
 import {DECKS, CARDS, THEME_IDEAS} from './decks.js';
 import {createGame, playClue, eliminate, remaining, viewFor, validatePublicView, REMOVALS, PROTOCOL} from './game.js';
 import {loadArt, cardElement, observationImage, startAmbience} from './art.js';
@@ -420,7 +422,7 @@ function usagePanelHTML(){
     const requests=data.requests.filter(r=>priceKey(r.provider,r.model)===key), summary=usageSummary(requests);
     return `<li><span>${esc(PROVIDERS[requests[0].provider]?.name||requests[0].provider)} · ${esc(requests[0].model)}</span><strong>${esc(formatSpend(summary))}</strong></li>`;
   }).join('');
-  const rows=[...data.games].sort((a,b)=>b.started-a.started).map(g=>`<tr><td><strong>${esc(DECKS[g.theme]?.name||g.theme)}</strong><small>${esc(new Date(g.started).toLocaleString())}<br>${esc(modes[g.mode]||g.mode)} · ${g.result==='win'?'Won':g.result==='loss'?'Lost':'Unfinished'}<span class="usage-mobile-stats">${g.usage.requests} requests · ${count(g.usage.inputTokens+g.usage.outputTokens)} tokens</span></small></td><td>${g.usage.requests}</td><td>${esc(formatSpend(g.usage))}${g.usage.unknown?`<small>${g.usage.unknown} unconfirmed / unpriced</small>`:''}</td><td>${count(g.usage.inputTokens+g.usage.outputTokens)}</td></tr>`).join('');
+  const rows=[...data.games].sort((a,b)=>b.started-a.started).map(g=>`<tr><td><strong>${esc(DECKS[g.theme]?.name||({'flip-it':'Flip it','midnight-backhand':'Backhand','midnight-closing':'Closing Time','midnight-heist':'Pocket Heist'}[g.theme]||g.theme))}</strong><small>${esc(new Date(g.started).toLocaleString())}<br>${esc(modes[g.mode]||g.mode)} · ${g.result==='win'?'Won':g.result==='loss'?'Lost':g.result==='draw'?'Draw':'Unfinished'}<span class="usage-mobile-stats">${g.usage.requests} requests · ${count(g.usage.inputTokens+g.usage.outputTokens)} tokens</span></small></td><td>${g.usage.requests}</td><td>${esc(formatSpend(g.usage))}${g.usage.unknown?`<small>${g.usage.unknown} unconfirmed / unpriced</small>`:''}</td><td>${count(g.usage.inputTokens+g.usage.outputTokens)}</td></tr>`).join('');
   return `<p class="help-text">This browser’s recorded games since ${esc(new Date(data.since).toLocaleDateString())}. Costs are in USD; estimates may differ from your provider’s bill. Earlier games cannot be backfilled.</p>
     <div class="usage-metrics"><div><span>Estimated total</span><strong>${esc(formatSpend(u))}</strong></div><div><span>Games recorded</span><strong>${data.games.length}</strong></div><div><span>AI requests</span><strong>${u.requests}</strong></div></div>
     <p class="help-text">${count(u.inputTokens)} input · ${count(u.outputTokens)} output tokens<br>${count(u.cachedTokens)} cached input · ${count(u.cacheWriteTokens)} cache-write tokens<br>${count(u.reasoningTokens)} reasoning tokens reported. Reasoning is already included in output.</p>
@@ -484,11 +486,11 @@ function renderSettings(){
     event.preventDefault();captureSettings();if(!settingsDraft.models[settingsDraft.provider])return;if(pricingError){$('pricing-fields').closest('details').open=true;$('pricing-error').hidden=false;$('pricing-error').textContent=pricingError;$('pricing-error').scrollIntoView({block:'nearest'});return;}
     if(settingsDraft.stun&&settingsDraft.stun.split(',').some(url=>!/^stuns?:[^\s]+$/.test(url.trim()))){toast('Use STUN URLs such as stun:stun.l.google.com:19302.');return;}
     settings={...settingsDraft,rememberKeys:settingsRemember};const persisted={...settings,keys:settingsRemember?settings.keys:{}};
-    const saved=write('settings',persisted);applyPreferences();modal.close();toast(saved?'Settings saved.':'Settings kept for this visit; browser storage is unavailable.');
+    const saved=write('settings',persisted);saveAI(settings);applyPreferences();modal.close();toast(saved?'Settings saved.':'Settings kept for this visit; browser storage is unavailable.');
     if(screen==='home')renderHome();else if(screen==='game')renderGame();
   };
 }
-function persistPreferences(){write('settings',{...settings,keys:settings.rememberKeys===false?{}:settings.keys});}
+function persistPreferences(){write('settings',{...settings,keys:settings.rememberKeys===false?{}:settings.keys});saveAI(settings);}
 function applyAppearance(){
   const theme=settings.appearance==='system'?(colorPreference.matches?'dark':'light'):settings.appearance;
   document.documentElement.dataset.colorTheme=theme;
@@ -515,3 +517,5 @@ try{
     const invitation=location.hash.slice(6);history.replaceState(null,'',location.pathname+location.search);openPairing('guest',false,decodeURIComponent(invitation));
   }
 }catch(error){app.innerHTML=`<p class="inline-error">${esc(error.message)}</p><button class="button" id="reload">Reload artwork</button>`;$('reload').onclick=()=>location.reload();}
+
+window.addEventListener('storage',event=>{if(event.key===CONFIG_KEY){Object.assign(settings,loadAI());if(!aiBusy&&screen==='home')renderHome();}if(event.key===THEME_KEY){settings.appearance=loadTheme();applyPreferences();}});
