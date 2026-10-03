@@ -1,5 +1,5 @@
 const LIMIT = 65536;
-export const PROTOCOL = 1;
+export const PROTOCOL = 2;
 
 export async function encodePairing(description, room) {
   const data = JSON.stringify({v: PROTOCOL, type: description.type, sdp: description.sdp, room});
