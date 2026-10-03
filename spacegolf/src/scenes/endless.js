@@ -219,7 +219,7 @@ export class EndlessScene {
     const cx = ui.w / 2;
     const colW = Math.min(ui.w - 32 * u, 760 * u);
     const x0 = cx - colW / 2;
-    let y = 100 * u;
+    let y = Math.max(92 * u, (ui.h - 400 * u) / 2 + 20 * u);
 
     // difficulty chips
     ui.text('DIFFICULTY', x0, y, 12 * u, COL.dim, { spacing: 0.25 });
@@ -285,7 +285,7 @@ export class EndlessScene {
     const sx = px + panelW / 2 - (SEED_LENGTH * (sw + 6 * u)) / 2;
     for (let i = 0; i < SEED_LENGTH; i++) {
       const x = sx + i * (sw + 6 * u);
-      ui.rect(x, py + 52 * u, sw, 46 * u, { fill: hex('#0b1230', 0.9), border: 1.5, borderColor: i === this.seedText.length ? COL.accent : COL.panelEdge, radius: 10 * u });
+      ui.glass(x, py + 52 * u, sw, 46 * u, { radius: 12 * u, shadow: false, tint: [0.02, 0.04, 0.14, 0.6], edge: i === this.seedText.length ? [0.5, 0.92, 1, 0.9] : [0.84, 0.91, 1, 0.25], border: i === this.seedText.length ? 1.6 : 1 });
       if (this.seedText[i]) ui.text(this.seedText[i], x + sw / 2, py + 75 * u, 24 * u, COL.text, { align: 'center' });
     }
     // typed keys

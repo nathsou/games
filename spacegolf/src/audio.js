@@ -7,6 +7,7 @@ export class Sound {
     this.master = null;
     this.hum = null;
     this.pad = null;
+    this.focused = true; // sound is silenced while the tab or window is in the background
   }
 
   // browsers only allow audio after a user gesture, so this is called from input handlers
@@ -17,7 +18,7 @@ export class Sound {
         if (!AC) return;
         this.ctx = new AC();
         this.master = this.ctx.createGain();
-        this.master.gain.value = this.enabled ? 0.55 : 0;
+        this.master.gain.value = this.enabled && this.focused ? 0.55 : 0;
         const comp = this.ctx.createDynamicsCompressor();
         this.master.connect(comp);
         comp.connect(this.ctx.destination);
@@ -28,7 +29,7 @@ export class Sound {
         this._startPad();
         this._startHum();
       }
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      if (this.ctx.state === 'suspended' && this.focused) this.ctx.resume();
     } catch (e) {
       this.ctx = null;
     }
@@ -36,11 +37,27 @@ export class Sound {
 
   setEnabled(on) {
     this.enabled = on;
-    if (this.master) this.master.gain.setTargetAtTime(on ? 0.55 : 0, this.ctx.currentTime, 0.05);
+    this._applyGain();
+  }
+
+  // Called when the tab/window gains or loses focus: mute and pause the audio clock while away.
+  setFocused(focused) {
+    if (focused === this.focused) return;
+    this.focused = focused;
+    this._applyGain();
+    if (!this.ctx) return;
+    try {
+      if (focused) this.ctx.resume();
+      else setTimeout(() => { if (!this.focused && this.ctx) this.ctx.suspend(); }, 120);
+    } catch (e) { /* ignore */ }
+  }
+
+  _applyGain() {
+    if (this.master) this.master.gain.setTargetAtTime(this.enabled && this.focused ? 0.55 : 0, this.ctx.currentTime, 0.04);
   }
 
   get ok() {
-    return this.ctx && this.enabled;
+    return this.ctx && this.enabled && this.focused;
   }
 
   _env(g, t, attack, dur, peak) {
@@ -166,7 +183,7 @@ export class Sound {
   setHum(level) {
     if (!this.ctx || !this.hum) return;
     const t = this.ctx.currentTime;
-    const l = this.enabled ? Math.min(1, Math.max(0, level)) : 0;
+    const l = this.enabled && this.focused ? Math.min(1, Math.max(0, level)) : 0;
     this.hum.gain.gain.setTargetAtTime(l * 0.09, t, 0.08);
     this.hum.osc.frequency.setTargetAtTime(55 + l * 120, t, 0.1);
     this.hum.filter.frequency.setTargetAtTime(200 + l * 900, t, 0.1);
