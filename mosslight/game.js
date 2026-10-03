@@ -41,6 +41,7 @@ export class Game {
     if(target)this.command(target);else this.say('Walk closer to a berry, lantern, bridge, or beetle. Then press E.',3);
   }
   command(target,single=false){
+    if(!target.kind)target={...target,kind:'rally',r:12};
     if(distance(this.player,target)>350){this.say('A little closer, captain. Your crew can reach about one clearing away.',3);return;}
     let members=this.following();
     if(!members.length){this.say('No selected friends with you. Whistle workers back, or select Everyone (4).',3);return;}
@@ -70,7 +71,7 @@ export class Game {
     if(this.mode!=='playing')return;this.mode='paused';this.keys.clear();this.player.route=[];this.audio.setActive(false);this.hooks.pause(auto);
   }
   resume(){if(this.mode!=='paused')return;this.mode='playing';this.audio.unlock();this.audio.setActive(true);this.hooks.resume();}
-  wilt(c){if(c.state==='wilt'||c.state==='lost')return;c.state='wilt';c.task=null;c.flight=null;c.stun=16;c.route=[];this.burst(c.x,c.y,TYPES[c.type].color,6);}
+  wilt(c){if(c.state==='wilt'||c.state==='lost')return;c.state='wilt';c.task=null;c.flight=null;c.stun=30;c.route=[];this.burst(c.x,c.y,TYPES[c.type].color,6);}
   hurt(){
     const p=this.player;if(p.invuln>0)return;p.hp--;p.invuln=2.5;this.audio.play('hurt');this.burst(p.x,p.y,'#fff2ce',12);
     if(p.hp<=0){p.x=HOME.x+65;p.y=HOME.y+50;p.hp=3;p.route=[];if(!this.cozy)this.time+=20;this.say('The ship patched you up. Your crew is still out there. Go whistle them home.',5);}
@@ -173,11 +174,11 @@ export class Game {
       const nearby=this.crew.filter(c=>c.state!=='lost'&&c.state!=='wilt'&&distance(c,e)<130);
       const playerNear=distance(this.player,e)<150;const target=nearby[0]||(playerNear?this.player:null);
       if(e.phase==='windup'){
-        e.timer-=dt;if(e.timer<=0){e.phase='bite';e.timer=.2;this.burst(e.x,e.y,'#ef927b',9);for(const c of this.crew)if(c.state!=='lost'&&c.state!=='wilt'&&distance(c,e)<e.r+40)this.wilt(c);if(distance(this.player,e)<e.r+40)this.hurt();}
+        e.timer-=dt;if(e.timer<=0){e.phase='bite';e.timer=.2;this.burst(e.x,e.y,'#ef927b',9);const victims=this.crew.filter(c=>c.state!=='lost'&&c.state!=='wilt'&&distance(c,e)<e.r+32).sort((a,b)=>distance(a,e)-distance(b,e)).slice(0,3);for(const c of victims)this.wilt(c);if(distance(this.player,e)<e.r+40)this.hurt();}
       }else if(e.phase==='bite'){e.timer-=dt;if(e.timer<=0){e.phase='roam';e.cool=2.8;}}
       else if(target){
         e.angle=Math.atan2(target.y-e.y,target.x-e.x);
-        if(distance(e,target)<e.r+38&&e.cool<=0){e.phase='windup';e.timer=.85;}
+        if(distance(e,target)<e.r+38&&e.cool<=0){e.phase='windup';e.timer=1.05;if(!this.firstFight){this.firstFight=true;this.say('A beetle! Click it to attack. Whistle wilted friends awake with right click or Q.',5);}}
         else if(distance(e,target)>e.r+18&&distance(e,{x:e.homeX,y:e.homeY})<180){const dx=Math.cos(e.angle)*38*dt,dy=Math.sin(e.angle)*38*dt;if(!blocked(e.x+dx,e.y+dy,this.world,false,e.r)){e.x+=dx;e.y+=dy;}}
       }else{const a=this.time*.35+e.homeX,t={x:e.homeX+Math.cos(a)*30,y:e.homeY+Math.sin(a)*22};const d=distance(e,t);if(d>2){e.x+=(t.x-e.x)/d*18*dt;e.y+=(t.y-e.y)/d*18*dt;}}
     }

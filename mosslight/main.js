@@ -32,7 +32,7 @@ $('help').onclick=()=>{guidePaused=game.mode==='playing';if(guidePaused)game.pau
 $('touch-work').onclick=()=>game.workNearby();$('touch-whistle').onclick=()=>game.whistle(game.player,220);
 canvas.addEventListener('pointermove',e=>{game.pointer={...renderer.screenPoint(e.clientX,e.clientY),active:true};});
 canvas.addEventListener('pointerleave',()=>game.pointer.active=false);
-canvas.addEventListener('pointerdown',e=>{if(e.button!==0&&e.button!==2)return;e.preventDefault();canvas.focus();const point=renderer.screenPoint(e.clientX,e.clientY);if(e.button===2)game.whistle(point);else game.click(point,e.shiftKey);});
+canvas.addEventListener('pointerdown',e=>{if(e.button!==0&&e.button!==2)return;e.preventDefault();canvas.focus();const map=renderer.mapPoint(e.clientX,e.clientY);if(map&&e.button===0){game.movePlayer(map);return;}const point=renderer.screenPoint(e.clientX,e.clientY);if(e.button===2)game.whistle(point);else game.click(point,e.shiftKey);});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 document.addEventListener('keydown',e=>{
   if($('guide').open)return;
