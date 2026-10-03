@@ -68,6 +68,7 @@ export class Renderer {
     if(!g.cozy&&g.mode!=='title'){const dusk=clamp((g.time-330)/150,0,1);c.fillStyle=`rgba(28,24,59,${dusk*.26})`;c.fillRect(0,0,this.w,this.h);}
     if(g.mode!=='title')this.minimap(c);
     if(g.mode==='playing'){this.location(c);}
+    if(this.ui)this.ui.draw(c,this.w,this.h);
   }
   water(c){const t=this.reduced?0:this.tick;for(let i=0;i<35;i++){const x=1130+(i*29)%130,y=(i*79+t*12)%985;line(c,x,y,x+8+Math.sin(t+i)*3,y,'#8fc5af55',2);}for(let i=0;i<9;i++){const y=i*109+45;line(c,1110,y,1106,y-14,'#859768',2);line(c,1290,y+25,1294,y+8,'#a7b879',2);}}
   camp(c){const t=this.tick,home=HOME;ellipse(c,home.x,home.y+15,72,27,'#273e3266');c.strokeStyle='#b9c78566';c.lineWidth=2;c.setLineDash([3,9]);c.beginPath();c.ellipse(home.x,home.y+8,90,65,0,0,6.28);c.stroke();c.setLineDash([]);

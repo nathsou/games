@@ -4,7 +4,7 @@ export class Game {
   constructor(audio, hooks){this.audio=audio;this.hooks=hooks;this.keys=new Set();this.pointer={x:700,y:760,active:false};this.selected='all';this.mode='title';this.cozy=false;this.time=0;this.dayLength=480;this.seed=7234;this.init(this.seed);}
   init(seed){
     this.world=makeWorld(seed);this.nav=new Navigation(this.world);this.player={x:430,y:870,r:12,hp:3,invuln:0,angle:0,route:[],moving:false};
-    this.crew=[];this.nextId=0;this.particles=[];this.floaters=[];this.rings=[];this.time=0;this.recovered=0;this.lost=0;this.grown=0;this.bridgeSeen=false;this.firstCargo=false;this.firstFight=false;this.reinforceAt=0;this.warnings=new Set();this.noticeTime=0;this.selected='all';this.whistleTime=0;this.camera={x:0,y:0};
+    this.crew=[];this.nextId=0;this.particles=[];this.floaters=[];this.rings=[];this.time=0;this.recovered=0;this.lost=0;this.grown=0;this.bridgeSeen=false;this.firstCargo=false;this.firstFight=false;this.reinforceAt=0;this.warnings=new Set();this.noticeTime=0;this.pending=null;this.selected='all';this.whistleTime=0;this.camera={x:0,y:0};
     for(let i=0;i<12;i++)this.addCrew(HOME.x+65+Math.cos(i*2.4)*28,HOME.y+35+Math.sin(i*2.4)*28,i%3,'follow');
   }
   start(cozy=false){this.cozy=cozy;this.seed=7234;this.init(this.seed);this.mode='playing';this.audio.unlock();this.audio.setActive(true);this.hooks.start();this.select('all');this.say('Welcome, captain. Click the nearby sprouts to grow your crew, then bring a dewberry home.',7);}
@@ -32,6 +32,7 @@ export class Game {
     this.movePlayer(point);
   }
   movePlayer(point){
+    this.pending=null;
     this.player.route=this.nav.path(this.player,point);this.rings.push({x:point.x,y:point.y,r:7,life:.6,color:'#d2e39c'});
     if(!this.player.route.length)this.say('That spot is out of reach. Build the bridge, or take the southern ford.',3);
   }
@@ -42,7 +43,11 @@ export class Game {
   }
   command(target,single=false){
     if(!target.kind)target={...target,kind:'rally',r:12};
-    if(distance(this.player,target)>350){this.say('A little closer, captain. Your crew can reach about one clearing away.',3);return;}
+    if(distance(this.player,target)>330){
+      const destination=target.kind==='bridge'?{x:this.player.x<1200?1080:1320,y:650}:target;
+      this.movePlayer(destination);this.pending={target,single};this.say('On our way. Your crew will start when you get closer.',3);return;
+    }
+    if(target.kind==='core'){const guard=this.world.enemies.find(e=>!e.dead&&distance(e,target)<180);if(guard){target=guard;this.say('A Mossback is guarding this lantern. Your crew will clear the way first.',4);}}
     let members=this.following();
     if(!members.length){this.say('No selected friends with you. Whistle workers back, or select Everyone (4).',3);return;}
     const existing=this.crew.filter(c=>c.task===target&&c.state!=='lost'&&c.state!=='wilt');
@@ -95,8 +100,9 @@ export class Game {
     this.time+=dt;this.audio.update();this.noticeTime-=dt;if(this.noticeTime<=0)this.hooks.clearNotice();
     this.player.invuln=Math.max(0,this.player.invuln-dt);
     let dx=(this.keys.has('d')||this.keys.has('arrowright')?1:0)-(this.keys.has('a')||this.keys.has('arrowleft')?1:0),dy=(this.keys.has('s')||this.keys.has('arrowdown')?1:0)-(this.keys.has('w')||this.keys.has('arrowup')?1:0);
-    const speed=this.keys.has('shift')?270:195,p=this.player;
-    if(dx||dy){p.route=[];const length=Math.hypot(dx,dy);dx=dx/length*speed*dt;dy=dy/length*speed*dt;if(!blocked(p.x+dx,p.y,this.world,false,p.r))p.x+=dx;if(!blocked(p.x,p.y+dy,this.world,false,p.r))p.y+=dy;p.angle=Math.atan2(dy,dx);p.moving=true;}else p.moving=this.followRoute(p,speed,dt);
+    const speed=(this.keys.has('shift')||this.time<(this.player.sprintUntil||0))?270:195,p=this.player;
+    if(dx||dy){this.pending=null;p.route=[];const length=Math.hypot(dx,dy);dx=dx/length*speed*dt;dy=dy/length*speed*dt;if(!blocked(p.x+dx,p.y,this.world,false,p.r))p.x+=dx;if(!blocked(p.x,p.y+dy,this.world,false,p.r))p.y+=dy;p.angle=Math.atan2(dy,dx);p.moving=true;}else p.moving=this.followRoute(p,speed,dt);
+    if(this.pending&&distance(p,this.pending.target)<310){const {target,single}=this.pending;this.pending=null;p.route=[];this.command(target,single);}
     if(this.keys.has('q')){if(this.whistleTime===0)this.audio.play('whistle');this.whistleTime+=dt;this.whistle(p,Math.min(220,80+this.whistleTime*190),false);}else this.whistleTime=0;
     for(const s of this.world.sprouts){if(!s.picked&&distance(s,p)<48){s.picked=true;this.addCrew(s.x,s.y,s.type,'follow');this.grown++;this.audio.play('pluck');this.burst(s.x,s.y,TYPES[s.type].light,10);this.float(s.x,s.y-15,'+1 '+TYPES[s.type].name);}}
     for(const c of this.crew){
@@ -109,6 +115,10 @@ export class Game {
         const n=c.id%12,row=Math.floor(c.id/12),a=n*2.4+this.time*.12,ring=30+Math.sqrt(c.id+1)*8+row*4;
         const target={x:p.x+Math.cos(a)*ring-Math.cos(p.angle)*(p.moving?25:0),y:p.y+Math.sin(a)*ring-Math.sin(p.angle)*(p.moving?25:0)};
         if(distance(c,p)>500){this.walk(c,p,240,dt,c.type===1);}else if(distance(c,target)>10)this.walk(c,target,205+(distance(c,p)>160?55:0),dt,c.type===1);
+      }
+      if(c.state==='follow'&&!this.keys.has('q')){
+        const threat=this.world.enemies.find(e=>!e.dead&&distance(e,p)<150&&distance(e,c)<80);
+        if(threat){c.state='task';c.task=threat;c.route=[];}
       }
       if(c.state==='task')this.updateTask(c,dt);
       if(c.type!==0&&this.world.fires.some(f=>distance(c,f)<f.r*.75))this.wilt(c);
