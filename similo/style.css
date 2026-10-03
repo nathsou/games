@@ -50,3 +50,4 @@ dialog.outcome-dialog::backdrop{background:#021719bd}
 .no-effects #outcome-secret{animation:none}
 @media(max-width:660px){.reveal-hero h1{font-size:29px}dialog.outcome-dialog{padding:28px 21px}.outcome-dialog .modal-header h2{font-size:36px}.outcome-dialog .modal-header>div{padding:0 25px}.outcome-summary{font-size:12px}#outcome-secret{width:115px}}
 @media(prefers-reduced-motion:reduce){#outcome-secret{animation:none}}
+input[type=range]{accent-color:var(--gold);padding:5px 0;background:transparent;border:0}
