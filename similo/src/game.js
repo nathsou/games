@@ -98,6 +98,16 @@ export function aiObservation(game, role) {
       const source = role === 'giver' ? r.giverSource : r.guesserSource;
       return source && source !== 'Human' && explanation ? [{round:r.round, explanation}] : [];
     }),
+    ownPreviousActions: game.history.flatMap(r => {
+      const source = role === 'giver' ? r.giverSource : r.guesserSource;
+      if (!source || source === 'Human') return [];
+      const clue = {id:r.card, name:CARDS[r.card].name, relation:r.relation};
+      const removedCards = r.removed.map(id => ({id, name:CARDS[id].name}));
+      return [{round:r.round, role, source,
+        action: role === 'giver' ? {clue} : {removedCards},
+        ...(role === 'giver' ? {publicResponse:{removedCards, resolved:r.removed.length>0}} : {receivedClue:clue}),
+        explanation:role === 'giver' ? r.giverNote : r.guesserNote}];
+    }),
     ...(role === 'giver' ? {secret: view.secret, hand: view.hand.map(id => ({id, name: CARDS[id].name,
       subtitle: CARDS[id].subtitle, dates: CARDS[id].dates, description: CARDS[id].description}))} : {removeCount: REMOVALS[view.round]}),
   };

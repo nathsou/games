@@ -18,6 +18,8 @@ if (setup.clueTheme !== 'same' && !DECKS[setup.clueTheme]) setup.clueTheme='same
 let game = null, mode = null, localRole='giver', screen='home', selected = new Set(), clueCard=null, relation='similar', draftNote='';
 let peer=null, peerStatus='', pendingGuess=false, pairingKind=null, pairingCode='', pairingError='', pairingBusy=false;
 let aiBusy=false, aiError='', aiController=null, aiGeneration=0, replayRound=0, toastTimer, lastOutcome;
+const colorPreference = matchMedia('(prefers-color-scheme: dark)');
+const CARD_SIZES = [['compact','Compact'],['comfortable','Comfortable'],['large','Large']];
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const options = (items, current) => items.map(([value,label]) => `<option value="${esc(value)}"${value===current?' selected':''}>${esc(label)}</option>`).join('');
@@ -50,6 +52,12 @@ function inspectCard(id) {
   mountCard($('inspect-card'),id);
 }
 function attachInspect(element,id) {
+  if(element.closest('#board,#hand,#replay-board')){
+    const wrapper=document.createElement('div');wrapper.className='card-with-details';
+    element.replaceWith(wrapper);wrapper.append(element);
+    const details=document.createElement('button');details.type='button';details.className='card-details';details.textContent='Details';
+    details.setAttribute('aria-label',`View details of ${CARDS[id].name}`);details.onclick=()=>inspectCard(id);wrapper.append(details);
+  }
   element.addEventListener('contextmenu',event=>{event.preventDefault();inspectCard(id);});
   element.addEventListener('dblclick',event=>{event.preventDefault();inspectCard(id);});
   element.addEventListener('keydown',event=>{if(event.key.toLowerCase()==='i'){event.preventDefault();inspectCard(id);}});
@@ -130,7 +138,7 @@ function renderGame(){
     isPeer()?'The next move belongs to your friend. Their interpretation stays sealed until the reveal.':'Your AI partner sees only the information allowed for its role. Its explanation stays sealed.';
   const latest=view.history.at(-1);
   app.innerHTML=`<div class="game-heading"><div><p class="eyebrow">${esc(DECKS[view.theme].name)} · ${view.variant==='fixed'?'Fixed five':'Classic hand'}</p><h1>Find the one.</h1><p>${mode==='local'?'One-screen play':isPeer()?'Two browsers. One shared victory.':`With ${esc(settings.models[settings.provider])}`} · You are the ${role==='giver'?'clue giver':'guesser'}.</p></div><div class="controls"><button class="button small secondary" id="leave-table">Leave table</button></div></div>
-  <div class="table-layout"><section class="board-section"><div class="board-label"><span>THE BOARD</span><span>${remaining(view).length} STILL IN PLAY</span></div><div class="board" id="board"></div>
+  <div class="table-layout"><section class="board-section"><div class="board-label"><span>THE BOARD · ${remaining(view).length} STILL IN PLAY</span><label class="card-size-control" for="table-card-size">Card size <select id="table-card-size">${options(CARD_SIZES,settings.tableCardSize)}</select></label></div><div class="board" id="board"></div>
   <section class="history-section"><div class="section-title"><h2>THE CLUE TRAIL</h2><span>All clues remain relevant.</span></div><div class="clue-history" id="clue-history"></div></section>
   ${role==='giver'?`<section class="hand-section"><div class="section-title"><h2>YOUR PRIVATE HAND</h2><span>${view.variant==='fixed'?`${view.hand.length} LEFT · NO REFILLS`:'5 CARDS · REFILLS AFTER PLAY'}</span></div><div class="hand" id="hand"></div></section>`:''}</section>
   <aside class="side-panel"><p class="eyebrow">Round ${view.round+1} / 5</p><div class="round-track">${REMOVALS.map((n,i)=>`<span class="round-step ${i===view.round?'current':i<view.round?'done':''}" title="Round ${i+1}: remove ${n}">${i<view.round?'✓':n}</span>`).join('')}</div>${latest?`<div class="current-clue ${latest.relation}"><div id="current-clue-art"></div><div><small>CLUE ${latest.round}</small><p>${esc(CARDS[latest.card].name)}</p><strong>${latest.relation==='similar'?'↑ Similar':'→ Different'}</strong></div></div>`:''}<h2 class="turn-title">${turnTitle}</h2><p class="turn-copy">${turnCopy}</p>
@@ -138,10 +146,10 @@ function renderGame(){
   ${myTurn&&role==='guesser'&&view.round===4?'<button class="button small secondary wide" id="compare-final">Compare the final two ▣</button>':''}
   ${myTurn?`<form id="turn-form" class="turn-form">${role==='giver'?`<span class="field-label">The connection</span><div class="segmented"><button type="button" id="similar" class="${relation==='similar'?'selected':''}" aria-pressed="${relation==='similar'}">↑ Similar</button><button type="button" id="different" class="${relation==='different'?'selected':''}" aria-pressed="${relation==='different'}">→ Different</button></div>`:''}<label class="private-label" for="turn-note">Your interpretation <span>SEALED UNTIL THE END</span></label><textarea id="turn-note" maxlength="1200" placeholder="Optional: what connection are you making?">${esc(draftNote)}</textarea><button class="button wide ${role==='guesser'?'danger':''}" id="confirm-move" type="submit">${role==='giver'?'Play this clue ↑':'Confirm removal ×'}</button><p class="selection-count" id="selection-count"></p></form>`:''}
   ${aiBusy?'<div class="thinking" role="status"><i></i><i></i><i></i><span>Reading the table…</span></div><button class="text-button" id="cancel-ai">Cancel request</button>':''}
-  ${aiError?`<div class="inline-error" role="alert">${esc(aiError)}</div><div class="pair-actions"><button class="button small" id="retry-ai">Retry turn</button><button class="button small secondary" id="fix-ai">AI Settings</button></div>`:''}
+  ${aiError?`<div class="inline-error" role="alert">${esc(aiError)}</div><div class="pair-actions"><button class="button small" id="retry-ai">Retry turn</button><button class="button small secondary" id="fix-ai">Settings</button></div>`:''}
   ${pendingGuess?'<p class="status-note" role="status">Waiting for your partner’s browser to confirm your move…</p>':''}
   ${isPeer()&&!peer?.connected?'<p class="status-note">The connection is paused. Keep this game open and pair again.</p><button class="button small secondary" id="reconnect">Reconnect ⇄</button>':''}
-  <p class="help-text">Right-click a card, or focus it and press I, to inspect the artwork.</p></aside></div>`;
+  <p class="help-text">Tap Details below a card to read its dates and biography. Tap a clue to inspect it.</p></aside></div>`;
   for(let i=0;i<view.board.length;i++){
     const id=view.board[i], removed=view.eliminated.includes(id);
     const element=mountCard($('board'),id,{interactive:true,label:String(i+1).padStart(2,'0'),selected:selected.has(id),eliminated:removed,secret:role==='giver'&&id===view.secret,
@@ -162,6 +170,7 @@ function renderGame(){
     if(role==='giver'){$('similar').onclick=()=>{relation='similar';renderGame();};$('different').onclick=()=>{relation='different';renderGame();};}
     updateConfirm();
   }
+  $('table-card-size').onchange=event=>{settings.tableCardSize=event.target.value;persistPreferences();applyPreferences();};
   $('leave-table').onclick=confirmLeave;
   if($('retry-ai'))$('retry-ai').onclick=()=>{aiError='';runAI();};
   if($('fix-ai'))$('fix-ai').onclick=openSettings;
@@ -182,7 +191,7 @@ function renderClues(parent,history){
   for(const round of history){const token=document.createElement('div');token.className=`clue-token ${round.relation}`;
     const art=mountCard(token,round.card,{interactive:true,onClick:()=>inspectCard(round.card)});attachInspect(art,round.card);
     const p=document.createElement('p');p.textContent=`${round.relation==='similar'?'↑':'→'} ${round.relation}`;
-    const small=document.createElement('small');small.textContent=`ROUND ${round.round}`;token.append(p,small);parent.append(token);}
+    const small=document.createElement('small');small.textContent=`ROUND ${round.round}`;const name=document.createElement('span');name.className='clue-name';name.textContent=CARDS[round.card].name;token.append(name,p,small);parent.append(token);}
 }
 function updateConfirm(){
   const role=humanRole();const permitted=!isPeer()||peer?.connected;
@@ -307,7 +316,7 @@ function newPeer(){
       pendingGuess=false;
       if(screen==='game')renderGame();
       if(status==='failed'){
-        pairingBusy=false;pairingError='The browsers could not connect. Try a different network, or change the STUN server in AI Settings. Some networks need a relay, which this direct-pairing game does not use.';
+        pairingBusy=false;pairingError='The browsers could not connect. Try a different network, or change the STUN server in Settings. Some networks need a relay, which this direct-pairing game does not use.';
         if(pairingKind)renderPairing();else toast('Connection lost. Create a fresh invitation to reconnect.');
       }
     }
@@ -392,16 +401,16 @@ let settingsDraft, availableModels=[], settingsRemember=true;
 function captureSettings(){
   if(!$('provider'))return;const provider=settingsDraft.provider;
   settingsDraft.keys[provider]=$('api-key').value.trim();settingsDraft.models[provider]=$('model').value.trim();settingsDraft.efforts[provider]=$('effort').value;
-  settingsDraft.tokenBudget=Number($('token-budget').value);settingsDraft.stun=$('stun').value.trim();settingsDraft.effects=$('effects').checked;settingsDraft.sound=$('sound').checked;settingsDraft.music=$('music').checked;settingsDraft.musicVolume=Number($('music-volume').value);settingsRemember=$('remember-key').checked;
+  settingsDraft.tokenBudget=Number($('token-budget').value);settingsDraft.stun=$('stun').value.trim();settingsDraft.effects=$('effects').checked;settingsDraft.sound=$('sound').checked;settingsDraft.music=$('music').checked;settingsDraft.musicVolume=Number($('music-volume').value);settingsDraft.appearance=$('appearance').value;settingsDraft.tableCardSize=$('preference-card-size').value;settingsRemember=$('remember-key').checked;
 }
 function openSettings(){settingsDraft=structuredClone(settings);availableModels=[];settingsRemember=settings.rememberKeys!==false;renderSettings();}
 function renderSettings(){
   const provider=settingsDraft.provider,info=PROVIDERS[provider];
-  showModal('Choose your other mind.','AI Settings',`<form id="settings-form"><div class="form-field"><label class="field-label" for="provider">Provider</label><select id="provider">${options(Object.entries(PROVIDERS).map(([id,p])=>[id,p.name]),provider)}</select></div>
+  showModal('Make yourself at home.','Settings',`<form id="settings-form"><div class="modal-grid"><div class="form-field"><label class="field-label" for="appearance">Appearance</label><select id="appearance">${options([['system','System'],['light','Light'],['dark','Dark']],settingsDraft.appearance)}</select></div><div class="form-field"><label class="field-label" for="preference-card-size">Table card size</label><select id="preference-card-size">${options(CARD_SIZES,settingsDraft.tableCardSize)}</select></div></div><div class="form-field"><label class="field-label" for="provider">Provider</label><select id="provider">${options(Object.entries(PROVIDERS).map(([id,p])=>[id,p.name]),provider)}</select></div>
   <div class="form-field"><label class="field-label" for="api-key">${esc(info.name)} API key</label><div class="form-row"><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Your personal provider key" value="${esc(settingsDraft.keys[provider]||'')}"><button type="button" class="button small secondary" id="show-key">Show</button></div><label class="check-row"><input type="checkbox" id="remember-key" ${settingsRemember?'checked':''}>Remember keys on this browser</label><p class="help-text">${settingsRemember?'Saved in this browser’s local storage.':'Kept in memory for this visit.'} Keys go directly to your selected provider with AI requests. Browser storage is readable by scripts on this origin; use a personal key with a spending limit. <a href="${info.keyUrl}" target="_blank" rel="noopener noreferrer">Get a key ↗</a></p><button type="button" class="text-button" id="forget-keys">Forget all saved keys</button></div>
   <div class="form-field"><label class="field-label" for="model">Vision model</label><div class="form-row"><input id="model" list="model-list" autocomplete="off" spellcheck="false" value="${esc(settingsDraft.models[provider])}" required><button type="button" class="button small secondary" id="load-models">Load models</button></div><datalist id="model-list">${availableModels.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('')}</datalist><p class="help-text" id="model-status">${availableModels.length?`${availableModels.length} models available. Select one or enter an exact model ID.`:'Enter an exact model ID, or load the provider’s list. Choose a model that accepts images.'}</p></div>
   <div class="modal-grid"><div class="form-field"><label class="field-label" for="effort">Reasoning effort</label><select id="effort">${options(info.efforts.map(e=>[e,e==='default'?'Provider default':e[0].toUpperCase()+e.slice(1)]),settingsDraft.efforts[provider])}</select></div><div class="form-field"><label class="field-label" for="token-budget">Response token budget</label><select id="token-budget">${options([2048,4096,8192,16384,32768].map(n=>[String(n),n.toLocaleString()]),String(settingsDraft.tokenBudget))}</select></div></div><p class="help-text">Effort support depends on the model. “Provider default” leaves it unset. Higher effort may take longer and needs more response tokens. Unsupported choices are reported; they are never silently changed.</p>
-  <details style="margin-top:20px"><summary class="field-label">Music, effects & connection</summary><label class="check-row"><input id="sound" type="checkbox" ${settingsDraft.sound?'checked':''}>Arcade sounds & outcome fanfares</label><label class="check-row"><input id="music" type="checkbox" ${settingsDraft.music?'checked':''}>Theme background music</label><label class="field-label" for="music-volume">Music volume · <span id="music-volume-value">${settingsDraft.musicVolume}%</span></label><input id="music-volume" type="range" min="0" max="70" step="1" value="${settingsDraft.musicVolume}"><p class="help-text">Original composition: ${esc(THEME_MUSIC[screen==='home'?setup.theme:game?.theme||setup.theme].title)}.<br>Music follows the board theme, fades between tracks and pauses when this tab is hidden. The top audio button mutes everything.</p><label class="check-row"><input id="effects" type="checkbox" ${settingsDraft.effects?'checked':''}>Table animations & result effects</label><label class="field-label" for="stun">STUN server for direct pairing</label><input id="stun" value="${esc(settingsDraft.stun)}" spellcheck="false" placeholder="stun:stun.l.google.com:19302"><p class="help-text">Comma-separated STUN URLs. Leave blank to try local-network connections only. No relay server is used.</p></details>
+  <details style="margin-top:20px"><summary class="field-label">Music, effects & connection</summary><label class="check-row"><input id="sound" type="checkbox" ${settingsDraft.sound?'checked':''}>Arcade sounds & outcome fanfares</label><label class="check-row"><input id="music" type="checkbox" ${settingsDraft.music?'checked':''}>Theme background music</label><label class="field-label" for="music-volume">Music volume · <span id="music-volume-value">${settingsDraft.musicVolume}%</span></label><input id="music-volume" type="range" min="0" max="70" step="1" value="${settingsDraft.musicVolume}"><p class="help-text">Original composition: ${esc(THEME_MUSIC[screen==='home'?setup.theme:game?.theme||setup.theme].title)}.<br>Music follows the board theme, fades between tracks and pauses when this tab is hidden. The top music button pauses music while keeping sound effects unchanged.</p><label class="check-row"><input id="effects" type="checkbox" ${settingsDraft.effects?'checked':''}>Table animations & result effects</label><label class="field-label" for="stun">STUN server for direct pairing</label><input id="stun" value="${esc(settingsDraft.stun)}" spellcheck="false" placeholder="stun:stun.l.google.com:19302"><p class="help-text">Comma-separated STUN URLs. Leave blank to try local-network connections only. No relay server is used.</p></details>
   <div class="modal-footer"><span class="help-text">No account with this game.<br>No keys in invitations or replays.</span><button class="button" type="submit">Save settings ✓</button></div></form>`);
   $('music-volume').oninput=()=>{$('music-volume-value').textContent=$('music-volume').value+'%';};
   $('provider').onchange=event=>{const next=event.target.value;captureSettings();settingsDraft.provider=next;availableModels=[];renderSettings();};
@@ -420,14 +429,22 @@ function renderSettings(){
     if(screen==='home')renderHome();else if(screen==='game')renderGame();
   };
 }
+function persistPreferences(){write('settings',{...settings,keys:settings.rememberKeys===false?{}:settings.keys});}
+function applyAppearance(){
+  const theme=settings.appearance==='system'?(colorPreference.matches?'dark':'light'):settings.appearance;
+  document.documentElement.dataset.colorTheme=theme;
+  document.querySelector('meta[name="theme-color"]').content=theme==='light'?'#f0eadb':'#102e31';
+}
+colorPreference.addEventListener('change',()=>{if(settings.appearance==='system')applyAppearance();});
 function applyPreferences(){
-  document.body.classList.toggle('no-effects',!settings.effects);
-  const audible=!settings.muted&&(settings.sound||settings.music),button=$('sound-toggle');
+  document.body.classList.toggle('no-effects',!settings.effects);applyAppearance();
+  document.documentElement.style.setProperty('--table-card-width',({compact:112,comfortable:160,large:208}[settings.tableCardSize]||160)+'px');
+  const audible=!settings.muted&&settings.music,button=$('sound-toggle');
   button.textContent=audible?'♪':'♩';button.setAttribute('aria-pressed',String(audible));
-  button.setAttribute('aria-label',settings.muted?'Unmute music and sounds':'Mute music and sounds');button.title=settings.muted?'Unmute audio':'Mute audio';updateMusic();
+  button.setAttribute('aria-label',audible?'Mute background music':'Play background music');button.title=audible?'Mute music · keep sound effects':'Play background music';updateMusic();
 }
 $('settings-button').onclick=openSettings;$('rules-button').onclick=showRules;
-$('sound-toggle').onclick=()=>{settings.muted=!settings.muted;write('settings',{...settings,keys:settings.rememberKeys===false?{}:settings.keys});applyPreferences();sound('select');};
+$('sound-toggle').onclick=()=>{settings.music=!settings.music;persistPreferences();applyPreferences();};
 for(const event of ['pointerdown','keydown'])document.addEventListener(event,e=>{if(e.isTrusted)unlockAudio();},{passive:true});
 $('home-link').onclick=event=>{event.preventDefault();if(game&&game.phase!=='over')confirmLeave();else{if(screen==='reveal')$('reveal-home').click();else renderHome();}};
 window.addEventListener('beforeunload',()=>saveSession());
