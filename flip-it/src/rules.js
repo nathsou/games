@@ -22,7 +22,7 @@ function rng(seed) {
 export function makeDeck(compact = true) {
   const ranks = compact ? 6 : 10, deck = [];
   for (const step of [1, 2]) for (let rank = 1; rank <= ranks; rank++) {
-    for (let copy = 0; copy < 2; copy++) deck.push({id: 'c' + deck.length, ends: [rank, (rank - 1 + step) % ranks + 1], face: 0});
+    for (let copy = 0; copy < 2; copy++) deck.push({id: 'c' + deck.length, ends: [rank, (rank - 1 + step) % ranks + 1], face: 0, ...(deck.length===0?{star:true}:{})});
   }
   return deck;
 }
@@ -38,7 +38,10 @@ function deal(state) {
   state.table = state.hands.map(() => [[], []]);
   state.discard = [];
   state.phase = 'playing';
-  state.turn = (state.starter + state.round) % state.hands.length;
+  // The star belongs to one physical card, on either face. Its recipient opens
+  // each new round; the host, deal offset and controller type do not choose it.
+  state.firstPlayer = state.hands.findIndex(hand=>hand.some(card=>card.star));
+  state.turn = state.firstPlayer;
   // In double-action rhythm the opening player gets only the right action.
   state.beat = 1;
   state.opening = true;
@@ -212,7 +215,7 @@ export function assertState(state) {
   const deck = makeDeck(state.options.compactDeck), seen = new Set(), counts = new Set();
   for (const card of [...state.hands.flat(), ...state.table.flat(2), ...state.discard]) {
     const source = deck.find(c => c.id === card.id);
-    if (!source || seen.has(card.id) || ![0, 1].includes(card.face) || source.ends.some((n, i) => n !== card.ends[i])) throw new Error('Card conservation failed.');
+    if (!source || seen.has(card.id) || ![0, 1].includes(card.face) || source.ends.some((n, i) => n !== card.ends[i]) || card.star !== undefined && card.star !== source.star) throw new Error('Card conservation failed.');
     seen.add(card.id);
   }
   if (seen.size !== deck.length) throw new Error('A card disappeared.');

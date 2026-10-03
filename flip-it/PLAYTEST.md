@@ -84,3 +84,11 @@ Fresh screenshots of the lobby, solo table, multiplayer chat, five-player layout
 - Real WebRTC via a temporary loopback TURN/TCP relay: both Flip it peers retain the same game ID, revision and recording after host reload/reconnect. Guest recording frames contain anonymous opponent hands. No test relay configuration or credentials are shipped.
 - Cluance: automatic invite and reply generation, paste-to-accept, invitation navigation within an already-open tab, relay configuration, saved-host reconnect after round one, then all five rounds to a shared win. No page errors.
 - Fresh screenshots: 09 quick turns, 10 Cluance invite, 11 replay/log, 12 highlights, 13 phone replay, 14 Cluance win, 15 Flip it invite, 16 replay motion.
+
+## Starred-card opener and one deal button (2026-10-03)
+
+- Both decks contain exactly one physical starred card. Its recipient opens every fresh round; the marker survives flipping and transfers. Tests cover both deck sizes, two to five seats, rotating deal offsets, fresh rounds and forged-marker rejection.
+- Lobby uses one Deal the cards button. Table settings chooses one or two human players on this device and bot/AI seats. Settings stay expanded when choices change. Default lobby controls and the game fit 1280 × 720.
+- Chromium verified a human opening, a bot opening, the second shared-device human opening behind the correct handoff curtain, and an online guest opening. In double turns the starred recipient gets the right-hand opening action, then the next player gets right and left. No page errors.
+- Old unfinished saves keep their current turn and receive the visible physical marker; future rounds use the starred-card deal rule. Older replay views still load without exposing other hands.
+- Screenshots 17–19 show the simplified lobby, starred opening hand and player settings. The collection preview is refreshed.

@@ -59,11 +59,11 @@ test('A blocked add is forbidden, and taking transfers the entire set flipped', 
 });
 test('Double turns use right then left, with only the right action for the opener', () => {
   let state = createMatch({quickTurns: false}, 123);
-  assert.equal(state.turn, 0); assert.equal(state.beat, 1);
-  assert.throws(() => applyAction(state, 0, {kind: 'flip', lane: 0}));
-  state = applyAction(state, 0, {kind: 'flip', lane: 1}); assert.equal(state.turn, 1); assert.equal(state.beat, 1);
-  state = applyAction(state, 1, {kind: 'flip', lane: 1}); assert.equal(state.turn, 1); assert.equal(state.beat, 0);
-  state = applyAction(state, 1, {kind: 'flip', lane: 0}); assert.equal(state.turn, 0); assert.equal(state.beat, 1);
+  const first=state.firstPlayer,other=1-first;assert.equal(state.turn,first);assert.equal(state.beat,1);
+  assert.throws(() => applyAction(state, first, {kind: 'flip', lane: 0}));
+  state = applyAction(state, first, {kind: 'flip', lane: 1}); assert.equal(state.turn, other); assert.equal(state.beat, 1);
+  state = applyAction(state, other, {kind: 'flip', lane: 1}); assert.equal(state.turn, other); assert.equal(state.beat, 0);
+  state = applyAction(state, other, {kind: 'flip', lane: 0}); assert.equal(state.turn, first); assert.equal(state.beat, 1);
 });
 test('Last chance gives exactly one response, including an interrupted double turn', () => {
   let state = fixture({hands: [[4], [5, 1]], options: {quickTurns: false}, beat: 0});
@@ -95,7 +95,7 @@ test('Repeated positions draw and redeal instead of trapping players in a flip l
   while (state.phase === 'playing') state = applyAction(state, state.turn, {kind: 'flip', lane: 0});
   assert.equal(state.result.reason, 'repeat'); assert.equal(state.result.winner, null);
   const round = state.round; state = applyAction(state, 0, {kind: 'next'});
-  assert.equal(state.round, round + 1); assert.equal(state.turn, 1); assertState(state);
+  assert.equal(state.round, round + 1); assert.equal(state.turn,state.hands.findIndex(h=>h.some(c=>c.star))); assertState(state);
 });
 test('Views hide opponent ranks and seed, and reject malformed updates', () => {
   const state = createMatch({}, 654);
@@ -149,4 +149,31 @@ test('quick turns expose a single legal space and reject occupied retired spaces
   assert.throws(()=>applyAction(state,0,{kind:'flip',lane:1}));
   const bad=playerView(state,0);bad.table[0][1].push(bad.hands[0].pop());
   assert.throws(()=>validateView(bad,0),/play spaces/);
+});
+
+test('exactly one physical starred card chooses the opener on every fresh deal',()=>{
+  for(const compactDeck of[true,false]){
+    const deck=makeDeck(compactDeck);assert.equal(deck.filter(c=>c.star).length,1);
+    for(let players=2;players<=5;players++){
+      const recipients=new Set();
+      for(let seed=1;seed<=25;seed++){
+        let state=createMatch({compactDeck,quickTurns:false},seed,seed%players,players);
+        for(let round=0;round<2;round++){
+          const owner=state.hands.findIndex(h=>h.some(c=>c.star));recipients.add(owner);
+          assert.equal(state.turn,owner);assert.equal(state.firstPlayer,owner);assert.equal(state.beat,1);assert.equal(state.opening,true);
+          assert.equal([...state.hands.flat(),...state.table.flat(2),...state.discard].filter(c=>c.star).length,1);
+          const flipped=applyAction(state,owner,{kind:'flip',lane:1});
+          assert.equal(flipped.hands[owner].find(c=>c.star).id,'c0');assert.equal(flipped.firstPlayer,owner);
+          while(state.phase==='playing')state=applyAction(state,state.turn,{kind:'flip',lane:state.beat});
+          state=applyAction(state,0,{kind:'next'});assertState(state);
+        }
+      }
+      assert.equal(recipients.size,players,'any seat can receive the star');
+    }
+  }
+});
+test('a star cannot be forged onto an ordinary public card',()=>{
+  const state=createMatch({},3),view=playerView(state,state.turn);
+  view.hands[state.turn].find(c=>c.id!=='c0').star=true;
+  assert.throws(()=>validateView(view,state.turn),/card update/);
 });

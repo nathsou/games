@@ -20,7 +20,7 @@ test('recordings retain every action across rounds, reload and keep opponents hi
 });
 test('partial recordings are labelled, damaged private frames rejected, deletion persists',()=>{
   const storage=memory(),store=new ReplayStore(storage);let state=createMatch({},2);
-  state=applyAction(state,0,botAction(state,0));
+  state=applyAction(state,state.turn,botAction(state,state.turn));
   store.record({id:'late',mode:'solo',names:['You','Dealer'],seat:0,view:playerView(state,0)});
   assert.equal(store.records[0].partial,true);
   const raw=JSON.parse(storage.getItem(REPLAY_KEY));raw[0].entries[0].view.hands[1][0]={id:'stolen'};

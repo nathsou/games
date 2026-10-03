@@ -12,6 +12,7 @@ function pair(options, team = false) {
   const a={connected:true,send:m=>guest.receive(structuredClone(m))};
   const b={connected:true,send:m=>host.receive(structuredClone(m))};
   host.setPeer(a);guest.setPeer(b);host.opened();guest.opened();
+  let seed=1;while(createMatch(options,seed,0,host.controllers.length).turn!==0)seed++;host.start(options,seed);
   return {host,guest,a,b,errors};
 }
 test('Duel peers get the same options and table, with their opponent’s hand hidden',()=>{

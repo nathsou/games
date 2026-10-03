@@ -7,7 +7,7 @@ export function saveTable(session, storage) {
   try {
     storage ||= globalThis.localStorage;
     if (!session?.view) return;
-    storage.setItem(KEY, JSON.stringify({version: 3, savedAt: Date.now(), seat: session.seat,
+    storage.setItem(KEY, JSON.stringify({version: 4, savedAt: Date.now(), seat: session.seat,
       team: session.team, members: session.members, controllers: session.controllers,
       view: session.view, state: session.seat === 0 ? session.state : null}));
   } catch { /* Storage is optional, including in private browsing. */ }
@@ -21,7 +21,7 @@ export function loadTable(storage) {
     const raw = storage.getItem(KEY);
     if (!raw || raw.length > 250000) return null;
     const saved = JSON.parse(raw);
-    if (![2,3].includes(saved.version) || ![0, 1].includes(saved.seat) || typeof saved.team !== 'boolean' ||
+    if (![2,3,4].includes(saved.version) || ![0, 1].includes(saved.seat) || typeof saved.team !== 'boolean' ||
         !Array.isArray(saved.members) || saved.members.length !== 2 || saved.members.some(n => typeof n !== 'string' || n.length > 24) ||
         !Array.isArray(saved.controllers) || saved.controllers.length < 2 || saved.controllers.length > 5 ||
         saved.controllers.some((t, i) => i < (saved.team ? 1 : 2) ? t !== 'human' : !['model', 'dealer'].includes(t))) return null;
@@ -51,6 +51,11 @@ export function loadTable(storage) {
       if (saved.state) saved.state.visits = {};
       validateView(saved.view,visibleSeat);
       saved.migrated = true;
+    }
+    // Keep an unfinished match's existing turn. Add the physical card marker;
+    // the starred recipient determines the opener when the next round is dealt.
+    for (const state of [saved.view,saved.state].filter(Boolean)) {
+      for(const card of [...state.hands.flat(),...state.table.flat(2),...(state.discard||[])])if(card.id==='c0')card.star=true;
     }
     return saved;
   } catch { return null; }

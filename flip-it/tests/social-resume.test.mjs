@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {FlipSession} from '../src/session.js';
 import {saveTable, loadTable, forgetTable} from '../src/resume.js';
-import {legalActions,playerView} from '../src/rules.js';
+import {legalActions,playerView,createMatch} from '../src/rules.js';
 
 function pair() {
   const errors = [];
@@ -11,6 +11,7 @@ function pair() {
   host.setPeer({connected:true, send:m=>guest.receive(structuredClone(m))});
   guest.setPeer({connected:true, send:m=>host.receive(structuredClone(m))});
   guest.opened();
+  let seed=1;while(createMatch({},seed).turn!==0)seed++;host.start({},seed);
   return {host, guest, errors};
 }
 const memory = () => {const data = new Map(); return {getItem:k=>data.get(k), setItem:(k,v)=>data.set(k,v), removeItem:k=>data.delete(k)};};
@@ -70,4 +71,17 @@ test('legacy two-space quick saves preserve retired cards flipped without exposi
   const saved=loadTable(storage);assert(saved?.migrated);
   assert.equal(saved.state.table[1][1].length,0);assert.equal(saved.state.hands[1].at(-1).face,1-card.face);
   assert(saved.view.hands[1].every(c=>c.hidden));assert.equal(saved.view.hands[1].length,host.state.hands[1].length+1);
+});
+
+test('pre-star saves keep their current turn and gain the physical marker',()=>{
+  const {host}=pair(),storage=memory();host.choose({kind:'flip',lane:0});saveTable(host,storage);
+  const raw=JSON.parse(storage.getItem('flip-it.last-table.v2'));raw.version=3;
+  for(const state of[raw.state,raw.view]){
+    delete state.firstPlayer;
+    for(const card of[...state.hands.flat(),...state.table.flat(2),...(state.discard||[])])delete card.star;
+  }
+  storage.setItem('flip-it.last-table.v2',JSON.stringify(raw));const saved=loadTable(storage);
+  assert(saved);assert.equal(saved.state.turn,raw.state.turn);assert.equal(saved.state.revision,raw.state.revision);
+  assert.equal([...saved.state.hands.flat(),...saved.state.table.flat(2),...saved.state.discard].filter(c=>c.star).length,1);
+  assert(saved.view.hands[1].every(c=>c.hidden));assert.deepEqual(saved.view,playerView(saved.state,0));
 });

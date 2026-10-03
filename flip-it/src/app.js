@@ -45,10 +45,13 @@ function aiPlayers(max=3,minimum=0) {
   return Array.from({length:count},(_,i)=>prefs.aiKinds?.[i]==='dealer'?'dealer':(prefs.aiKinds?.[i]==='model'?'model':prefs.opponent==='model'?'model':'dealer'));
 }
 function controllers() {return mode==='online'?session?.controllers||[]:offlineControllers;}
-function names() {return mode==='online'?session?.names||['You','Friend']:offlineControllers.map((kind,i)=>kind==='human'?(i===0?name():'Partner'):(kind==='model'?'AI ':'Dealer ')+(i-(mode==='solo'?1:2)+1));}
+function names() {return mode==='online'?session?.names||['You','Friend']:offlineControllers.map((kind,i)=>kind==='human'?(i===0?name():'Partner'):(kind==='model'?'AI ':'Bot ')+(i-(mode==='solo'?1:2)+1));}
+function localHumans(){return prefs.localHumans===2?2:1;}
 function aiLobby(disabled=false) {
-  const count=Math.min(4,Math.max(0,Number(prefs.aiCount)||0));
-  return '<label class="label" for="ai-count">AI SEATS · UP TO FIVE PLAYERS TOTAL</label><select id="ai-count" '+(disabled?'disabled':'')+'>'+[0,1,2,3,4].map(n=>'<option value="'+n+'" '+(n===count?'selected':'')+'>'+n+(n===0?' · humans only / solo dealer':' opponent'+(n===1?'':'s'))+'</option>').join('')+'</select>'+Array.from({length:count},(_,i)=>'<label class="label" for="ai-kind-'+i+'">OPPONENT '+(i+1)+'</label><select id="ai-kind-'+i+'" data-ai-seat="'+i+'" '+(disabled?'disabled':'')+'><option value="model" '+((prefs.aiKinds?.[i]||prefs.opponent)==='model'?'selected':'')+'>AI · shared provider & model</option><option value="dealer" '+((prefs.aiKinds?.[i]||prefs.opponent)!=='model'?'selected':'')+'>Dealer · offline, no API calls</option></select>').join('')+'<p class="small">Two separate human seats leave room for three opponents. Team play shares one human seat. Solo always includes at least one opponent.</p>'+button('AI SETTINGS ↗','ai-settings','outline compact');
+  const online=mode==='online'&&connected(),humans=online?(session.team?1:2):localHumans(),max=5-humans,min=humans===1?1:0;
+  const count=aiPlayers(max,min).length;
+  return (!online?'<label class="label" for="table-humans">PLAYERS ON THIS DEVICE</label><select id="table-humans"><option value="1" '+(humans===1?'selected':'')+'>1 · just me</option><option value="2" '+(humans===2?'selected':'')+'>2 · share this device</option></select>':'')+
+    '<label class="label" for="ai-count">BOT SEATS · UP TO FIVE PLAYERS TOTAL</label><select id="ai-count" '+(disabled?'disabled':'')+'>'+Array.from({length:max-min+1},(_,i)=>i+min).map(n=>'<option value="'+n+'" '+(n===count?'selected':'')+'>'+n+(n===0?' · humans only':' opponent'+(n===1?'':'s'))+'</option>').join('')+'</select>'+Array.from({length:count},(_,i)=>'<label class="label" for="ai-kind-'+i+'">OPPONENT '+(i+1)+'</label><select id="ai-kind-'+i+'" data-ai-seat="'+i+'" '+(disabled?'disabled':'')+'><option value="model" '+((prefs.aiKinds?.[i]||prefs.opponent)==='model'?'selected':'')+'>AI · shared provider & model</option><option value="dealer" '+((prefs.aiKinds?.[i]||prefs.opponent)!=='model'?'selected':'')+'>Bot · offline, no API calls</option></select>').join('')+'<p class="small">Choose the players here. After the deal, whoever receives the starred card starts. Sharing a device hides each hand between players.</p>'+button('AI SETTINGS ↗','ai-settings','outline compact');
 }
 function stopAI(message='') {aiController?.abort();aiController=null;aiBusy=false;aiError=message;}
 function mySeat() { return mode === 'online' ? session?.team ? 0 : session?.seat || 0 : seat; }
@@ -61,21 +64,25 @@ function notify(message) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('visible'), 4500);
 }
 function tag() {
-  const label = mode === 'solo' ? (controllers().some(t=>t==='model')?'VS THE AI TABLE':'VS THE DEALER') : mode === 'local' ? 'PASS & PLAY' : connected() ? session.team ? 'TEAM CONNECTED' : 'FRIEND CONNECTED' : 'FRIEND OFFLINE';
+  const label = mode === 'solo' ? (controllers().some(t=>t==='model')?'VS THE AI TABLE':'BOT TABLE') : mode === 'local' ? 'SHARED DEVICE' : connected() ? session.team ? 'TEAM CONNECTED' : 'FRIEND CONNECTED' : 'FRIEND OFFLINE';
   return '<span class="tag ' + (mode === 'online' && !connected() ? 'offline' : '') + '"><span class="dot"></span>' + label + '</span>';
 }
 function cardHtml(card, interactive = false, isPreview = false, tilt = 0) {
   const rank = isPreview ? reverseOf(card) : valueOf(card), next = isPreview ? valueOf(card) : reverseOf(card);
   const palette=['#c84768','#6853ae','#007f81','#cf782c','#b79a0b','#376ca4','#923b80','#388451','#b34b35','#4252ac'];
   const selected = chosen.includes(card.id);
-  const attrs = interactive ? ' data-action="select-card" data-card="' + card.id + '" aria-pressed="' + selected + '" aria-label="Rank ' + rank + ', flips to ' + next + (selected ? ', selected' : '') + '" ' + (!myTurn() || isPreview ? 'disabled' : '') : ' role="img" aria-label="Rank ' + rank + ', flips to ' + next + '"';
-  return '<' + (interactive ? 'button type="button"' : 'span') + ' data-visual-card="'+card.id+'" data-face="'+(isPreview ? 1-card.face : card.face)+'" class="flip-card ' + (selected && interactive ? 'selected ' : '') + (isPreview ? 'preview' : '') + '" style="--active-color:' + palette[(rank-1)%10] + ';--reverse-color:' + palette[(next-1)%10] + ';--tilt:' + tilt + 'deg"' + attrs + '><span class="card-face"><span class="card-rank ' + (rank===10?'ten':'') + '">' + rank + '</span><span class="card-emblem" aria-hidden="true">'+['✦','◆','✳','✹','✿','❖','✺','✸','♢','★'][(rank-1)%10]+'</span><span class="card-divider" aria-hidden="true">↕</span><span class="card-corner">' + rank + '<small>↕' + next + '</small></span><span class="card-rank other ' + (next===10?'ten':'') + '">' + next + '</span></span></' + (interactive ? 'button' : 'span') + '>';
+  const attrs = interactive ? ' data-action="select-card" data-card="' + card.id + '" aria-pressed="' + selected + '" aria-label="Rank ' + rank + ', flips to ' + next + (card.star?', starred card':'') + (selected ? ', selected' : '') + '" ' + (!myTurn() || isPreview ? 'disabled' : '') : ' role="img" aria-label="Rank ' + rank + ', flips to ' + next + (card.star?', starred card':'') + '"';
+  return '<' + (interactive ? 'button type="button"' : 'span') + ' data-visual-card="'+card.id+'" data-face="'+(isPreview ? 1-card.face : card.face)+'" class="flip-card ' + (selected && interactive ? 'selected ' : '') + (isPreview ? 'preview' : '') + '" style="--active-color:' + palette[(rank-1)%10] + ';--reverse-color:' + palette[(next-1)%10] + ';--tilt:' + tilt + 'deg"' + attrs + '><span class="card-face"><span class="card-rank ' + (rank===10?'ten':'') + '">' + rank + '</span><span class="card-emblem" aria-hidden="true">'+['●','◆','✳','✹','✿','❖','✺','✸','♢','♜'][(rank-1)%10]+'</span><span class="card-divider" aria-hidden="true">↕</span><span class="card-corner">' + rank + '<small>↕' + next + '</small></span><span class="card-rank other ' + (next===10?'ten':'') + '">' + next + '</span>'+(card.star?'<span class="starter-star" aria-hidden="true">★</span>':'')+'</span></' + (interactive ? 'button' : 'span') + '>';
+}
+function starterHtml(v,ns){
+  return Number.isInteger(v.firstPlayer)?'<span class="round-starter" title="'+esc(ns[v.firstPlayer])+' was dealt the starred card and starts this round">★ '+esc(ns[v.firstPlayer])+' STARTS</span>':'';
 }
 function optionBadges(options) {
   return '<div class="match-options">' + OPTION_KEYS.map(key => '<span><i class="option-dot ' + (options[key] ? '' : 'off') + '"></i>' + optionInfo[key][0] + ': ' + (options[key] ? 'ON' : 'OFF') + '</span>').join('') + '</div>';
 }
 function render() {
   recordView();
+  const tableSettingsOpen=app.querySelector('.lobby-ai')?.open;
   const current=view(), before=captureTable(app), position=current ? {revision:current.revision, round:current.round, moves:current.moves, seat:mySeat(), handoff, mode} : null;
   const changed=scene==='game' && !handoff && !renderedPosition?.handoff && position && renderedPosition && position.mode===renderedPosition.mode && position.seat===renderedPosition.seat && position.round===renderedPosition.round && position.moves===renderedPosition.moves+1 && position.revision===renderedPosition.revision+1;
   const animate=changed && motionEnabled();
@@ -84,6 +91,7 @@ function render() {
   const focus = document.activeElement?.dataset;
   const remembered = focus?.action ? {...focus} : null;
   app.innerHTML = scene === 'menu' || !view() ? renderMenu() : renderGame();
+  if(tableSettingsOpen&&app.querySelector('.lobby-ai'))app.querySelector('.lobby-ai').open=true;
   document.body.classList.toggle('in-game', scene==='game' && Boolean(view()));
   if (document.querySelector('#chat-list')) document.querySelector('#chat-list').scrollTop = document.querySelector('#chat-list').scrollHeight;
   renderedPosition=scene==='game' ? position : null;
@@ -100,12 +108,12 @@ function render() {
 function renderMenu() {
   const online = mode === 'online' && connected(), guest = online && session.seat === 1;
   const options = guest ? session.view.options : prefs.options;
-  const heroes = [{id:'hero1', ends:[1,5], face:0}, {id:'hero2', ends:[6,2], face:0}, {id:'hero3', ends:[3,4], face:0}];
-  let html = '<div class="menu-layout"><section class="intro"><p class="eyebrow">THE DOUBLE-SIDED CARD DUEL</p><h1>Same hand.<br><em>New tricks.</em></h1><p class="intro-copy">Build a set. Leave it exposed. Hope they don’t have a better idea.<br>Every card has another side. Every move can flip the game.</p><div class="hero-art" aria-label="Illustrated double-value cards">' + heroes.map((c,i) => cardHtml(c, false, false, [-13,2,15][i])).join('') + '<span class="hero-stamp">FLIP THE ODDS</span></div><div class="feature-line"><div><b>Play a set.</b><span>Matching ranks.<br>A little calculated risk.</span></div><div><b>Turn the tables.</b><span>Beat a set and send it<br>back with a twist.</span></div><div><b>Flip your hand.</b><span>Your next good idea<br>might be upside down.</span></div></div><div class="menu-bottom"><span>First to two round wins.</span><button class="text-button" data-action="rules">How to play ↗</button></div></section><aside class="panel"><p class="eyebrow">MAKE IT YOUR MATCH</p><h2 class="panel-title">Deal yourself in.</h2><p class="small">Mix these three options however you like. They stay fixed for the whole match.</p><div class="option-list">';
+  const heroes = [{id:'hero1', ends:[1,5], face:0,star:true}, {id:'hero2', ends:[6,2], face:0}, {id:'hero3', ends:[3,4], face:0}];
+  let html = '<div class="menu-layout"><section class="intro"><p class="eyebrow">THE DOUBLE-SIDED CARD DUEL</p><h1>Same hand.<br><em>New tricks.</em></h1><p class="intro-copy">Build a set. Leave it exposed. Hope they don’t have a better idea.<br>Every card has another side. Every move can flip the game.</p><div class="hero-art" aria-label="Illustrated double-value cards">' + heroes.map((c,i) => cardHtml(c, false, false, [-13,2,15][i])).join('') + '<span class="hero-stamp">FLIP THE ODDS</span></div><div class="feature-line"><div><b>Play a set.</b><span>Matching ranks.<br>A little calculated risk.</span></div><div><b>Turn the tables.</b><span>Beat a set and send it<br>back with a twist.</span></div><div><b>Flip your hand.</b><span>Your next good idea<br>might be upside down.</span></div></div><div class="menu-bottom"><span>The starred card starts. First to two wins.</span><button class="text-button" data-action="rules">How to play ↗</button></div></section><aside class="panel"><p class="eyebrow">MAKE IT YOUR MATCH</p><h2 class="panel-title">Deal yourself in.</h2><p class="small">Mix these three options however you like. They stay fixed for the whole match.</p><div class="option-list">';
   for (const key of OPTION_KEYS) html += '<label class="option" for="option-' + key + '"><input type="checkbox" id="option-' + key + '" data-option="' + key + '" ' + (options[key] ? 'checked ' : '') + (guest ? 'disabled ' : '') + '><span><b>' + optionInfo[key][0] + '</b><small>' + optionInfo[key][1] + '<br>' + optionInfo[key][2] + '</small></span></label>';
-  html += '</div><details class="lobby-ai"><summary>Table options · AI & teams</summary>'+aiLobby(guest)+(!online?'<label class="team-choice"><input id="lobby-team" type="checkbox" '+(prefs.team?'checked':'')+'><span>Team up against the dealer<small>Turn on before inviting a friend.</small></span></label>':'')+'</details><label class="label" for="player-name">YOUR NAME</label><input id="player-name" maxlength="24" value="' + esc(name()) + '" autocomplete="nickname">';
+  html += '</div><details class="lobby-ai"><summary>Table settings · players, bots & teams</summary>'+aiLobby(guest)+(!online?'<label class="team-choice"><input id="lobby-team" type="checkbox" '+(prefs.team?'checked':'')+'><span>Team up against the bots<small>Turn on before inviting a friend.</small></span></label>':'')+'</details><label class="label" for="player-name">YOUR NAME</label><input id="player-name" maxlength="24" value="' + esc(name()) + '" autocomplete="nickname">';
   if (online) html += button(guest ? 'HOST CHOOSES THE NEXT MATCH' : 'DEAL A NEW MATCH →', 'deal-online', 'gold', guest) + button('LEAVE ONLINE TABLE', 'leave-online', 'outline');
-  else html += button(aiPlayers(4,1).some(t=>t==='model')?'PLAY THE AI TABLE →':'PLAY THE DEALER →', 'start-solo') + button('PASS & PLAY', 'start-local', 'dark');
+  else html += button('DEAL THE CARDS →','start-game')+'<p class="small deal-note">The starred card decides who goes first.</p>';
   if (view()) html += button('RESUME CURRENT MATCH', 'resume', 'outline');
   if (prefs.lastPlayer?.name && !online) html += '<div class="last-player"><span>LAST AT YOUR TABLE</span><strong>'+esc(prefs.lastPlayer.name)+'</strong>'+button('RECONNECT ↗','reconnect-last','outline compact')+'</div>';
   html += '<hr class="divider"><p class="small">A friend. Two screens. One table.</p>' + button(online ? 'CONNECTION DETAILS' : 'INVITE A FRIEND ↗', 'host', 'gold') + (!online ? button('JOIN A FRIEND', 'join', 'outline') : '') + '</aside></div>';
@@ -119,7 +127,7 @@ function renderGame() {
   html += aiStatusHtml({busy:aiBusy,error:aiError,controller:mode!=='online'||session?.seat===0});
   html += '<div class="table-layout"><aside class="sidebar"><div class="panel"><p class="eyebrow">FIRST TO TWO</p><div class="scoreboard">';
   for (let i=0;i<v.hands.length;i++) html += '<div data-score-seat="'+i+'" class="score-seat ' + (v.turn === i && v.phase === 'playing' ? 'active' : '') + '"><div class="score-name"><b>' + esc(ns[i]) + '</b><span>' + (i === p ? '✦' : '◆') + '</span></div><div class="wins" aria-label="' + v.scores[i] + ' rounds won">' + [0,1].map(j => '<span class="win-dot ' + (j < v.scores[i] ? 'won' : '') + '"></span>').join('') + '</div></div>';
-  html += '</div></div><div class="panel"><p class="eyebrow">THIS MATCH</p>' + optionBadges(v.options) + '</div><p class="sidebar-note"><b>The upright number counts.</b><br>The upside-down number becomes active after a flip.<br><br>Sets compete by size. A higher pair beats a lower pair, even if it’s your own.</p><p class="sidebar-note">' + (mode === 'online' && session.team ? 'You share a hand against the dealer. Either teammate can make the move.' : mode === 'local' ? 'Pass the screen when prompted. Hands are hidden between players.' : 'Select matching cards, then play or add. F flips your hand; Enter plays a selected set.') + '</p>' + renderSocial() + '</aside><section class="felt-table table-size-' + v.hands.length + '" aria-label="Flip it game table"><div class="table-meta"><span>ROUND ' + String(v.round+1).padStart(2,'0') + '</span><span class="bank" data-bank><i aria-hidden="true">▤</i> BANK <b>' + v.discardCount + '</b><small> / ' + (v.options.compactDeck ? '24' : '40') + '</small></span></div>';
+  html += '</div></div><div class="panel"><p class="eyebrow">THIS MATCH</p>' + optionBadges(v.options) + '</div><p class="sidebar-note"><b>The upright number counts.</b><br>The upside-down number becomes active after a flip.<br><br>Sets compete by size. A higher pair beats a lower pair, even if it’s your own.</p><p class="sidebar-note">' + (mode === 'online' && session.team ? 'You share a hand against the bots. Either teammate can make the move.' : mode === 'local' ? 'Pass the screen when prompted. Hands are hidden between players.' : 'Select matching cards, then play or add. F flips your hand; Enter plays a selected set.') + '</p>' + renderSocial() + '</aside><section class="felt-table table-size-' + v.hands.length + '" aria-label="Flip it game table"><div class="table-meta"><span>ROUND ' + String(v.round+1).padStart(2,'0') + '</span>'+starterHtml(v,ns)+'<span class="bank" data-bank><i aria-hidden="true">▤</i> BANK <b>' + v.discardCount + '</b><small> / ' + (v.options.compactDeck ? '24' : '40') + '</small></span></div>';
   if (handoff) html += '<div class="handoff"><div class="card-back" aria-hidden="true"></div><p class="eyebrow">KEEP YOUR CARDS CLOSE</p><h2>Over to ' + esc(ns[seat]) + '.</h2><p>Pass the screen, then reveal your hand when you’re ready.</p>' + button('I’M READY →', 'uncover', 'gold') + '</div>';
   else if (v.phase !== 'playing') html += renderEnd(v);
   else html += renderTable(v);
@@ -201,7 +209,7 @@ function renderEnd(v) {
 }
 function eventText(e,ns=names()) {
   if (!e) return 'Recording starts at this position.';
-  if (e.kind==='deal') return 'A fresh deal.';
+  if (e.kind==='deal') return Number.isInteger(e.firstPlayer)?'A fresh deal. '+esc(ns[e.firstPlayer])+' drew the starred card and starts.':'A fresh deal.';
   const who = esc(ns[e.seat]);
   let text = who + (e.kind==='flip' ? ' flipped their hand.' : e.kind==='take' ? ' took ' + e.count + ' cards and flipped them.' : e.kind==='add' ? ' added a ' + e.value + ' to '+esc(ns[e.targetSeat])+'’s set.' : ' played ' + e.count + ' × ' + e.value + '.');
   if (e.cashed) text += ' Cashed out ' + e.cashed + '.';
@@ -238,7 +246,7 @@ function eventVisual(e){
 }
 function replayBoard(entry){
   const v=entry.view,ns=replayRecord.names;
-  let html='<div class="replay-board"><div class="table-meta"><span>ROUND '+(v.round+1)+' · ACTION '+v.moves+'</span><span data-bank>▤ BANK '+v.discardCount+'</span></div><div class="replay-seats">';
+  let html='<div class="replay-board"><div class="table-meta"><span>ROUND '+(v.round+1)+' · ACTION '+v.moves+'</span>'+starterHtml(v,ns)+'<span data-bank>▤ BANK '+v.discardCount+'</span></div><div class="replay-seats">';
   for(let i=0;i<v.hands.length;i++) {
     html+='<section class="replay-seat"><div class="zone-title"><span>'+esc(ns[i])+'</span><span data-hand-seat="'+i+'"><span class="mini-fan" aria-hidden="true">'+Array.from({length:Math.min(v.hands[i].length,5)},()=>'<i class="mini-back"></i>').join('')+'</span> '+v.hands[i].length+' IN HAND · '+v.scores[i]+' WINS</span></div><div class="table-row '+(v.options.quickTurns?'single-space':'')+'">';
     for(const lane of(v.options.quickTurns?[0]:[0,1]))html+='<div class="play-space" data-space-seat="'+i+'" data-space-lane="'+lane+'"><span class="eyebrow">'+(v.options.quickTurns?'PLAY SPACE':lane?'RIGHT':'LEFT')+'</span><div class="space-cards">'+(v.table[i][lane].map(c=>cardHtml(c)).join('')||'<span class="space-empty">✦</span>')+'</div></div>';
@@ -280,6 +288,7 @@ function startOffline(nextMode, options = prefs.options) {
   forgetTable(); const old=peer; peer=null; old?.close(); session=null; linkStatus='idle';
   mode=nextMode; seat=0; scene='game'; offlineControllers=[...Array(mode==='solo'?1:2).fill('human'),...aiPlayers(mode==='solo'?4:3,mode==='solo'?1:0)];
   game=createMatch(options,crypto.getRandomValues(new Uint32Array(1))[0],0,offlineControllers.length);
+  if(mode==='local'&&offlineControllers[game.turn]==='human')seat=game.turn;
   handoff=mode==='local'; resetSelection(); sound('deal'); render(); scheduleBot();
 }
 function afterOfflineMove(previousTurn) {
@@ -388,7 +397,7 @@ function renderPair() {
   } else {
     html += pairingBody({host:pairKind==='host',output:pairOut,busy:pairBusy,message:pairMessage,canScan,
       stun:Object.hasOwn(prefs,'stun')?prefs.stun:undefined,
-      setup:'<label class="team-choice"><input type="checkbox" id="team" '+(prefs.team?'checked':'')+'> <span>Play together against the dealer<small>Share a hand, discuss the move, win as a team.</small></span></label>'});
+      setup:'<label class="team-choice"><input type="checkbox" id="team" '+(prefs.team?'checked':'')+'> <span>Play together against the bots<small>Share a hand, discuss the move, win as a team.</small></span></label>'});
     html += button('CANCEL SETUP', 'cancel-pair', 'outline');
   }
   if (pairError) html += '<p class="pair-error" role="alert">' + esc(pairError) + '</p>';
@@ -478,7 +487,7 @@ async function scanCode(target) {
 function showRules() {
   stopScan(); pairingOpen=false;
   const options=scene==='game' && view() ? view().options : prefs.options;
-  modalContent.innerHTML=modalHead('A little twist.','FLIP IT / HOW TO PLAY')+'<ol class="rules-list"><li>Empty your hand to win a round. <strong>First to two round wins</strong> takes the match. The deck is dealt evenly clockwise; with an uneven deal, the extra cards rotate each round.</li><li>Each card has two ranks. <strong>The top rank is active.</strong> The upside-down rank tells you what it becomes after a flip. Rearranging your hand is free; changing orientation is an action.</li><li>'+(options.quickTurns?'Take <strong>one action each</strong>, alternating. Use your single play space.':'Take <strong>two actions</strong>: right space, then left. The opening player gets only the right action. Starting player alternates each round.')+' Before your action, <strong>cash out the set in that space</strong>: those cards leave play.</li><li><strong>Play:</strong> select one or more cards with the same active rank. Put them in your chosen space. Your rank must beat every other set of the same size. Lower sets return to their owners’ hands <strong>flipped</strong>—including your own other set.</li><li><strong>Add:</strong> put exactly one matching card into an opponent’s set. Its new size must beat every other set of that size; those lower sets return flipped.</li><li><strong>Take:</strong> pick up an opponent’s entire set into your hand, flipping each card. <strong>Flip:</strong> rotate every card in your hand. Each uses your whole action.</li><li>'+(options.lastChance?'With <strong>Last chance ON</strong>, an empty hand gives each other player exactly one response, overriding the normal turn order. If your hand stays empty, you win. If multiple hands are empty, the first finisher has priority. A successful counter can give the responder their own last-chance window.':'With <strong>Last chance OFF</strong>, emptying your hand wins immediately.')+'</li><li>Three appearances of the same position draw the round. A round also draws after '+(options.compactDeck?'120':'180')+' actions. Nobody scores; redeal with the other player starting.</li></ol><p class="rule-example"><strong>A little example:</strong> their pair of 3s is exposed. Play two 5s to send the 3s back flipped. Or add one 3 to their pair: it becomes a triple, and might bounce another lower triple—even yours.</p>'+optionBadges(options)+button('GOT IT. LET’S PLAY →','close-modal','gold');
+  modalContent.innerHTML=modalHead('A little twist.','FLIP IT / HOW TO PLAY')+'<ol class="rules-list"><li>Empty your hand to win a round. <strong>First to two round wins</strong> takes the match. The deck is dealt evenly clockwise; with an uneven deal, the extra cards rotate each round. The player dealt the unique starred card starts.</li><li>Each card has two ranks. <strong>The top rank is active.</strong> The upside-down rank tells you what it becomes after a flip. Rearranging your hand is free; changing orientation is an action.</li><li>'+(options.quickTurns?'Take <strong>one action each</strong>, alternating. Use your single play space.':'Take <strong>two actions</strong>: right space, then left. The opening player gets only the right action. The player dealt the starred card starts each round.')+' Before your action, <strong>cash out the set in that space</strong>: those cards leave play.</li><li><strong>Play:</strong> select one or more cards with the same active rank. Put them in your chosen space. Your rank must beat every other set of the same size. Lower sets return to their owners’ hands <strong>flipped</strong>—including your own other set.</li><li><strong>Add:</strong> put exactly one matching card into an opponent’s set. Its new size must beat every other set of that size; those lower sets return flipped.</li><li><strong>Take:</strong> pick up an opponent’s entire set into your hand, flipping each card. <strong>Flip:</strong> rotate every card in your hand. Each uses your whole action.</li><li>'+(options.lastChance?'With <strong>Last chance ON</strong>, an empty hand gives each other player exactly one response, overriding the normal turn order. If your hand stays empty, you win. If multiple hands are empty, the first finisher has priority. A successful counter can give the responder their own last-chance window.':'With <strong>Last chance OFF</strong>, emptying your hand wins immediately.')+'</li><li>Three appearances of the same position draw the round. A round also draws after '+(options.compactDeck?'120':'180')+' actions. Nobody scores; redeal and let the starred card choose the starting player.</li></ol><p class="rule-example"><strong>A little example:</strong> their pair of 3s is exposed. Play two 5s to send the 3s back flipped. Or add one 3 to their pair: it becomes a triple, and might bounce another lower triple—even yours.</p>'+optionBadges(options)+button('GOT IT. LET’S PLAY →','close-modal','gold');
   if (!modal.open) modal.showModal();
 }
 document.addEventListener('click',async event=>{
@@ -488,8 +497,7 @@ document.addEventListener('click',async event=>{
     if(action==='ai-settings')openAISettings(()=>{generation++;stopAI();render();scheduleBot();});
     else if(action==='cancel-ai'){generation++;stopAI('AI paused. Retry when ready.');render();}
     else if(action==='retry-ai'){stopAI();render();scheduleBot();}
-    else if (action==='start-solo') startOffline('solo');
-    else if (action==='start-local') startOffline('local');
+    else if (action==='start-game') startOffline(localHumans()===2?'local':'solo');
     else if (action==='select-card') {
       if (!myTurn() || preview) return;
       const card=view().hands[mySeat()].find(c=>c.id===target.dataset.card);
@@ -552,8 +560,9 @@ document.addEventListener('click',async event=>{
   }
 });
 document.addEventListener('change',event=>{
-  if(event.target.id==='lobby-team'){prefs.team=event.target.checked;savePrefs();}
-  else if(event.target.id==='ai-count'){prefs.aiCount=Number(event.target.value);prefs.aiKinds=Array.from({length:prefs.aiCount},(_,i)=>prefs.aiKinds?.[i]||'model');savePrefs();render();}
+  if(event.target.id==='table-humans'){prefs.localHumans=Number(event.target.value);savePrefs();render();}
+  else if(event.target.id==='lobby-team'){prefs.team=event.target.checked;savePrefs();}
+  else if(event.target.id==='ai-count'){prefs.aiCount=Number(event.target.value);prefs.aiKinds=Array.from({length:prefs.aiCount},(_,i)=>prefs.aiKinds?.[i]||'dealer');savePrefs();render();}
   else if(event.target.dataset.aiSeat!==undefined){prefs.aiKinds||=[];prefs.aiKinds[Number(event.target.dataset.aiSeat)]=event.target.value;savePrefs();}
   else if (event.target.dataset.option && OPTION_KEYS.includes(event.target.dataset.option)) {
     prefs.options[event.target.dataset.option]=event.target.checked; savePrefs();

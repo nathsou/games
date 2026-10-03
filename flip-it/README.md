@@ -14,7 +14,7 @@ All three default ON. The host chooses them before a match; both screens show th
 | Compact deck | 24 cards, six ranks, dealt clockwise | 40 cards, ten ranks, dealt clockwise |
 | Last chance | Emptying a hand gives every other player exactly one counter action | Emptying a hand wins immediately |
 
-First to two round wins. Starting player rotates after every round, including draws. Three appearances of the same full position draw the round. A round also draws after 120 actions (compact) or 180 (full), except that a pending last-chance exchange finishes first. Draws award no win; deal again.
+First to two round wins. Exactly one physical card carries a star on both faces. Whoever receives it starts each freshly dealt round, including after draws. The star has no additional power during play. Three appearances of the same full position draw the round. A round also draws after 120 actions (compact) or 180 (full), except that a pending last-chance exchange finishes first. Draws award no win; deal again.
 
 ## Rules
 
@@ -37,10 +37,10 @@ For N ranks (6 or 10), each rank is paired with its next neighbour and the rank 
 
 ## Ways to play
 
-- Solo against a dealer that receives only its own hand and public table information.
+- One player against offline bots or AI opponents that receives only its own hand and public table information.
 - Pass and play: private cards do not exist in the DOM behind the handoff curtain.
 - Two browser peers in a duel, with each opponent's hand redacted.
-- Team play: two peers share one hand against the dealer. Either teammate can act. Host revision checks reject stale competing moves.
+- Team play: two peers share one hand against bots or AI opponents. Either teammate can act. Host revision checks reject stale competing moves.
 
 ## Online pairing
 
@@ -50,7 +50,7 @@ QR encoding is the repository's existing dependency-free Model 2 byte encoder, w
 
 Online play requires HTTPS or localhost. The default configurable STUN address is `stun:stun.l.google.com:19302`, which is a network service rather than a shipped library. Leave it blank for local-network tests. Restrictive networks may require a TURN relay supplied in Connection settings. Relay passwords remain in memory and are not saved to preferences or pairing links. No relay is provided by this game.
 
-The host owns the authoritative state and sees the dealt hands internally. This design keeps normal opponent UI and network views private; it does not defend against a malicious host editing code. Invalid/stale actions cannot mutate state. Disconnects pause online actions and the team dealer. The last opponent and the host’s authoritative match are saved locally, with a redacted view on the guest. Reloading opens the saved table paused; Reconnect makes a fresh invite and resumes the same match after the reply. The lobby also remembers the last opponent. Explicitly leaving the online table or starting an offline game clears the saved match. Storage denial falls back to keeping the match in the open tab. TURN passwords and pairing links are never persisted. Both players must use the current protocol (v3) for single-space quick turns.
+The host owns the authoritative state and sees the dealt hands internally. This design keeps normal opponent UI and network views private; it does not defend against a malicious host editing code. Invalid/stale actions cannot mutate state. Disconnects pause online actions and the team dealer. The last opponent and the host’s authoritative match are saved locally, with a redacted view on the guest. Reloading opens the saved table paused; Reconnect makes a fresh invite and resumes the same match after the reply. The lobby also remembers the last opponent. Explicitly leaving the online table or starting an offline game clears the saved match. Storage denial falls back to keeping the match in the open tab. TURN passwords and pairing links are never persisted. Both players must use the current protocol (v4) for starred-card starts.
 
 ## Table talk and motion
 
@@ -79,3 +79,5 @@ Prompt evaluations and live browser checks are documented in [shared AI notes](.
 Every observed action is recorded locally across rounds. Open **Log & replay** for a visual and textual timeline, scrub or play through the recorded table and hand, or filter to highlights (returns, big sets, banks, last chances and round results). **Saved games** in the lobby opens the last eight recordings after a reload. Online recordings contain only the browser’s visible hand and public table; pass-and-play replay displays only the public table. Storage pressure removes entire older recordings, keeping the current one; denied storage keeps a replay in memory and displays a notice. A recording started midway or with missed updates is labelled incomplete. No chat, deal seeds, credentials or hidden opponent cards enter recordings.
 
 Invitations, QR encoding and connection controls are shared with Cluance in `shared/peer.js`, `shared/pairing.js` and `shared/qr.js`. Existing quick-turn saves return any cards in the retired second space to their owner flipped without losing cards. Older invitation tokens must be regenerated.
+
+The lobby has one **Deal the cards** button. **Table settings** chooses one or two players on the same device and optional bot seats. These choices determine who is at the table; the dealt starred card determines who opens. Old unfinished saves keep their current turn, gain the visible card marker, and use starred-card starts on the next deal.
