@@ -48,8 +48,8 @@ const LESSONS: Lesson[] = [
       {
         title: 'Look around',
         text: say(
-          'With no tool active, dragging anywhere turns the block. Scroll to zoom.',
-          'With no tool active, dragging anywhere turns the block. Pinch to zoom.',
+          'Drag the background to turn the block. Scroll to zoom.',
+          'Drag the background to turn the block. Pinch to zoom.',
         ),
         until: (_p, ev) => ev === 'orbit',
         next: 'Skip',
@@ -133,7 +133,7 @@ const LESSONS: Lesson[] = [
       },
       {
         title: 'Peek inside',
-        text: 'Some cubes are hidden in the middle. Drag one of the colored knobs next to the block (or use the slider) to peel away layers from the side you’re looking at.',
+        text: 'Some cubes are hidden in the middle. Drag one of the axis knobs next to the block (or use the slider) to peel away layers from the side you’re looking at.',
         spot: matchMedia('(hover: hover) and (pointer: fine)').matches ? 'knobs' : 'slice',
         until: (p, ev) => ev === 'slice' && p.slicer.peel > 0,
         next: 'Skip',
@@ -259,6 +259,8 @@ export class Tutorial implements PlayHooks {
     const steps = LESSONS[this.lesson].steps;
     const s = steps[this.step];
     this.clearSpot();
+    if (s.spot === 'brush') p.setTool('paint');
+    else if (s.spot === 'hammer') p.setTool('break');
     if (s.spot && p.ui[s.spot]) {
       this.spotted = p.ui[s.spot];
       this.spotted.classList.add('spot');

@@ -19,7 +19,7 @@ import { I } from './icons.ts';
 import { openSettings } from './settings.ts';
 import { AXIS_COLORS, AXIS_NAMES, Slicer } from './slicer.ts';
 import { FINE_POINTER, keyLabel, ToolKeys } from './toolkeys.ts';
-import { sceneColors, themeFor } from './theme.ts';
+import { layerColor, sceneColors, themeFor } from './theme.ts';
 
 export { AXIS_COLORS, AXIS_NAMES };
 export type Tool = 'break' | 'paint';
@@ -73,13 +73,12 @@ export class PlayScreen implements Screen {
   readonly gestures: GestureTarget;
   readonly slicer: Slicer;
   readonly theme: string;
-  /** Tool locked on from the dock (null = clicks rotate the block). */
-  tool: Tool | null = null;
+  /** Selected dock tool; empty-space drags always orbit. */
+  tool: Tool = 'break';
   /** Shift is held: a locked tool is temporarily swapped for the other one. */
   private altHeld = false;
   /** Tools held down with the keyboard: A = hammer, D = brush. */
   private keys = new ToolKeys<Tool>({}, () => this.syncTool());
-  private orbitFrom: { x: number; y: number; dist: number } | null = null;
   /** Focus mode: HUD fades while you work on the block and returns near the screen edges. */
   private pointer = { x: -1, y: -1, t: 0 };
   private hudHidden = false;
@@ -87,14 +86,13 @@ export class PlayScreen implements Screen {
     if (e.pointerType !== 'mouse') return;
     this.pointer = { x: e.clientX, y: e.clientY, t: performance.now() };
   };
-  private nudgeAt = -1e9;
-  private nudges = 0;
   /** Lines to pulse (hints / tutorial). */
   highlightLines: number[] = [];
   highlightCells = new Set<number>();
   readonly ui: Record<string, HTMLElement> = {};
 
   private scene = new BlockScene();
+  private clueScene = new BlockScene();
   private particles = new Particles();
   private hover = -1;
   private hoverLift = 0;
@@ -170,12 +168,15 @@ export class PlayScreen implements Screen {
     // tool dock
     this.ui.hammer = h('button', { class: 'tool', 'aria-pressed': 'false', onclick: () => this.setTool('break') }, icon(I.hammer), h('span', null, 'Break'), h('kbd', { class: 'key-hint' }));
     this.ui.brush = h('button', { class: 'tool', 'aria-pressed': 'false', onclick: () => this.setTool('paint') }, icon(I.brush), h('span', null, 'Paint'), h('kbd', { class: 'key-hint' }));
-    this.ui.undo = iconButton(I.undo, 'Undo', () => this.undo(), '', `${MOD} Z`);
+    this.ui.undo = button('Undo', () => this.undo(), '', I.undo);
+    this.ui.undo.dataset.tip = `Undo (${MOD}+Z)`;
     this.ui.redo = iconButton(I.redo, 'Redo', () => this.redo(), '', `${MOD} ⇧ Z`);
-    this.ui.zero = h('button', { class: 'icon-btn zero-btn', 'aria-label': 'Clear every row marked 0', 'data-key': '0', onclick: () => this.clearZeros() }, h('span', { class: 'zero-glyph' }, '0'));
-    this.ui.hint = iconButton(I.bulb, 'Hint', () => this.showHint(), '', 'H');
+    this.ui.zero = button('Clear 0s', () => this.clearZeros());
+    this.ui.zero.dataset.key = '0';
+    this.ui.hint = button('Hint', () => this.showHint(), '', I.bulb);
+    this.ui.hint.dataset.key = 'H';
     this.ui.tools = h('div', { class: 'toolswitch', role: 'group', 'aria-label': 'Tool' }, this.ui.hammer, this.ui.brush);
-    this.ui.dock = h('div', { class: 'dock' }, this.ui.undo, this.ui.redo, this.ui.tools, this.ui.zero, this.ui.hint);
+    this.ui.dock = h('div', { class: 'dock' }, iconButton(I.rotL, 'Turn left', () => this.app.camera.turn(-1)), iconButton(I.rotR, 'Turn right', () => this.app.camera.turn(1)), this.ui.tools, h('div', { class: 'dock-actions' }, this.ui.undo, this.ui.redo, this.ui.zero, this.ui.hint));
 
     this.ui.slice = this.slicer.pill;
     this.ui.knobs = this.slicer.knobLayer;
@@ -186,9 +187,10 @@ export class PlayScreen implements Screen {
     );
 
     this.ui.focus = h('div', { class: 'focus', 'aria-live': 'polite' });
-    this.ui.hintMsg = h('div', { class: 'hint-msg' });
+    this.ui.hintMsg = h('div', { class: 'hint-msg', 'aria-live': 'polite' });
+    this.ui.legend = h('div', { class: 'clue-legend' }, ...[['', 'one group'], ['circle', '2 groups'], ['square', '3+ groups']].map(([cls, label]) => h('div', null, h('span', { class: `clue ${cls}` }, '3'), label)), h('small', null, 'Drag the background to turn'));
 
-    return h('div', { class: 'play' }, this.ui.knobs, top, this.ui.focus, this.ui.hintMsg,
+    return h('div', { class: 'play' }, this.ui.knobs, top, this.ui.focus, this.ui.hintMsg, this.ui.legend,
       h('footer', { class: 'bottom' }, this.ui.slice, this.ui.dock, this.ui.view));
   }
 
@@ -199,7 +201,7 @@ export class PlayScreen implements Screen {
     const set = (btn: HTMLElement, key: string, what: string, name: string) => {
       const label = keyLabel(key);
       btn.setAttribute('aria-label', `${name} (hold ${label})`);
-      btn.dataset.tip = FINE_POINTER ? `${what} — hold ${label} while clicking, or click here to keep it on` : `${what} — tap to turn on, tap again to go back to rotating`;
+      btn.dataset.tip = FINE_POINTER ? `${what} — hold ${label} while clicking, or click here to keep it on` : `${what} — tap to select`;
       btn.dataset.key = label;
       btn.querySelector('.key-hint')!.textContent = label;
     };
@@ -221,7 +223,7 @@ export class PlayScreen implements Screen {
     this.ui.undo.toggleAttribute('disabled', !s.canUndo);
     this.ui.redo.toggleAttribute('disabled', !s.canRedo);
     const zeros = s.solved ? 0 : s.zeroCells().length + this.sweep.length;
-    this.ui.zero.toggleAttribute('disabled', zeros === 0 || this.sweep.length > 0);
+    this.ui.zero.toggleAttribute('disabled', s.solved || this.sweep.length > 0);
     this.ui.zero.dataset.tip = zeros ? `Clear every row marked 0 (${zeros} cube${zeros === 1 ? '' : 's'})` : 'No zero rows left to clear';
     const classic = s.mode === 'classic' && !s.noStrikeLimit;
     this.ui.strikes.style.display = classic ? '' : 'none';
@@ -235,16 +237,15 @@ export class PlayScreen implements Screen {
   }
 
   /** The tool a click would use right now: a held key wins, then the locked tool (Shift swaps it). */
-  get activeTool(): Tool | null {
+  get activeTool(): Tool {
     const held = this.keys.current;
     if (held) return held;
-    if (!this.tool) return null;
     return this.altHeld ? (this.tool === 'break' ? 'paint' : 'break') : this.tool;
   }
 
-  /** Lock a tool on from the dock; picking the locked tool again goes back to rotating. */
-  setTool(t: Tool | null): void {
-    this.tool = this.tool === t ? null : t;
+  /** Selecting the active tool keeps it selected. */
+  setTool(t: Tool): void {
+    this.tool = t;
     this.syncTool();
     sfx.tick();
     this.opts.hooks?.event('tool');
@@ -254,25 +255,11 @@ export class PlayScreen implements Screen {
     const t = this.activeTool;
     this.ui.hammer.classList.toggle('active', t === 'break');
     this.ui.brush.classList.toggle('active', t === 'paint');
-    this.ui.hammer.setAttribute('aria-pressed', String(this.tool === 'break'));
-    this.ui.brush.setAttribute('aria-pressed', String(this.tool === 'paint'));
-    this.ui.tools.classList.toggle('temporary', t !== null && t !== this.tool);
+    this.ui.hammer.setAttribute('aria-pressed', String(t === 'break'));
+    this.ui.brush.setAttribute('aria-pressed', String(t === 'paint'));
+    this.ui.tools.classList.toggle('temporary', t !== this.tool);
     this.el.classList.toggle('painting', t === 'paint');
-    this.el.classList.toggle('rotate-mode', t === null);
     this.updateCursor();
-  }
-
-  /** Gently point at the tools when someone clicks a cube with no tool active. */
-  private nudge(): void {
-    this.ui.tools.classList.remove('nudge');
-    void this.ui.tools.offsetWidth;
-    this.ui.tools.classList.add('nudge');
-    const now = performance.now();
-    if (this.nudges < 3 && now - this.nudgeAt > 15000) {
-      this.nudges++;
-      this.nudgeAt = now;
-      toast(FINE_POINTER ? `Hold ${keyLabel(store.settings.keys.break)} to break or ${keyLabel(store.settings.keys.paint)} to paint — or pick a tool below` : 'Pick the hammer or brush below to act on cubes', 'info', 3000);
-    }
   }
 
   private setAltHeld(on: boolean): void {
@@ -330,8 +317,8 @@ export class PlayScreen implements Screen {
           ['Break', FINE_POINTER ? `Hold ${keyLabel(store.settings.keys.break)} + click` : 'Hammer on, tap'],
           ['Paint', FINE_POINTER ? `Hold ${keyLabel(store.settings.keys.paint)} + click` : 'Brush on, tap'],
           ['Whole row', 'Drag along it with a tool'],
-          ['Turn', 'Drag with no tool · two fingers'],
-          ['Lock a tool', 'Click it in the dock (Esc to release)'],
+          ['Turn', 'Drag the background · two fingers'],
+          ['Choose a tool', 'Break or Paint in the dock'],
           ['Peel layers', 'Drag the knobs · slider'],
           ['Hint', 'H · lightbulb'],
         ].map(([a, b]) => h('div', null, h('b', null, a), h('span', null, b))),
@@ -370,7 +357,7 @@ export class PlayScreen implements Screen {
     this.refreshHud();
     this.syncTool();
     if (!this.opts.hooks && this.session.zeroCells().length > 3 && firstTime('clear-zeros'))
-      setTimeout(() => toast('Tip: the ⓪ button clears every row marked 0 in one go', 'info', 4200), 1400);
+      setTimeout(() => toast('Tip: Clear 0s clears every row marked 0 in one go', 'info', 4200), 1400);
   }
 
   /** Decide whether the HUD should step back (mouse only, while working on the block). */
@@ -414,7 +401,7 @@ export class PlayScreen implements Screen {
     this.firstFrame = false;
     this.slicer.update(!s.solved);
 
-    if (!s.solved && document.visibilityState === 'visible' && !document.querySelector('.modal-back')) {
+    if (!s.solved && document.visibilityState === 'visible' && !document.querySelector('.modal-back') && !this.opts.hooks) {
       s.elapsed += dt;
       this.ui.timer.textContent = formatTime(s.elapsed);
     }
@@ -437,7 +424,7 @@ export class PlayScreen implements Screen {
     }
     if (s.solved && this.solvedAt >= 0) {
       this.revealT = Math.min(1, this.revealT + dt / 2);
-      if (this.revealT > 0.62 && !this.cardShown) this.showSolvedCard();
+      if (this.time - this.solvedAt > 1.7 && !this.cardShown) this.showSolvedCard();
     }
   }
 
@@ -450,7 +437,6 @@ export class PlayScreen implements Screen {
     const rt = revealing ? this.revealT * this.revealT * (3 - 2 * this.revealT) : 0;
     const hoverLines = this.hover >= 0 && !revealing ? [g.cellLines[this.hover * 3], g.cellLines[this.hover * 3 + 1], g.cellLines[this.hover * 3 + 2]] : [];
     const hl = new Set<number>(this.highlightLines);
-    const palette = s.def.palette.map(hexToRgb);
     const fade = store.settings.greyDone;
     const intro = this.introT < 1.5;
     const BASE = sceneColors.cube;
@@ -485,14 +471,12 @@ export class PlayScreen implements Screen {
         // cubes take their true colors one by one, bottom to top, with a little pop
         const delay = (y / Math.max(1, H)) * 0.55 + (((i * 7919) % 97) / 97) * 0.25;
         const t = clamp((this.revealT * 1.8 - delay) / 0.45, 0, 1);
-        const sc = palette[s.def.cells[i] - 1] ?? col;
+        const sc = layerColor(y, H);
         const e = t * t * (3 - 2 * t);
         for (let c = 0; c < 3; c++) col[c] += (sc[c] - col[c]) * e;
         popScale = 1 + 0.14 * Math.sin(Math.PI * t);
       }
-      const glyph = (l: number) => (s.mask[l] ? s.clues[l] : GLYPH_NONE);
-      const done = (l: number) => fade && s.mask[l] === 1 && s.lineDone[l] === 1;
-      const packed = packGlyphs(glyph(lx), glyph(ly), glyph(lz), done(lx), done(ly), done(lz)) | flags;
+      const packed = packGlyphs(GLYPH_NONE, GLYPH_NONE, GLYPH_NONE) | flags;
       let ox = 0;
       if (this.shake[i] > 0) ox = Math.sin(this.time * 70) * 0.09 * (this.shake[i] / 0.35);
       let scale = revealing ? popScale : 1 - 0.04 * Math.max(0, 1 - Math.abs(pt - 0.5) * 2);
@@ -512,13 +496,32 @@ export class PlayScreen implements Screen {
     scene.computeAO();
     scene.glyphAlpha = clamp(1 - rt * 2.2, 0, 1);
 
+    const clues = this.clueScene;
+    clues.reset(g.dims);
+    const min = [0, 0, 0];
+    const max = g.dims.map((n) => n - 1);
+    if (this.slicer.peel) {
+      if (this.slicer.sign > 0) max[this.slicer.axis] -= this.slicer.peel;
+      else min[this.slicer.axis] += this.slicer.peel;
+    }
+    if (!revealing && !intro) for (let i = 0; i < g.size; i++) {
+      if (!this.visible(i)) continue;
+      const xyz = g.coords(i);
+      const glyphs = [0, 1, 2].map((axis) => {
+        const l = g.cellLines[i * 3 + axis];
+        return s.mask[l] && (xyz[axis] === min[axis] || xyz[axis] === max[axis]) ? s.clues[l] : GLYPH_NONE;
+      });
+      if (glyphs.every((v) => v === GLYPH_NONE)) continue;
+      const done = [0, 1, 2].map((axis) => fade && s.lineDone[g.cellLines[i * 3 + axis]] === 1);
+      clues.add(xyz[0], xyz[1], xyz[2], 1.004, BASE, packGlyphs(glyphs[0], glyphs[1], glyphs[2], done[0], done[1], done[2]));
+    }
     const lines: LineBatch[] = [];
     const [W, , D] = g.dims;
     if (!revealing) {
-      lines.push({ points: boxEdges([-W / 2, -H / 2, -D / 2], [W / 2, H / 2, D / 2]), color: [0.45, 0.45, 0.6, 0.22] });
+      lines.push({ points: boxEdges([-W / 2, -H / 2, -D / 2], [W / 2, H / 2, D / 2]), color: [...sceneColors.ink, 0.22] });
       lines.push(...this.slicer.lines(!this.slicer.pill.offsetParent));
     }
-    return { block: scene, particles: this.particles, lines, shadow: { dims: g.dims, alpha: 0.22 }, time: this.time, ink: sceneColors.ink, greyDone: store.settings.greyDone, cut: revealing ? null : this.slicer.cap() };
+    return { block: scene, clues: { scene: clues, min, max }, particles: this.particles, lines, shadow: { dims: g.dims, alpha: 0.22 }, time: this.time, ink: sceneColors.ink, greyDone: store.settings.greyDone, cut: revealing ? null : this.slicer.cap() };
   }
 
   visible(i: number): boolean {
@@ -544,7 +547,7 @@ export class PlayScreen implements Screen {
   private makeGestures(): GestureTarget {
     const cam = this.app.camera;
     return {
-      hitTest: (x, y) => !this.session.solved && this.activeTool !== null && !!this.pickCell(x, y),
+      hitTest: (x, y) => !this.session.solved && !!this.pickCell(x, y),
       strokeStart: (x, y, alt) => {
         unlockAudio();
         this.beginStroke(x, y, alt);
@@ -554,9 +557,8 @@ export class PlayScreen implements Screen {
       hover: (x, y) => this.setHover(this.pickCell(x, y)?.i ?? -1),
       hoverEnd: () => this.setHover(-1),
       touchFocus: (x, y) => this.setHover(y === null ? -1 : (this.pickCell(x, y)?.i ?? -1)),
-      orbitStart: (x, y) => {
+      orbitStart: () => {
         unlockAudio();
-        this.orbitFrom = { x, y, dist: 0 };
         cam.beginDrag();
         this.orbiting = true;
         this.setHover(-1);
@@ -564,7 +566,6 @@ export class PlayScreen implements Screen {
       },
       orbit: (dx, dy, dt) => {
         cam.orbit(dx, dy, dt);
-        if (this.orbitFrom) this.orbitFrom.dist += Math.abs(dx) + Math.abs(dy);
         this.orbitAccum += Math.abs(dx) + Math.abs(dy);
         if (this.orbitAccum > 120) {
           this.orbitAccum = 0;
@@ -574,10 +575,6 @@ export class PlayScreen implements Screen {
       orbitEnd: () => {
         cam.endDrag();
         this.orbiting = false;
-        // a click on a cube with no tool active: show how to act on cubes
-        const o = this.orbitFrom;
-        this.orbitFrom = null;
-        if (o && o.dist < 4 && o.x >= 0 && !this.session.solved && !this.activeTool && this.pickCell(o.x, o.y)) this.nudge();
         this.updateCursor();
       },
       zoom: (f) => {
@@ -756,6 +753,7 @@ export class PlayScreen implements Screen {
       }
       if (r === 'protected') {
         if (first) {
+          toast('Painted cubes are protected. Tap to unpaint first.');
           this.shake[i] = 0.25;
           sfx.clonk();
         }
@@ -780,7 +778,8 @@ export class PlayScreen implements Screen {
     const s = this.session;
     if (s.solved || this.sweep.length) return;
     const cells = s.zeroCells();
-    if (!cells.length) return;
+    if (!cells.length) { toast('No zero rows left to clear'); return; }
+    toast(`Cleared ${cells.length} cubes`);
     unlockAudio();
     this.clearHint();
     const g = s.grid;
@@ -823,6 +822,7 @@ export class PlayScreen implements Screen {
 
   private afterChange(): void {
     const s = this.session;
+    if (s.canUndo) this.ui.legend.hidden = true;
     // pulse rows that just became finished
     let newlyDone = 0;
     for (let l = 0; l < s.grid.lineCount; l++) {
@@ -1012,8 +1012,7 @@ export class PlayScreen implements Screen {
         sl.setPeel(1);
       }
     } else if (k === 'escape') {
-      if (this.tool) this.setTool(null);
-      else this.clearHint();
+      this.clearHint();
     }
   }
 
