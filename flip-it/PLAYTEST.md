@@ -56,10 +56,39 @@ The recommended all-ON setup remains the default. The larger deck and double tur
 
 WebRTC testing used separate contexts on the same computer with STUN disabled. It confirms the real protocol and application behavior, not connectivity through every external NAT. No physical phone camera, real TURN relay, Safari or Firefox was available for this run. Their browser APIs have fallbacks where possible, but are not claimed as playtested here.
 
-The host is authoritative and trusted. Opposing hands are hidden in normal peer views; a malicious host can inspect its own process. A reload of the original host tab loses the match. Invitations require the reply step; no permanent-room or one-click signalling service is provided.
+The host is authoritative and trusted. Opposing hands are hidden in normal peer views; a malicious host can inspect its own process. The original implementation lost the match on reload; the retro-table update below adds local host saves and exact-state reconnects. Invitations require the reply step; no permanent-room or one-click signalling service is provided.
 
 ## Numeric cards and mixed AI tables · 2026-10-03
 
 The follow-up integration supports 2–5 seats and shared AI settings/themes. The full collection passed 104 automated checks. Complete browser matches covered a four-seat solo table, a five-seat WebRTC human duel with three AI/dealer seats, and shared-human team play against multiple opponents. All Midnight solo/model and WebRTC team/model modes completed too. A separate live run completed Flip it against GPT-6-luna in 20 model calls (score 2:1 for the scripted human); the other three games used another 45 calls. Tactical prompt iteration used 18 more GPT-6-luna calls.
 
 Pause/retry, key-redacted failures, both Similo AI role images, remembered config migration, cross-tab preferences and System appearance changes were verified. The live tests used only GPT-6-luna; mocked responses were used for repeatable UI/protocol checks. See [shared verification](../shared/ai/README.md) and its JSON reports.
+
+## Retro table, social play and reconnect · 2026-10-03
+
+The current Flip It, shared AI and Spacegolf suites pass. The dealer playtest also completed 400 rounds across all eight option combinations after changing double turns to right then left. New session tests cover chat ordering, validation, stale/forged messages, throttling, disconnections, host restoration, guest redaction and damaged/denied storage.
+
+Separate Chromium contexts connected using the actual game controls, through a temporary loopback TURN/TCP relay. The managed browser blocks direct, non-proxied UDP, so the relay was needed for this environment; no relay or signaling server is added to the game. Full default duels, full-deck double-turn duels, five-seat human/AI duels and shared-hand team matches all completed. A host reload restored the exact redacted view, then a fresh invite/reply resumed the same authoritative revision. Both peers' final scores agreed. Successful match observations are in [retro-browser-results.json](tests/retro-browser-results.json).
+
+Focused browser checks exercised visible Play, Take, bank deposits, returned/flipped cards, whole-hand flips, anonymous opponent flips and live reactions. Chat drafts and caret focus survived an opponent move; HTML-shaped messages remained plain text. Reduced motion and FX OFF produced no flying-card overlays. Private handoffs contained no private card nodes or lingering overlays. Automatic reply acceptance on paste connected real peers. See [motion results](tests/retro-motion-results.json) and [layout results](tests/retro-layout-results.json).
+
+The active table fits without page scrolling at **1280 × 720**, **1366 × 768** and **1440 × 900**, including a five-seat full-deck table at 1280 × 720. Light and dark appearances were checked, including light-theme body ink. A DOM-only 40-card hand stress check stayed inside widths 768, 1280 and 1440. Widths **320, 390, 768, 1280, 1366 and 1440** had no horizontal page overflow. Phones retain vertical scrolling, with cards wrapping and the chat below the table. Last chance replaces the normal turn prompt to preserve the compact table height.
+
+Fresh screenshots of the lobby, solo table, multiplayer chat, five-player layout, phone layout, card motion, live reactions and light appearance are in [screenshots](screenshots/). The PR description embeds these images from the branch. Browser automation tools and the loopback test relay were kept outside the shipped game. Physical MacBook hardware, Safari, Firefox, phone cameras and external NAT/relay connectivity were not available for this verification.
+
+## Single-space quick turns, browser replay and shared invites (2026-10-03)
+
+- Quick turns now have one visible and legal space per player. Double-turn rules still use right then left. Legacy saved second piles return flipped with card conservation and hidden guest hands covered by regression tests.
+- Seven Flip it test files pass, including shared codecs, cross-game token rejection, room-bound replies, multi-round replay retention, private-view persistence and denied storage. Existing Spacegolf and shared AI tests pass.
+- Chromium at 1280 × 720: played complete solo matches, checked every recorded action against revision counts across rounds, scrubbed and played replay, filtered highlights, reloaded the library, verified replay does not change the live game, and checked 390-pixel phone layout. Replay flights render inside the native dialog.
+- Real WebRTC via a temporary loopback TURN/TCP relay: both Flip it peers retain the same game ID, revision and recording after host reload/reconnect. Guest recording frames contain anonymous opponent hands. No test relay configuration or credentials are shipped.
+- Cluance: automatic invite and reply generation, paste-to-accept, invitation navigation within an already-open tab, relay configuration, saved-host reconnect after round one, then all five rounds to a shared win. No page errors.
+- Fresh screenshots: 09 quick turns, 10 Cluance invite, 11 replay/log, 12 highlights, 13 phone replay, 14 Cluance win, 15 Flip it invite, 16 replay motion.
+
+## Starred-card opener and one deal button (2026-10-03)
+
+- Both decks contain exactly one physical starred card. Its recipient opens every fresh round; the marker survives flipping and transfers. Tests cover both deck sizes, two to five seats, rotating deal offsets, fresh rounds and forged-marker rejection.
+- Lobby uses one Deal the cards button. Table settings chooses one or two human players on this device and bot/AI seats. Settings stay expanded when choices change. Default lobby controls and the game fit 1280 × 720.
+- Chromium verified a human opening, a bot opening, the second shared-device human opening behind the correct handoff curtain, and an online guest opening. In double turns the starred recipient gets the right-hand opening action, then the next player gets right and left. No page errors.
+- Old unfinished saves keep their current turn and receive the visible physical marker; future rounds use the starred-card deal rule. Older replay views still load without exposing other hands.
+- Screenshots 17–19 show the simplified lobby, starred opening hand and player settings. The collection preview is refreshed.

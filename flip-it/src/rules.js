@@ -1,11 +1,11 @@
 // Original Flip it implementation. Card orientation, ownership and turn order
 // live here, independently of the DOM and the peer connection.
-export const DEFAULT_OPTIONS = Object.freeze({quickTurns: true, compactDeck: true, lastChance: true});
-export const OPTION_KEYS = Object.freeze(Object.keys(DEFAULT_OPTIONS));
+export const DEFAULT_OPTIONS = Object.freeze({quickTurns: true, compactDeck: true, lastChance: true, target: 2});
+export const OPTION_KEYS = Object.freeze(Object.keys(DEFAULT_OPTIONS).filter(key=>key!=='target'));
 export function optionsFor(options = {}) {
   if (!options || typeof options !== 'object' || Array.isArray(options) ||
-      Object.keys(options).some(key => !OPTION_KEYS.includes(key)) ||
-      Object.values(options).some(value => typeof value !== 'boolean')) throw new Error('Invalid match options.');
+      Object.keys(options).some(key => ![...OPTION_KEYS, 'target'].includes(key)) ||
+      Object.entries(options).some(([key,value]) => key==='target' ? !Number.isInteger(value)||value<1||value>5 : typeof value !== 'boolean')) throw new Error('Invalid match options.');
   return {...DEFAULT_OPTIONS, ...options};
 }
 export const valueOf = card => card.ends[card.face];
@@ -22,7 +22,7 @@ function rng(seed) {
 export function makeDeck(compact = true) {
   const ranks = compact ? 6 : 10, deck = [];
   for (const step of [1, 2]) for (let rank = 1; rank <= ranks; rank++) {
-    for (let copy = 0; copy < 2; copy++) deck.push({id: 'c' + deck.length, ends: [rank, (rank - 1 + step) % ranks + 1], face: 0});
+    for (let copy = 0; copy < 2; copy++) deck.push({id: 'c' + deck.length, ends: [rank, (rank - 1 + step) % ranks + 1], face: 0, ...(deck.length===0?{star:true}:{})});
   }
   return deck;
 }
@@ -38,9 +38,13 @@ function deal(state) {
   state.table = state.hands.map(() => [[], []]);
   state.discard = [];
   state.phase = 'playing';
-  state.turn = (state.starter + state.round) % state.hands.length;
+  // The star belongs to one physical card, on either face. Its recipient opens
+  // each new round; the host, deal offset and controller type do not choose it.
+  state.firstPlayer = state.hands.findIndex(hand=>hand.some(card=>card.star));
+  state.turn = state.firstPlayer;
   // In double-action rhythm the opening player gets only the right action.
-  state.beat = state.options.quickTurns ? 0 : 1;
+  state.beat = 1;
+  state.opening = true;
   state.pending = null; state.repliesRemaining = 0;
   state.moves = 0;
   state.log = [];
@@ -52,7 +56,7 @@ export function createMatch(options = {}, seed = 1, starter = 0, players = 2) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff || !Number.isInteger(players) || players < 2 || players > 5 || !Number.isInteger(starter) || starter < 0 || starter >= players) throw new Error('Invalid deal.');
   return deal({options: optionsFor(options), seed, starter, round: 0, revision: 0, scores: Array(players).fill(0), history: []});
 }
-export function availableLanes(state) { return state.options.quickTurns ? [0, 1] : [state.beat]; }
+export function availableLanes(state) { return state.options.quickTurns ? [0] : [state.beat]; }
 function clearLane(state, seat, lane) {
   state.discard.push(...state.table[seat][lane]);
   state.table[seat][lane] = [];
@@ -90,7 +94,7 @@ function execute(state, seat, action) {
   }
   if (action.kind === 'take' || action.kind === 'add') {
     const targetSeat = action.targetSeat ?? (state.hands.length === 2 ? 1 - seat : -1);
-    if (!Number.isInteger(targetSeat) || targetSeat < 0 || targetSeat >= state.hands.length || targetSeat === seat || ![0, 1].includes(action.target) || !state.table[targetSeat][action.target].length) throw new Error('Choose one of your opponent’s sets.');
+    if (!Number.isInteger(targetSeat) || targetSeat < 0 || targetSeat >= state.hands.length || targetSeat === seat || !(state.options.quickTurns ? [0] : [0, 1]).includes(action.target) || !state.table[targetSeat][action.target].length) throw new Error('Choose one of your opponent’s sets.');
     event.target = action.target; event.targetSeat = targetSeat;
     const target = state.table[targetSeat][action.target];
     if (action.kind === 'take') { event.count = target.length; event.value = setValue(target);
@@ -116,14 +120,14 @@ function execute(state, seat, action) {
 }
 function positionKey(state) {
   const cards = hand => hand.map(card => card.id + ':' + card.face).sort().join(',');
-  return JSON.stringify([state.turn, state.beat, state.pending, state.hands.map(cards), state.table.map(row => row.map(cards)), state.discard.map(c => c.id).sort()]);
+  return JSON.stringify([state.turn, state.beat, state.options.quickTurns ? false : state.opening, state.pending, state.hands.map(cards), state.table.map(row => row.map(cards)), state.discard.map(c => c.id).sort()]);
 }
 function finishRound(state, winner, reason) {
   state.result = {winner, reason, moves: state.moves, round: state.round + 1};
   state.history.push(state.result);
   if (winner !== null) state.scores[winner]++;
   state.pending = null; state.repliesRemaining = 0;
-  state.phase = state.scores.some(n => n >= 2) ? 'matchOver' : 'roundOver';
+  state.phase = state.scores.some(n => n >= (state.options.target||2)) ? 'matchOver' : 'roundOver';
 }
 export function applyAction(original, seat, action) {
   if (!Number.isInteger(seat) || seat < 0 || seat >= original.hands.length) throw new Error('Invalid player.');
@@ -141,15 +145,15 @@ export function applyAction(original, seat, action) {
     state.repliesRemaining--;
     if (state.repliesRemaining <= 0) { finishRound(state, previousPending, 'survived'); return state; }
     // Every other seat gets one reply. The earliest empty hand keeps priority.
-    state.turn = (seat + 1) % state.hands.length; state.beat = 0;
+    state.turn = (seat + 1) % state.hands.length; state.beat = 1; state.opening = false;
   } else {
     state.pending = null; state.repliesRemaining = 0;
     if (!state.hands[seat].length) {
       if (!state.options.lastChance) { finishRound(state, seat, 'empty'); return state; }
       state.pending = seat; state.repliesRemaining = state.hands.length - 1;
-      state.turn = (seat + 1) % state.hands.length; state.beat = 0;
-    } else if (!state.options.quickTurns && state.beat === 0) state.beat = 1;
-    else { state.turn = (seat + 1) % state.hands.length; state.beat = 0; }
+      state.turn = (seat + 1) % state.hands.length; state.beat = 1; state.opening = false;
+    } else if (!state.options.quickTurns && state.beat === 1 && !state.opening) state.beat = 0;
+    else { state.turn = (seat + 1) % state.hands.length; state.beat = 1; state.opening = false; }
   }
   const key = positionKey(state);
   state.visits[key] = (state.visits[key] || 0) + 1;
@@ -190,7 +194,7 @@ export function legalActions(state, seat = state.turn) {
     for (let targetSeat = 0; targetSeat < state.hands.length; targetSeat++) {
       if (targetSeat === seat) continue;
       const owner = state.hands.length === 2 ? {} : {targetSeat};
-      for (let target = 0; target < 2; target++) {
+      for (const target of (state.options.quickTurns ? [0] : [0,1])) {
         const set = base.table[targetSeat][target]; if (!set.length) continue;
         actions.push({kind:'take',lane,target,...owner});
         const rank = setValue(set);
@@ -209,9 +213,11 @@ export function previewMove(view, seat, action) {
 }
 export function assertState(state) {
   const deck = makeDeck(state.options.compactDeck), seen = new Set(), counts = new Set();
-  for (const card of [...state.hands.flat(), ...state.table.flat(2), ...state.discard]) {
+  const cards=[...state.hands.flat(), ...state.table.flat(2), ...state.discard];
+  if(state.firstPlayer!==undefined&&cards.filter(c=>c.star).length!==1)throw new Error('The unique starred card disappeared.');
+  for (const card of cards) {
     const source = deck.find(c => c.id === card.id);
-    if (!source || seen.has(card.id) || ![0, 1].includes(card.face) || source.ends.some((n, i) => n !== card.ends[i])) throw new Error('Card conservation failed.');
+    if (!source || seen.has(card.id) || ![0, 1].includes(card.face) || source.ends.some((n, i) => n !== card.ends[i]) || card.star !== undefined && card.star !== source.star) throw new Error('Card conservation failed.');
     seen.add(card.id);
   }
   if (seen.size !== deck.length) throw new Error('A card disappeared.');

@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-03",
+  "transport": "Real WebRTC through loopback TURN/TCP, configured using game controls",
+  "errors": [],
+  "results": [
+    {
+      "scenario": "duel-full-match",
+      "steps": 45
+    },
+    {
+      "scenario": "double-turn-duel",
+      "steps": 108,
+      "scores": [
+        2,
+        1
+      ]
+    },
+    {
+      "scenario": "five-seat-duel",
+      "steps": 180,
+      "scores": [
+        2,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "scenario": "team",
+      "steps": 102,
+      "scores": [
+        2,
+        1
+      ]
+    },
+    {
+      "scenario": "reload-reconnect",
+      "revision": 2
+    }
+  ]
+}

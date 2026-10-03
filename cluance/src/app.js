@@ -3,7 +3,9 @@ import {loadAI, saveAI, CONFIG_KEY} from '../../shared/ai/config.js';
 import {DECKS, CARDS, THEME_IDEAS} from './decks.js';
 import {createGame, playClue, eliminate, remaining, viewFor, validatePublicView, REMOVALS, PROTOCOL} from './game.js';
 import {loadArt, cardElement, observationImage, startAmbience} from './art.js';
-import {PeerLink} from './peer.js';
+import {PeerLink,decodePairing,makeLink,iceConfig} from './peer.js';
+import {pairingBody,copyPairing,sharePairing} from '../../shared/pairing.js';
+import {drawQR} from '../../shared/qr.js';
 import {PROVIDERS, chooseMove, listModels} from './ai.js';
 import {loadSettings, read, write, erase} from './storage.js';
 import {chime, setMusic, unlockAudio} from './sound.js';
@@ -19,7 +21,8 @@ let setup = {...{theme:'french',clueTheme:'same',variant:'classic',mode:'ai-give
 if (!DECKS[setup.theme]) setup.theme='french';
 if (setup.clueTheme !== 'same' && !DECKS[setup.clueTheme]) setup.clueTheme='same';
 let game = null, mode = null, localRole='giver', screen='home', selected = new Set(), clueCard=null, relation='similar', draftNote='';
-let peer=null, peerStatus='', pendingGuess=false, pairingKind=null, pairingCode='', pairingError='', pairingBusy=false;
+let peer=null, peerStatus='', pendingGuess=false, pairingKind=null, pairingCode='', pairingError='', pairingBusy=false, pairingOffer='', pairingInput='', pairingConfig=null;
+const pairingBus=typeof BroadcastChannel!=='undefined'?new BroadcastChannel('cluance-pairing'):null;
 let aiBusy=false, aiError='', aiController=null, aiGeneration=0, replayRound=0, toastTimer, lastOutcome;
 const colorPreference = matchMedia('(prefers-color-scheme: dark)');
 const CARD_SIZES = [['compact','Compact'],['comfortable','Comfortable'],['large','Large']];
@@ -318,9 +321,10 @@ function updateConnection(){
 function sendState(){peer.send({type:'state',game:viewFor(game,'guesser')});}
 function newPeer(){
   const old=peer;peer=null;old?.close();
-  const link=new PeerLink({stun:settings.stun,onStatus:status=>{
+  const link=new PeerLink({config:pairingConfig||iceConfig(settings.stun),onStatus:status=>{
     if(peer!==link)return;peerStatus=status;updateConnection();
-    if(status==='open'){
+    if((status==='open'||status==='connected')&&link.connected&&!link.started){
+      link.started=true;
       pairingKind=null;pairingBusy=false;pairingError='';
       if(mode==='peer-host'){if(!game)game=createGame(gameOptions());saveSession();sendState();renderGame();}
       else{link.send({type:'hello'});}
@@ -329,7 +333,7 @@ function newPeer(){
       pendingGuess=false;
       if(screen==='game')renderGame();
       if(status==='failed'){
-        pairingBusy=false;pairingError='The browsers could not connect. Try a different network, or change the STUN server in Settings. Some networks need a relay, which this direct-pairing game does not use.';
+        pairingBusy=false;pairingError='The browsers could not connect. Try a different network, or change the STUN server in Settings. Open Connection settings to use a TURN relay on restricted networks.';
         if(pairingKind)renderPairing();else toast('Connection lost. Create a fresh invitation to reconnect.');
       }
     }
@@ -365,42 +369,76 @@ function handlePeerMessage(message){
     else toast(error.message);
   }
 }
+function readPairConfig(){
+  const stun=$('stun')?.value??settings.stun;
+  const config=iceConfig(stun,$('turn')?.value||'',$('turn-name')?.value||'',$('turn-password')?.value||'');
+  settings.stun=stun;write('settings',settings);return config;
+}
 function openPairing(kind,reconnect=false,initial=''){
-  cancelAI();pairingKind=kind;pairingCode='';pairingError='';pairingBusy=false;
-  if(!reconnect){game=null;mode=kind==='host'?'peer-host':'peer-guest';resetTurn();}
-  else mode=kind==='host'?'peer-host':'peer-guest';
+  cancelAI();pairingKind=kind;pairingCode='';pairingError='';pairingBusy=false;pairingInput=initial;
+  if(!reconnect){game=null;resetTurn();}
+  mode=kind==='host'?'peer-host':'peer-guest';
   if(kind==='guest'&&reconnect)game=null;
-  try{newPeer();renderPairing(initial);}catch(error){toast(error.message);pairingKind=null;}
+  renderPairing();
+  if(kind==='host'||initial)preparePair(kind==='host'?'offer':'answer',initial);
 }
-function renderPairing(initial=''){
-  if(!pairingKind)return;const host=pairingKind==='host';
-  showModal(host?'Invite your guesser.':'Join your clue giver.','Two browsers · one table',`<div class="pair-steps"><span class="${!pairingCode?'active':''}">1. Invitation</span><span class="${pairingCode?'active':''}">2. Reply</span><span>3. Play</span></div>
-  <p class="pair-copy">${host?'You’ll give the clues. Send your friend the invitation link. They’ll open it and send you a reply code to paste below.':'Your friend gives the clues; you guess the card. Paste their invitation, create a reply, and send that reply back.'}</p>
-  ${host?(pairingCode?`<label class="field-label" for="pair-output">Send this invitation link</label><textarea id="pair-output" class="code-box" readonly spellcheck="false">${esc(invitationLink(pairingCode))}</textarea><button class="button small secondary" id="copy-pair">Copy invitation ↗</button><label class="field-label" for="pair-input" style="margin-top:22px">Paste your friend’s reply code</label><textarea id="pair-input" class="code-box" spellcheck="false" placeholder="SIMZ1.…"></textarea><button class="button wide" id="accept-reply" ${pairingBusy?'disabled':''}>${pairingBusy?'Connecting…':'Connect & play ⇄'}</button>`:
-    `<button class="button wide" id="create-offer" ${pairingBusy?'disabled':''}>${pairingBusy?'Preparing invitation…':'Create invitation ⇄'}</button>`):
-    (pairingCode?`<label class="field-label" for="pair-output">Send this reply code to your friend</label><textarea id="pair-output" class="code-box" readonly spellcheck="false">${esc(pairingCode)}</textarea><button class="button wide" id="copy-pair">Copy reply code ↗</button><p class="status-note">Keep this window open. The game begins when your friend accepts your reply.</p>`:
-    `<label class="field-label" for="pair-input">Invitation link or code</label><textarea id="pair-input" class="code-box" spellcheck="false" placeholder="Paste the complete invitation here…">${esc(initial)}</textarea><button class="button wide" id="create-answer" ${pairingBusy?'disabled':''}>${pairingBusy?'Preparing reply…':'Create reply code ⇄'}</button>`)}
-  ${pairingError?`<p class="inline-error" role="alert">${esc(pairingError)}</p><button class="text-button" id="retry-pair">Start pairing again</button>`:''}
-  <p class="help-text">Pairing uses a direct browser connection and a public STUN service to find a route. There’s no room server. Keep both tabs open. Some restricted networks may prevent a direct connection.</p>`);
-  if($('create-offer'))$('create-offer').onclick=async()=>{
-    const link=peer;pairingBusy=true;renderPairing();
-    try{pairingCode=await link.invite();if(peer!==link||!pairingKind)return;pairingBusy=false;renderPairing();}
-    catch(error){if(peer!==link)return;pairingBusy=false;pairingError=error.message;renderPairing();}
-  };
-  if($('create-answer'))$('create-answer').onclick=async()=>{
-    const input=$('pair-input').value,link=peer;pairingBusy=true;renderPairing(input);
-    try{pairingCode=await link.join(input);if(peer!==link||!pairingKind)return;pairingBusy=false;renderPairing();}
-    catch(error){if(peer!==link)return;pairingBusy=false;pairingError=error.message;renderPairing(input);}
-  };
-  if($('accept-reply'))$('accept-reply').onclick=async()=>{
-    const input=$('pair-input').value,link=peer;pairingBusy=true;renderPairing();
-    try{await link.accept(input);if(peer!==link||!pairingKind)return;pairingBusy=false;renderPairing();toast('Connecting the two browsers…');}
-    catch(error){if(peer!==link)return;pairingBusy=false;pairingError=error.message;renderPairing();}
-  };
-  if($('copy-pair'))$('copy-pair').onclick=async()=>{try{await navigator.clipboard.writeText($('pair-output').value);toast(host?'Invitation copied. Send it to your friend.':'Reply copied. Send it to your friend.');}catch{$('pair-output').select();toast('Select and copy the code manually.');}};
-  if($('retry-pair'))$('retry-pair').onclick=()=>openPairing(host?'host':'guest',!!game,initial);
+async function preparePair(type,input=''){
+  try{
+    const config=readPairConfig();
+    if(type==='answer'){await decodePairing(input,'offer');pairingOffer=input;}
+    pairingConfig=config;pairingBusy=true;pairingError='';pairingInput=input;pairingCode='';
+    const link=newPeer();renderPairing();
+    const code=type==='offer'?await link.invite():await link.join(input);
+    if(peer!==link||!pairingKind)return;
+    pairingCode=makeLink(code,type);pairingBusy=false;pairingInput='';renderPairing();
+  }catch(error){pairingBusy=false;pairingError=error.message;renderPairing();}
 }
-function invitationLink(code){return location.href.split('#')[0]+'#pair='+encodeURIComponent(code);}
+async function acceptPair(input){
+  if(!peer||mode!=='peer-host'){toast('Paste the reply in the hosting tab.');return;}
+  const link=peer;pairingBusy=true;pairingError='';pairingInput=input;renderPairing();
+  try{await link.accept(input);if(peer!==link)return;pairingBusy=false;renderPairing();}
+  catch(error){if(peer!==link)return;pairingBusy=false;pairingError=error.message;renderPairing();}
+}
+function renderPairing(){
+  if(!pairingKind)return;
+  const host=pairingKind==='host';
+  showModal(host?'Invite your guesser.':'Join your clue giver.','Private table / peer-to-peer',pairingBody({host,output:pairingCode,busy:pairingBusy,error:pairingError,initial:pairingInput,stun:settings.stun}));
+  modalContent.querySelectorAll('[data-action]').forEach(button=>button.onclick=async()=>{
+    const action=button.dataset.action;
+    try{
+      if(action==='create-invite')await preparePair('offer');
+      else if(action==='join-invite')await preparePair('answer',$('pair-input').value);
+      else if(action==='remake-reply')await preparePair('answer',pairingOffer);
+      else if(action==='accept-reply')await acceptPair($('pair-input').value);
+      else if(action==='copy'){await copyPairing($('pair-output'));toast(host?'Invitation copied. Send it to your friend.':'Reply copied. Send it to the host.');}
+      else if(action==='share')await sharePairing($('pair-output'),'Cluance');
+    }catch(error){toast(error.message);}
+  });
+  if($('pair-input')){
+    $('pair-input').oninput=event=>{pairingInput=event.target.value;};
+    $('pair-input').onpaste=event=>{
+      const input=event.clipboardData?.getData('text');if(!input||pairingBusy)return;
+      decodePairing(input,host?'answer':'offer').then(()=>host?acceptPair(input):preparePair('answer',input)).catch(error=>{pairingError=error.message;renderPairing();});
+    };
+  }
+  if($('pair-qr'))try{drawQR($('pair-qr'),pairingCode);}catch(error){$('pair-qr').parentElement.remove();toast(error.message);}
+}
+pairingBus?.addEventListener('message',event=>{
+  if(event.data?.type!=='reply'||mode!=='peer-host'||!peer||peer.connected)return;
+  decodePairing(event.data.link,'answer').then(reply=>{if(reply.room!==peer.room)return;pairingKind='host';renderPairing();acceptPair(event.data.link);}).catch(()=>{});
+});
+async function openPairHash(){
+  const params=new URLSearchParams(location.hash.slice(1)),invite=params.get('invite')||params.get('pair'),reply=params.get('reply');
+  if(!invite&&!reply)return;
+  history.replaceState(null,'',location.pathname+location.search);
+  if(invite){openPairing('guest',false,invite);return;}
+  try{
+    const decoded=await decodePairing(reply,'answer');
+    if(mode==='peer-host'&&peer?.room===decoded.room){pairingKind='host';renderPairing();await acceptPair(reply);}
+    else{const link=makeLink(reply,'answer');pairingBus?.postMessage({type:'reply',link});showModal('Back to your table.','Reply ready','<p class="pair-copy">Return to your original hosting tab. The reply was sent there. If it is on another browser, paste this link in that tab.</p><textarea id="return-reply" class="code-box" readonly>'+esc(link)+'</textarea>');}
+  }catch(error){toast(error.message);}
+}
+window.addEventListener('hashchange',openPairHash);
 function showRules(){
   showModal('A little trust goes a long way.','How to play',`<p class="pair-copy">You’re a team. Keep one secret card on the table through five rounds.</p><ol class="rules-list"><li><strong>The clue giver sees the secret.</strong> There are 12 cards on the board and five private cards in the giver’s hand.</li><li><strong>Play one illustrated clue.</strong> Choose Similar ↑ for a shared trait, or Different → for a contrast. It can be a job, an era, a date, geography, a story, a trait, or a visual detail. Inspect cards for their dates and biographies. Only the card and its direction are shared.</li><li><strong>The guesser removes cards.</strong> Remove 1, then 2, then 3, then 4, then 1. All previous clues remain relevant.</li><li><strong>Leave the secret standing.</strong> Removing it ends the game immediately. If it’s the last card left, you both win.</li><li><strong>Open your sealed interpretations.</strong> Optional human notes and AI explanations are recorded with each move, then revealed together at the end.</li></ol><div class="rules-rounds"><span>1</span><span>2</span><span>3</span><span>4</span><span>1</span></div><p class="help-text"><strong>Classic:</strong> draw a new card after each clue.<br><strong>Fixed five:</strong> start with five cards and never draw replacements. Choose the order carefully.<br><strong>Mixed decks:</strong> use one theme for cards and another for clues.</p><p class="help-text">This is an independent game inspired by Similo, designed by Hjalmar Hach, Pierluca Zizzi and Martino Chiacchiera. The illustrations here are original generated artwork; they are not the commercial card art.</p>`);
 }
@@ -469,7 +507,7 @@ function renderSettings(){
   <div class="form-field"><label class="field-label" for="model">Vision model</label><div class="form-row"><input id="model" list="model-list" autocomplete="off" spellcheck="false" value="${esc(settingsDraft.models[provider])}" required><button type="button" class="button small secondary" id="load-models">Load models</button></div><datalist id="model-list">${availableModels.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('')}</datalist><p class="help-text" id="model-status">${availableModels.length?`${availableModels.length} models available. Select one or enter an exact model ID.`:'Enter an exact model ID, or load the provider’s list. Choose a model that accepts images.'}</p></div>
   <div class="modal-grid"><div class="form-field"><label class="field-label" for="effort">Reasoning effort</label><select id="effort">${options(info.efforts.map(e=>[e,e==='default'?'Provider default':e[0].toUpperCase()+e.slice(1)]),settingsDraft.efforts[provider])}</select></div><div class="form-field"><label class="field-label" for="token-budget">Response token budget</label><select id="token-budget">${options([2048,4096,8192,16384,32768].map(n=>[String(n),n.toLocaleString()]),String(settingsDraft.tokenBudget))}</select></div></div><p class="help-text">Effort support depends on the model. “Provider default” leaves it unset. Higher effort may take longer and needs more response tokens. Unsupported choices are reported; they are never silently changed.</p>
   <details class="usage-panel"><summary>Model pricing for estimates</summary><div id="pricing-fields"></div></details>
-  <details style="margin-top:20px"><summary class="field-label">Music, effects & connection</summary><label class="check-row"><input id="sound" type="checkbox" ${settingsDraft.sound?'checked':''}>Arcade sounds & outcome fanfares</label><label class="check-row"><input id="music" type="checkbox" ${settingsDraft.music?'checked':''}>Theme background music</label><label class="field-label" for="music-volume">Music volume · <span id="music-volume-value">${settingsDraft.musicVolume}%</span></label><input id="music-volume" type="range" min="0" max="70" step="1" value="${settingsDraft.musicVolume}"><p class="help-text">Original composition: ${esc(THEME_MUSIC[screen==='home'?setup.theme:game?.theme||setup.theme].title)}.<br>Music follows the board theme, fades between tracks and pauses when this tab is hidden. The top music button pauses music while keeping sound effects unchanged.</p><label class="check-row"><input id="effects" type="checkbox" ${settingsDraft.effects?'checked':''}>Table animations & result effects</label><label class="field-label" for="stun">STUN server for direct pairing</label><input id="stun" value="${esc(settingsDraft.stun)}" spellcheck="false" placeholder="stun:stun.l.google.com:19302"><p class="help-text">Comma-separated STUN URLs. Leave blank to try local-network connections only. No relay server is used.</p></details>
+  <details style="margin-top:20px"><summary class="field-label">Music, effects & connection</summary><label class="check-row"><input id="sound" type="checkbox" ${settingsDraft.sound?'checked':''}>Arcade sounds & outcome fanfares</label><label class="check-row"><input id="music" type="checkbox" ${settingsDraft.music?'checked':''}>Theme background music</label><label class="field-label" for="music-volume">Music volume · <span id="music-volume-value">${settingsDraft.musicVolume}%</span></label><input id="music-volume" type="range" min="0" max="70" step="1" value="${settingsDraft.musicVolume}"><p class="help-text">Original composition: ${esc(THEME_MUSIC[screen==='home'?setup.theme:game?.theme||setup.theme].title)}.<br>Music follows the board theme, fades between tracks and pauses when this tab is hidden. The top music button pauses music while keeping sound effects unchanged.</p><label class="check-row"><input id="effects" type="checkbox" ${settingsDraft.effects?'checked':''}>Table animations & result effects</label><label class="field-label" for="stun">STUN server for direct pairing</label><input id="stun" value="${esc(settingsDraft.stun)}" spellcheck="false" placeholder="stun:stun.l.google.com:19302"><p class="help-text">Comma-separated STUN URLs. Leave blank to try local-network connections only. Optional TURN relay settings are available in the invitation dialog.</p></details>
   <div class="modal-footer"><span class="help-text">No account with this game.<br>No keys in invitations or replays.</span><button class="button" type="submit">Save settings ✓</button></div></form>`);
   renderPriceFields();
   $('model').onchange=()=>{capturePricing();settingsDraft.models[settingsDraft.provider]=$('model').value.trim();renderPriceFields();};
@@ -513,9 +551,13 @@ applyPreferences();startAmbience($('ambience'),()=>settings.effects);
 app.innerHTML=`<section class="hero"><div><p class="eyebrow">Setting the table</p><h1>${Object.keys(DECKS).length} worlds.<br>One <em>connection.</em></h1><p>Shuffling the illustrated decks…</p></div></section>`;
 try{
   await loadArt();renderHome();
-  if(location.hash.startsWith('#pair=')){
-    const invitation=location.hash.slice(6);history.replaceState(null,'',location.pathname+location.search);openPairing('guest',false,decodeURIComponent(invitation));
-  }
+  await openPairHash();
 }catch(error){app.innerHTML=`<p class="inline-error">${esc(error.message)}</p><button class="button" id="reload">Reload artwork</button>`;$('reload').onclick=()=>location.reload();}
 
 window.addEventListener('storage',event=>{if(event.key===CONFIG_KEY){Object.assign(settings,loadAI());if(!aiBusy&&screen==='home')renderHome();}if(event.key===THEME_KEY){settings.appearance=loadTheme();applyPreferences();}});
+
+// Redacted, read-only diagnostics for browser verification.
+Object.defineProperty(window,'__cluance',{value:{
+  get state(){return game?structuredClone(currentView()):null;},
+  get connected(){return Boolean(peer?.connected);},get mode(){return mode;}
+}});
