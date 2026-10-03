@@ -423,6 +423,12 @@ body[data-screen="collection"] #collection-button {
 .home-cta .text-button {
   border-bottom: 1px solid var(--line);
 }
+.home-friend-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
 .hero-art {
   position: absolute;
   right: 120px;
@@ -2310,6 +2316,9 @@ body[data-screen="curtain"] .topbar {
   }
   .sentence-token {
     border-radius: 8px;
+    max-width: 100%;
+    white-space: normal;
+    text-align: left;
   }
   .secondary-clause {
     font-size: 12px;
