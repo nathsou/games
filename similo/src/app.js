@@ -42,7 +42,7 @@ modal.addEventListener('close',()=>{
 });
 function inspectCard(id) {
   const card=CARDS[id];if(!card)return;
-  showModal(card.name,'Card collection',`<div class="inspect-layout"><div id="inspect-card"></div><div><p class="eyebrow">${esc(DECKS[card.deck].name)}</p><h3>${esc(card.name)}</h3><p>${esc(card.subtitle)}</p><p class="help-text">Look at the colors, clothing, props, landmarks and setting. The same card can suggest many different connections.</p></div></div>`);
+  showModal(card.name,'Card collection',`<div class="inspect-layout"><div id="inspect-card"></div><div><p class="eyebrow">${esc(DECKS[card.deck].name)}</p><h3>${esc(card.name)}</h3><p>${esc(card.subtitle)}</p><p class="card-dates">${esc(card.dates)}</p><p class="card-description">${esc(card.description)}</p><p class="help-text">Look at the illustration and its story. Dates and context can suggest connections too. “c.” means approximate; “Trad.” marks a traditional attribution.</p></div></div>`);
   mountCard($('inspect-card'),id);
 }
 function attachInspect(element,id) {

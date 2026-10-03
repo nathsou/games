@@ -36,3 +36,11 @@ A complete live GPT-6 Luna game used a Cities board, a fixed Countries hand and 
 One-screen play was also opened with a French Regions board and Singer clues. The board dealt twelve cards, the classic hand held five, and playing a singer clue passed through the privacy curtain to a guesser view with the hand and secret hidden.
 
 The game now loads native-browser-encoded WebP delivery copies (8,832,934 bytes total), retaining the original generated PNGs (37,471,039 bytes total). Delivery images preserve dimensions and composition and reduce the image transfer by about 76%. No dependencies or tests were added.
+
+## Dates and descriptions
+
+All 264 card records now include a date caption and short public description. A direct read of the loaded browser catalog confirmed complete coverage. Card IDs and atlas positions remain unchanged, and subjects appearing in multiple decks share one context entry.
+
+The collection and inspection dialog were opened with the new captions. Hypatia's approximate birth dates and fuller explanation were visually inspected at 1440-pixel desktop and 390-pixel phone widths; Paris's labelled Eiffel Tower milestone was also inspected on the phone. The phone dialog fit without horizontal overflow. Caption wording was reviewed for ordinary lifespans, labelled birth years, traditional ancient dates, place milestones, historic regions and myths.
+
+The AI's permitted board, public clues and giver hand now include this same context, and its prompt explains the date conventions. No new live provider game was played for this metadata change. References and editorial conventions are recorded in `CARD_CONTEXT.md`. No tests were written.

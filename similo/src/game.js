@@ -89,13 +89,16 @@ export function aiObservation(game, role) {
   return {role, round: view.round + 1, variant: view.variant,
     boardDeck: {name: DECKS[view.theme].name, kind: DECKS[view.theme].kind},
     clueDeck: {name: DECKS[view.clueTheme].name, kind: DECKS[view.clueTheme].kind},
-    board: view.board.map(id => ({id, name: CARDS[id].name, eliminated: view.eliminated.includes(id)})),
-    clues: view.history.map(r => ({card: r.card, name: CARDS[r.card].name, relation: r.relation, removed: r.removed})),
+    board: view.board.map(id => ({id, name: CARDS[id].name, subtitle: CARDS[id].subtitle,
+      dates: CARDS[id].dates, description: CARDS[id].description, eliminated: view.eliminated.includes(id)})),
+    clues: view.history.map(r => ({card: r.card, name: CARDS[r.card].name,
+      dates: CARDS[r.card].dates, description: CARDS[r.card].description, relation: r.relation, removed: r.removed})),
     ownPreviousExplanations: game.history.flatMap(r => {
       const explanation = role === 'giver' ? r.giverNote : r.guesserNote;
       const source = role === 'giver' ? r.giverSource : r.guesserSource;
       return source && source !== 'Human' && explanation ? [{round:r.round, explanation}] : [];
     }),
-    ...(role === 'giver' ? {secret: view.secret, hand: view.hand.map(id => ({id, name: CARDS[id].name}))} : {removeCount: REMOVALS[view.round]}),
+    ...(role === 'giver' ? {secret: view.secret, hand: view.hand.map(id => ({id, name: CARDS[id].name,
+      subtitle: CARDS[id].subtitle, dates: CARDS[id].dates, description: CARDS[id].description}))} : {removeCount: REMOVALS[view.round]}),
   };
 }

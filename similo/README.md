@@ -45,6 +45,8 @@ Eleven decks, each with 24 illustrated cards (264 cards total):
 
 Cities include Paris, Rome, London, Berlin, Tokyo and New York City, with 18 more cities worldwide. French Regions includes [France's 18 present-day regions](https://www.insee.fr/fr/metadonnees/definition/c1696), including the five overseas regions, plus six clearly labelled historic regions: Alsace, Lorraine, Bourgogne, Champagne, Picardie and Auvergne. These historic regions overlap modern ones, which can itself become a clue.
 
+Every card displays a date caption and has a short description available in card inspection. People have lifespans or labelled birth years; places have labelled landmarks or milestones. Approximate and traditional dates are marked, and mythological figures are identified as myths. The [card context notes](CARD_CONTEXT.md) explain these conventions and link selected references.
+
 Choose board and clue decks independently, including people/place combinations. When themes overlap, clue cards depicting the same subject as a board card are excluded. The opening screen also offers future theme ideas and a collection browser. All decks use smaller WebP delivery images; the original generated PNGs are retained with their prompts.
 
 Select cards with a mouse, touch, or keyboard; activate focused buttons with Enter or Space. Right-click, double-click, or focus a card and press **I** to inspect it. The final round offers a larger side-by-side comparison of the last two candidates. The AI observation includes a matching close-up comparison. Standard browser zoom works. Reduced-motion preferences disable animation.
@@ -57,7 +59,7 @@ Choose an image-capable model by exact model ID or load the provider's model lis
 
 Reasoning effort is configurable, including a **Provider default** option that omits the parameter. Support varies by model; unsupported choices produce a visible error rather than being silently altered. A separate response-token budget accommodates reasoning tokens. Requests can be cancelled or retried. Invalid model moves get one correction attempt without advancing the game. Provider failures preserve the turn and show a retry/settings action.
 
-Every AI decision gets a freshly rendered image of its permitted board, public clues, and, for the giver, its hand and target. A matching observation supplies IDs, names, elimination status and legal move counts. The model also gets its own previously recorded explanations as a memory of its earlier associations. It never receives its partner's sealed explanations. The guesser receives no target, private hand, or draw pile. There is no persistent provider conversation that could accidentally leak a previous role's private information. The OpenAI Responses adapter sets `store: false`.
+Every AI decision gets a freshly rendered image of its permitted board, public clues, and, for the giver, its hand and target. A matching observation supplies IDs, names, public dates and descriptions, elimination status and legal move counts. The model also gets its own previously recorded explanations as a memory of its earlier associations. It never receives its partner's sealed explanations. The guesser receives no target, private hand, or draw pile. There is no persistent provider conversation that could accidentally leak a previous role's private information. The OpenAI Responses adapter sets `store: false`.
 
 The game requests a brief player-facing explanation with the decision. This is a contemporaneous explanation of the association, not an internal reasoning transcript. Human notes are optional. Both are sealed during play and shown round by round at the end. Save a replay as JSON and reopen it from the opening screen; replays contain no credentials.
 
@@ -71,6 +73,7 @@ These are cooperative games between trusted players. A local browser that runs a
 
 - `src/game.js`: rules, dealing, move validation, role projections, replay/network validation.
 - `src/decks.js`: the eleven card rosters and future theme ideas.
+- `src/context.js`: shared dates and descriptions for all card subjects.
 - `src/art.js`: Canvas card rendering, atlas loading, AI observation images and animated felt.
 - `src/app.js`: accessible native controls, game flow, pairing, local saving, replay and settings.
 - `src/peer.js`: compressed invitation/reply tokens and reliable ordered WebRTC messages.

@@ -34,8 +34,9 @@ export function drawCard(canvas, id, {label = '', secret = false} = {}) {
   }
   ctx.fillStyle = '#eddfbd'; ctx.fillRect(12, 318, 264, 62);
   ctx.fillStyle = '#203331'; ctx.textAlign = 'center';
-  fitText(ctx, card.name, 247, 20); ctx.fillText(card.name, 144, 344);
-  fitText(ctx, card.subtitle, 247, 12); ctx.fillStyle = '#55605a'; ctx.fillText(card.subtitle, 144, 365);
+  fitText(ctx, card.name, 247, 20); ctx.fillText(card.name, 144, 337);
+  fitText(ctx, card.subtitle, 247, 11); ctx.fillStyle = '#55605a'; ctx.fillText(card.subtitle, 144, 355);
+  fitText(ctx, card.dates || '', 247, 12); ctx.fillStyle = '#203331'; ctx.fillText(card.dates || '', 144, 372);
   ctx.textAlign = 'left';
   if (label) {
     ctx.fillStyle = '#102a2bd9'; ctx.fillRect(17, 17, Math.max(32,label.length * 11 + 12), 28);
@@ -48,9 +49,10 @@ export function cardElement(id, {interactive = false, label = '', selected = fal
   const el = document.createElement(interactive ? 'button' : 'div');
   el.className = ['card', interactive && 'interactive', selected && 'selected', eliminated && 'eliminated', secret && 'secret', className].filter(Boolean).join(' ');
   el.dataset.card = id;
-  if (interactive) { el.type = 'button'; el.setAttribute('aria-label', `${card.name}, ${card.subtitle}${eliminated ? ', eliminated' : ''}${secret ? ', secret card' : ''}`); el.setAttribute('aria-pressed',String(selected)); }
-  else { el.setAttribute('role','img'); el.setAttribute('aria-label', `${card.name}, ${card.subtitle}`); }
-  el.title = `${card.name} · ${card.subtitle}`;
+  const summary = [card.name, card.subtitle, card.dates].filter(Boolean).join(', ');
+  if (interactive) { el.type = 'button'; el.setAttribute('aria-label', `${summary}${eliminated ? ', eliminated' : ''}${secret ? ', secret card' : ''}`); el.setAttribute('aria-pressed',String(selected)); }
+  else { el.setAttribute('role','img'); el.setAttribute('aria-label', summary); }
+  el.title = [card.name, card.subtitle, card.dates].filter(Boolean).join(' · ');
   const canvas = document.createElement('canvas'); canvas.setAttribute('aria-hidden','true'); drawCard(canvas, id, {label}); el.append(canvas);
   if (selected) { const mark = document.createElement('span'); mark.className='selection-mark'; mark.textContent='×'; el.append(mark); }
   if (secret) { const mark = document.createElement('span'); mark.className='secret-mark'; mark.textContent='SECRET'; el.append(mark); }
