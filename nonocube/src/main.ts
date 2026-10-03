@@ -4,7 +4,7 @@ import { decodePuzzle } from './core/codec.ts';
 import type { Collection, PuzzleDef } from './core/types.ts';
 import { randomSculpture, todayKey } from './data/daily.ts';
 import { EditorScreen } from './editor/editor.ts';
-import { onSettingsChange, store, updateSettings } from './game/storage.ts';
+import { onSettingsChange, store } from './game/storage.ts';
 import { solverClient } from './solver/client.ts';
 import { h, toast } from './ui/dom.ts';
 import { GalleryScreen } from './ui/gallery.ts';
@@ -12,30 +12,21 @@ import { CollectionsScreen, HomeScreen, MyPuzzlesScreen, type Nav } from './ui/m
 import { PlayScreen } from './ui/play.ts';
 import { installTooltips } from './ui/tooltip.ts';
 import { setTutorialLauncher } from './ui/settings.ts';
-import { applyDesign, DESIGNS, type DesignId } from './ui/theme.ts';
+import { applyTheme } from './ui/theme.ts';
 import { Tutorial } from './ui/tutorial.ts';
 
-function applyTheme(): void {
-  const d = DESIGNS[store.settings.design] ?? DESIGNS.soft;
-  applyDesign(d.id);
-  const t = d.scheme === 'auto' ? store.settings.theme : d.scheme;
-  if (t === 'auto') document.documentElement.removeAttribute('data-theme');
-  else document.documentElement.setAttribute('data-theme', t);
+const systemAppearance = matchMedia('(prefers-color-scheme: dark)');
+function syncAppearance(): void {
+  document.documentElement.dataset.theme = store.settings.theme === 'auto' ? (systemAppearance.matches ? 'dark' : 'light') : store.settings.theme;
+  applyTheme();
   document.documentElement.classList.toggle('reduce-motion', store.settings.reducedMotion);
 }
-applyTheme();
-onSettingsChange(applyTheme);
+syncAppearance();
+onSettingsChange(syncAppearance);
+systemAppearance.addEventListener('change', syncAppearance);
+// Load the local font before constructing the WebGL clue atlas.
+await document.fonts.load('800 18px Manrope');
 
-/** Shift+L cycles through the design systems (handy while comparing them). */
-window.addEventListener('keydown', (e) => {
-  if (!e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.key.toLowerCase() !== 'l') return;
-  const t = e.target as HTMLElement;
-  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
-  const ids = Object.keys(DESIGNS) as DesignId[];
-  const next = ids[(ids.indexOf(store.settings.design) + 1) % ids.length];
-  updateSettings({ design: next });
-  toast(`Look: ${DESIGNS[next].name} — ${DESIGNS[next].blurb}`);
-});
 installTooltips();
 document.addEventListener('click', (e) => {
   const b = (e.target as HTMLElement | null)?.closest?.('button');

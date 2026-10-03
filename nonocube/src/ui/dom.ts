@@ -65,19 +65,31 @@ export function modal<T extends string>(opts: {
   cls?: string;
 }): Promise<T | null> {
   return new Promise((resolve) => {
+    const previousFocus = document.activeElement as HTMLElement | null;
+    let closed = false;
     const close = (v: T | null) => {
+      if (closed) return;
+      closed = true;
       back.classList.remove('in');
       document.removeEventListener('keydown', onKey);
       setTimeout(() => back.remove(), 220);
+      previousFocus?.focus({ preventScroll: true });
       resolve(v);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && opts.dismissable !== false) close(null);
+      if (e.key === 'Tab') {
+        const focusable = [...card.querySelectorAll<HTMLElement>('button:not(:disabled), input, select, textarea, summary, [tabindex="0"]')].filter((el) => el.offsetParent !== null);
+        const first = focusable[0], last = focusable.at(-1);
+        if (e.shiftKey && (document.activeElement === first || document.activeElement === card)) { e.preventDefault(); last?.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
     };
     const card = h(
       'div',
-      { class: `modal ${opts.cls ?? ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': opts.title },
+      { class: `modal ${opts.cls ?? ''}`, role: 'dialog', tabindex: -1, 'aria-modal': 'true', 'aria-label': opts.title },
       h('h2', null, opts.title),
+      opts.dismissable !== false ? h('button', { class: 'icon-btn modal-close', 'aria-label': 'Close dialog', onclick: () => close(null) }, '×') : null,
       typeof opts.body === 'string' ? h('p', null, opts.body) : (opts.body ?? null),
       h('div', { class: 'modal-actions' }, ...opts.actions.map((a) => button(a.label, () => close(a.value), a.cls ?? ''))),
     );
@@ -88,6 +100,6 @@ export function modal<T extends string>(opts: {
     document.addEventListener('keydown', onKey);
     document.body.append(back);
     requestAnimationFrame(() => back.classList.add('in'));
-    (card.querySelector('.modal-actions .btn:last-child') as HTMLElement | null)?.focus();
+    card.focus({ preventScroll: true });
   });
 }
