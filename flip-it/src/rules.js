@@ -213,7 +213,9 @@ export function previewMove(view, seat, action) {
 }
 export function assertState(state) {
   const deck = makeDeck(state.options.compactDeck), seen = new Set(), counts = new Set();
-  for (const card of [...state.hands.flat(), ...state.table.flat(2), ...state.discard]) {
+  const cards=[...state.hands.flat(), ...state.table.flat(2), ...state.discard];
+  if(state.firstPlayer!==undefined&&cards.filter(c=>c.star).length!==1)throw new Error('The unique starred card disappeared.');
+  for (const card of cards) {
     const source = deck.find(c => c.id === card.id);
     if (!source || seen.has(card.id) || ![0, 1].includes(card.face) || source.ends.some((n, i) => n !== card.ends[i]) || card.star !== undefined && card.star !== source.star) throw new Error('Card conservation failed.');
     seen.add(card.id);
