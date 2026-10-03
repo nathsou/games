@@ -1,10 +1,11 @@
-import {CARDS, DECKS} from './decks.js';
+import {CARDS, DECKS, LEGACY_REGION_ATLAS} from './decks.js';
 
 const atlases = new Map();
 export async function loadArt() {
-  await Promise.all(Object.values(DECKS).map(deck => new Promise((resolve, reject) => {
+  const sources=[...Object.values(DECKS).map(d=>({atlas:d.atlas,name:d.name})),{atlas:LEGACY_REGION_ATLAS,name:'archived French Regions'}];
+  await Promise.all(sources.map(deck => new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => { atlases.set(deck.id, img); resolve(); };
+    img.onload = () => { atlases.set(deck.atlas, img); resolve(); };
     img.onerror = () => reject(new Error(`Could not load ${deck.name} artwork. Reload the page to try again.`));
     img.src = deck.atlas;
   })));
@@ -19,13 +20,14 @@ export function drawCard(canvas, id, {label = '', secret = false} = {}) {
   canvas.width = 288; canvas.height = 392;
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  const deck = DECKS[card.deck], atlas = atlases.get(card.deck);
+  const deck = DECKS[card.deck], atlas = atlases.get(card.atlas || deck.atlas);
   ctx.fillStyle = '#eddfbd'; ctx.fillRect(0, 0, 288, 392);
   ctx.fillStyle = '#243b3a'; ctx.fillRect(6, 6, 276, 380);
   ctx.fillStyle = deck.color; ctx.fillRect(12, 12, 264, 304);
   if (atlas) {
-    const sw = atlas.naturalWidth / 6, sh = atlas.naturalHeight / 4;
-    const x = card.index % 6 * sw, y = Math.floor(card.index / 6) * sh;
+    const columns=card.columns||deck.columns, rows=card.rows||deck.rows;
+    const sw = atlas.naturalWidth / columns, sh = atlas.naturalHeight / rows;
+    const x = card.index % columns * sw, y = Math.floor(card.index / columns) * sh;
     const ratio = 264 / 304;
     let cropW = sw, cropH = sh;
     if (sw / sh > ratio) cropW = sh * ratio;

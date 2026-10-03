@@ -101,3 +101,29 @@ input[type=range]{accent-color:var(--gold);padding:5px 0;background:transparent;
 [data-color-theme=light] .reveal-hero.loss,[data-color-theme=light] dialog.outcome-dialog.loss{background:linear-gradient(125deg,#eed6cc,#f8f1e3);border-color:#b45b4d}
 [data-color-theme=light] .outcome-dialog::backdrop{background:#354b436e}
 [data-color-theme=light] input[type=range]{background:transparent}
+
+/* Spending is local, with unknown charges visible alongside known estimates. */
+.game-usage{margin-top:20px;padding-top:15px;border-top:1px solid var(--line);font-size:11px}
+.game-usage>span,.game-usage>strong,.game-usage>small{display:block}
+.game-usage>strong{font-size:19px;color:var(--gold);margin:5px 0}
+.game-usage>small{color:var(--muted);font-size:10px;line-height:1.7;margin-top:5px}
+.reveal-hero .game-usage{margin:15px 0;max-width:430px}
+.usage-panel{border:1px solid var(--line);background:var(--panel);padding:14px;border-radius:5px;margin-bottom:22px}
+.usage-panel>summary{cursor:pointer;font-size:12px;font-weight:bold;color:var(--gold);overflow-wrap:anywhere}
+.usage-panel[open]>summary{margin-bottom:16px}
+.usage-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0}
+.usage-metrics>div{min-width:0;border:1px solid var(--line);padding:12px 9px;border-radius:4px}
+.usage-metrics span{font-size:10px;color:var(--muted);display:block;line-height:1.5}
+.usage-metrics strong{display:block;font-size:17px;color:var(--gold);margin-top:6px;overflow-wrap:anywhere}
+.usage-warning{color:var(--gold);margin:10px 0}
+.usage-models{list-style:none;padding:0;margin:18px 0;font-size:11px}
+.usage-models li{display:flex;justify-content:space-between;gap:14px;padding:8px 0;border-bottom:1px solid var(--line)}
+.usage-models span{min-width:0;overflow-wrap:anywhere}.usage-models strong{flex-shrink:0}
+.usage-table-wrap{overflow:auto;max-height:320px;margin:18px 0;border:1px solid var(--line);border-radius:4px}
+.usage-table{border-collapse:collapse;width:100%;font-size:11px;text-align:left;min-width:450px}
+.usage-table caption{padding:12px;font-weight:bold;text-align:left;color:var(--gold)}
+.usage-table th{position:sticky;top:0;background:var(--panel);z-index:1}
+.usage-table th,.usage-table td{padding:10px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+.usage-table td:first-child{min-width:190px}.usage-table td:nth-child(3){white-space:nowrap}
+.usage-table td small{display:block;white-space:normal;font-size:9px;color:var(--muted);line-height:1.6;margin-top:4px}
+@media(max-width:660px){.usage-panel{padding:11px}.usage-metrics{gap:6px}.usage-metrics>div{padding:9px 7px}.usage-metrics strong{font-size:14px}.usage-models li{font-size:10px;gap:8px}.usage-metrics span{font-size:9px}}

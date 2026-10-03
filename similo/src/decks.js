@@ -1,4 +1,17 @@
-import {CARD_CONTEXT} from './context.js';
+import {CARD_CONTEXT, REGION_2015_CONTEXT} from './context.js';
+
+// Preserve the original subjects and artwork when opening an older saved game.
+const legacyRegions = [
+      ['Auvergne-Rhône-Alpes', 'Alpine peaks and volcanic hills'], ['Bourgogne-Franche-Comté', 'Vineyards and tiled roofs'], ['Bretagne', 'Atlantic coast and lighthouses'],
+      ['Centre-Val de Loire', 'Loire castles and river'], ['Corse', 'Mediterranean island and mountains'], ['Grand Est', 'Cathedrals and timbered towns'],
+      ['Hauts-de-France', 'Belfries and northern coast'], ['Île-de-France', 'Paris and Versailles'], ['Normandie', 'Chalk cliffs and apple orchards'],
+      ['Nouvelle-Aquitaine', 'Atlantic dunes and vineyards'], ['Occitanie', 'Medieval walls and sunflowers'], ['Pays de la Loire', 'Loire river and Nantes'],
+      ["Provence-Alpes-Côte d’Azur", 'Lavender and Mediterranean coast'], ['Guadeloupe', 'Caribbean islands and volcano'], ['Martinique', 'Caribbean island and Mount Pelée'],
+      ['Guyane', 'Amazonian forest and spaceport'], ['La Réunion', 'Indian Ocean volcanic island'], ['Mayotte', 'Indian Ocean lagoon and mangroves'],
+      ['Alsace', 'Historic region · Storks and canals'], ['Lorraine', 'Historic region · Nancy and mirabelles'], ['Bourgogne', 'Historic region · Vineyards and abbeys'],
+      ['Champagne', 'Historic region · Reims and sparkling wine'], ['Picardie', 'Historic region · Somme Bay'], ['Auvergne', 'Historic region · Volcanic uplands'],
+    ];
+export const LEGACY_REGION_ATLAS = 'assets/regions.webp';
 
 const definitions = {
   french: {
@@ -119,17 +132,19 @@ const definitions = {
     ],
   },
   regions: {
-    name: 'French Regions', subtitle: 'Coasts, mountains & regional stories', color: '#d1bb83', symbol: '◒', preview: 8, kind: 'places',
-    description: '18 present-day regions, including the five overseas regions, plus six historic regions. Historic cards are labelled on the card.',
+    name: 'French Regions', subtitle: 'The 27 regions of France in 2015', color: '#d1bb83', symbol: '◒', preview: 3, kind: 'places',
+    atlas:'assets/regions-2015.webp', columns:6, rows:5, cardPrefix:'regions-2015',
+    description:'One card for each region as it stood on 31 December 2015: 22 metropolitan regions, including Corsica, and five overseas regions. No post-2016 mergers.',
     cards: [
-      ['Auvergne-Rhône-Alpes', 'Alpine peaks and volcanic hills'], ['Bourgogne-Franche-Comté', 'Vineyards and tiled roofs'], ['Bretagne', 'Atlantic coast and lighthouses'],
-      ['Centre-Val de Loire', 'Loire castles and river'], ['Corse', 'Mediterranean island and mountains'], ['Grand Est', 'Cathedrals and timbered towns'],
-      ['Hauts-de-France', 'Belfries and northern coast'], ['Île-de-France', 'Paris and Versailles'], ['Normandie', 'Chalk cliffs and apple orchards'],
-      ['Nouvelle-Aquitaine', 'Atlantic dunes and vineyards'], ['Occitanie', 'Medieval walls and sunflowers'], ['Pays de la Loire', 'Loire river and Nantes'],
-      ["Provence-Alpes-Côte d’Azur", 'Lavender and Mediterranean coast'], ['Guadeloupe', 'Caribbean islands and volcano'], ['Martinique', 'Caribbean island and Mount Pelée'],
-      ['Guyane', 'Amazonian forest and spaceport'], ['La Réunion', 'Indian Ocean volcanic island'], ['Mayotte', 'Indian Ocean lagoon and mangroves'],
-      ['Alsace', 'Historic region · Storks and canals'], ['Lorraine', 'Historic region · Nancy and mirabelles'], ['Bourgogne', 'Historic region · Vineyards and abbeys'],
-      ['Champagne', 'Historic region · Reims and sparkling wine'], ['Picardie', 'Historic region · Somme Bay'], ['Auvergne', 'Historic region · Volcanic uplands'],
+      ['Alsace', 'Storks, timbered houses and canals'], ['Aquitaine', 'Atlantic dunes and Bordeaux vineyards'], ['Auvergne', 'Volcanic peaks and lava-stone churches'],
+      ['Basse-Normandie', 'Mont Saint-Michel and tidal bays'], ['Bourgogne', 'Vineyards and stone châteaux'], ['Bretagne', 'Atlantic coast and lighthouses'],
+      ['Centre-Val de Loire', 'Loire castles and river'], ['Champagne-Ardenne', 'Reims, vineyards and Ardennes forests'], ['Corse', 'Mediterranean island and mountains'],
+      ['Franche-Comté', 'Jura hills, citadel and Comté cheese'], ['Haute-Normandie', 'Chalk cliffs, Rouen and the Seine'], ['Île-de-France', 'Paris and Versailles'],
+      ['Languedoc-Roussillon', 'Carcassonne and Mediterranean coast'], ['Limousin', 'Porcelain and chestnut forests'], ['Lorraine', 'Nancy gates and mirabelle plums'],
+      ['Midi-Pyrénées', 'Toulouse, Garonne and Pyrenean peaks'], ['Nord-Pas-de-Calais', 'Belfries, mining hills and dunes'], ['Pays de la Loire', 'Nantes and the lower Loire'],
+      ['Picardie', 'Amiens cathedral and Somme Bay'], ['Poitou-Charentes', 'La Rochelle and Marais Poitevin'], ['Provence-Alpes-Côte d’Azur', 'Lavender and Mediterranean coast'],
+      ['Rhône-Alpes', 'Mont Blanc, Lyon and cable cars'], ['Guadeloupe', 'Caribbean islands and La Soufrière'], ['Guyane', 'Amazonian forest and spaceport'],
+      ['Martinique', 'Caribbean island and Mount Pelée'], ['La Réunion', 'Indian Ocean volcano and lava'], ['Mayotte', 'Indian Ocean lagoon and mangroves'],
     ],
   },
   greek: {
@@ -148,10 +163,11 @@ const definitions = {
 };
 
 export const DECKS = Object.fromEntries(Object.entries(definitions).map(([id, deck]) => [id, {
-  ...deck, id, kind: deck.kind || 'people', atlas: `assets/${id}.webp`,
-  cards: deck.cards.map(([name, subtitle], index) => ({id: `${id}-${index}`, deck: id, index, name, subtitle, ...CARD_CONTEXT[name]})),
+  ...deck, id, kind: deck.kind || 'people', atlas: deck.atlas || `assets/${id}.webp`, columns:deck.columns||6, rows:deck.rows||4,
+  cards: deck.cards.map(([name, subtitle], index) => ({id: `${deck.cardPrefix||id}-${index}`, deck: id, index, name, subtitle, ...(id==='regions'?REGION_2015_CONTEXT:CARD_CONTEXT)[name]})),
 }]));
-export const CARDS = Object.fromEntries(Object.values(DECKS).flatMap(d => d.cards).map(c => [c.id, c]));
+export const CARDS = Object.fromEntries([...Object.values(DECKS).flatMap(d => d.cards),
+  ...legacyRegions.map(([name,subtitle],index)=>({id:`regions-${index}`,deck:'regions',index,name,subtitle,...CARD_CONTEXT[name],atlas:LEGACY_REGION_ATLAS,columns:6,rows:4}))].map(c => [c.id,c]));
 export const THEME_IDEAS = [
   ['Fairy tales', 'Witches, wolves, crowns, forests: familiar stories with wonderfully ambiguous clues.'],
   ['Natural world', 'Animals, plants and fungi. Shapes, habitats and colors make this an accessible first deck.'],

@@ -256,3 +256,34 @@ const entries = [
 ];
 
 export const CARD_CONTEXT = Object.fromEntries(entries.map(([name, dates, description]) => [name, {dates, description}]));
+
+// A single administrative division: all regions as they stood on 31 December 2015.
+export const REGION_2015_CONTEXT = Object.fromEntries([
+  ['Alsace', 'Separate region until 2015', 'Eastern region bordering Germany, with Strasbourg as its capital, Colmar canals, half-timbered houses and stork imagery. It joined Grand Est in 2016.'],
+  ['Aquitaine', 'Separate region until 2015', 'Southwestern region centered on Bordeaux, with Atlantic dunes, Landes pine forests, vineyards and a Basque coastline. It joined Nouvelle-Aquitaine in 2016.'],
+  ['Auvergne', 'Separate region until 2015', 'Central upland region centered on Clermont-Ferrand, known for the Chaîne des Puys volcanoes, lava-stone churches and green pastures. It joined Auvergne-Rhône-Alpes in 2016.'],
+  ['Basse-Normandie', 'Separate region until 2015', 'Western Norman region centered on Caen, including Mont Saint-Michel, the Cotentin peninsula and apple-growing countryside. It merged with Haute-Normandie to form Normandie in 2016.'],
+  ['Bourgogne', 'Separate region until 2015', 'Eastern inland region centered on Dijon, known for Burgundy vineyards, stone abbeys and wine-growing villages. It joined Bourgogne-Franche-Comté in 2016.'],
+  ['Bretagne', 'Union with France: 1532', 'Atlantic region centered on Rennes, with Breton and Gallo traditions, rocky coasts and lighthouses. Its 2015 boundaries remained after the reform; 1532 refers to the duchy’s union with France.'],
+  ['Centre-Val de Loire', 'Renamed: 2015', 'Region centered on Orléans, known for the Loire and royal châteaux such as Chambord. Previously called Centre, it became Centre-Val de Loire in January 2015; its boundaries remained after the 2016 reform.'],
+  ['Champagne-Ardenne', 'Separate region until 2015', 'Northeastern region centered on Châlons-en-Champagne, combining Reims, champagne vineyards and Ardennes forests. It joined Grand Est in 2016.'],
+  ['Corse', '2015 territorial division', 'Mediterranean island and territorial collectivity centered on Ajaccio, with mountain landscapes, turquoise bays and Genoese coastal towers. It was one of the 22 metropolitan regions in the 2015 division.'],
+  ['Franche-Comté', 'Separate region until 2015', 'Eastern region centered on Besançon, with the Doubs river, Jura mountains, fortified architecture and Comté cheese. It joined Bourgogne-Franche-Comté in 2016.'],
+  ['Haute-Normandie', 'Separate region until 2015', 'Eastern Norman region centered on Rouen, with Seine valleys, timbered towns and Étretat’s chalk cliffs. It merged with Basse-Normandie to form Normandie in 2016.'],
+  ['Île-de-France', 'Court at Versailles: 1682', 'Region surrounding Paris, with Versailles and the capital’s urban landmarks. Its 2015 boundaries remained after the reform; Louis XIV established his court at Versailles in 1682.'],
+  ['Languedoc-Roussillon', 'Separate region until 2015', 'Southern region centered on Montpellier, with Mediterranean lagoons, Carcassonne’s fortified walls, vineyards and the Roussillon plain. It joined Occitanie in 2016.'],
+  ['Limousin', 'Separate region until 2015', 'Central-western region centered on Limoges, associated with porcelain, chestnut forests and villages such as Collonges-la-Rouge. It joined Nouvelle-Aquitaine in 2016.'],
+  ['Lorraine', 'Separate region until 2015', 'Northeastern region centered on Metz, with Nancy’s Place Stanislas, mirabelle plums and borders with Belgium, Luxembourg and Germany. It joined Grand Est in 2016.'],
+  ['Midi-Pyrénées', 'Separate region until 2015', 'Southwestern inland region centered on Toulouse, spanning the Garonne valley, red-brick towns and Pyrenean mountains. It joined Occitanie in 2016.'],
+  ['Nord-Pas-de-Calais', 'Separate region until 2015', 'Northern region centered on Lille, associated with Arras belfries, mining spoil heaps and Channel and North Sea coasts. It joined Hauts-de-France in 2016.'],
+  ['Pays de la Loire', 'Planning region: 1956', 'Western region centered on Nantes, combining the lower Loire, Atlantic shores and inland landscapes. Its 2015 boundaries remained after the 2016 reform.'],
+  ['Picardie', 'Separate region until 2015', 'Northern region centered on Amiens, with Gothic cathedrals, agricultural plains and Somme Bay wetlands. It joined Hauts-de-France in 2016.'],
+  ['Poitou-Charentes', 'Separate region until 2015', 'Western region centered on Poitiers, including La Rochelle’s harbor towers, Marais Poitevin waterways and Charente vineyards. It joined Nouvelle-Aquitaine in 2016.'],
+  ['Provence-Alpes-Côte d’Azur', 'Avignon papacy: 1309–1377', 'Southeastern region centered on Marseille, linking Provençal lavender fields, Alpine mountains and the Mediterranean. Its 2015 boundaries remained after the reform; Avignon hosted the medieval papacy.'],
+  ['Rhône-Alpes', 'Separate region until 2015', 'Southeastern region centered on Lyon, with the Rhône valley, Alpine ski areas and Mont Blanc. It joined Auvergne-Rhône-Alpes in 2016.'],
+  ['Guadeloupe', 'Department status: 1946', 'Caribbean archipelago and one of France’s five overseas regions in 2015, with La Soufrière volcano, tropical waterfalls and turquoise coasts. Department status dates to 1946.'],
+  ['Guyane', 'Department status: 1946', 'South American territory and one of France’s five overseas regions in 2015, known for Amazonian forest, broad rivers and the Kourou space center. Department status dates to 1946.'],
+  ['Martinique', 'Department status: 1946', 'Caribbean island and one of France’s five overseas regions in 2015, with Mount Pelée, Creole coastal towns and sugarcane landscapes. Department status dates to 1946.'],
+  ['La Réunion', 'Department status: 1946', 'Indian Ocean island and one of France’s five overseas regions in 2015, known for Piton de la Fournaise, mountainous cirques and tropical coasts. Department status dates to 1946.'],
+  ['Mayotte', 'Department status: 2011', 'Indian Ocean islands in the Comoros archipelago and one of France’s five overseas regions in 2015, with a large lagoon, mangroves and sea turtles. Department status dates to 2011.'],
+].map(([name,dates,description])=>[name,{dates,description}]));
