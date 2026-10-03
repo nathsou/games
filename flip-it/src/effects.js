@@ -26,6 +26,11 @@ function reversedNode(original) {
 }
 export async function animateMove(root, before, event, ownSeat, view) {
   if (!motionEnabled() || !event) return;
+  const pop=document.createElement('span');pop.className='move-pop'+(event.seat===ownSeat?'':' opponent');pop.setAttribute('aria-hidden','true');
+  const returned=event.returned.reduce((n,r)=>n+r.count,0);
+  pop.textContent=(event.kind==='flip'?'FLIP!':event.kind==='take'?'GRAB ×'+event.count:event.kind==='add'?'+1 → '+event.count+' × '+event.value:event.count+' × '+event.value)+(returned?'  ↩'+returned:'')+(event.cashed?'  ▤+'+event.cashed:'');
+  const box=root.getBoundingClientRect();Object.assign(pop.style,{position:'fixed',left:(box.x+box.width/2)+'px',top:(box.y+box.height*.42)+'px'});
+  (root.closest('dialog')||document.body).append(pop);setTimeout(()=>pop.remove(),1300);
   const after=captureTable(root), flights=[], hidden=[];
   const destination = seat => after.hands.get(seat) || rect(root.querySelector('[data-score-seat="'+seat+'"]'));
   function fly(old, next, target, index, bank=false, flip=false) {

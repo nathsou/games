@@ -29,7 +29,7 @@ test('Both decks have balanced ranks and four possible reverse values per rank',
   }
 });
 test('Options are independent, strict booleans, and default to the recommended preset', () => {
-  assert.deepEqual(optionsFor(), {quickTurns: true, compactDeck: true, lastChance: true});
+  assert.deepEqual(optionsFor(), {quickTurns: true, compactDeck: true, lastChance: true, target: 2});
   assert.throws(() => optionsFor({compactDeck: 'false'})); assert.throws(() => optionsFor({unknown: true}));
 });
 test('A higher matching-size set returns the opponent cards flipped', () => {

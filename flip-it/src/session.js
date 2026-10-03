@@ -16,7 +16,7 @@ export function validateView(view, visibleSeat, {legacySpaces=false} = {}) {
   if (!integer(view.revision, 2000000) || !integer(view.round, 10000) || !integer(view.moves, 10000) ||
       !['playing', 'roundOver', 'matchOver'].includes(view.phase) || !players.includes(view.turn) || ![0, 1].includes(view.beat) || typeof view.opening !== 'boolean' ||
       ![null,...players].includes(view.pending) || !integer(view.discardCount, deck.length) ||
-      !Array.isArray(view.scores) || view.scores.length !== seats || view.scores.some(n => !integer(n, 2)) ||
+      !Array.isArray(view.scores) || view.scores.length !== seats || view.scores.some(n => !integer(n, options.target)) ||
       !Array.isArray(view.hands) || view.hands.length !== seats || view.hands.some(h => !Array.isArray(h) || h.length > deck.length) ||
       !Array.isArray(view.table) || view.table.length !== seats || view.table.some(row => !Array.isArray(row) || row.length !== 2 || row.some(s => !Array.isArray(s) || s.length > 8))) throw new Error('Invalid game update.');
   if (view.id !== undefined && (typeof view.id !== 'string' || !/^[a-f0-9]{32}$/.test(view.id)) ||
@@ -43,7 +43,7 @@ export function validateView(view, visibleSeat, {legacySpaces=false} = {}) {
       view.result !== null && !resultOK(view.result) || !Array.isArray(view.log) || view.log.length > 12) throw new Error('Invalid round update.');
   const ended = view.phase !== 'playing';
   if (ended !== (view.result !== null) || ended && (view.pending !== null || view.result.round !== view.round + 1) ||
-      (view.phase === 'matchOver') !== view.scores.includes(2) ||
+      (view.phase === 'matchOver') !== view.scores.includes(options.target) ||
       view.history.length !== view.round + Number(ended) ||
       view.scores.some((score, seat) => score !== view.history.filter(r => r.winner === seat).length)) throw new Error('Inconsistent round update.');
   for (const event of view.log) {
