@@ -1,11 +1,11 @@
 // Original Flip it implementation. Card orientation, ownership and turn order
 // live here, independently of the DOM and the peer connection.
-export const DEFAULT_OPTIONS = Object.freeze({quickTurns: true, compactDeck: true, lastChance: true});
-export const OPTION_KEYS = Object.freeze(Object.keys(DEFAULT_OPTIONS));
+export const DEFAULT_OPTIONS = Object.freeze({quickTurns: true, compactDeck: true, lastChance: true, target: 2});
+export const OPTION_KEYS = Object.freeze(Object.keys(DEFAULT_OPTIONS).filter(key=>key!=='target'));
 export function optionsFor(options = {}) {
   if (!options || typeof options !== 'object' || Array.isArray(options) ||
-      Object.keys(options).some(key => !OPTION_KEYS.includes(key)) ||
-      Object.values(options).some(value => typeof value !== 'boolean')) throw new Error('Invalid match options.');
+      Object.keys(options).some(key => ![...OPTION_KEYS, 'target'].includes(key)) ||
+      Object.entries(options).some(([key,value]) => key==='target' ? !Number.isInteger(value)||value<1||value>5 : typeof value !== 'boolean')) throw new Error('Invalid match options.');
   return {...DEFAULT_OPTIONS, ...options};
 }
 export const valueOf = card => card.ends[card.face];
@@ -127,7 +127,7 @@ function finishRound(state, winner, reason) {
   state.history.push(state.result);
   if (winner !== null) state.scores[winner]++;
   state.pending = null; state.repliesRemaining = 0;
-  state.phase = state.scores.some(n => n >= 2) ? 'matchOver' : 'roundOver';
+  state.phase = state.scores.some(n => n >= (state.options.target||2)) ? 'matchOver' : 'roundOver';
 }
 export function applyAction(original, seat, action) {
   if (!Number.isInteger(seat) || seat < 0 || seat >= original.hands.length) throw new Error('Invalid player.');
