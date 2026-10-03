@@ -83,7 +83,7 @@ function renderMenu() {
   for (const key of OPTION_KEYS) html += '<label class="option" for="option-' + key + '"><input type="checkbox" id="option-' + key + '" data-option="' + key + '" ' + (options[key] ? 'checked ' : '') + (guest ? 'disabled ' : '') + '><span><b>' + optionInfo[key][0] + '</b><small>' + optionInfo[key][1] + '<br>' + optionInfo[key][2] + '</small></span></label>';
   html += '</div>'+aiLobby(guest)+'<label class="label" for="player-name">YOUR NAME</label><input id="player-name" maxlength="24" value="' + esc(name()) + '" autocomplete="nickname">';
   if (online) html += button(guest ? 'HOST CHOOSES THE NEXT MATCH' : 'DEAL A NEW MATCH →', 'deal-online', 'gold', guest) + button('LEAVE ONLINE TABLE', 'leave-online', 'outline');
-  else html += button('PLAY THE DEALER →', 'start-solo') + button('PASS & PLAY', 'start-local', 'dark');
+  else html += button(aiPlayers(4,1).some(t=>t==='model')?'PLAY THE AI TABLE →':'PLAY THE DEALER →', 'start-solo') + button('PASS & PLAY', 'start-local', 'dark');
   if (view()) html += button('RESUME CURRENT MATCH', 'resume', 'outline');
   html += '<hr class="divider"><p class="small">Different screens? Send an invite or scan a QR code.</p>' + button(online ? 'CONNECTION DETAILS' : 'INVITE A FRIEND ↗', 'host', 'gold') + (!online ? button('JOIN A FRIEND', 'join', 'outline') : '') + '</aside></div>';
   return html;
@@ -214,6 +214,7 @@ function makePeer(role,config) {
   if (!preserved) { session=new FlipSession({seat:role,name:name(),options:prefs.options,team:role===0 && Boolean(prefs.team),aiPlayers:aiPlayers(prefs.team?4:3,prefs.team?1:0),onUpdate:updateOnline,onError:networkError}); scene='menu'; }
   const link=new PeerLink({config,onMessage:message=>peer===link?session.receive(message):undefined,onStatus:status=>{
     if (peer!==link) return; linkStatus=status;
+    if(!link.connected&&aiBusy){generation++;stopAI();}
     if ((status==='open'||status==='connected') && link.connected && !link.helloSent) { link.helloSent=true; session.opened(); }
     if (status==='invalid-message') { notify('An invalid connection message arrived. Reconnect to continue.'); link.close(); }
     if (pairingOpen) renderPair(); render(); scheduleBot();
@@ -365,7 +366,7 @@ document.addEventListener('click',async event=>{
   const target=event.target.closest('[data-action]'); if (!target || target.disabled) return;
   const action=target.dataset.action;
   try {
-    if(action==='ai-settings')openAISettings(()=>{stopAI();render();scheduleBot();});
+    if(action==='ai-settings')openAISettings(()=>{generation++;stopAI();render();scheduleBot();});
     else if(action==='cancel-ai'){generation++;stopAI('AI paused. Retry when ready.');render();}
     else if(action==='retry-ai'){stopAI();render();scheduleBot();}
     else if (action==='start-solo') startOffline('solo');
@@ -394,7 +395,7 @@ document.addEventListener('click',async event=>{
     else if (action==='rematch') {
       if (mode==='online') session.start(view().options);
       else startOffline(mode,view().options);
-    } else if (action==='deal-online') session.start(prefs.options);
+    } else if (action==='deal-online') {session.aiPlayers=aiPlayers(session.team?4:3,session.team?1:0);session.controllers=[...Array(session.team?1:2).fill('human'),...session.aiPlayers];generation++;stopAI();session.start(prefs.options);}
     else if (action==='leave-online') {
       clearTimeout(botTimer); generation++; const old=peer; peer=null; old?.close();
       session=null; game=null; mode='solo'; scene='menu'; render();

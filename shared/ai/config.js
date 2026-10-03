@@ -10,7 +10,7 @@ export function loadAI() {
   const rememberKeys=saved.rememberKeys === true || !shared && Object.keys(saved.keys||{}).length>0 && saved.rememberKeys!==false;
   return {...DEFAULT_AI,provider:['openrouter','openai','anthropic'].includes(saved.provider)?saved.provider:DEFAULT_AI.provider,
     models:{...DEFAULT_AI.models,...saved.models},efforts:{...DEFAULT_AI.efforts,...saved.efforts},
-    keys:{...(rememberKeys?saved.keys:{}),...ephemeralKeys},rememberKeys,
+    keys:{...(rememberKeys?saved.keys:ephemeralKeys)},rememberKeys,
     tokenBudget:Math.max(2048,Math.min(32768,Number(saved.tokenBudget)||8192)),prices:{...saved.prices}};
 }
 export function saveAI(settings) {

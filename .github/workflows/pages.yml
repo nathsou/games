@@ -25,6 +25,8 @@ jobs:
       - name: Spacegolf tests
         run: npm test
         working-directory: spacegolf
+      - name: Shared AI tests
+        run: node --test shared/ai/tests/*.test.mjs
       - name: Flip it tests
         run: npm test
         working-directory: flip-it

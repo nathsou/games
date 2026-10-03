@@ -28,3 +28,6 @@
 [data-color-theme=light] .appearance-control option{background:#fff9eb;color:#233d35}
 [data-color-theme=light] dialog::backdrop{background:#344b436e}
 @media(max-width:460px){.topbar{flex-wrap:wrap}.topbar nav,.top-actions{gap:10px;flex-wrap:wrap}.appearance-control{font-size:10px}.scoreboard{flex-wrap:wrap}}
+
+html[data-game=midnight][data-color-theme=light]{--cream:#233d35;--paper:#fff0c8;--felt-deep:#e0e9d5;--night:#f9f1e0;--panel:#fff9eb;--line:#9aa98d80}
+html[data-game=midnight][data-color-theme=light] body{color:var(--cream)}

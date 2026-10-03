@@ -480,7 +480,7 @@ function renderSettings(){
     if(screen==='home')renderHome();else if(screen==='game')renderGame();
   };
 }
-function persistPreferences(){saveAI(settings);write('settings',{...settings,keys:settings.rememberKeys===false?{}:settings.keys});}
+function persistPreferences(){write('settings',{...settings,keys:settings.rememberKeys===false?{}:settings.keys});saveAI(settings);}
 function applyAppearance(){
   const theme=settings.appearance==='system'?(colorPreference.matches?'dark':'light'):settings.appearance;
   document.documentElement.dataset.colorTheme=theme;
@@ -508,4 +508,4 @@ try{
   }
 }catch(error){app.innerHTML=`<p class="inline-error">${esc(error.message)}</p><button class="button" id="reload">Reload artwork</button>`;$('reload').onclick=()=>location.reload();}
 
-window.addEventListener('storage',event=>{if(event.key===CONFIG_KEY){Object.assign(settings,loadAI());if(!aiBusy)render();}if(event.key===THEME_KEY){settings.appearance=loadTheme();applyPreferences();}});
+window.addEventListener('storage',event=>{if(event.key===CONFIG_KEY){Object.assign(settings,loadAI());if(!aiBusy&&screen==='home')renderHome();}if(event.key===THEME_KEY){settings.appearance=loadTheme();applyPreferences();}});
