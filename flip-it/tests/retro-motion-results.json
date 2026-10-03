@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-03",
+  "errors": [],
+  "results": [
+    {
+      "scenario": "focused-animations",
+      "checks": [
+        "play",
+        "returned cards",
+        "own flip",
+        "opponent anonymous flip",
+        "take",
+        "bank",
+        "chat draft and focus",
+        "reaction",
+        "escaped HTML",
+        "reduced motion",
+        "FX off"
+      ]
+    }
+  ]
+}
