@@ -4,9 +4,10 @@ Small browser games in vanilla JavaScript. The index page lists them as cards an
 
 | Game | Folder |
 | --- | --- |
+| **Ink Riot**: retro 3-on-3 turf war, three weapons and arenas, adjustable AI, canvas UI and fullscreen, no dependencies | [`ink-riot/`](ink-riot/) |
 | **Flip it**: configurable two-to-five-player card game, WebRTC, local play and team play, no dependencies | [`flip-it/`](flip-it/) |
 | **Midnight Table**: three card games, solo/local/WebRTC duel and co-op, no dependencies | [midnight/](midnight/) |
-| **Similo Arcade**: cooperative deduction, eleven decks, vision AI and WebRTC | [similo/](similo/) |
+| **Cluance**: cooperative deduction, eleven decks, vision AI and WebRTC | [cluance/](cluance/) |
 | **Spacegolf**: golf in space, WebGL2, no dependencies | [`spacegolf/`](spacegolf/) |
 | **Nonocube**: 3D nonograms, WebGL2, TypeScript + Vite (built in CI) | [`nonocube/`](nonocube/) |
 
