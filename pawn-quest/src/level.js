@@ -1,7 +1,7 @@
 // The level screen: intro dialogue, then one of the four level kinds.
 import { WHITE, BLACK, KING, QUEEN, PAWN, typeOf, colorOf, mFrom, mTo, mFlags, F_CAPTURE, F_PROMO, F_CASTLE, sqParse, sqName, uci, START_FEN } from './chess.js';
 import { BoardView } from './board.js';
-import { h, Speech, button, starsRow, modal, toast, banner, confetti, richEl, linkSquares, portrait, CHAR_NAMES } from './ui.js';
+import { h, Speech, button, starsRow, modal, toast, banner, confetti, richEl, linkSquares, portrait, CHAR_NAMES, materialStrip } from './ui.js';
 import { pixelText } from './font.js';
 import { sfx, playMusic } from './audio.js';
 import { save, recordLevel, unlockCodex } from './save.js';
@@ -128,6 +128,7 @@ async function run(ctx) {
   preview(ctx, L);
   await intro(ctx);
   if (!ctx.alive) return;
+  if (L.boss) { banner('FIGHT!', { color: '#ff8aa0', shadow: '#5a1428', ms: 800 }); sfx.check(); }
   const kind = KINDS[L.kind];
   while (ctx.alive) {
     ctx.mistakes = 0; ctx.hints = 0;
@@ -146,6 +147,7 @@ async function victory(ctx, res) {
   const { L, nav } = ctx;
   const stars = Math.max(1, Math.min(3, res.stars));
   const { improved, first } = recordLevel(L.uid, stars);
+  save.justCleared = L.uid;
   save.stats.puzzlesSolved += res.solved || 0;
   const fresh = unlockCodex(L.codex || []);
   sfx.win();
@@ -520,6 +522,10 @@ async function playBattle(ctx, L) {
   const undoBtn = button('↶ Undo', () => { if (game.takeback()) { board.arrows = []; lastHint = null; speech.show('Move taken back. (Undos cost a star.)'); } }, 'small ghost');
   const resignBtn = button('⚑ Restart', () => { ctx.restartBattle?.(); }, 'small ghost');
   ctx.setControls([hintBtn, undoBtn, resignBtn]);
+  const matBox = h('div');
+  ctx.ui.side.append(matBox);
+  const paintMat = () => matBox.replaceChildren(materialStrip(start, game.pos, userColor));
+  paintMat();
   const finished = new Promise(res => { ctx.finishBattle = res; ctx.restartBattle = () => res({ restart: true }); });
 
   function say(text, who = 'pip', tone = '') { if (ctx.alive) speech.show(text, who, tone); }
@@ -536,6 +542,7 @@ async function playBattle(ctx, L) {
       if (d.by === 'bot' && d.capture && lines.capture?.length && Math.random() < 0.6) say(pick(lines.capture), char);
       else if (d.by === 'user' && d.capture && lines.captured?.length && Math.random() < 0.6) say(pick(lines.captured), char);
       if (L.maxMoves) ctx.setProgress(`Moves: ${game.history.filter(x => x.by === 'user').length} / ${L.maxMoves}`);
+      paintMat();
     }
     if (type === 'your-turn') {
       status.textContent = 'Your move';
@@ -544,6 +551,7 @@ async function playBattle(ctx, L) {
       if (rules.variant === 'king-capture' && game.pos.king[me] >= 0 && game.pos.isAttacked(game.pos.king[me], me ^ 1)) say('⚠ Your **king** is under attack! Move it, block, or capture the attacker!', 'pip', 'bad');
       else if (L.threats && board.hanging.length) say(`Careful: your piece on [${sqName(board.hanging[0])}] is in danger!`, 'pip', 'bad');
     }
+    if (type === 'warning-undo' || type === 'takeback') paintMat();
     if (type === 'warning-undo') say('Good call. Look for a safer move.');
     if (type === 'end') ctx.finishBattle?.(d);
   }
@@ -553,7 +561,7 @@ async function playBattle(ctx, L) {
   const end = await finished;
   game.destroy();
   if (!ctx.alive) return null;
-  portraitBox.remove();
+  portraitBox.remove(); matBox.remove();
   if (end.restart) return { retry: true };
   const won = end.winner === userColor;
   if (won) {

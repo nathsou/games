@@ -212,7 +212,7 @@ const W3 = {
       id: 'stomp', kind: 'battle', title: 'Boss: Sgt. Stomp', icon: 'boss', boss: true, character: 'stomp', codex: ['char-stomp', 'pawn-structure'],
       rules: { variant: 'pawn-wars', checks: false, castling: false, enPassant: false },
       setup: 'Pa2 Pb2 Pc2 Pd2 Pe2 Pf2 Pg2 Ph2 pa7 pb7 pc7 pd7 pe7 pf7 pg7 ph7', side: 'w',
-      bot: { depth: 2, noise: 40, blunder: 0.15 },
+      bot: { depth: 2, noise: 60, blunder: 0.22 },
       goal: 'Pawn Wars! First to the other side wins.',
       intro: [
         { who: 'stomp', text: 'TEN-HUT! I am **Sergeant Stomp**! My eight pawns march as one. LEFT, RIGHT, LEFT!' },
@@ -429,7 +429,7 @@ const W6 = {
     {
       id: 'tess', kind: 'battle', title: 'Boss: Turtle Tess', icon: 'boss', boss: true, character: 'tess', codex: ['char-tess', 'plans'],
       rules: { variant: 'standard' }, fen: 'start', side: 'w',
-      bot: { depth: 2, noise: 35, blunder: 0.1, style: { timid: 1 } }, threats: true, warnings: true,
+      bot: { depth: 2, noise: 55, blunder: 0.16, style: { timid: 1 } }, threats: true, warnings: true,
       goal: 'Checkmate Turtle Tess. All the rules apply now!',
       intro: [
         { who: 'tess', text: 'Mmm... slow and steady. I\'ll just... stay... in my shell.' },
@@ -504,7 +504,7 @@ const W7 = {
     {
       id: 'fiona', kind: 'battle', title: 'Boss: Fiona Forks', icon: 'boss', boss: true, character: 'fiona', codex: ['char-fiona'],
       rules: { variant: 'standard' }, fen: 'start', side: 'w',
-      bot: { depth: 3, noise: 30, blunder: 0.07, style: { knights: 1, aggression: 1 }, book: true }, threats: true, warnings: true,
+      bot: { depth: 2, noise: 35, blunder: 0.08, style: { knights: 1, aggression: 1 }, book: true }, threats: true, warnings: true,
       goal: 'Defeat Fiona Forks!',
       intro: [
         { who: 'fiona', text: 'Two for the price of one, darling! Let\'s see if you can spot my forks.' },
@@ -580,7 +580,7 @@ const W8 = {
     {
       id: 'iron', kind: 'battle', title: 'Final Boss: The Iron Queen', icon: 'boss', boss: true, character: 'iron', codex: ['char-iron'],
       rules: { variant: 'standard' }, fen: 'start', side: 'w',
-      bot: { depth: 3, noise: 15, blunder: 0.03, book: true, opening: 20 }, threats: false, warnings: true,
+      bot: { depth: 3, noise: 28, blunder: 0.05, book: true, opening: 20 }, threats: false, warnings: true,
       goal: 'Defeat the Iron Queen and earn your crown!',
       intro: [
         { who: 'iron', text: 'So. The little pawn wants a crown. You will have to **earn** it.' },

@@ -326,7 +326,17 @@ export function explainMove(pos, m, { depth = 4, timeMs = 900, history = [], use
     if (!parts.length && note && note.tone === 'meh') { parts.push(note.text); out.tags.push(note.tag); }
     if (!parts.length && tacticNow) { parts.push(tacticNow.text); out.tags.push('check'); }
     if (!parts.length && note) { parts.push(note.text); out.tags.push(note.tag); }
-    if (!parts.length) parts.push(grade === 'best' ? 'That\'s exactly what the coach would play.' : 'A sensible move.');
+    if (!parts.length) {
+      // Describe what the move does: protect something, or create a threat.
+      const hangingAfter = (() => { pos.make(m); const x = hangingPieces(pos, us); pos.unmake(); return x; })();
+      const fixed = hangingBefore.filter(hb => hb.gain >= 100 && !hangingAfter.some(ha => ha.sq === hb.sq));
+      pos.make(m);
+      const hits = pos.attacksFrom(to).filter(t => pos.b[t] && colorOf(pos.b[t]) === them && typeOf(pos.b[t]) !== KING && threatOn(pos, t, us) >= 200);
+      pos.unmake();
+      if (fixed.length) parts.push(`It protects ${your} ${N(fixed[0].type)} on [${sqName(fixed[0].sq)}].`);
+      else if (hits.length) parts.push(`It attacks the ${N(typeOf(pos.b[hits[0]]))} on [${sqName(hits[0])}]. Your opponent has to deal with that!`);
+      else parts.push(grade === 'best' ? ['Exactly what I would play.', 'Strong move!', 'Spot on.', 'That\'s the move!'][Math.floor(Math.random() * 4)] : ['A sensible move.', 'Solid.', 'Reasonable choice.'][Math.floor(Math.random() * 3)]);
+    }
     out.text = parts.join(' ');
     if (grade !== 'best' && out.best && cpLoss >= 40) out.text += ` (**${out.best.san}** was a little stronger.)`;
     return out;

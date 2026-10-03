@@ -158,12 +158,12 @@ export class Game {
   checkEnd() {
     const st = this.pos.status();
     let over = st;
+    if (!over && this.o.customEnd) over = this.o.customEnd(this);
     const lim = this.o.maxMoves;
     if (!over && lim) {
       const userMoves = this.history.filter(h => h.by === 'user').length;
       if (userMoves >= lim && !this.isUserTurn()) over = { winner: this.o.onLimit === 'material' ? this.materialLeader() : (this.user ^ 1), reason: 'move-limit' };
     }
-    if (!over && this.o.customEnd) over = this.o.customEnd(this);
     if (over) {
       this.over = over;
       this.board.interactive = false;
