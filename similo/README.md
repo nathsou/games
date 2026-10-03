@@ -29,7 +29,7 @@ The board has twelve illustrated people or places. The clue giver starts with fi
 
 **Classic hand:** draw one replacement after each clue. **Fixed five:** no replacements; use the initial five cards in a considered order.
 
-Eleven decks, each with 24 illustrated cards (264 cards total):
+Eleven decks with 267 active illustrated cards: ten 24-card decks and a 27-card French Regions deck.
 
 1. French History
 2. Global History
@@ -43,7 +43,7 @@ Eleven decks, each with 24 illustrated cards (264 cards total):
 10. Countries
 11. French Regions
 
-Cities include Paris, Rome, London, Berlin, Tokyo and New York City, with 18 more cities worldwide. French Regions includes [France's 18 present-day regions](https://www.insee.fr/fr/metadonnees/definition/c1696), including the five overseas regions, plus six clearly labelled historic regions: Alsace, Lorraine, Bourgogne, Champagne, Picardie and Auvergne. These historic regions overlap modern ones, which can itself become a clue.
+Cities include Paris, Rome, London, Berlin, Tokyo and New York City, with 18 more cities worldwide. French Regions uses the division as it stood on 31 December 2015: [22 metropolitan regions](https://www.insee.fr/fr/statistiques/1906658), including Corsica, and five overseas regions. Every region has one original illustration, dates and public context. Centre-Val de Loire uses its [name adopted in January 2015](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000030110734). New deals exclude the merged post-2016 regions. Old region IDs and their artwork are preserved only for compatible saved games and replays.
 
 Every card displays a date caption and has a short description available in card inspection. People have lifespans or labelled birth years; places have labelled landmarks or milestones. Approximate and traditional dates are marked, and mythological figures are identified as myths. The [card context notes](CARD_CONTEXT.md) explain these conventions and link selected references.
 
@@ -67,6 +67,14 @@ The game requests a brief player-facing explanation with the decision. This is a
 
 The AI is instructed to give equal consideration to roles and jobs, dates and era, geography, history and stories, supported traits, and appearance. It compares plausible interpretations across these dimensions and checks whether a clue could mislead the human about the target, including unintended patterns across several clues. The giver considers both directions for each available card; neither sign is imposed by a quota. A clear direct Similar connection breaks an otherwise equal tie. Brief public explanations remain sealed, rather than exposing the candidate deliberation. [Clue-direction notes](AI_CLUES.md) record the investigation and live prompt comparisons.
 
+## API spending
+
+Each AI game displays its running USD estimate during play and on the result screen. After a response, a rough five-round guide extrapolates the costs observed in that game; it is not a quote or a spending cap. **Settings → API usage** shows the local total, game count, request count, token breakdown, costs by model and all recorded games, including unfinished games. Human-only games appear with zero AI requests. The history persists independently of game saves and provider keys.
+
+OpenRouter's returned cost takes priority. OpenAI and Anthropic estimates use the response's token counts, including image input, output/reasoning and caching, with saved model rates. Verified defaults cover GPT-6 Luna and Claude Sonnet 4.6. **Model pricing for estimates** lets you supply USD-per-million rates for another model; loading OpenRouter's model list also loads catalog prices. Rates are captured for each request so later changes do not rewrite previous estimates.
+
+Every response is accounted for before its move is parsed, so paid correction attempts and rejected moves are included. Unavailable usage, unknown model rates and interrupted/cancelled requests remain visibly unknown; **≥** identifies a total covering only known charges. Earlier games cannot be backfilled. This panel tracks play on this browser and origin, not the whole provider account. Special pricing and taxes may differ from the estimate. [Accounting details and sources](API_USAGE.md).
+
 ## Reconnection and saving
 
 AI and one-screen games are saved after each move. The clue giver also saves multiplayer state and can resume it with a fresh invitation after a reload. The guest's browser receives only public state and must re-pair with the giver. An interrupted guest move can be retried after reconnecting; revisions prevent duplicate actions. A rematch keeps the current connection and deals a new secret and board.
@@ -83,6 +91,7 @@ These are cooperative games between trusted players. A local browser that runs a
 - `src/peer.js`: compressed invitation/reply tokens and reliable ordered WebRTC messages.
 - `src/ai.js`: image requests and provider-specific authentication, models and reasoning controls.
 - `src/storage.js`, `src/sound.js`: local persistence, audio controls and synthesized arcade sounds.
+- `src/usage.js`: local request ledger, provider usage normalization, captured pricing and spending summaries.
 - `src/music.js`, `src/outcome.js`: eleven original scores, WebAudio playback and finite result animations.
 - `assets/PROMPTS.md`: the complete image-generation prompts and provenance.
 
