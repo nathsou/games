@@ -9,8 +9,8 @@ export function botAction(state, player, random = Math.random) {
   const other = 1 - player;
   if (state.type === 'backhand') {
     const cards = state.hands[player];
-    const now = state.prizes[state.round] + state.carry;
-    const later = state.prizes[state.round + 1] || 0;
+    const now = (state.currentPrize ?? state.prizes?.[state.round]) + state.carry;
+    const later = (state.nextPrize ?? state.prizes?.[state.round + 1]) || 0;
     const target = now > later || now >= 3 ? 5 : now < later ? 1 : 3;
     const ranked = choices.map(a => {
       const value = cards.find(c => c.id === a.card).value;

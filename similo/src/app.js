@@ -1,3 +1,5 @@
+import {loadTheme,THEME_KEY} from '../../shared/theme.js';
+import {loadAI, saveAI, CONFIG_KEY} from '../../shared/ai/config.js';
 import {DECKS, CARDS, THEME_IDEAS} from './decks.js';
 import {createGame, playClue, eliminate, remaining, viewFor, validatePublicView, REMOVALS, PROTOCOL} from './game.js';
 import {loadArt, cardElement, observationImage, startAmbience} from './art.js';
@@ -474,11 +476,11 @@ function renderSettings(){
     event.preventDefault();captureSettings();if(!settingsDraft.models[settingsDraft.provider])return;if(pricingError){toast(pricingError);return;}
     if(settingsDraft.stun&&settingsDraft.stun.split(',').some(url=>!/^stuns?:[^\s]+$/.test(url.trim()))){toast('Use STUN URLs such as stun:stun.l.google.com:19302.');return;}
     settings={...settingsDraft,rememberKeys:settingsRemember};const persisted={...settings,keys:settingsRemember?settings.keys:{}};
-    const saved=write('settings',persisted);applyPreferences();modal.close();toast(saved?'Settings saved.':'Settings kept for this visit; browser storage is unavailable.');
+    const saved=write('settings',persisted);saveAI(settings);applyPreferences();modal.close();toast(saved?'Settings saved.':'Settings kept for this visit; browser storage is unavailable.');
     if(screen==='home')renderHome();else if(screen==='game')renderGame();
   };
 }
-function persistPreferences(){write('settings',{...settings,keys:settings.rememberKeys===false?{}:settings.keys});}
+function persistPreferences(){saveAI(settings);write('settings',{...settings,keys:settings.rememberKeys===false?{}:settings.keys});}
 function applyAppearance(){
   const theme=settings.appearance==='system'?(colorPreference.matches?'dark':'light'):settings.appearance;
   document.documentElement.dataset.colorTheme=theme;
@@ -505,3 +507,5 @@ try{
     const invitation=location.hash.slice(6);history.replaceState(null,'',location.pathname+location.search);openPairing('guest',false,decodeURIComponent(invitation));
   }
 }catch(error){app.innerHTML=`<p class="inline-error">${esc(error.message)}</p><button class="button" id="reload">Reload artwork</button>`;$('reload').onclick=()=>location.reload();}
+
+window.addEventListener('storage',event=>{if(event.key===CONFIG_KEY){Object.assign(settings,loadAI());if(!aiBusy)render();}if(event.key===THEME_KEY){settings.appearance=loadTheme();applyPreferences();}});

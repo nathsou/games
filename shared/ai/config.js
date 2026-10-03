@@ -2,10 +2,10 @@ export const CONFIG_KEY = 'games-arcade:ai-settings-v1';
 export const DEFAULT_AI = Object.freeze({provider:'openrouter',models:{openrouter:'openai/gpt-6-luna',openai:'gpt-6-luna',anthropic:'claude-sonnet-4-6'},
   efforts:{openrouter:'medium',openai:'medium',anthropic:'medium'},keys:{},rememberKeys:false,tokenBudget:8192,prices:{}});
 export const AI_FIELDS = Object.freeze(Object.keys(DEFAULT_AI));
-let ephemeralKeys = {};
+let ephemeralKeys = {}, memoryConfig = null;
 function read(key) { try {return JSON.parse(localStorage.getItem(key)||'null');} catch {return null;} }
 export function loadAI() {
-  const shared=read(CONFIG_KEY), legacy=read('similo-arcade-v1:settings') || {};
+  const shared=read(CONFIG_KEY) || memoryConfig, legacy=read('similo-arcade-v1:settings') || {};
   const saved=shared || legacy;
   const rememberKeys=saved.rememberKeys === true || !shared && Object.keys(saved.keys||{}).length>0 && saved.rememberKeys!==false;
   return {...DEFAULT_AI,provider:['openrouter','openai','anthropic'].includes(saved.provider)?saved.provider:DEFAULT_AI.provider,
@@ -15,7 +15,7 @@ export function loadAI() {
 }
 export function saveAI(settings) {
   const next=Object.fromEntries(AI_FIELDS.map(k=>[k,settings[k]??DEFAULT_AI[k]]));
-  ephemeralKeys={...next.keys};
+  ephemeralKeys={...next.keys}; memoryConfig=next;
   const persisted={...next,keys:next.rememberKeys?next.keys:{}};
   let saved=true;
   try {

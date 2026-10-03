@@ -33,24 +33,24 @@ function deal(state) {
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]];
   }
-  state.hands = [[], []];
-  deck.forEach((card, i) => state.hands[i % 2].push(card));
-  state.table = [[[], []], [[], []]];
+  state.hands = Array.from({length: state.scores.length}, () => []);
+  deck.forEach((card, i) => state.hands[(i + state.starter + state.round) % state.hands.length].push(card));
+  state.table = state.hands.map(() => [[], []]);
   state.discard = [];
   state.phase = 'playing';
-  state.turn = (state.starter + state.round) % 2;
+  state.turn = (state.starter + state.round) % state.hands.length;
   // In double-action rhythm the opening player gets only the right action.
   state.beat = state.options.quickTurns ? 0 : 1;
-  state.pending = null;
+  state.pending = null; state.repliesRemaining = 0;
   state.moves = 0;
   state.log = [];
   state.result = null;
   state.visits = {[positionKey(state)]: 1};
   return state;
 }
-export function createMatch(options = {}, seed = 1, starter = 0) {
-  if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff || ![0, 1].includes(starter)) throw new Error('Invalid deal.');
-  return deal({options: optionsFor(options), seed, starter, round: 0, revision: 0, scores: [0, 0], history: []});
+export function createMatch(options = {}, seed = 1, starter = 0, players = 2) {
+  if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff || !Number.isInteger(players) || players < 2 || players > 5 || !Number.isInteger(starter) || starter < 0 || starter >= players) throw new Error('Invalid deal.');
+  return deal({options: optionsFor(options), seed, starter, round: 0, revision: 0, scores: Array(players).fill(0), history: []});
 }
 export function availableLanes(state) { return state.options.quickTurns ? [0, 1] : [state.beat]; }
 function clearLane(state, seat, lane) {
@@ -59,7 +59,7 @@ function clearLane(state, seat, lane) {
 }
 function conflicts(state, count, skipSeat = -1, skipLane = -1) {
   const out = [];
-  for (let seat = 0; seat < 2; seat++) for (let lane = 0; lane < 2; lane++) {
+  for (let seat = 0; seat < state.hands.length; seat++) for (let lane = 0; lane < 2; lane++) {
     const set = state.table[seat][lane];
     if (set.length === count && !(seat === skipSeat && lane === skipLane)) out.push({seat, lane, set});
   }
@@ -89,18 +89,19 @@ function execute(state, seat, action) {
     return event;
   }
   if (action.kind === 'take' || action.kind === 'add') {
-    if (![0, 1].includes(action.target) || !state.table[1 - seat][action.target].length) throw new Error('Choose one of your opponent’s sets.');
-    event.target = action.target;
-    const target = state.table[1 - seat][action.target];
+    const targetSeat = action.targetSeat ?? (state.hands.length === 2 ? 1 - seat : -1);
+    if (!Number.isInteger(targetSeat) || targetSeat < 0 || targetSeat >= state.hands.length || targetSeat === seat || ![0, 1].includes(action.target) || !state.table[targetSeat][action.target].length) throw new Error('Choose one of your opponent’s sets.');
+    event.target = action.target; event.targetSeat = targetSeat;
+    const target = state.table[targetSeat][action.target];
     if (action.kind === 'take') { event.count = target.length; event.value = setValue(target);
-      state.table[1 - seat][action.target] = [];
+      state.table[targetSeat][action.target] = [];
       state.hands[seat].push(...target.map(card => ({...card, face: 1 - card.face})));
       return event;
     }
   }
   const cards = matchingCards(state, seat, action.cards, action.kind === 'add');
   const rank = valueOf(cards[0]);
-  const owner = action.kind === 'play' ? seat : 1 - seat;
+  const owner = action.kind === 'play' ? seat : event.targetSeat;
   const lane = action.kind === 'play' ? action.lane : action.target;
   const target = state.table[owner][lane];
   if (action.kind === 'add' && setValue(target) !== rank) throw new Error('Add a card matching the opponent’s set.');
@@ -121,11 +122,11 @@ function finishRound(state, winner, reason) {
   state.result = {winner, reason, moves: state.moves, round: state.round + 1};
   state.history.push(state.result);
   if (winner !== null) state.scores[winner]++;
-  state.pending = null;
+  state.pending = null; state.repliesRemaining = 0;
   state.phase = state.scores.some(n => n >= 2) ? 'matchOver' : 'roundOver';
 }
 export function applyAction(original, seat, action) {
-  if (![0, 1].includes(seat)) throw new Error('Invalid player.');
+  if (!Number.isInteger(seat) || seat < 0 || seat >= original.hands.length) throw new Error('Invalid player.');
   const state = structuredClone(original);
   if (action?.kind === 'next') {
     if (state.phase !== 'roundOver') throw new Error('The round is still in progress.');
@@ -137,14 +138,19 @@ export function applyAction(original, seat, action) {
   state.moves++; state.revision++;
   state.log.push(event); if (state.log.length > 12) state.log.shift();
   if (previousPending !== null && state.hands[previousPending].length === 0) {
-    finishRound(state, previousPending, 'survived'); return state;
+    state.repliesRemaining--;
+    if (state.repliesRemaining <= 0) { finishRound(state, previousPending, 'survived'); return state; }
+    // Every other seat gets one reply. The earliest empty hand keeps priority.
+    state.turn = (seat + 1) % state.hands.length; state.beat = 0;
+  } else {
+    state.pending = null; state.repliesRemaining = 0;
+    if (!state.hands[seat].length) {
+      if (!state.options.lastChance) { finishRound(state, seat, 'empty'); return state; }
+      state.pending = seat; state.repliesRemaining = state.hands.length - 1;
+      state.turn = (seat + 1) % state.hands.length; state.beat = 0;
+    } else if (!state.options.quickTurns && state.beat === 0) state.beat = 1;
+    else { state.turn = (seat + 1) % state.hands.length; state.beat = 0; }
   }
-  state.pending = null;
-  if (!state.hands[seat].length) {
-    if (!state.options.lastChance) { finishRound(state, seat, 'empty'); return state; }
-    state.pending = seat; state.turn = 1 - seat; state.beat = 0;
-  } else if (!state.options.quickTurns && state.beat === 0) state.beat = 1;
-  else { state.turn = 1 - seat; state.beat = 0; }
   const key = positionKey(state);
   state.visits[key] = (state.visits[key] || 0) + 1;
   if (state.pending === null && state.visits[key] >= 3) finishRound(state, null, 'repeat');
@@ -152,11 +158,11 @@ export function applyAction(original, seat, action) {
   return state;
 }
 export function playerView(state, seat) {
-  if (![0, 1].includes(seat)) throw new Error('Invalid player.');
+  if (!Number.isInteger(seat) || seat < 0 || seat >= state.hands.length) throw new Error('Invalid player.');
   const view = structuredClone(state);
   delete view.seed; delete view.starter; delete view.visits;
   view.discardCount = view.discard.length; delete view.discard;
-  view.hands[1 - seat] = view.hands[1 - seat].map(() => ({hidden: true}));
+  view.hands = view.hands.map((hand, owner) => owner === seat ? hand : hand.map(() => ({hidden:true})));
   return view;
 }
 function baseForLane(state, seat, lane) {
@@ -181,12 +187,16 @@ export function legalActions(state, seat = state.turn) {
         if (conflicts(base, cards.length).every(other => setValue(other.set) < rank)) actions.push({kind: 'play', lane, cards});
       }
     }
-    for (let target = 0; target < 2; target++) {
-      const set = base.table[1 - seat][target]; if (!set.length) continue;
-      actions.push({kind: 'take', lane, target});
-      const rank = setValue(set);
-      if (conflicts(base, set.length + 1, 1 - seat, target).every(other => setValue(other.set) < rank)) {
-        for (const card of groups.get(rank) || []) actions.push({kind: 'add', lane, target, cards: [card]});
+    for (let targetSeat = 0; targetSeat < state.hands.length; targetSeat++) {
+      if (targetSeat === seat) continue;
+      const owner = state.hands.length === 2 ? {} : {targetSeat};
+      for (let target = 0; target < 2; target++) {
+        const set = base.table[targetSeat][target]; if (!set.length) continue;
+        actions.push({kind:'take',lane,target,...owner});
+        const rank = setValue(set);
+        if (conflicts(base,set.length+1,targetSeat,target).every(other=>setValue(other.set)<rank)) {
+          for (const card of groups.get(rank)||[]) actions.push({kind:'add',lane,target,...owner,cards:[card]});
+        }
       }
     }
   }

@@ -203,13 +203,13 @@ export function playerView(state, player) {
   delete view.rng;
   delete view.seed;
   if (state.type === 'closing') {
-    view.deckCount = view.deck.length;
+    view.deckCount = view.deck?.length ?? view.deckCount;
     delete view.deck;
   } else {
     view.hands[1 - player] = view.hands[1 - player].map(() => ({hidden: true}));
     if (state.type === 'backhand') {
-      view.currentPrize = state.prizes[state.round];
-      view.nextPrize = state.prizes[state.round + 1] ?? null;
+      view.currentPrize = state.prizes?.[state.round] ?? state.currentPrize;
+      view.nextPrize = state.prizes?.[state.round + 1] ?? state.nextPrize ?? null;
       delete view.prizes;
       view.pending = view.pending.map((id, p) => p === player ? id : Boolean(id));
     } else {

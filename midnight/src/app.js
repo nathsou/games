@@ -1,3 +1,8 @@
+import {installThemeControls} from '../../shared/theme.js';
+import {loadAI} from '../../shared/ai/config.js';
+import {chooseTurn} from '../../shared/ai/turn.js';
+import {openAISettings,aiStatusHtml} from '../../shared/ai/panel.js';
+import {describeTurn} from './ai.js';
 import {GAMES, createGame, applyAction, playerView, reserve, winner} from './rules.js';
 import {botAction} from './bot.js';
 import {PeerLink, decodePairing, makeLink, iceConfig} from './peer.js';
@@ -11,6 +16,7 @@ try { prefs = JSON.parse(localStorage.getItem('midnight.preferences') || '{}'); 
 if (!prefs || typeof prefs !== 'object') prefs = {};
 let selectedGame = new URLSearchParams(location.search).get('game') || 'backhand';
 if (!Object.hasOwn(GAMES, selectedGame)) selectedGame = 'backhand';
+let aiController=null,aiBusy=false,aiError='',aiMemory=[],matchId='',selectedOpponent='dealer';
 let scene = 'menu', mode = 'solo', game = null, seat = 0, chosen = null, source = null, handoff = false;
 let botTimer = null, botPrepared = null, botContext = '', generation = 0;
 let offlineSeries = [0, 0], countedGame = null, session = null, peer = null, linkStatus = 'idle', lastViewKey = '';
@@ -30,6 +36,8 @@ function notify(message) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('visible'), 4200);
 }
 function name() { return typeof prefs.name === 'string' ? prefs.name.slice(0, 24) || 'You' : 'You'; }
+function opponentHtml(){return '<label class="label" for="ai-opponent">OPPONENT</label><select id="ai-opponent"><option value="dealer" '+(prefs.opponent!=='model'?'selected':'')+'>Dealer · offline, no API calls</option><option value="model" '+(prefs.opponent==='model'?'selected':'')+'>AI · shared provider & model</option></select>'+button('AI SETTINGS ↗','ai-settings','outline compact');}
+function stopAI(message=''){aiController?.abort();aiController=null;aiBusy=false;aiError=message;}
 function names() { return mode === 'online' ? session?.names || ['You', 'Partner'] : mode === 'solo' ? [name(), 'The Dealer'] : [name(), 'Partner']; }
 function mySeat() { return mode === 'online' ? session.team ? 0 : session.seat : seat; }
 function view() { return mode === 'online' ? session?.view : game ? playerView(game, seat) : null; }
@@ -68,7 +76,7 @@ function renderMenu() {
   });
   html += '</section><p class="collection-note"><b>One table. Three ways to outsmart each other.</b><br>No accounts, no downloads. Just cards, coins, and suspiciously good timing.</p></div><aside class="panel join-panel" aria-label="Play options"><div><p class="eyebrow">TAKE A SEAT</p><h2 class="panel-title">' + GAMES[selectedGame].name + '</h2><p class="small">' + (online ? 'Your partner is at the table. ' + (host ? 'Choose a game and deal.' : 'The host will deal the next game.') : 'Learn the ropes with our dealer, or share a screen with someone.') + '</p>';
   if (online) html += button(host ? 'DEAL THE CARDS →' : 'WAITING FOR HOST', 'deal-online', 'gold', !host) + button('LEAVE TABLE', 'leave-online', 'outline');
-  else html += button('PLAY THE DEALER →', 'start-solo') + button('PASS & PLAY', 'start-local', 'dark');
+  else html += opponentHtml() + button((prefs.opponent==='model'?'PLAY THE AI →':'PLAY THE DEALER →'), 'start-solo') + button('PASS & PLAY', 'start-local', 'dark');
   if (view() && view().phase !== 'over') html += button('RESUME CURRENT GAME', 'resume', 'outline');
   html += '</div><hr class="divider"><div><label class="label" for="player-name">YOUR NAME</label><input id="player-name" maxlength="24" value="' + esc(name()) + '" autocomplete="nickname" aria-label="Your name"><p class="small">Different screens? Meet at a private table. Your moves travel straight between you.</p>' + button(online ? 'CONNECTION DETAILS' : 'INVITE A FRIEND ↗', 'host', 'gold') + (online ? '' : button('JOIN A TABLE', 'join', 'outline')) + '</div><div class="menu-session">' + (online ? tag() : '<span class="dot"></span> No sign-in. No lobby server.') + '</div></aside></div>';
   return html;
@@ -85,7 +93,7 @@ function renderGame() {
     closing: '<strong>Watch the other clocks.</strong><br>Invest in one auction, then advance a different one. First bidder wins tied bids—even after moving their cube.',
     heist: '<strong>Every defense gets spent.</strong><br>A safe choice still burns their defense. Watch the discarded alarms; they only started with three.'
   };
-  let html = '<section class="table-heading"><div><p class="eyebrow">MIDNIGHT TABLE / NO. 0' + (Object.keys(GAMES).indexOf(v.type) + 1) + '</p><h1>' + g.name + '</h1></div><div class="heading-actions">' + tag() + button('RULES ?', 'rules', 'outline compact') + button('TABLE MENU', 'table-menu', 'outline compact') + '</div></section>';
+  let html = aiStatusHtml({busy:aiBusy,error:aiError,controller:mode!=='online'||session?.seat===0})+'<section class="table-heading"><div><p class="eyebrow">MIDNIGHT TABLE / NO. 0' + (Object.keys(GAMES).indexOf(v.type) + 1) + '</p><h1>' + g.name + '</h1></div><div class="heading-actions">' + tag() + button('RULES ?', 'rules', 'outline compact') + button('TABLE MENU', 'table-menu', 'outline compact') + '</div></section>';
   if (mode === 'online' && !connected()) html += '<div class="disconnected" role="status">Your partner’s connection is paused. Your table is saved in this tab.' + button(session.seat === 0 ? 'RECONNECT' : 'JOIN AGAIN', session.seat === 0 ? 'host' : 'join', 'compact gold') + '</div>';
   html += '<div class="table-layout"><aside class="sidebar"><div class="panel"><p class="eyebrow">THE SCORE</p><div class="scoreboard">';
   for (let i = 0; i < 2; i++) {
@@ -179,32 +187,43 @@ function eventText(r) {
   return esc(ns[0]) + ' ' + descriptions[r.outcomes[0]] + '; ' + esc(ns[1]) + ' ' + descriptions[r.outcomes[1]] + '. +' + r.gain[0] + ' / +' + r.gain[1] + ' coins.';
 }
 
+async function decideBot(state,player) {
+  if(selectedOpponent!=='model')return botAction(playerView(state,player),player);
+  if(aiError)throw new Error(aiError);
+  const controller=new AbortController();aiController=controller;aiBusy=true;render();
+  try {
+    const result=await chooseTurn(describeTurn(state,player,aiMemory),{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(90000)]),gameId:mode==='online'?session?.epoch||matchId:matchId,role:'seat-'+player,round:state.round});
+    if(controller.signal.aborted)throw new DOMException('Cancelled','AbortError');
+    aiMemory.push({round:state.round,phase:state.phase,action:result.action,rationale:result.rationale});aiMemory=aiMemory.slice(-6);
+    return result.action;
+  } catch(error){aiError=error.name==='AbortError'?'AI paused. Retry when ready.':error.name==='TimeoutError'?'The AI took too long. Retry when ready.':error.message;throw error;}
+  finally {if(aiController===controller){aiBusy=false;aiController=null;render();}}
+}
 function prepareBot() {
-  if (mode !== 'solo' || !game || game.phase === 'over' || game.phase === 'reveal') return;
-  const key = game.type + '/' + game.round + '/' + game.phase;
-  if (key !== botContext) {
-    botContext = key;
-    botPrepared = botAction(game, 1);
+  if(mode!=='solo'||!game||['over','reveal'].includes(game.phase)||aiError)return;
+  if(game.type==='closing'&&game.turn!==1)return;
+  const key=game.type+'/'+game.round+'/'+game.phase+(game.type==='closing'?'/'+game.revision:'');
+  if(key!==botContext){
+    botContext=key;const state=playerView(game,1),epoch=generation;
+    // Capture the redacted observation BEFORE the human locks a simultaneous choice.
+    botPrepared=Promise.resolve().then(()=>decideBot(state,1));
+    botPrepared.catch(()=>{if(epoch===generation)render();});
   }
 }
 function scheduleBot() {
   clearTimeout(botTimer);
-  if (mode !== 'solo' || !game || scene !== 'game' || ['over', 'reveal'].includes(game.phase)) return;
+  if(mode!=='solo'||!game||scene!=='game'||['over','reveal'].includes(game.phase)||aiError)return;
   prepareBot();
-  const needsMove = game.type === 'closing' ? game.turn === 1 : game.type === 'backhand' ? game.pending[0] && !game.pending[1] : game.phase === 'guard' ? game.guards[0] && !game.guards[1] : game.raids[0] && !game.raids[1];
-  if (!needsMove) return;
-  const current = generation;
-  botTimer = setTimeout(() => {
-    if (current !== generation || mode !== 'solo') return;
+  const needsMove=game.type==='closing'?game.turn===1:game.type==='backhand'?game.pending[0]&&!game.pending[1]:game.phase==='guard'?game.guards[0]&&!game.guards[1]:game.raids[0]&&!game.raids[1];
+  if(!needsMove)return;
+  const epoch=generation,context=botContext;
+  botTimer=setTimeout(async()=>{
     try {
-      const action = game.type === 'closing' ? botAction(game, 1) : botPrepared;
-      if (!action) return;
-      const previousPhase = game.phase;
-      game = applyAction(game, 1, action);
-      afterOfflineMove(previousPhase);
-      scheduleBot();
-    } catch (error) { notify(error.message); }
-  }, game.type === 'closing' ? 430 : 550);
+      const action=await botPrepared;
+      if(epoch!==generation||mode!=='solo'||scene!=='game'||context!==botContext||aiError)return;
+      const previousPhase=game.phase;game=applyAction(game,1,action);afterOfflineMove(previousPhase);scheduleBot();
+    } catch {if(epoch===generation)render();}
+  },450);
 }
 function afterOfflineMove(previousPhase) {
   if (game.phase !== previousPhase) { chosen = null; source = null; }
@@ -227,7 +246,7 @@ function afterOfflineMove(previousPhase) {
   render();
 }
 function startOffline(type, selectedMode) {
-  clearTimeout(botTimer); generation++;
+  clearTimeout(botTimer); generation++;stopAI();aiMemory=[];matchId=crypto.randomUUID();selectedOpponent=prefs.opponent==='model'?'model':'dealer';
   if (peer) { const old = peer; peer = null; old.close(); }
   session = null; linkStatus = 'idle';
   mode = selectedMode; seat = 0; scene = 'game';
@@ -266,10 +285,10 @@ function networkError(error) {
 function makePeer(role, config) {
   const preserved = role === 0 && mode === 'online' && session?.seat === 0 && session.state;
   if (peer) { const old = peer; peer = null; old.close(); }
-  clearTimeout(botTimer); generation++;
+  clearTimeout(botTimer); generation++;stopAI();aiMemory=[];matchId=crypto.randomUUID();selectedOpponent=prefs.opponent==='model'?'model':'dealer';
   mode = 'online'; chosen = null; source = null; handoff = false;
   if (!preserved) {
-    session = new TableSession({seat: role, name: name(), team: role === 0 && Boolean(prefs.team), onUpdate: updateOnline, onError: networkError});
+    session = new TableSession({seat: role, name: name(), team: role === 0 && Boolean(prefs.team), chooseBot:decideBot,onUpdate: updateOnline, onError: networkError});
     scene = 'menu';
   }
   session.initialGame = selectedGame;
@@ -325,7 +344,7 @@ function renderPair() {
       if (pairOut) {
         html += '<p class="modal-copy">Send this invitation to your friend, or let them scan the QR code. Keep this tab open.</p><label class="label" for="pair-output">YOUR INVITATION</label><textarea id="pair-output" class="link-output" readonly spellcheck="false">' + esc(pairOut) + '</textarea><div class="button-row">' + button('COPY INVITE ↗', 'copy', 'gold') + button('SHARE', 'share', 'dark') + '</div><div class="qr-wrap"><canvas id="pair-qr" aria-label="Scan this invitation QR code"></canvas></div><p class="qr-note">Scan with your phone’s camera to open the invite.</p><hr class="divider"><label class="label" for="pair-input">PASTE YOUR FRIEND’S REPLY LINK</label><textarea id="pair-input" placeholder="Their reply link goes here…" spellcheck="false"></textarea>' + button(pairBusy ? 'CONNECTING…' : 'ACCEPT REPLY →', 'accept-reply', '', pairBusy) + (canScan ? button('SCAN REPLY QR', 'scan-reply', 'outline', pairBusy) : '');
       } else {
-        html += '<p class="modal-copy">Choose a game, create an invitation, and send it to your friend. They’ll send one reply link back. Then your browsers connect directly.</p><p class="modal-copy"><strong>On the table:</strong> ' + GAMES[selectedGame].name + '</p><label class="team-choice"><input type="checkbox" id="team" ' + (prefs.team ? 'checked' : '') + '> <span>Play together against the dealer<small>Share a hand, discuss the move, win as a team.</small></span></label>' + settingsHtml() + button(pairBusy ? 'PREPARING INVITATION…' : 'CREATE INVITATION ↗', 'create-invite', 'gold', pairBusy);
+        html += '<p class="modal-copy">Choose a game, create an invitation, and send it to your friend. They’ll send one reply link back. Then your browsers connect directly.</p><p class="modal-copy"><strong>On the table:</strong> ' + GAMES[selectedGame].name + '</p><label class="team-choice"><input type="checkbox" id="team" ' + (prefs.team ? 'checked' : '') + '> <span>Play together against the dealer<small>Share a hand, discuss the move, win as a team.</small></span></label>' + opponentHtml() + settingsHtml() + button(pairBusy ? 'PREPARING INVITATION…' : 'CREATE INVITATION ↗', 'create-invite', 'gold', pairBusy);
       }
     } else {
       if (pairOut) {
@@ -459,7 +478,10 @@ document.addEventListener('click', async event => {
   if (!target || target.disabled) return;
   const action = target.dataset.action;
   try {
-    if (action === 'select-game') { selectedGame = target.dataset.game; sound('tap'); render(); }
+    if(action==='ai-settings')openAISettings(()=>{generation++;stopAI();botContext='';if(session)session.botKey='';prepareBot();session?.prepareBot();render();scheduleBot();session?.scheduleBot();});
+    else if(action==='cancel-ai'){generation++;stopAI('AI paused. Retry when ready.');render();}
+    else if(action==='retry-ai'){stopAI();botContext='';if(session)session.botKey='';prepareBot();session?.prepareBot();render();scheduleBot();session?.scheduleBot();}
+    else if (action === 'select-game') { selectedGame = target.dataset.game; sound('tap'); render(); }
     else if (action === 'start-solo') startOffline(selectedGame, 'solo');
     else if (action === 'start-local') startOffline(selectedGame, 'local');
     else if (action === 'select-card') { if (handoff || locked() || blocked()) return; chosen = target.dataset.card; sound('tap'); render(); }
@@ -508,6 +530,7 @@ document.addEventListener('click', async event => {
   }
 });
 document.addEventListener('change', event => {
+  if(event.target.id==='ai-opponent'){prefs.opponent=event.target.value;savePrefs();return;}
   if (event.target.id === 'player-name') {
     prefs.name = event.target.value.trim().slice(0, 24) || 'You'; savePrefs();
     if (mode === 'online' && session) {
@@ -595,7 +618,7 @@ async function handleHash() {
   }
 }
 window.addEventListener('hashchange', () => handleHash());
-window.addEventListener('pagehide', () => { stopScan(); clearTimeout(botTimer); peer?.close(); bus?.close(); });
+window.addEventListener('pagehide', () => {stopAI(); stopScan(); clearTimeout(botTimer); peer?.close(); bus?.close(); });
 if (typeof BarcodeDetector !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
   BarcodeDetector.getSupportedFormats().then(formats => { canScan = formats.includes('qr_code'); if (pairingOpen) renderPair(); }).catch(() => {});
 }
@@ -608,3 +631,5 @@ Object.defineProperty(window, '__midnight', {value: {
   get seat() { return mySeat(); },
   get connected() { return connected(); }
 }});
+
+installThemeControls(document.querySelector('.top-actions'));

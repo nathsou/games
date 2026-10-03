@@ -63,7 +63,8 @@ export function validateView(view) {
   return view;
 }
 export class TableSession {
-  constructor({seat = 0, name = 'You', team = false, onUpdate, onError}) {
+  constructor({seat = 0, name = 'You', team = false, chooseBot = (s,p)=>botAction(s,p), onUpdate, onError}) {
+    this.chooseBot = chooseBot;
     this.seat = seat;
     this.members = seat === 0 ? [name, 'Partner'] : ['Host', name];
     this.team = team;
@@ -114,10 +115,12 @@ export class TableSession {
   }
   prepareBot() {
     if (!this.team || this.seat !== 0 || !this.state || ['over', 'reveal'].includes(this.state.phase)) return;
-    const key = contextFor(this.epoch, this.state);
+    const key = contextFor(this.epoch, this.state)+(this.state.type==='closing'?'/'+this.state.revision:'');
     if (this.botKey !== key) {
       this.botKey = key;
-      this.botPrepared = botAction(this.state, 1);
+      const observation=playerView(this.state,1);
+      this.botPrepared = Promise.resolve().then(()=>this.chooseBot(observation,1));
+      this.botPrepared.catch(error=>{if(this.botKey===key)this.onError(error);});
     }
   }
   scheduleBot() {
@@ -127,10 +130,12 @@ export class TableSession {
     const needed = s.type === 'closing' ? s.turn === 1 : s.type === 'backhand' ? s.pending[0] && !s.pending[1] : s.phase === 'guard' ? s.guards[0] && !s.guards[1] : s.raids[0] && !s.raids[1];
     if (!needed) return;
     const epoch = this.epoch;
-    this.botTimer = setTimeout(() => {
+    this.botTimer = setTimeout(async () => {
       if (!this.peer?.connected || epoch !== this.epoch) return;
       try {
-        const action = this.state.type === 'closing' ? botAction(this.state, 1) : this.botPrepared;
+        const context = this.botKey;
+        const action = await this.botPrepared;
+        if (!this.peer?.connected || epoch !== this.epoch || context !== this.botKey) return;
         this.state = applyAction(this.state, 1, action);
         this.countWin();
         this.sync();
