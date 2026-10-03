@@ -276,17 +276,26 @@ export const CHARACTERS = {
   rookie: { name: 'Rookie Ray', piece: PAWN, pal: { outline: '#101828', light: '#ffffff', main: '#a8e0ff', shade: '#60a8e0', deep: '#3070b0', line: '#204a80', accent: '#ffcc4d', accentShade: '#c09020' }, face: 'happy', hat: 'cap', bg: '#a8e0ff' },
 };
 
-const FACES = {
-  // [eyes y, eye pattern rows, mouth rows] drawn onto a 16x16 overlay at offset
-  grin: { eyes: ['k.k'], mouth: ['kkkkk', '.www.'], ey: 5, my: 8 },
-  proud: { eyes: ['k..'], mouth: [], ey: 5, my: 0 },
-  stern: { eyes: ['kk.kk'], mouth: ['kkk'], ey: 5, my: 8 },
-  worried: { eyes: ['k.k'], mouth: ['.k.', 'k.k'], ey: 9, my: 11 },
-  dopey: { eyes: ['w.w', 'k.k'], mouth: ['kkk'], ey: 4, my: 7 },
-  sleepy: { eyes: ['kk.kk'], mouth: ['.k.'], ey: 7, my: 9 },
-  sly: { eyes: ['k..'], mouth: [], ey: 5, my: 0 },
-  cold: { eyes: ['k.k'], mouth: ['kkk'], ey: 9, my: 11 },
-  happy: { eyes: ['k.k'], mouth: ['k.k', '.k.'], ey: 5, my: 7 },
+// Where a face sits on each piece: left eye x, right eye x (null = profile), eye y, eye size, mouth y, mouth x.
+const FACE_ANCHOR = {
+  [ROOK]: { l: 5, r: 9, y: 6, size: 2, my: 9, mx: 7 },
+  [KNIGHT]: { l: 5, r: null, y: 4, size: 2, my: 8, mx: 2 },
+  [PAWN]: { l: 6, r: 9, y: 5, size: 1, my: 7, mx: 7 },
+  [KING]: { l: 5, r: 9, y: 5, size: 2, my: 7, mx: 7 },
+  [BISHOP]: { l: 6, r: 9, y: 4, size: 1, my: 6, mx: 7 },
+  [QUEEN]: { l: 5, r: 9, y: 5, size: 2, my: 7, mx: 7 },
+};
+// Moods: brow offsets (left, right: -1 = raised inner, 1 = angry), mouth pattern.
+const MOODS = {
+  grin: { brow: null, mouth: ['kkkk', '.ww.'] },
+  proud: { brow: [0, 0], mouth: ['kk'] },
+  stern: { brow: [1, 1], mouth: ['kk'] },
+  worried: { brow: [-1, -1], mouth: ['.k', 'k.'] },
+  dopey: { brow: null, mouth: ['k..k', '.kk.'], lazy: true },
+  sleepy: { brow: null, mouth: ['kk'], closed: true },
+  sly: { brow: [1, 0], mouth: ['..k', 'kk.'] },
+  cold: { brow: [1, 1], mouth: ['kkk'] },
+  happy: { brow: null, mouth: ['k..k', '.kk.'] },
 };
 
 export function characterSprite(id) {
@@ -299,20 +308,31 @@ export function characterSprite(id) {
   c.width = 16; c.height = 16;
   const ctx = c.getContext('2d');
   ctx.drawImage(base, 0, 0);
-  const face = FACES[ch.face];
-  const cx = ch.piece === KNIGHT ? 6 : 8;
-  const put = (rows, y, colors) => rows.forEach((r, i) => [...r].forEach((p, j) => {
-    if (p === '.') return;
-    ctx.fillStyle = colors[p]; ctx.fillRect(cx - (r.length >> 1) + j, y + i, 1, 1);
-  }));
-  const cols = { k: '#120a18', w: '#ffffff' };
-  if (face) {
-    if (ch.piece !== KNIGHT) put(face.eyes, face.ey, cols);
-    if (face.mouth.length) put(face.mouth, face.my, cols);
+  const A = FACE_ANCHOR[ch.piece], mood = MOODS[ch.face] || MOODS.happy;
+  const px = (x, y, col) => { ctx.fillStyle = col; ctx.fillRect(x, y, 1, 1); };
+  const K = '#120a18', W = '#ffffff';
+  const eye = (x, flip) => {
+    if (mood.closed) { px(x, A.y + A.size - 1, K); if (A.size > 1) px(x + 1, A.y + A.size - 1, K); return; }
+    if (A.size === 1) { px(x, A.y, K); px(x, A.y + 1, K); return; }
+    px(x, A.y, W); px(x + 1, A.y, W); px(x, A.y + 1, W); px(x + 1, A.y + 1, W);
+    const pupX = mood.lazy ? x + (flip ? 0 : 1) : x + (flip ? 1 : 0);
+    px(pupX, A.y + 1, K); px(pupX, A.y, K);
+  };
+  eye(A.l, false);
+  if (A.r != null) eye(A.r, true);
+  if (mood.brow) {
+    const bw = A.size;
+    const brow = (x, tilt, right) => {
+      for (let i = 0; i < bw; i++) { const inner = right ? i === 0 : i === bw - 1; px(x + i, A.y - 1 - (tilt < 0 && inner ? 1 : 0) + (tilt > 0 && inner ? 0 : 0) - (tilt > 0 && !inner ? 1 : 0), ch.pal.line); }
+    };
+    brow(A.l, mood.brow[0], false);
+    if (A.r != null) brow(A.r, mood.brow[1], true);
   }
+  const mw = mood.mouth[0].length;
+  const mx = A.r == null ? A.mx : Math.round((A.l + A.r + A.size) / 2 - mw / 2);
+  mood.mouth.forEach((row, i) => [...row].forEach((p, j) => { if (p !== '.') px(mx + j, A.my + i, p === 'k' ? K : W); }));
   const hat = ch.hat;
-  ctx.fillStyle = '#000';
-  if (hat === 'helmet') { ctx.fillStyle = '#4a5a2a'; ctx.fillRect(5, 3, 6, 2); ctx.fillRect(4, 4, 8, 1); ctx.fillStyle = '#7a8a4a'; ctx.fillRect(6, 3, 2, 1); }
+  if (hat === 'helmet') { ctx.fillStyle = '#4a5a2a'; ctx.fillRect(5, 3, 6, 2); ctx.fillRect(4, 4, 8, 1); ctx.fillStyle = '#7a8a4a'; ctx.fillRect(6, 3, 2, 1); ctx.fillStyle = '#2a3412'; ctx.fillRect(4, 5, 8, 0); }
   if (hat === 'plume') { ctx.fillStyle = '#ff5e7a'; ctx.fillRect(9, 0, 2, 3); ctx.fillRect(10, 1, 2, 1); ctx.fillStyle = '#ffb3c2'; ctx.fillRect(9, 0, 1, 1); }
   if (hat === 'shell') { ctx.fillStyle = '#2a6a3a'; ctx.fillRect(4, 11, 8, 2); ctx.fillStyle = '#ffcc4d'; ctx.fillRect(6, 11, 1, 1); ctx.fillRect(9, 12, 1, 1); }
   if (hat === 'bow') { ctx.fillStyle = '#ffe066'; ctx.fillRect(10, 2, 3, 2); ctx.fillRect(9, 3, 1, 1); ctx.fillStyle = '#c09020'; ctx.fillRect(11, 3, 1, 1); }

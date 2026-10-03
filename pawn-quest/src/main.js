@@ -9,9 +9,21 @@ import { levelById, LEVELS } from './curriculum.js';
 import { levelScreen } from './level.js';
 import { mapScreen, currentLevel } from './map.js';
 import { BOARD_THEMES } from './board.js';
-import { installThemeControls } from '../../shared/theme.js';
+import { installThemeControls, loadTheme, THEME_KEY } from '../../shared/theme.js';
 
 const app = document.getElementById('app');
+// Apply the shared Light/Dark/System appearance on every screen.
+const media = matchMedia('(prefers-color-scheme: dark)');
+function applyTheme() {
+  const pref = loadTheme();
+  const theme = pref === 'system' ? (media.matches ? 'dark' : 'light') : pref;
+  document.documentElement.dataset.colorTheme = theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#bfe2ff' : '#0f0b22');
+}
+applyTheme();
+media.addEventListener('change', applyTheme);
+addEventListener('games-theme-change', applyTheme);
+addEventListener('storage', e => { if (e.key === THEME_KEY) applyTheme(); });
 startSky(document.getElementById('sky'));
 setSfx(save.settings.sfx);
 setMusic(save.settings.music);

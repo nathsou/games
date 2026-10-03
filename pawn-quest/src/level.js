@@ -475,11 +475,14 @@ export async function solvePuzzle(ctx, p, { index = 0, total = 1, mistakesBefore
 async function playPuzzles(ctx, L) {
   const puzzles = await buildPuzzles(ctx, L);
   if (!puzzles.length) return { success: false, text: 'Could not generate puzzles. Try again!' };
-  let solved = 0;
+  let solved = 0, combo = 0;
   for (let i = 0; i < puzzles.length; i++) {
+    const hintsBefore = ctx.hints;
     const r = await solvePuzzle(ctx, puzzles[i], { index: i, total: puzzles.length });
     if (!r) return null;
     solved++;
+    combo = r.mistakes === 0 && ctx.hints === hintsBefore ? combo + 1 : 0;
+    if (combo >= 2) { toast(`🔥 **${combo} in a row!**`); sfx.unlock(); }
   }
   const m = ctx.mistakes + ctx.hints;
   return { success: true, solved, stars: m === 0 ? 3 : m <= 2 ? 2 : 1, note: m === 0 ? 'Every puzzle on the first try!' : `${m} slip${m > 1 ? 's' : ''} or hint${m > 1 ? 's' : ''}.` };

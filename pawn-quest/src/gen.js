@@ -91,7 +91,7 @@ function genFreePiece(r) {
     // Make sure there isn't something even better (like a mate) that the engine prefers.
     const best = search(p, { depth: 3, timeMs: 300 });
     if (!good.includes(best.move)) continue;
-    return { fen: p.toFEN(), accept: 'list', solution: good.map(uci), prompt: 'One enemy piece is unprotected. Win it!', tag: 'hanging', target: sqName(target.sq) };
+    return { fen: p.toFEN(), accept: 'list', solution: [uci(good[0])], alts: good.slice(1).map(uci), prompt: 'One enemy piece is unprotected. Win it!', tag: 'hanging', target: sqName(target.sq) };
   }
   return null;
 }
@@ -159,7 +159,7 @@ function genSavePiece(r) {
     const ok = roots.filter(x => x.score >= best - 60);
     const bad = roots.filter(x => x.score < best - 200);
     if (bad.length < roots.length / 2 || ok.length > roots.length / 2) continue;
-    return { fen: p.toFEN(), accept: 'list', solution: ok.map(x => uci(x.move)), prompt: `Your ${['', 'pawn', 'knight', 'bishop', 'rook', 'queen'][mine[0].type]} on ${sqName(mine[0].sq)} is in danger. Save it!`, tag: 'hanging', danger: sqName(mine[0].sq) };
+    return { fen: p.toFEN(), accept: 'list', solution: [uci(ok[0].move)], alts: ok.slice(1).map(x => uci(x.move)), prompt: `Your ${['', 'pawn', 'knight', 'bishop', 'rook', 'queen'][mine[0].type]} on [${sqName(mine[0].sq)}] is in danger. Save it!`, tag: 'hanging', danger: sqName(mine[0].sq) };
   }
   return null;
 }
