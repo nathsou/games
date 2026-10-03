@@ -1,3 +1,4 @@
+import {trackArcadeGame} from '../../shared/ai/usage.js';
 import {installThemeControls} from '../../shared/theme.js';
 import {loadAI} from '../../shared/ai/config.js';
 import {chooseTurn} from '../../shared/ai/turn.js';
@@ -53,7 +54,7 @@ function notify(message) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('visible'), 4500);
 }
 function tag() {
-  const label = mode === 'solo' ? 'VS THE DEALER' : mode === 'local' ? 'PASS & PLAY' : connected() ? session.team ? 'TEAM CONNECTED' : 'FRIEND CONNECTED' : 'FRIEND OFFLINE';
+  const label = mode === 'solo' ? (controllers().some(t=>t==='model')?'VS THE AI TABLE':'VS THE DEALER') : mode === 'local' ? 'PASS & PLAY' : connected() ? session.team ? 'TEAM CONNECTED' : 'FRIEND CONNECTED' : 'FRIEND OFFLINE';
   return '<span class="tag ' + (mode === 'online' && !connected() ? 'offline' : '') + '"><span class="dot"></span>' + label + '</span>';
 }
 function cardHtml(card, interactive = false, isPreview = false, tilt = 0) {
@@ -90,7 +91,7 @@ function renderMenu() {
 }
 function renderGame() {
   const v = view(), p = mySeat(), ns = names();
-  let html = '<section class="game-heading"><div><p class="eyebrow">A QUICK LITTLE CARD DUEL</p><h1>Flip it.</h1></div><div class="heading-actions">' + tag() + button('RULES ?', 'rules', 'outline compact') + button('MENU', 'menu', 'outline compact') + '</div></section>';
+  let html = '<section class="game-heading"><div><p class="eyebrow">A QUICK LITTLE CARD TABLE</p><h1>Flip it.</h1></div><div class="heading-actions">' + tag() + button('RULES ?', 'rules', 'outline compact') + button('MENU', 'menu', 'outline compact') + '</div></section>';
   if (mode === 'online' && !connected()) html += '<div class="disconnect" role="status"><span>Your friend is disconnected. The match is saved in the host’s tab.</span>' + button(session.seat ? 'JOIN AGAIN' : 'RECONNECT', session.seat ? 'join' : 'host', 'compact gold') + '</div>';
   html += aiStatusHtml({busy:aiBusy,error:aiError,controller:mode!=='online'||session?.seat===0});
   html += '<div class="table-layout"><aside class="sidebar"><div class="panel"><p class="eyebrow">FIRST TO TWO</p><div class="scoreboard">';
@@ -120,7 +121,7 @@ function renderTable(v) {
     }
     html += '</div></div>';
   }
-  if (v.pending !== null) html += '<div class="last-chance" role="status"><strong>LAST CHANCE!</strong> ' + (v.pending === p ? 'Your hand is empty. '+v.repliesRemaining+' reply/replies remain.' : esc(ns[v.pending])+' has an empty hand. Return cards to that player to stop the win.') + '</div>';
+  if (v.pending !== null) html += '<div class="last-chance" role="status"><strong>LAST CHANCE!</strong> ' + (v.pending === p ? 'Your hand is empty. '+v.repliesRemaining+' '+(v.repliesRemaining===1?'reply remains.':'replies remain.') : esc(ns[v.pending])+' has an empty hand. Return cards to that player to stop the win.') + '</div>';
   html += '<p class="table-instruction" role="status">' + (turn ? preview ? 'A peek at your other side.' : 'Make your next good move.' : esc(ns[v.turn]) + ' is thinking…') + '<small>' + (turn ? v.options.quickTurns ? 'Choose a space to cash out, then take one action.' : 'Use your ' + (v.beat ? 'right' : 'left') + ' space for this action.' : 'Every card has a second side. Watch what comes back.') + '</small></p><div class="zone-title"><span>YOUR PLAY SPACES</span><span>' + (v.options.quickTurns ? 'CHOOSE EITHER' : 'ACTION ' + (v.beat+1) + ' / 2') + '</span></div><div class="table-row">';
   for (let own=0;own<2;own++) {
     const set = v.table[p][own], canChoose = turn && availableLanes(v).includes(own);
@@ -143,11 +144,11 @@ function renderEnd(v) {
   const title = winner === null ? 'A little stalemate.' : esc(ns[winner]) + (match ? ' takes the match.' : ' takes the round.');
   const reason = r.reason === 'repeat' ? 'The same position came around three times. Drawn round: shuffle and try again.' : r.reason === 'limit' ? 'A long back-and-forth. Drawn round: a fresh deal keeps things moving.' : r.reason === 'survived' ? 'The last-chance reply couldn’t put cards back in their hand.' : 'An empty hand. A well-earned round.';
   const ready = mode === 'online' && session.ready[session.seat], guest = mode === 'online' && session.seat === 1;
-  return '<div class="ending pop"><div class="trophy" aria-hidden="true">✦</div><p class="eyebrow">' + (match ? 'GOOD COMPANY. GOOD GAME.' : 'A MOMENT TO CATCH YOUR BREATH.') + '</p><h2>' + title + '</h2><p>' + reason + '</p><div class="ending-score"><span>' + v.scores[0] + '</span><span class="muted">:</span><span>' + v.scores[1] + '</span></div>' + (match ? button(guest ? 'HOST CAN DEAL A REMATCH' : 'ONE MORE MATCH →', 'rematch', 'gold', guest || mode==='online' && !connected()) : button(ready ? 'WAITING FOR YOUR FRIEND…' : 'NEXT ROUND →', 'next', 'gold', ready || mode==='online' && !connected())) + button('CHANGE MATCH OPTIONS', 'menu', 'outline') + '</div>';
+  return '<div class="ending pop"><div class="trophy" aria-hidden="true">✦</div><p class="eyebrow">' + (match ? 'GOOD COMPANY. GOOD GAME.' : 'A MOMENT TO CATCH YOUR BREATH.') + '</p><h2>' + title + '</h2><p>' + reason + '</p><div class="ending-score"><span>' + v.scores.join(' : ') + '</span></div>' + (match ? button(guest ? 'HOST CAN DEAL A REMATCH' : 'ONE MORE MATCH →', 'rematch', 'gold', guest || mode==='online' && !connected()) : button(ready ? 'WAITING FOR YOUR FRIEND…' : 'NEXT ROUND →', 'next', 'gold', ready || mode==='online' && !connected())) + button('CHANGE MATCH OPTIONS', 'menu', 'outline') + '</div>';
 }
 function eventText(e) {
   const who = esc(names()[e.seat]);
-  let text = who + (e.kind==='flip' ? ' flipped their hand.' : e.kind==='take' ? ' took ' + e.count + ' cards and flipped them.' : e.kind==='add' ? ' added a ' + e.value + ' to the other set.' : ' played ' + e.count + ' × ' + e.value + '.');
+  let text = who + (e.kind==='flip' ? ' flipped their hand.' : e.kind==='take' ? ' took ' + e.count + ' cards and flipped them.' : e.kind==='add' ? ' added a ' + e.value + ' to '+esc(names()[e.targetSeat])+'’s set.' : ' played ' + e.count + ' × ' + e.value + '.');
   if (e.cashed) text += ' Cashed out ' + e.cashed + '.';
   if (e.returned.length) text += ' ' + e.returned.map(r => esc(names()[r.seat]) + ' received ' + r.count + ' flipped cards').join('; ') + '.';
   return text;
@@ -161,6 +162,7 @@ function startOffline(nextMode, options = prefs.options) {
   handoff=mode==='local'; resetSelection(); sound('deal'); render(); scheduleBot();
 }
 function afterOfflineMove(previousTurn) {
+  trackArcadeGame(matchId,'flip-it',game,mode);
   resetSelection();
   if (mode==='local' && game.phase==='playing' && offlineControllers[game.turn]==='human') { const oldSeat=seat;seat=game.turn;handoff=oldSeat!==seat; }
   if (game.phase==='matchOver') sound('win'); else if (game.phase==='roundOver') sound('reveal');
@@ -200,6 +202,7 @@ function scheduleBot() {
 }
 function updateOnline() {
   if (!session?.view) return render();
+  if(session.seat===0)trackArcadeGame(session.epoch,'flip-it',session.state,session.team?'Online team':'Online duel');
   const key=session.epoch+'/'+session.view.revision;
   if (lastViewKey!==key) { resetSelection(); lastViewKey=key; sound(session.view.phase==='matchOver'?'win':'tap'); }
   scene='game'; handoff=false;

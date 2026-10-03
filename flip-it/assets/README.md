@@ -1,6 +1,6 @@
 # Flip it card art
 
-`cards.png` is an original six-face atlas generated with the built-in image generation tool. It is used unchanged: three columns, two rows. Numeric ranks and alternate values are accessible HTML; the image never determines a rule or value. The six motifs are reused for ranks 7–10 in the full deck; the printed number remains authoritative.
+`cards.png` is the original generated six-face prototype atlas, retained with its prompt for provenance. The current cards use code-native HTML numerals over geometric color bands: the upright active number and upside-down alternate number are the main artwork. The runtime no longer loads the atlas. Rank 10 uses adjusted spacing so both digits remain readable at phone sizes.
 
 Balatro supplied the requested broad visual inspiration. No existing game sprites, logos, fonts or card artwork were imported.
 

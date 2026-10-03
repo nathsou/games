@@ -16,7 +16,7 @@ export async function chooseTurn(description,{settings=loadAI(),signal,gameId='a
   let correction='';
   for (let attempt=0;attempt<2;attempt++) {
     const {url,body}=buildTurnRequest(settings,description,correction);
-    const usageId=beginUsage({id:gameId,arcadeGame:description.game,round,history:[],started:Date.now(),phase:'playing'},role,settings);
+    const usageId=beginUsage({id:gameId,arcadeGame:description.game,round,revision:description.observation.revision,history:[],started:Date.now(),phase:'playing'},role,settings);
     let data;
     try {data=await request(url,{method:'POST',headers:headers(provider,key),body:JSON.stringify(body),signal},key);}
     catch(error){if(error.usageResponse)finishUsage(usageId,error.usageResponse);markUsage(usageId,signal?.aborted?'cancelled':'failed');throw error;}

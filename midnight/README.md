@@ -114,3 +114,9 @@ finder/alignment/timing patterns, BCH metadata and mask scoring. Profile
 parameters and standard layout were checked against
 [Project Nayuki's QR reference](https://www.nayuki.io/page/qr-code-generator-library).
 No reference library is imported or shipped.
+
+## Shared AI and themes
+
+Every game can face either the free offline dealer or an AI using the provider/model configured in Similo. Model opponents work in solo and WebRTC team play. The host alone makes provider calls. Simultaneous choices are prepared from a redacted observation before the human locks a choice; hands, future draws and opposing sealed choices never enter a prompt. Public alarm counts and exact immediate auction outcomes help the model interpret ownership correctly.
+
+Provider, models, effort, response budget, optional remembered keys, custom rates and spending history use the collection's shared AI modules. Light, Dark and System themes share the card games' appearance preference. Unsupported model/effort combinations show their provider error without substituting another model. Pause and retry preserve the table. See [shared AI notes](../shared/ai/README.md) for live GPT-6-luna evaluations.

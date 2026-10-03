@@ -3,6 +3,8 @@ import {applyAction, legalActions, reserve} from './rules.js';
 // Bots never inspect an opponent's hidden choice. Simultaneous decisions are
 // prepared before the human commits; heist guesses use only revealed defenses.
 export function botAction(state, player, random = Math.random) {
+  // A closed lot's replacement is hidden. Lookahead scores only the known lots.
+  if(state.type==='closing')state={...state,deck:[]};
   const choices = legalActions(state, player);
   if (!choices.length) return null;
   if (state.phase === 'reveal') return choices[0];

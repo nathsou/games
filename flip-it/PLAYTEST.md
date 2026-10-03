@@ -57,3 +57,9 @@ The recommended all-ON setup remains the default. The larger deck and double tur
 WebRTC testing used separate contexts on the same computer with STUN disabled. It confirms the real protocol and application behavior, not connectivity through every external NAT. No physical phone camera, real TURN relay, Safari or Firefox was available for this run. Their browser APIs have fallbacks where possible, but are not claimed as playtested here.
 
 The host is authoritative and trusted. Opposing hands are hidden in normal peer views; a malicious host can inspect its own process. A reload of the original host tab loses the match. Invitations require the reply step; no permanent-room or one-click signalling service is provided.
+
+## Numeric cards and mixed AI tables · 2026-10-03
+
+The follow-up integration supports 2–5 seats and shared AI settings/themes. The full collection passed 104 automated checks. Complete browser matches covered a four-seat solo table, a five-seat WebRTC human duel with three AI/dealer seats, and shared-human team play against multiple opponents. All Midnight solo/model and WebRTC team/model modes completed too. A separate live run completed Flip it against GPT-6-luna in 20 model calls (score 2:1 for the scripted human); the other three games used another 45 calls. Tactical prompt iteration used 18 more GPT-6-luna calls.
+
+Pause/retry, key-redacted failures, both Similo AI role images, remembered config migration, cross-tab preferences and System appearance changes were verified. The live tests used only GPT-6-luna; mocked responses were used for repeatable UI/protocol checks. See [shared verification](../shared/ai/README.md) and its JSON reports.
