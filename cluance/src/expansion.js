@@ -379,6 +379,26 @@ export const EXPANSION = {
       "Ancient Greek myth",
       "Woman whose opening of a jar releases troubles into the human world in Hesiod’s account, while hope remains inside; later tradition calls the vessel a box."
     ]
+  ],
+  "regions": [
+    [
+      "Anjou",
+      "Historical province · Angers and Maine",
+      "Historical province",
+      "Historical province centered on Angers, associated with the Plantagenet dynasty, the striped towers of Château d’Angers and the Maine and Loire valleys. This is a historical province, not an additional administrative region of 2015."
+    ],
+    [
+      "Touraine",
+      "Historical province · Cher and châteaux",
+      "Historical province",
+      "Historical province centered on Tours, associated with Loire Valley châteaux including Chenonceau, whose gallery spans the River Cher. This is a historical province, not an additional administrative region of 2015."
+    ],
+    [
+      "Provence",
+      "Historical province · Arles and olives",
+      "Historical province",
+      "Historical province in southeastern France, associated with Arles’s Roman amphitheater, olive groves and Mediterranean landscapes. Its historical boundaries differ from the modern administrative region of Provence-Alpes-Côte d’Azur; it is not an additional region of 2015."
+    ]
   ]
 };
 
