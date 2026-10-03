@@ -1,0 +1,78 @@
+{
+  "date": "2026-10-03",
+  "errors": [],
+  "results": [
+    {
+      "scenario": "responsive",
+      "w": 320,
+      "h": 740,
+      "scrollH": 870,
+      "scrollW": 320,
+      "tableBottom": 767.875
+    },
+    {
+      "scenario": "responsive",
+      "w": 390,
+      "h": 844,
+      "scrollH": 859,
+      "scrollW": 390,
+      "tableBottom": 757.375
+    },
+    {
+      "scenario": "responsive",
+      "w": 768,
+      "h": 900,
+      "scrollH": 900,
+      "scrollW": 768,
+      "tableBottom": 749.203125
+    },
+    {
+      "scenario": "responsive",
+      "w": 1280,
+      "h": 720,
+      "scrollH": 720,
+      "scrollW": 1280,
+      "tableBottom": 700
+    },
+    {
+      "scenario": "responsive",
+      "w": 1366,
+      "h": 768,
+      "scrollH": 768,
+      "scrollW": 1366,
+      "tableBottom": 700
+    },
+    {
+      "scenario": "responsive",
+      "w": 1440,
+      "h": 900,
+      "scrollH": 900,
+      "scrollW": 1440,
+      "tableBottom": 755.203125
+    },
+    {
+      "scenario": "five-seat-layout",
+      "w": 1280,
+      "h": 720,
+      "scrollH": 720,
+      "scrollW": 1280,
+      "tableBottom": 695.5625
+    },
+    {
+      "scenario": "pass-and-play-privacy",
+      "passed": true
+    },
+    {
+      "scenario": "automatic-paste-acceptance",
+      "passed": true
+    },
+    {
+      "scenario": "light-theme-layout",
+      "w": 1280,
+      "h": 720,
+      "scrollH": 720,
+      "scrollW": 1280,
+      "tableBottom": 698
+    }
+  ]
+}
