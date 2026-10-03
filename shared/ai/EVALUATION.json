@@ -1,0 +1,329 @@
+{
+  "date": "2026-10-03T14:03:33.605Z",
+  "model": "gpt-6-luna",
+  "effort": "low",
+  "results": [
+    {
+      "prompt": "rules-only",
+      "case": "flip_immediate_win",
+      "model": "gpt-6-luna",
+      "valid": true,
+      "tacticalPass": true,
+      "action": {
+        "kind": "play",
+        "lane": 0,
+        "cards": [
+          "c6"
+        ]
+      },
+      "rationale": "Playing c6 empties my hand and immediately wins the round, while the opponent has no last-chance reply.",
+      "ms": 2536,
+      "usage": {
+        "input_tokens": 909,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 41,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 950
+      }
+    },
+    {
+      "prompt": "rules-only",
+      "case": "flip_necessary_counter",
+      "model": "gpt-6-luna",
+      "valid": true,
+      "tacticalPass": true,
+      "action": {
+        "kind": "play",
+        "lane": 0,
+        "cards": [
+          "c6",
+          "c7"
+        ]
+      },
+      "rationale": "Playing the pair returns cards to the pending player, preventing their empty-hand win; it also leaves me with just one card.",
+      "ms": 4793,
+      "usage": {
+        "input_tokens": 1152,
+        "input_tokens_details": {
+          "cache_write_tokens": 1149,
+          "cached_tokens": 0
+        },
+        "output_tokens": 353,
+        "output_tokens_details": {
+          "reasoning_tokens": 308
+        },
+        "total_tokens": 1505
+      }
+    },
+    {
+      "prompt": "rules-only",
+      "case": "flip_four_seat_counter",
+      "model": "gpt-6-luna",
+      "valid": true,
+      "tacticalPass": true,
+      "action": {
+        "kind": "play",
+        "lane": 0,
+        "cards": [
+          "c6",
+          "c7"
+        ]
+      },
+      "rationale": "Returning two cards to the pending player counters their empty hand while leaving me with only one card.",
+      "ms": 5094,
+      "usage": {
+        "input_tokens": 1224,
+        "input_tokens_details": {
+          "cache_write_tokens": 1221,
+          "cached_tokens": 0
+        },
+        "output_tokens": 267,
+        "output_tokens_details": {
+          "reasoning_tokens": 228
+        },
+        "total_tokens": 1491
+      }
+    },
+    {
+      "prompt": "rules-only",
+      "case": "backhand_high_prize",
+      "model": "gpt-6-luna",
+      "valid": true,
+      "tacticalPass": true,
+      "action": {
+        "kind": "bid",
+        "card": "b15"
+      },
+      "rationale": "The current prize and carry make this a valuable pot, so I’ll use my strongest bid to improve my chance of taking it.",
+      "ms": 4719,
+      "usage": {
+        "input_tokens": 615,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 294,
+        "output_tokens_details": {
+          "reasoning_tokens": 248
+        },
+        "total_tokens": 909
+      }
+    },
+    {
+      "prompt": "rules-only",
+      "case": "closing_guaranteed_three_points",
+      "model": "gpt-6-luna",
+      "valid": true,
+      "tacticalPass": false,
+      "action": {
+        "kind": "tick",
+        "lot": "lot2"
+      },
+      "rationale": "Ticking lot0 would immediately award its valuable points while I trail, so I’ll keep it open and advance the uncontested lot2 instead.",
+      "ms": 5045,
+      "usage": {
+        "input_tokens": 565,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 313,
+        "output_tokens_details": {
+          "reasoning_tokens": 264
+        },
+        "total_tokens": 878
+      }
+    },
+    {
+      "prompt": "rules-only",
+      "case": "heist_no_alarms_remain",
+      "model": "gpt-6-luna",
+      "valid": true,
+      "tacticalPass": true,
+      "action": {
+        "kind": "raid",
+        "choice": "raid"
+      },
+      "rationale": "Their used history shows all three alarms already spent, so raiding their remaining bluff guard can win both loot piles.",
+      "ms": 8681,
+      "usage": {
+        "input_tokens": 573,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 699,
+        "output_tokens_details": {
+          "reasoning_tokens": 656
+        },
+        "total_tokens": 1272
+      }
+    },
+    {
+      "prompt": "payoff-and-counter-check",
+      "case": "flip_immediate_win",
+      "model": "gpt-6-luna",
+      "valid": true,
+      "tacticalPass": true,
+      "action": {
+        "kind": "play",
+        "lane": 0,
+        "cards": [
+          "c6"
+        ]
+      },
+      "rationale": "Playing c6 empties my hand and wins immediately; either lane works, so I choose lane 0.",
+      "ms": 3304,
+      "usage": {
+        "input_tokens": 974,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 229,
+        "output_tokens_details": {
+          "reasoning_tokens": 187
+        },
+        "total_tokens": 1203
+      }
+    },
+    {
+      "prompt": "payoff-and-counter-check",
+      "case": "flip_necessary_counter",
+      "model": "gpt-6-luna",
+      "valid": true,
+      "tacticalPass": true,
+      "action": {
+        "kind": "play",
+        "lane": 0,
+        "cards": [
+          "c6",
+          "c7"
+        ]
+      },
+      "rationale": "Playing both rank-5 cards returns two cards to the pending player, preventing their immediate round win.",
+      "ms": 2678,
+      "usage": {
+        "input_tokens": 1217,
+        "input_tokens_details": {
+          "cache_write_tokens": 1214,
+          "cached_tokens": 0
+        },
+        "output_tokens": 179,
+        "output_tokens_details": {
+          "reasoning_tokens": 139
+        },
+        "total_tokens": 1396
+      }
+    },
+    {
+      "prompt": "payoff-and-counter-check",
+      "case": "flip_four_seat_counter",
+      "model": "gpt-6-luna",
+      "valid": true,
+      "tacticalPass": true,
+      "action": {
+        "kind": "play",
+        "lane": 0,
+        "cards": [
+          "c6",
+          "c7"
+        ]
+      },
+      "rationale": "Playing the pair returns two cards to pending player 0, preventing their last-chance win.",
+      "ms": 4022,
+      "usage": {
+        "input_tokens": 1289,
+        "input_tokens_details": {
+          "cache_write_tokens": 1286,
+          "cached_tokens": 0
+        },
+        "output_tokens": 286,
+        "output_tokens_details": {
+          "reasoning_tokens": 247
+        },
+        "total_tokens": 1575
+      }
+    },
+    {
+      "prompt": "payoff-and-counter-check",
+      "case": "backhand_high_prize",
+      "model": "gpt-6-luna",
+      "valid": true,
+      "tacticalPass": true,
+      "action": {
+        "kind": "bid",
+        "card": "b15"
+      },
+      "rationale": "The current prize plus carry is worth 6, so using the strongest bid gives the best chance to claim a substantial pot; the played cards will be exchanged rather than lost.",
+      "ms": 5082,
+      "usage": {
+        "input_tokens": 680,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 294,
+        "output_tokens_details": {
+          "reasoning_tokens": 239
+        },
+        "total_tokens": 974
+      }
+    },
+    {
+      "prompt": "payoff-and-counter-check",
+      "case": "closing_guaranteed_three_points",
+      "model": "gpt-6-luna",
+      "valid": true,
+      "tacticalPass": true,
+      "action": {
+        "kind": "tick",
+        "lot": "lot0"
+      },
+      "rationale": "Close lot0 now to secure its 3 points with a majority.",
+      "ms": 2691,
+      "usage": {
+        "input_tokens": 630,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 100,
+        "output_tokens_details": {
+          "reasoning_tokens": 66
+        },
+        "total_tokens": 730
+      }
+    },
+    {
+      "prompt": "payoff-and-counter-check",
+      "case": "heist_no_alarms_remain",
+      "model": "gpt-6-luna",
+      "valid": true,
+      "tacticalPass": false,
+      "action": {
+        "kind": "raid",
+        "choice": "safe"
+      },
+      "rationale": "Taking the outside loot avoids risking their larger vault against an unknown defense, while preserving a safe outcome for this round.",
+      "ms": 8920,
+      "usage": {
+        "input_tokens": 638,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 754,
+        "output_tokens_details": {
+          "reasoning_tokens": 711
+        },
+        "total_tokens": 1392
+      }
+    }
+  ]
+}

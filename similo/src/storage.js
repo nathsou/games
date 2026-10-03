@@ -1,9 +1,12 @@
+import {loadTheme,saveTheme} from '../../shared/theme.js';
+import {loadAI, saveAI} from '../../shared/ai/config.js';
 const PREFIX = 'similo-arcade-v1:';
 export function read(name, fallback) {
   try { const value = localStorage.getItem(PREFIX + name); return value === null ? fallback : JSON.parse(value); }
   catch { return fallback; }
 }
 export function write(name, value) {
+  if (name === 'settings') {saveAI(value);saveTheme(value.appearance);}
   try { localStorage.setItem(PREFIX + name, JSON.stringify(value)); return true; }
   catch { return false; }
 }
@@ -19,5 +22,5 @@ export function loadSettings() {
     appearance:['dark','light','system'].includes(saved.appearance)?saved.appearance:DEFAULT_SETTINGS.appearance,
     tableCardSize:['compact','comfortable','large'].includes(saved.tableCardSize)?saved.tableCardSize:DEFAULT_SETTINGS.tableCardSize,
     prices: {...saved.prices}, models: {...DEFAULT_SETTINGS.models, ...saved.models},
-    efforts: {...DEFAULT_SETTINGS.efforts, ...saved.efforts}, keys: {...saved.keys}};
+    efforts: {...DEFAULT_SETTINGS.efforts, ...saved.efforts}, keys: {...saved.keys}, ...loadAI(), appearance:loadTheme()};
 }

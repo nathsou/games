@@ -44,7 +44,7 @@ test('circular orbit stays roughly circular', () => {
 test('ball dropped on a planet eventually rests', () => {
   const w = createWorld(base({ hole: null }));
   const S = newState(w);
-  shoot(w, S, -Math.PI / 2 + 0.3, 0.35);
+  shoot(w, S, -Math.PI / 2 + 0.3, 0.22);
   flyToEnd(w, S);
   assert.equal(S.ball.mode, 'rest');
   assert.equal(S.shots, 1);
@@ -115,11 +115,22 @@ test('simulation is deterministic and orbiting bodies replay', () => {
 test('preview matches the real flight', () => {
   const w = createWorld(base({ hole: null }));
   const S0 = newState(w);
-  const sim = simulateShot(w, S0, -1.3, 0.7, { collect: true });
+  const sim = simulateShot(w, S0, -1.3, 0.25, { collect: true });
   const S = cloneState(S0);
-  shoot(w, S, -1.3, 0.7);
+  shoot(w, S, -1.3, 0.25);
   flyToEnd(w, S);
   assert.equal(S.ball.x, sim.S.ball.x);
   assert.equal(S.ball.y, sim.S.ball.y);
   assert.ok(sim.pts.length > 4);
+});
+
+test('a ball that leaves the level is neither lost nor recalled', () => {
+  const w = createWorld(base({ hole: null }));
+  const S = newState(w);
+  S.ball.mode = 'rest';
+  shoot(w, S, -Math.PI / 2, 1);
+  for (let i = 0; i < 180 * 40; i++) step(w, S);
+  assert.equal(S.ball.mode, 'fly', 'still flying after 40 s');
+  assert.equal(S.penalties, 0);
+  assert.ok(S.ball.y < -1500, 'far above the level');
 });

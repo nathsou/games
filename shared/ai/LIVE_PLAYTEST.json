@@ -1,0 +1,48 @@
+{
+  "model": "gpt-6-luna",
+  "effort": "low",
+  "calls": 65,
+  "results": [
+    {
+      "game": "heist",
+      "complete": true,
+      "calls": 10,
+      "scores": [
+        26,
+        38
+      ],
+      "steps": 24
+    },
+    {
+      "game": "backhand",
+      "complete": true,
+      "calls": 9,
+      "scores": [
+        6,
+        12
+      ],
+      "steps": 26
+    },
+    {
+      "game": "closing",
+      "complete": true,
+      "calls": 26,
+      "scores": [
+        3,
+        13
+      ],
+      "steps": 54
+    },
+    {
+      "game": "flip-it",
+      "complete": true,
+      "calls": 20,
+      "scores": [
+        2,
+        1
+      ],
+      "steps": 42
+    }
+  ],
+  "errors": []
+}

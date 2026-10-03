@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#050816">
+<title>Games · nathsou</title>
+<link rel="icon" href="flip-it/assets/favicon.svg" type="image/svg+xml">
+<meta name="description" content="A small collection of browser games.">
+
+<link rel="stylesheet" href="shared/theme.css">
+<style>
+  :root {
+    --bg: #050816; --text: #f4f7ff; --dim: #a9b8d9; --accent: #7fe9ff; --accent2: #a18cff;
+    --card: rgba(14, 22, 58, .55); --edge: rgba(155, 184, 255, .22);
+  }
+  :root[data-color-theme=light]{--bg:#f4edda;--text:#233d35;--dim:#536954;--accent:#32694e;--accent2:#805a1b;--card:#fff9eb;--edge:#9aa98d80}
+  header .appearance-control{margin-top:20px}
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background:
+      radial-gradient(1200px 700px at 15% -10%, rgba(80, 90, 255, .28), transparent 60%),
+      radial-gradient(900px 600px at 95% 10%, rgba(0, 190, 255, .16), transparent 60%),
+      radial-gradient(900px 700px at 50% 120%, rgba(190, 60, 200, .18), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font: 16px/1.5 "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .stars { position: fixed; inset: 0; pointer-events: none; opacity: .7;
+    background-image:
+      radial-gradient(1.2px 1.2px at 12% 22%, #fff, transparent), radial-gradient(1px 1px at 78% 12%, #cfe4ff, transparent),
+      radial-gradient(1.4px 1.4px at 35% 70%, #fff, transparent), radial-gradient(1px 1px at 90% 64%, #ffe6c9, transparent),
+      radial-gradient(1px 1px at 55% 35%, #fff, transparent), radial-gradient(1.2px 1.2px at 22% 88%, #cfe4ff, transparent),
+      radial-gradient(1px 1px at 66% 84%, #fff, transparent), radial-gradient(1px 1px at 5% 54%, #ffe6c9, transparent); }
+  main { position: relative; max-width: 1080px; margin: 0 auto; padding: 72px 24px 64px; }
+  header { margin-bottom: 44px; }
+  h1 { margin: 0; font-size: clamp(34px, 6vw, 56px); font-weight: 800; letter-spacing: .01em; line-height: 1.05; }
+  h1 span { font-weight: 300; background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  header p { margin: 14px 0 0; color: var(--dim); font-size: 18px; max-width: 46ch; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 24px; }
+  .card {
+    display: flex; flex-direction: column; text-decoration: none; color: inherit; overflow: hidden;
+    background: var(--card); border: 1px solid var(--edge); border-radius: 24px;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 18px 50px rgba(0, 0, 10, .45), inset 0 1px 0 rgba(255, 255, 255, .08);
+    transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+  }
+  .card:hover, .card:focus-visible { transform: translateY(-6px); border-color: rgba(160, 220, 255, .5); box-shadow: 0 26px 70px rgba(30, 90, 255, .28), inset 0 1px 0 rgba(255, 255, 255, .12); outline: none; }
+  .shot { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: #0a1030; }
+  .shot img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .6s ease; }
+  .card:hover .shot img { transform: scale(1.05); }
+  .shot::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, rgba(5, 8, 22, .75)); }
+  .body { padding: 20px 22px 22px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .body h2 { margin: 0; font-size: 24px; font-weight: 800; }
+  .body p { margin: 0; color: var(--dim); font-size: 15px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+  .tags span { font-size: 12px; letter-spacing: .04em; padding: 4px 10px; border-radius: 999px; color: var(--accent); background: rgba(127, 233, 255, .1); border: 1px solid rgba(127, 233, 255, .22); }
+  .play { margin-top: auto; padding-top: 6px; display: flex; align-items: center; justify-content: space-between; color: var(--text); font-weight: 700; }
+  .play i { font-style: normal; display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 999px; color: #04132f; background: linear-gradient(135deg, #7fe9ff, #5a9bff); box-shadow: 0 6px 20px rgba(76, 196, 255, .4); transition: transform .25s ease; }
+  .card:hover .play i { transform: translateX(4px); }
+  footer { margin-top: 56px; color: #6f7fa6; font-size: 14px; }
+  footer a { color: var(--dim); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="stars"></div>
+<main>
+  <header>
+    <h1>Games <span>playground</span></h1>
+    <p>Small browser games, written in vanilla JavaScript. No installs, no dependencies.</p>
+  </header>
+
+  <section class="grid" aria-label="Games">
+    <a class="card" href="flip-it/">
+      <div class="shot"><img src="flip-it/preview.png" alt="Flip it: bold double-value cards on a green felt table, with configurable two-player rules" loading="lazy"></div>
+      <div class="body">
+        <h2>Flip it</h2>
+        <p>Every card has another side. Build matching sets, send cards back flipped, and outwit your favourite rival. Mix quick turns, a compact deck and last-chance counters.</p>
+        <div class="tags"><span>2–5 players</span><span>AI opponents</span><span>Online &amp; local</span><span>Team play</span></div>
+        <div class="play"><span>Play now</span><i aria-hidden="true">&#8594;</i></div>
+      </div>
+    </a>
+    <a class="card" href="similo/"><div class="shot"><img src="similo/assets/greek.webp" alt="Similo illustrated clue cards" loading="lazy"></div><div class="body"><h2>Similo Arcade</h2><p>Give visual clues, follow the trail, and find the secret together. Play with a friend or an AI partner.</p><div class="tags"><span>Co-op</span><span>Eleven decks</span><span>AI partner</span></div><div class="play"><span>Play now</span><i aria-hidden="true">→</i></div></div></a>
+    <a class="card" href="spacegolf/">
+      <div class="shot"><img src="spacegolf/preview.jpg" alt="Spacegolf: a golf ball curving around planets, a sun and a black hole" loading="lazy"></div>
+      <div class="body">
+        <h2>Spacegolf</h2>
+        <p>Slingshot a golf ball around planets and let gravity bend its path. Sink it in the fewest strokes across 30 handmade holes, endless generated ones, or levels you build yourself.</p>
+        <div class="tags"><span>WebGL2</span><span>Physics</span><span>Puzzle</span><span>Touch &amp; mouse</span></div>
+        <div class="play"><span>Play now</span><i aria-hidden="true">&#8594;</i></div>
+      </div>
+    </a>
+    <a class="card" href="midnight/">
+      <div class="shot"><img src="midnight/preview.png" alt="Midnight Table: a green felt card table with original pixel art and three quick games" loading="lazy"></div>
+      <div class="body">
+        <h2>Midnight Table</h2>
+        <p>Three little rivalries: Backhand, Closing Time, and Pocket Heist. Play the dealer, pass a screen, or invite a friend for a private duel or a team game.</p>
+        <div class="tags"><span>Cards &amp; bluffing</span><span>2 players</span><span>WebRTC co-op</span><span>Touch &amp; mouse</span></div>
+        <div class="play"><span>Take a seat</span><i aria-hidden="true">&#8594;</i></div>
+      </div>
+    </a>
+    <a class="card" href="nonocube/">
+      <div class="shot"><img src="nonocube/preview.jpg" alt="Nonocube: solved voxel pieces (a bottle, a mug and cheese) on gallery plinths" loading="lazy"></div>
+      <div class="body">
+        <h2>Nonocube</h2>
+        <p>3D nonograms: chip away a block of numbered cubes to reveal the hidden shape. 65 puzzles in eight galleries, a daily puzzle, an interactive tutorial and a level editor with a built-in solver.</p>
+        <div class="tags"><span>WebGL2</span><span>Logic</span><span>Puzzle</span><span>Touch &amp; mouse</span></div>
+        <div class="play"><span>Play now</span><i aria-hidden="true">&#8594;</i></div>
+      </div>
+    </a>
+  </section>
+
+  <footer>Source on <a href="https://github.com/nathsou/games">GitHub</a>.</footer>
+</main>
+<script type="module">import {installThemeControls} from "./shared/theme.js";installThemeControls(document.querySelector("header"));</script>
+</body>
+</html>

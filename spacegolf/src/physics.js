@@ -18,10 +18,9 @@ export const CAPTURE_R = 15; // hole capture radius
 export const CAPTURE_V = 190; // max speed relative to the hole to be captured
 export const HOLE_PULL_R = 38; // little funnel that helps the ball fall in
 export const HOLE_PULL = 380;
-export const MAX_FLIGHT = 30; // seconds before the ball is recalled
+export const MAX_FLIGHT = 30; // default simulation horizon for previews / solvers (a live ball is never recalled)
 export const PORTAL_R = 18;
 export const STAR_R = 17;
-export const OOB_MARGIN = 40;
 export const SPEED_CAP = 1800;
 const REST_VN = 24; // bounces slower than this become sliding contact
 const REST_V = 16; // sliding slower than this comes to rest
@@ -95,8 +94,6 @@ export function createWorld(level) {
     hnx: 0,
     hny: -1,
     tb: NaN,
-    halfW: (level.bounds ? level.bounds.w : 1600) / 2,
-    halfH: (level.bounds ? level.bounds.h : 900) / 2,
   };
   for (let i = 0; i < n; i++) {
     const b = bs[i];
@@ -531,16 +528,6 @@ export function step(w, S, dt = DT) {
         }
       }
     }
-  }
-
-  // --- out of bounds / timeout ---------------------------------------------
-  if (Math.abs(b.x) > w.halfW + OOB_MARGIN || Math.abs(b.y) > w.halfH + OOB_MARGIN) {
-    lose(w, S, 'space', true);
-    return;
-  }
-  if (S.flightT > MAX_FLIGHT) {
-    if (S.ev) S.ev.push({ type: 'lost', reason: 'drift', x: b.x, y: b.y });
-    recall(w, S);
   }
 }
 

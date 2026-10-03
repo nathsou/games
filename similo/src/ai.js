@@ -1,43 +1,8 @@
 import {aiObservation, remaining, REMOVALS, DIMENSIONS, validRemovalReasons} from './game.js';
 import {beginUsage, finishUsage, markUsage} from './usage.js';
 
-export const PROVIDERS = {
-  openrouter: {name: 'OpenRouter', url: 'https://openrouter.ai/api/v1', keyUrl: 'https://openrouter.ai/settings/keys', efforts: ['default','none','minimal','low','medium','high','xhigh','max']},
-  openai: {name: 'OpenAI', url: 'https://api.openai.com/v1', keyUrl: 'https://platform.openai.com/api-keys', efforts: ['default','none','minimal','low','medium','high','xhigh','max']},
-  anthropic: {name: 'Anthropic', url: 'https://api.anthropic.com/v1', keyUrl: 'https://console.anthropic.com/settings/keys', efforts: ['default','none','low','medium','high','xhigh','max']},
-};
-export function headers(provider, key) {
-  return provider === 'anthropic' ? {'Content-Type':'application/json', 'x-api-key':key,
-    'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true'} :
-    {'Content-Type':'application/json', ...(key ? {Authorization: `Bearer ${key}`} : {}),
-      ...(provider === 'openrouter' ? {'X-OpenRouter-Title':'Similo Arcade'} : {})};
-}
-async function request(url, options, key) {
-  let response;
-  try { response = await fetch(url, options); }
-  catch (error) {
-    if (error.name === 'AbortError' || error.name === 'TimeoutError') throw error;
-    throw new Error('Could not reach the provider. Check your connection and browser access, then retry.');
-  }
-  let body;
-  try { body = await response.json(); } catch { throw new Error(`Provider returned an unreadable response (${response.status}).`); }
-  if (!response.ok) {
-    let message = body.error?.message || body.message || `Request failed (${response.status}).`;
-    if (key) message = String(message).replaceAll(key, '[key hidden]');
-    const error=new Error(String(message).slice(0,500));
-    if(body.usage)error.usageResponse={id:body.id,model:body.model,usage:body.usage};
-    throw error;
-  }
-  return body;
-}
-export async function listModels(provider, key, signal) {
-  const body = await request(PROVIDERS[provider].url + '/models', {headers: headers(provider, key), signal}, key);
-  return (body.data || []).filter(m => provider !== 'openrouter' || m.architecture?.input_modalities?.includes('image'))
-    .map(m => ({id: m.id, name: m.name || m.display_name || m.id,
-      reasoning: provider === 'openrouter' ? (m.supported_parameters || []).some(p => p === 'reasoning' || p === 'reasoning.effort') : null,
-      pricing:provider==='openrouter' && m.pricing ? m.pricing : null}))
-    .sort((a, b) => a.id.localeCompare(b.id));
-}
+import {PROVIDERS, headers, request, buildProviderRequest, responseText} from '../../shared/ai/client.js';
+export {PROVIDERS, headers, listModels} from '../../shared/ai/client.js';
 export function parseMove(text) {
   const invalid = message => Object.assign(new Error(message), {code:'INVALID_MOVE'});
   if (typeof text !== 'string' || text.length > 50000) throw invalid('The model did not return a usable move.');
@@ -100,24 +65,9 @@ GIVER ELIMINATION CONTRAST: For each predicted removal, identify a concrete publ
 SIGN CHOICE: Similar and Different are equally legal. Do not default to Different because the task involves eliminating cards, or assume that repeated negative clues are desirable. A positive shared feature can guide safe eliminations just as well. A Different clue must communicate a concrete, recognizable opposing feature that the target fits, not just absence of an arbitrary similarity. Check for dangerous shared traits that could make its direction ambiguous. Choose the best signal; do not force a sign quota or alternate signs mechanically. When two moves are equally clear and safe, prefer a direct Similar connection, which requires less guessing about the intended contrast. With fixed five, reserve a useful final discriminator without sacrificing the current round or contradicting earlier clues.
 GUESSER DECISION: Compare every remaining card against the whole clue trail through the same six dimensions. Consider several plausible meanings of the latest clue and check each against geography, dates/era, role, stories, traits and appearance. Ask which interpretation best explains the giver's choice and separates this board without conflicting with earlier clues. Similar means at least one relevant shared feature, not agreement in everything. Different means one contextual contrast, not a prohibition on every shared feature. Keep the candidates that best fit the combined evidence and remove the least plausible exactly as required. In the final round, directly contrast the two survivors against the latest clue in every applicable dimension, using the enlarged portraits and public biographies equally. Do not automatically resolve a tie by looks. Never claim to know the hidden secret. Decide which candidates STAY first, then list the discarded complement. Different describes the target's contrast WITH THE CLUE, not an instruction to discard the card that is different. If a candidate's era or role makes it the better fit for a Different clue, KEEP that candidate. In the final round name the one card to keep and the one to remove explicitly in your short explanation, and check that those names agree with the IDs. A sentence explaining why a candidate is the better fit must never be used to justify removing it.
 OUTPUT: Return ONLY one JSON object with exactly {"card":string|null,"relation":"similar"|"different"|null,"keepCards":string[],"removeCards":string[],"dimensions":string[],"removalReasons":[{"card":string,"rationale":string}],"rationale":string}. Use the exact IDs in the observation. keepCards means cards that remain on the table; removeCards means cards discarded. The two lists must be disjoint and together contain EVERY surviving board ID exactly once; removeCards must have exactly requiredEliminations IDs. Giver: card is one hand ID, relation is its direction; removeCards records the specific alternatives you EXPECT the human to remove from this clue, and keepCards must include the secret. These are predictions, not actions imposed on the human. Guesser: card=null, relation=null; keepCards and removeCards are your actual decision. dimensions names only the dimensions supporting this move, from ["role","dates","geography","stories","traits","appearance"]. removalReasons contains exactly one entry for each removeCards ID: a brief factual, player-facing explanation (one sentence, at most 240 characters) of why you expect to remove that card (giver) or chose to remove it rather than the kept alternatives (guesser). For givers, compare it with the target; merely naming a genre or era shared equally by both is insufficient. These are concise explanations of the selected move, not exploratory deliberation. Record a short player-facing rationale (1–3 sentences, at most 800 characters) naming the association, why it separates the candidates, and which named cards you expect to remove (giver) or choose to keep/remove (guesser). Ensure the explanation agrees with both lists. This is a brief end-of-game explanation, not a transcript of internal deliberation. Do not mention a hidden target when guessing. ${correction}`;
-  const text = 'Your observation:\n' + JSON.stringify(observation);
-  const budget = Math.max(2048, Math.min(32768, Number(settings.tokenBudget) || 8192));
-  const base64 = image.split(',')[1];
-  if (provider === 'openai') return {url: PROVIDERS[provider].url + '/responses', body: {
-    model, max_output_tokens: budget, store: false, ...(effort !== 'default' ? {reasoning:{effort}} : {}),
-    instructions: rules, input:[{role:'user',content:[{type:'input_text',text},{type:'input_image',image_url:image,detail:'high'}]}],
-    text:{format:{type:'json_schema',name:'similo_move',strict:true,schema}},
-  }};
-  if (provider === 'anthropic') return {url: PROVIDERS[provider].url + '/messages', body: {
-    model, max_tokens: budget, system: rules,
-    ...(effort === 'none' ? {thinking:{type:'disabled'}} : effort !== 'default' ? {output_config:{effort}} : {}),
-    messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/png',data:base64}},{type:'text',text}]}],
-  }};
-  return {url: PROVIDERS[provider].url + '/chat/completions', body:{model,max_tokens:budget,
-    ...(effort !== 'default' ? {reasoning:{effort,exclude:true}} : {}),
-    messages:[{role:'system',content:rules},{role:'user',content:[{type:'text',text},{type:'image_url',image_url:{url:image}}]}],
-  }};
+  return buildProviderRequest(settings, rules, 'Your observation:\n' + JSON.stringify(observation), schema, 'similo_move', image);
 }
+
 export async function chooseMove(settings, game, role, image, signal, correction = '') {
   const provider = settings.provider;
   const key = settings.keys[provider];
@@ -127,11 +77,7 @@ export async function chooseMove(settings, game, role, image, signal, correction
   try {data=await request(url, {method:'POST', headers:headers(provider,key), body:JSON.stringify(body), signal}, key);}
   catch(error){if(error.usageResponse)finishUsage(usageId,error.usageResponse);markUsage(usageId,signal?.aborted?'cancelled':'failed');throw error;}
   finishUsage(usageId,data);
-  let text;
-  if (provider === 'openai') text = (data.output || []).filter(o => o.type === 'message').flatMap(m => m.content || [])
-    .filter(c => c.type === 'output_text').map(c => c.text).join('');
-  else if (provider === 'anthropic') text = (data.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
-  else text = data.choices?.[0]?.message?.content;
+  const text = responseText(provider, data);
   let move;
   try {move=validateDecision(parseMove(text),game,role);}catch(error){markUsage(usageId,'invalid');throw error;}
   markUsage(usageId,'completed');
