@@ -56,8 +56,8 @@ function hatch() {
   if (hatchTile) return hatchTile;
   const c = document.createElement('canvas'); c.width = S; c.height = S;
   const g = c.getContext('2d');
-  g.fillStyle = 'rgba(255,40,70,0.20)'; g.fillRect(0, 0, S, S);
-  g.fillStyle = 'rgba(255,40,70,0.55)';
+  g.fillStyle = 'rgba(255,40,70,0.14)'; g.fillRect(0, 0, S, S);
+  g.fillStyle = 'rgba(255,30,60,0.6)';
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if ((x + y) % 5 === 0) g.fillRect(x, y, 1, 1);
   hatchTile = c;
   return c;
@@ -223,6 +223,7 @@ export class BoardView {
     if (this.selected >= 0 && sq !== this.selected) {
       const m = this.targets(this.selected).filter(m => mTo(m) === sq);
       if (m.length) { this.choose(m); return; }
+      if (!this.canMove(sq)) this.onIllegal?.(this.selected, sq);
     }
     if (this.canMove(sq)) {
       this.select(sq);

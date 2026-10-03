@@ -127,3 +127,33 @@ export function quizAnswer(q, pos = quizPosition(q)) {
 }
 
 export { sqParse, sqName, KING, PAWN };
+
+// Why a move from `from` to `to` isn't allowed, in beginner words.
+export function illegalReason(pos, from, to) {
+  const p = pos.b[from];
+  if (!p) return null;
+  const t = typeOf(p), c = colorOf(p);
+  const target = pos.b[to];
+  if (target && colorOf(target) === c) return null; // just selecting another piece
+  const df = (to & 7) - (from & 7), dr = (to >> 4) - (from >> 4);
+  const saved = pos.turn; pos.turn = c;
+  const pseudo = pos.gen([]).some(m => mFrom(m) === from && mTo(m) === to);
+  pos.turn = saved;
+  if (pseudo) {
+    if (pos.usesChecks() && pos.inCheck(c)) return 'You\'re in **check**! Your move must get the king out of danger.';
+    if (t === KING) return 'The king can never step onto a square an enemy piece attacks.';
+    return 'That would leave your king in **check**: the piece is pinned to its king!';
+  }
+  const geo = { 1: false, 2: (Math.abs(df) === 1 && Math.abs(dr) === 2) || (Math.abs(df) === 2 && Math.abs(dr) === 1),
+    3: Math.abs(df) === Math.abs(dr) && df !== 0, 4: (df === 0) !== (dr === 0), 5: (Math.abs(df) === Math.abs(dr) && df !== 0) || ((df === 0) !== (dr === 0)), 6: Math.max(Math.abs(df), Math.abs(dr)) === 1 }[t];
+  if (t === KING && Math.abs(df) === 2 && dr === 0) return 'You can\'t castle right now: the king or rook has moved, something is in the way, or the king would cross an attacked square.';
+  if (geo) return 'Something is in the way. Only knights can jump over pieces!';
+  return {
+    1: 'Pawns move straight forward (two squares on their first move) and capture one square diagonally forward.',
+    2: 'Knights move in an L-shape: two squares one way, then one square to the side.',
+    3: 'Bishops move diagonally only.',
+    4: 'Rooks move in straight lines: up, down, left or right.',
+    5: 'The queen moves in straight lines or diagonals.',
+    6: 'The king moves just one square at a time.',
+  }[t];
+}

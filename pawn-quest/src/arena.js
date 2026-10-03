@@ -2,6 +2,7 @@
 import { WHITE, BLACK, START_FEN, Position, mFrom, mTo, sqParse } from './chess.js';
 import { Game, BOTS, BOT_LINES } from './game.js';
 import { playLayout } from './level.js';
+import { illegalReason } from './levelkit.js';
 import { BoardView } from './board.js';
 import { save, persist } from './save.js';
 import { h, button, modal, toast, richEl, portrait, Speech, linkSquares, banner, confetti, CHAR_NAMES, materialStrip } from './ui.js';
@@ -157,6 +158,7 @@ function startGame(app, nav, botId, color, moves) {
       paintMoves(); persistGame();
       if (!friend && d.by === 'bot' && d.capture && lines.capture?.length && Math.random() < 0.5) speech.show(pick(lines.capture), bot.char);
       else if (!friend && d.by === 'user' && d.capture && lines.captured?.length && Math.random() < 0.5) speech.show(pick(lines.captured), bot.char);
+      else if (d.by === 'bot' || friend) speech.show(friend ? `${game.pos.turn === WHITE ? 'White' : 'Black'} to move.` : pick(['Your move. Checks, captures, threats?', 'Your move. What did that move attack?', 'Your move.']));
     }
     if (type === 'review') {
       const { review } = d;
@@ -174,7 +176,8 @@ function startGame(app, nav, botId, color, moves) {
       if (t.move) board.arrows = [{ from: t.move & 127, to: (t.move >> 7) & 127, color: 'bad' }];
     }
     if (type === 'takeback') paintMoves();
-    if (type === 'end') finish(d);
+    if (type === 'illegal') { const r = illegalReason(game.pos, d.from, d.to); if (r) speech.show(r, 'pip', 'bad'); }
+    if (type === 'end') { opp?.classList.remove('thinking'); if (opp) opp.querySelector('.opp-status').textContent = 'Game over'; finish(d); }
   }
 
   async function finish(end) {

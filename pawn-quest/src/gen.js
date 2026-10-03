@@ -63,16 +63,22 @@ function genMate1(r, kind) {
   return null;
 }
 
+// A believable handful of pieces: at most one queen and two of each minor piece or rook.
+function army(r, n) {
+  const pool = [PAWN, PAWN, PAWN, KNIGHT, KNIGHT, BISHOP, BISHOP, ROOK, ROOK, QUEEN];
+  const out = [];
+  while (out.length < n && pool.length) out.push(pool.splice(ri(r, pool.length), 1)[0]);
+  return out;
+}
+
 // One enemy piece can be captured for free.
 function genFreePiece(r) {
   for (let tries = 0; tries < 6000; tries++) {
     const p = emptyPos();
     place(p, ri(r, 2) * 16 + 2 + ri(r, 4), piece(WHITE, KING));
     place(p, (6 + ri(r, 2)) * 16 + 2 + ri(r, 4), piece(BLACK, KING));
-    const types = [PAWN, PAWN, KNIGHT, BISHOP, ROOK, QUEEN];
     const nW = 3 + ri(r, 3), nB = 3 + ri(r, 3);
-    for (let i = 0; i < nW; i++) place(p, randSq(r), piece(WHITE, types[ri(r, types.length)]));
-    for (let i = 0; i < nB; i++) place(p, randSq(r), piece(BLACK, types[ri(r, types.length)]));
+    for (const [c, n] of [[WHITE, nW], [BLACK, nB]]) for (const t of army(r, n)) place(p, randSq(r), piece(c, t));
     if (!finalize(p)) continue;
     if (p.inCheck(WHITE)) continue;
     if (mateInOne(p)) continue;
@@ -91,7 +97,8 @@ function genFreePiece(r) {
     // Make sure there isn't something even better (like a mate) that the engine prefers.
     const best = search(p, { depth: 3, timeMs: 300 });
     if (!good.includes(best.move)) continue;
-    return { fen: p.toFEN(), accept: 'engine', solution: [uci(good[0])], alts: good.slice(1).map(uci), prompt: 'One enemy piece is unprotected. Win it!', tag: 'hanging', target: sqName(target.sq) };
+    const free = !target.defenders.length;
+    return { fen: p.toFEN(), accept: 'engine', solution: [uci(good[0])], alts: good.slice(1).map(uci), prompt: free ? 'One enemy piece is unprotected. Win it!' : 'You can win material: one enemy piece is attacked by something cheaper. Grab it!', tag: 'hanging', target: sqName(target.sq) };
   }
   return null;
 }
@@ -182,7 +189,7 @@ export const DRILLS = {
   'mate1-queen': { title: 'Queen Mates', blurb: 'Checkmate in one with the queen.' },
   'mate1-rook': { title: 'Rook Mates', blurb: 'Checkmate in one with a rook.' },
   'mate1': { title: 'Mate in One', blurb: 'Any pieces. Find the checkmate!' },
-  'free-piece': { title: 'Free Lunch', blurb: 'Spot the unprotected enemy piece and take it.' },
+  'free-piece': { title: 'Piece Snatcher', blurb: 'Spot the enemy piece you can win, and take it.' },
   'save-piece': { title: 'Rescue', blurb: 'One of your pieces is attacked. Save it.' },
   'fork': { title: 'Fork Finder', blurb: 'Fork the king and a big piece with your knight.' },
 };

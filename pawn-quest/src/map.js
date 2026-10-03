@@ -170,7 +170,7 @@ export function mapScreen(app, nav, focusWorld, celebrate) {
       }, h('span', { class: 'node-badge' }, unlocked ? nodeIcon(l) : h('span', { class: 'node-glyph' }, '🔒')), h('span', { class: 'node-label' }, l.title), res ? starsRow(res.stars, 3, 1) : null);
       sec.append(node);
       if (l === cur) {
-        const at = (k, lv) => ({ left: pts[k].x * 100 + '%', top: (pts[k].y - (lv.boss ? 44 : 34)) + 'px' });
+        const at = (k, lv) => ({ left: pts[k].x * 100 + '%', top: (pts[k].y - (lv.boss ? 48 : 38)) + 'px' });
         const justCleared = save.justCleared && world.levels[i - 1]?.uid === save.justCleared;
         const av = h('div', { class: 'avatar', style: justCleared ? at(i - 1, world.levels[i - 1]) : at(i, l) }, spriteCanvas(pieceSprite(1, WHITE), 4));
         sec.append(av);

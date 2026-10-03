@@ -247,6 +247,7 @@ export function materialStrip(start, pos, me) {
       for (let i = 0; i < lost; i++) el.append(pieceIcon(t, victimColor, 1));
       pts += lost * vals[t];
     }
+    if (el.children.length === 1) el.append(h('span', { class: 'mat-none' }, 'nothing yet'));
     return { el, pts };
   };
   const mine = row(me ^ 1, 'You took'), theirs = row(me, 'They took');

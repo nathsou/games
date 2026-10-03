@@ -5,9 +5,10 @@ import { h, Speech, button, starsRow, modal, toast, banner, confetti, richEl, li
 import { pixelText } from './font.js';
 import { sfx, playMusic } from './audio.js';
 import { save, recordLevel, unlockCodex } from './save.js';
-import { makePosition, collectSetup, collectMoves, collectSolve, capturedPiece, quizPosition, quizAnswer, FREE_RULES } from './levelkit.js';
+import { makePosition, collectSetup, collectMoves, collectSolve, capturedPiece, quizPosition, quizAnswer, FREE_RULES, illegalReason } from './levelkit.js';
 import { attackMap, hangingPieces } from './coach.js';
 import { Game, BOT_LINES } from './game.js';
+import { turnAdvice, captureNote } from './battlecoach.js';
 import { ask } from './ai.js';
 import { nextLevel } from './curriculum.js';
 import { CODEX } from './codex-data.js';
@@ -103,6 +104,7 @@ async function intro(ctx) {
   }
   ctx.skipIntro = false;
   board.selected = -1;
+  ctx.setControls([]);
 }
 
 // Show the level's opening position while Pip talks.
@@ -209,7 +211,7 @@ async function playCollect(ctx, L) {
   refreshDanger();
   board.interactive = 'move'; board.movable = WHITE; board.showLegal = true;
   board.legalFor = sq => collectMoves(pos, types, sq);
-  board.onIllegal = () => sfx.illegal();
+  board.onIllegal = (f, t) => { sfx.illegal(); const r = illegalReason(pos, f, t); if (r) speech.show(r, 'pip', 'bad'); };
   const goalText = () => {
     const parts = [];
     if (stars.length) parts.push(`${stars.length - starsLeft.size}/${stars.length} ★`);
@@ -255,7 +257,8 @@ async function playCollect(ctx, L) {
       await wait(350);
       const s = moves <= par ? 3 : moves <= par + 2 ? 2 : 1;
       const st = Math.max(1, s - hintUsed);
-      return { success: true, stars: st, note: moves <= par ? `Perfect! ${moves} moves, exactly par.` : `${moves} moves. Par is ${par}: can you do it in fewer?` };
+      const hintNote = hintUsed ? ` (Hints used: −${Math.min(hintUsed, s - 1)}★)` : '';
+      return { success: true, stars: st, note: (moves <= par ? `Perfect! ${moves} moves, exactly par.` : `${moves} moves. Par is ${par}: can you do it in fewer?`) + hintNote };
     }
     if (!L.passive) {
       const c = capturedPiece(pos);
@@ -297,20 +300,17 @@ async function playQuiz(ctx, L) {
     if (ans.options) {
       ctx.setGoal('Choose an answer.', '');
       board.interactive = false;
-      let done = false;
-      while (!done && ctx.alive) {
-        const v = await new Promise(res => {
-          ctx.choiceWaiter = res;
-          choices.replaceChildren(...ans.options.map((o, i) => h('button', { class: 'btn choice', onclick: e => { e.currentTarget.blur(); res(i); } }, o)));
-        });
-        if (v == null || !ctx.alive) return null;
-        const btns = [...choices.children];
-        if (v === ans.choice) {
-          btns[v].classList.add('right'); sfx.correct(); done = true;
-        } else {
-          btns[v].classList.add('wrong'); btns[v].disabled = true; sfx.wrong(); ctx.mistakes++;
-          speech.show('Not quite. Look again!', 'pip', 'bad');
-        }
+      const v = await new Promise(res => {
+        ctx.choiceWaiter = res;
+        choices.replaceChildren(...ans.options.map((o, i) => h('button', { class: 'btn choice', onclick: e => { e.currentTarget.blur(); res(i); } }, o)));
+      });
+      if (v == null || !ctx.alive) return null;
+      const btns = [...choices.children];
+      btns[ans.choice].classList.add('right');
+      if (v === ans.choice) sfx.correct();
+      else {
+        btns[v].classList.add('wrong'); sfx.wrong(); ctx.mistakes++;
+        await speech.say({ text: `Not quite: the answer is **${ans.options[ans.choice]}**.${q.explain ? '' : ' Take a good look at the board.'}` });
       }
       for (const b of choices.children) b.disabled = true;
     } else {
@@ -332,6 +332,7 @@ async function playQuiz(ctx, L) {
           found.add(sq); board.marks.set(sq, 'check'); sfx.correct(); board.burst(sq, ['#5ef2c4', '#ffffff'], 10);
         } else if (!found.has(sq)) {
           ctx.mistakes++; sfx.wrong(); board.marks.set(sq, 'x'); board.shake(1, 150);
+          speech.show(`${tapReason(q, pos, sq)} ${q.prompt}`, 'pip', 'bad');
           setTimeout(() => { if (board.marks.get(sq) === 'x') board.marks.delete(sq); }, 700);
         }
         ctx.setProgress(`${found.size}/${want.size} found`);
@@ -345,6 +346,29 @@ async function playQuiz(ctx, L) {
   }
   const m = ctx.mistakes + ctx.hints;
   return { success: true, stars: m === 0 ? 3 : m <= 2 ? 2 : 1, note: m === 0 ? 'Flawless!' : `${m} slip${m > 1 ? 's' : ''} along the way.` };
+}
+
+// Why a tapped square is wrong, in one sentence.
+function tapReason(q, pos, sq) {
+  const a = q.answer, p = pos.b[sq], name = sqName(sq);
+  const NAMES = ['', 'pawn', 'knight', 'bishop', 'rook', 'queen', 'king'];
+  if (a.type === 'squares') return `That's [${name}]. File letter first (the column), then rank number (the row).`;
+  if (a.type === 'moves') {
+    const from = sqParse(a.from), t = typeOf(pos.b[from]);
+    if (p && colorOf(p) === colorOf(pos.b[from])) return `Pieces can't land on a friend, like the one on [${name}].`;
+    return `The ${NAMES[t]} on [${a.from}] can't reach [${name}].`;
+  }
+  if (a.type === 'checkers') {
+    if (!p) return `[${name}] is empty.`;
+    if (colorOf(p) === pos.turn) return 'That\'s one of your own pieces!';
+    return `The ${NAMES[typeOf(p)]} on [${name}] isn't attacking your king${[3, 4, 5].includes(typeOf(p)) ? ': something blocks its path, or it\'s not on the king\'s line' : ''}.`;
+  }
+  if (a.type === 'hanging') {
+    if (!p || colorOf(p) !== (a.color === 'b' ? BLACK : WHITE)) return 'Tap your own pieces.';
+    const them = colorOf(p) ^ 1;
+    return pos.attackers(sq, them).length ? `The ${NAMES[typeOf(p)]} on [${name}] is attacked, but it's protected well enough: any capture there is a fair trade.` : `Nothing attacks the ${NAMES[typeOf(p)]} on [${name}].`;
+  }
+  return 'Not that one.';
 }
 
 // ---------------------------------------------------------------- puzzles
@@ -380,7 +404,7 @@ export async function solvePuzzle(ctx, p, { index = 0, total = 1, mistakesBefore
   ctx.counter.textContent = total > 1 ? `${index + 1} / ${total}` : '';
   board.interactive = 'move'; board.movable = pos.turn; board.showLegal = true;
   board.legalFor = sq => pos.legalMoves().filter(m => mFrom(m) === sq);
-  board.onIllegal = () => sfx.illegal();
+  board.onIllegal = (f, t) => { sfx.illegal(); const r = illegalReason(pos, f, t); if (r) speech.show(r, 'pip', 'bad'); };
   const hintBtn = button('💡 Hint', async () => {
     let best = null;
     if (p.accept === 'engine') { const r = await roots; best = r?.[0]?.uci; }
@@ -504,7 +528,7 @@ async function playBattle(ctx, L) {
   const start = makePosition(L, rules);
   const userColor = L.side === 'b' ? BLACK : WHITE;
   let castled = false, lostQueen = false;
-  const customEnd = L.custom === 'develop' ? developEnd(userColor) : null;
+  const customEnd = L.custom === 'develop' ? developEnd(userColor) : L.custom === 'surrender' ? surrenderEnd(userColor) : null;
   const game = new Game({
     board, fen: start.toFEN(), rules, user: userColor, bot: L.bot, maxMoves: L.maxMoves, onLimit: L.onLimit,
     threats: L.threats, warnings: L.warnings, advice: false, botDelay: L.botDelay, customEnd,
@@ -513,7 +537,8 @@ async function playBattle(ctx, L) {
   ctx.game = game;
   board.clearAnnotations();
   board.showLegal = true;
-  const portraitBox = h('div', { class: 'opponent' }, portrait(char, 3), h('div', {}, h('b', {}, CHAR_NAMES[char] || ''), h('div', { class: 'opp-status' }, 'Ready')));
+  const tauntEl = h('div', { class: 'taunt', hidden: true });
+  const portraitBox = h('div', { class: 'opponent' }, portrait(char, 3), h('div', { class: 'opp-info' }, h('b', {}, CHAR_NAMES[char] || ''), h('div', { class: 'opp-status' }, 'Ready'), tauntEl));
   ctx.ui.side.insertBefore(portraitBox, ctx.ui.side.firstChild);
   const status = portraitBox.querySelector('.opp-status');
   ctx.setGoal(L.goal, L.maxMoves ? `Moves: 0 / ${L.maxMoves}` : '');
@@ -528,7 +553,7 @@ async function playBattle(ctx, L) {
     else if (hintStage === 2) { board.flash(lastHint.from, 'hint', 3000); speech.show(`${lastHint.nudge} Look at your piece on [${sqName(lastHint.from)}].`); }
     else { board.arrows = [{ from: lastHint.from, to: lastHint.to, color: 'hint' }]; speech.show(`**${lastHint.san}**. ${lastHint.why}`); }
   }, 'small');
-  const undoBtn = button('↶ Undo', () => { if (game.takeback()) { board.arrows = []; lastHint = null; speech.show('Move taken back. (Undos cost a star.)'); } }, 'small ghost');
+  const undoBtn = button('↶ Undo', () => { if (game.takeback()) { board.arrows = []; lastHint = null; } }, 'small ghost');
   const resignBtn = button('⚑ Restart', () => { ctx.restartBattle?.(); }, 'small ghost');
   ctx.setControls([hintBtn, undoBtn, resignBtn]);
   const matBox = h('div');
@@ -539,33 +564,43 @@ async function playBattle(ctx, L) {
 
   function say(text, who = 'pip', tone = '') { if (ctx.alive) speech.show(text, who, tone); }
 
+  let pendingNote = null, turnNo = 0;
+  const taunt = text => { tauntEl.textContent = '“' + text + '”'; tauntEl.hidden = false; clearTimeout(taunt.t); taunt.t = setTimeout(() => { tauntEl.hidden = true; }, 3500); };
   function onEvent(type, d) {
     if (!ctx.alive) return;
-    if (type === 'thinking') { status.textContent = d.who === 'coach' ? 'Pip is watching...' : 'Thinking...'; portraitBox.classList.add('thinking'); }
+    if (type === 'thinking') { status.textContent = d.who === 'coach' ? 'Pip is checking your move' : 'Thinking'; portraitBox.classList.add('thinking'); }
     if (type === 'move') {
       portraitBox.classList.remove('thinking'); status.textContent = 'Your move';
-      lastHint = null; hintStage = 0; board.arrows = [];
+      lastHint = null; hintStage = 0; board.arrows = []; board.opportunities = [];
       const e = d.entry;
       if (d.by === 'user' && /^O-O/.test(e.san)) castled = true;
       if (d.by === 'bot' && d.capture === QUEEN) lostQueen = true;
-      if (d.by === 'bot' && d.capture && lines.capture?.length && Math.random() < 0.6) say(pick(lines.capture), char);
-      else if (d.by === 'user' && d.capture && lines.captured?.length && Math.random() < 0.6) say(pick(lines.captured), char);
+      if (d.by === 'bot' && d.capture && lines.capture?.length && Math.random() < 0.7) taunt(pick(lines.capture));
+      else if (d.by === 'user' && d.capture && lines.captured?.length && Math.random() < 0.7) taunt(pick(lines.captured));
+      if (d.by === 'bot' && d.capture) pendingNote = captureNote(game.pos, e, userColor, CHAR_NAMES[char] || 'Your opponent');
+      if (d.by === 'user') say(pick(['Nice. Now watch the reply...', 'Let\'s see what happens...', 'Hmm, interesting...']));
       if (L.maxMoves) ctx.setProgress(`Moves: ${game.history.filter(x => x.by === 'user').length} / ${L.maxMoves}`);
       paintMat();
     }
     if (type === 'your-turn') {
       status.textContent = 'Your move';
       portraitBox.classList.remove('thinking');
-      const me = userColor;
-      if (rules.variant === 'king-capture' && game.pos.king[me] >= 0 && game.pos.isAttacked(game.pos.king[me], me ^ 1)) say('⚠ Your **king** is under attack! Move it, block, or capture the attacker!', 'pip', 'bad');
-      else if (L.threats && board.hanging.length) say(`Careful: your piece on [${sqName(board.hanging[0])}] is in danger!`, 'pip', 'bad');
+      const adv = turnAdvice(game.pos, userColor, { variant: rules.variant, coaching: !!L.threats, name: CHAR_NAMES[char], turn: turnNo++ });
+      board.opportunities = L.threats ? (adv.opportunities || []) : [];
+      // A capture explanation matters more than a routine reminder.
+      if (pendingNote && (!adv.tone || adv.tone === '')) say(pendingNote.text, 'pip', pendingNote.tone);
+      else if (pendingNote && adv.tone === 'good') say(pendingNote.text + ' ' + adv.text, 'pip', 'good');
+      else say(adv.text, 'pip', adv.tone || '');
+      pendingNote = null;
     }
+    if (type === 'illegal') { const r = illegalReason(game.pos, d.from, d.to); if (r) say(r, 'pip', 'bad'); }
     if (type === 'warning-undo' || type === 'takeback') paintMat();
     if (type === 'warning-undo') say('Good call. Look for a safer move.');
-    if (type === 'end') ctx.finishBattle?.(d);
+    if (type === 'takeback') say('Move taken back. (Undos cost a star.)');
+    if (type === 'end') { status.textContent = 'Game over'; portraitBox.classList.remove('thinking'); ctx.finishBattle?.(d); }
   }
 
-  if (lines.start) say(lines.start, char);
+  if (lines.start) { taunt(lines.start); say(L.goal); }
   game.start();
   const end = await finished;
   game.destroy();
@@ -577,6 +612,7 @@ async function playBattle(ctx, L) {
     if (end.reason === 'checkmate') banner('CHECKMATE!', { ms: 1200 });
     if (lines.lose) say(lines.lose, char);
     await wait(1300);
+    const winNote = { surrender: 'Only one lonely piece was left, so your opponent gave up!', 'move-limit': 'Out of moves, but you were ahead on points!', checkmate: 'Checkmate!', 'king-captured': 'You captured the king!', 'all-captured': 'You captured every piece!', promoted: 'Your pawn reached the last rank!', developed: 'Pieces out, king castled. A model opening!' }[end.reason];
     const criteria = [{ label: 'Win', ok: true }, { label: 'No hints or undos', ok: game.hints === 0 && game.takebacks === 0 }];
     const ex = L.extra;
     if (ex) {
@@ -589,13 +625,13 @@ async function playBattle(ctx, L) {
       if (ex.type === 'noHints') ok = game.hints === 0 && game.takebacks === 0;
       criteria.push({ label: ex.label, ok });
     }
-    return { success: true, stars: criteria.filter(c => c.ok).length, criteria };
+    return { success: true, stars: criteria.filter(c => c.ok).length, criteria, note: winNote };
   }
   if (lines.win && end.winner === (userColor ^ 1)) say(lines.win, char);
   await wait(1200);
   const reasonText = {
     checkmate: 'You were checkmated.', stalemate: 'Stalemate! The enemy king had no legal move but wasn\'t in check, so it\'s a draw.',
-    'move-limit': 'Out of moves!', repetition: 'Draw by repetition.', 'fifty-moves': 'Draw by the 50-move rule.', insufficient: 'Draw: not enough pieces left to checkmate.',
+    'move-limit': L.onLimit === 'material' ? 'Out of moves, and you weren\'t ahead on points.' : `You ran out of moves (${L.maxMoves}).`, surrender: 'You had only one piece left against a big army.', repetition: 'Draw by repetition.', 'fifty-moves': 'Draw by the 50-move rule.', insufficient: 'Draw: not enough pieces left to checkmate.',
     'king-captured': 'Your king was captured!', 'all-captured': 'All your pieces were captured.', promoted: 'An enemy pawn reached the end first.', 'no-moves': 'You ran out of moves.',
     develop: end.text,
   };
@@ -610,6 +646,18 @@ async function playBattle(ctx, L) {
     iron: 'Play solid: develop, castle, and check for threats every move. Hints and undos are allowed!',
   };
   return { success: false, title: end.winner === -1 ? 'DRAW!' : 'DEFEAT', text: reasonText[end.reason] || 'The game is over.', tip: tips[char] || 'Use the hint button when you\'re stuck. Every loss teaches something!' };
+}
+
+// Capture-all battles: stop the endless chase once one side is hopelessly behind.
+function surrenderEnd(userColor) {
+  return game => {
+    const pos = game.pos, vals = [0, 1, 3, 3, 5, 9, 0];
+    const mat = c => pos.pieces(c).reduce((s, sq) => s + vals[typeOf(pos.b[sq])], 0);
+    const mine = mat(userColor), theirs = mat(userColor ^ 1);
+    if (pos.pieces(userColor ^ 1).length <= 1 && mine >= theirs + 5) return { winner: userColor, reason: 'surrender' };
+    if (pos.pieces(userColor).length <= 1 && theirs >= mine + 5) return { winner: userColor ^ 1, reason: 'surrender' };
+    return null;
+  };
 }
 
 function developEnd(userColor) {

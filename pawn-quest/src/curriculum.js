@@ -89,7 +89,7 @@ const W1 = {
       id: 'gus', kind: 'battle', title: 'Boss: Grabby Gus', icon: 'boss', boss: true, character: 'gus', codex: ['char-gus', 'protect'],
       rules: { variant: 'capture-all', checks: false, castling: false, enPassant: false },
       setup: 'Ra1 Bc1 Qd1 Bf1 Rh1 ra8 bc8 qd8 bf8 rh8', side: 'w',
-      bot: { depth: 1, noise: 50, greed: 450 }, maxMoves: 30, onLimit: 'material', threats: true,
+      bot: { depth: 1, noise: 50, greed: 450 }, maxMoves: 30, onLimit: 'material', threats: true, custom: 'surrender',
       goal: 'Capture all of Gus\'s pieces (or have more points after 30 moves).',
       intro: [
         { who: 'gus', text: 'Har har! I\'m **Grabby Gus**! Everything on this board is MINE, and I grab EVERYTHING I can reach!' },
@@ -140,7 +140,7 @@ const W2 = {
       id: 'lunch', kind: 'collect', title: 'Free Lunch', icon: 'x', showDanger: true, codex: ['defender'],
       intro: [
         'Black pawns protect each other. If you capture a protected pawn, another pawn captures you back.',
-        'Find the right **order**: take the unprotected pawns first, and the others will lose their guards!',
+        'Find the right **order**: capture the one unprotected pawn first, and the others lose their guard!',
       ],
       setup: 'Nd2 pc5 pd6 pe5', targets: 'all',
     },
@@ -148,8 +148,8 @@ const W2 = {
       id: 'prance', kind: 'battle', title: 'Boss: Sir Prance', icon: 'boss', boss: true, character: 'prance', codex: ['char-prance'],
       rules: { variant: 'king-capture', checks: false, castling: false, enPassant: false },
       setup: 'Ke1 Ra1 Nb1 Ng1 Rh1 ke8 ra8 nb8 ng8 rh8', side: 'w',
-      bot: { depth: 2, noise: 60, blunder: 0.18, style: { knights: 1 } }, threats: true,
-      goal: 'Capture Sir Prance\'s king!',
+      bot: { depth: 2, noise: 60, blunder: 0.18, style: { knights: 1 } }, threats: true, maxMoves: 40, onLimit: 'material',
+      goal: 'Capture Sir Prance\'s king! (Or be ahead on points after 40 moves.)',
       intro: [
         { who: 'prance', text: 'En garde! I am **Sir Prance**, and my knights shall leap upon your king!' },
         'In this battle, you win by **capturing the enemy king**. But he can capture yours too!',
@@ -200,11 +200,11 @@ const W3 = {
       id: 'race', kind: 'battle', title: 'Pawn Race', icon: 'P', character: 'rookie', codex: ['passed-pawn'],
       rules: { variant: 'pawn-wars', checks: false, castling: false, enPassant: false },
       setup: 'Pa2 Pb2 Pc2 pa7 pb7 pc7', side: 'w',
-      bot: { depth: 2, noise: 80, blunder: 0.25 },
+      bot: { depth: 2, noise: 80, blunder: 0.25 }, threats: true,
       goal: 'Get a pawn to the other side first!',
       intro: [
         'A little race! Only pawns. The first pawn to reach the other side wins. If you can\'t move at all, you lose.',
-        'Tip: a pawn with no enemy pawns in front of it, or beside it, is a **passed pawn**. Nothing can stop it!',
+        'Tip: a pawn with no enemy pawns in front of it or on the files beside it is a **passed pawn**. In a pawns-only race, no other pawn can stop it!',
       ],
       extra: { type: 'keep', count: 2, label: 'Win with 2+ pawns left' },
     },
@@ -212,7 +212,7 @@ const W3 = {
       id: 'stomp', kind: 'battle', title: 'Boss: Sgt. Stomp', icon: 'boss', boss: true, character: 'stomp', codex: ['char-stomp', 'pawn-structure'],
       rules: { variant: 'pawn-wars', checks: false, castling: false, enPassant: false },
       setup: 'Pa2 Pb2 Pc2 Pd2 Pe2 Pf2 Pg2 Ph2 pa7 pb7 pc7 pd7 pe7 pf7 pg7 ph7', side: 'w',
-      bot: { depth: 2, noise: 60, blunder: 0.22 },
+      bot: { depth: 2, noise: 60, blunder: 0.22 }, threats: true,
       goal: 'Pawn Wars! First to the other side wins.',
       intro: [
         { who: 'stomp', text: 'TEN-HUT! I am **Sergeant Stomp**! My eight pawns march as one. LEFT, RIGHT, LEFT!' },
@@ -229,10 +229,12 @@ const W4 = {
   blurb: 'Check, checkmate, and the sneaky stalemate.',
   levels: [
     {
-      id: 'check', kind: 'quiz', title: 'Check!', icon: '+', codex: ['check'],
+      id: 'check', kind: 'quiz', title: 'Check!', icon: '+', codex: ['check', 'notation'],
       intro: [
         'Here\'s the most important rule in chess. When a king is attacked, it\'s in **check**.',
         'You must get out of check right away, and you may **never** move into check. That\'s why kings are never actually captured in real chess!',
+        'One more thing: from now on I\'ll write moves the way chess players do. **Nf3** means "knight to f3". Pieces are K, Q, R, B, N (knight); pawns have no letter, so **e4** is a pawn move.',
+        'An **x** means a capture (**Bxf7**), **+** means check, **#** means checkmate, and **O-O** is castling. It\'s all in your Codex!',
       ],
       questions: [
         { setup: 'Ke1 Pd2 Pf2 re6 bb6 nh4 kg8', prompt: 'Your king is in check. Tap the piece giving check.', answer: { type: 'checkers' }, explain: 'The rook attacks straight down the e-file.' },
@@ -321,7 +323,7 @@ const W5 = {
       id: 'free', kind: 'puzzle', title: 'Free Pieces', icon: 'x', drill: { gen: 'free-piece', count: 5 }, codex: ['hanging'],
       intro: [
         'Before every move, ask: **can I capture something for free?**',
-        'A piece is free (we say **hanging**) when nobody can capture back, or when the capture back costs them more.',
+        'A piece is **hanging** when you can win it: either nothing protects it, or you attack it with something cheaper (a pawn attacking a knight, say).',
       ],
     },
     {
@@ -547,14 +549,14 @@ const W8 = {
     },
     {
       id: 'ladder', kind: 'battle', title: 'Rook Ladder', icon: 'R', character: 'rollo', codex: ['ladder'],
-      rules: { variant: 'standard', castling: false }, setup: 'Kh1 Ra1 Rb2 ke5', side: 'w', bot: { depth: 3 }, maxMoves: 12, botDelay: 300,
-      goal: 'Checkmate with two rooks in 12 moves.',
+      rules: { variant: 'standard', castling: false }, setup: 'Kh1 Ra1 Rb2 ke5', side: 'w', bot: { depth: 3 }, maxMoves: 15, botDelay: 300,
+      goal: 'Checkmate with two rooks in 15 moves.',
       intro: [
         'Two rooks make the easiest checkmate: the **ladder**!',
         'One rook cuts off the king along a rank, the other gives check on the next rank. Then they swap roles, pushing the king step by step to the edge.',
         'Keep your rooks far from the king so he can\'t attack them!',
       ],
-      extra: { type: 'moves', n: 7, label: 'Mate in 7 moves or fewer' },
+      extra: { type: 'moves', n: 9, label: 'Mate in 9 moves or fewer' },
     },
     {
       id: 'loneRook', kind: 'battle', title: 'The Lone Rook', icon: 'R', character: 'rollo', codex: ['krk'],

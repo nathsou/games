@@ -38,6 +38,11 @@ export const CODEX = {
     text: 'Moves **straight forward one square** (two squares on its first move), but **captures diagonally forward**. It can never move backward, and it\'s blocked by anything directly in front of it.\n\nWorth **1 point**, but a pawn that reaches the last rank **promotes**!',
     demo: { setup: 'Pe2 Pc4 pd5', legal: 'e2' },
   },
+  notation: {
+    title: 'Writing Moves', cat: 'Basics', icon: '?',
+    text: 'Chess players write moves as **piece letter + square**: K king, Q queen, R rook, B bishop, N knight. Pawns have no letter.\n**Nf3**: knight to f3. **e4**: pawn to e4.\n**x** = capture: **Bxf7**, **exd5** (pawn from the e-file captures on d5).\n**+** = check, **#** = checkmate, **O-O** = castle kingside, **O-O-O** = castle queenside, **=Q** = promote to a queen.\nThe coach marks moves with **!!** brilliant, **?!** inaccuracy, **?** mistake, **??** blunder.',
+    demo: { fen: 'start', moves: ['e2e4', 'e7e5', 'g1f3', 'b8c6', 'f1b5'] },
+  },
   capture: {
     title: 'Capturing', cat: 'Basics', icon: 'x',
     text: 'To capture, move your piece onto a square occupied by an enemy piece. The enemy piece is removed. You can\'t capture your own pieces, and only one piece moves per turn.\n\nCapturing is optional in chess (unlike checkers), so don\'t grab things that are protected unless the trade is good for you.',

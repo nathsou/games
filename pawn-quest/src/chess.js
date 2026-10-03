@@ -485,11 +485,9 @@ export class Position {
       if (this.usesChecks() && this.inCheck(us)) return { winner: them, reason: 'checkmate' };
       return { winner: them, reason: 'no-moves' };
     }
-    if (v === 'standard') {
-      if (this.half >= 100) return { winner: -1, reason: 'fifty-moves' };
-      if (this.repetitions() >= 3) return { winner: -1, reason: 'repetition' };
-      if (this.insufficientMaterial()) return { winner: -1, reason: 'insufficient' };
-    }
+    if (this.half >= 100) return { winner: -1, reason: 'fifty-moves' };
+    if (this.repetitions() >= 3) return { winner: -1, reason: 'repetition' };
+    if (v === 'standard' && this.insufficientMaterial()) return { winner: -1, reason: 'insufficient' };
     return null;
   }
 
