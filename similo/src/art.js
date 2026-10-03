@@ -48,7 +48,7 @@ export function cardElement(id, {interactive = false, label = '', selected = fal
   const el = document.createElement(interactive ? 'button' : 'div');
   el.className = ['card', interactive && 'interactive', selected && 'selected', eliminated && 'eliminated', secret && 'secret', className].filter(Boolean).join(' ');
   el.dataset.card = id;
-  if (interactive) { el.type = 'button'; el.setAttribute('aria-label', `${card.name}, ${card.subtitle}${eliminated ? ', eliminated' : ''}${secret ? ', secret character' : ''}`); el.setAttribute('aria-pressed',String(selected)); }
+  if (interactive) { el.type = 'button'; el.setAttribute('aria-label', `${card.name}, ${card.subtitle}${eliminated ? ', eliminated' : ''}${secret ? ', secret card' : ''}`); el.setAttribute('aria-pressed',String(selected)); }
   else { el.setAttribute('role','img'); el.setAttribute('aria-label', `${card.name}, ${card.subtitle}`); }
   el.title = `${card.name} · ${card.subtitle}`;
   const canvas = document.createElement('canvas'); canvas.setAttribute('aria-hidden','true'); drawCard(canvas, id, {label}); el.append(canvas);
@@ -89,7 +89,7 @@ export function observationImage(game, role) {
   }
   if (comparison) {
     const y = hasHand ? 1540 : 1230;
-    ctx.fillStyle='#f2e4c5';ctx.font='bold 22px monospace';ctx.fillText('FINAL TWO · COMPARE BOTH PORTRAITS WITH THE LATEST CLUE',24,y);
+    ctx.fillStyle='#f2e4c5';ctx.font='bold 22px monospace';ctx.fillText('FINAL TWO · COMPARE BOTH CARDS WITH THE LATEST CLUE',24,y);
     const latest=game.history.at(-1);
     [latest.card,...finalists].forEach((id,i)=>{
       drawCard(temp,id,{label:id,secret:hasHand && id===game.secret});

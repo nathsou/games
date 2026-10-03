@@ -64,6 +64,72 @@ const definitions = {
       ['Rabindranath Tagore', 'Bengali poet and polymath'], ['Jorge Luis Borges', 'Argentine writer'], ['Toni Morrison', 'American novelist'],
     ],
   },
+  singers: {
+    name: 'Singers', subtitle: 'Iconic voices, stages & unmistakable styles', color: '#ec99bd', symbol: '♪', preview: 8,
+    cards: [
+      ['Édith Piaf', 'French chanson singer'], ['Charles Aznavour', 'French-Armenian chanson singer'], ['Jacques Brel', 'Belgian chanson singer'],
+      ['Barbara', 'French singer and pianist'], ['Georges Brassens', 'French singer and guitarist'], ['Johnny Hallyday', 'French rock singer'],
+      ['Michael Jackson', 'Pop singer and dancer'], ['Prince', 'Funk and pop musician'], ['Freddie Mercury', 'Rock singer and pianist'],
+      ['Beyoncé', 'Pop and R&B singer'], ['Adele', 'Soul and pop singer'], ['Taylor Swift', 'Country and pop songwriter'],
+      ['Aretha Franklin', 'Soul singer and pianist'], ['Whitney Houston', 'Pop and R&B singer'], ['Nina Simone', 'Jazz and soul singer-pianist'],
+      ['Ella Fitzgerald', 'Jazz singer'], ['Bob Marley', 'Jamaican reggae musician'], ['Elvis Presley', 'Rock and roll singer'],
+      ['David Bowie', 'Rock musician and actor'], ['Shakira', 'Colombian pop singer'], ['Céline Dion', 'Canadian pop singer'],
+      ['Björk', 'Icelandic singer and composer'], ['Stromae', 'Belgian singer and producer'], ['Bad Bunny', 'Puerto Rican Latin music artist'],
+    ],
+  },
+  actors: {
+    name: 'Actors', subtitle: 'Screen legends & unforgettable faces', color: '#e4bc87', symbol: '▣', preview: 3,
+    cards: [
+      ['Charlie Chaplin', 'Silent-film actor and director'], ['Buster Keaton', 'Silent-film actor and stunt performer'], ['Marilyn Monroe', 'American actor and singer'],
+      ['Audrey Hepburn', 'British actor'], ['James Dean', 'American actor'], ['Marlon Brando', 'American actor'],
+      ['Alain Delon', 'French actor'], ['Jean-Paul Belmondo', 'French actor'], ['Catherine Deneuve', 'French actor'],
+      ['Louis de Funès', 'French comedy actor'], ['Omar Sy', 'French actor'], ['Marion Cotillard', 'French actor'],
+      ['Meryl Streep', 'American actor'], ['Robert De Niro', 'American actor'], ['Morgan Freeman', 'American actor'],
+      ['Denzel Washington', 'American actor and director'], ['Keanu Reeves', 'Canadian actor'], ['Michelle Yeoh', 'Malaysian actor'],
+      ['Jackie Chan', 'Hong Kong actor and martial artist'], ['Bruce Lee', 'Actor and martial artist'], ['Shah Rukh Khan', 'Indian actor'],
+      ['Amitabh Bachchan', 'Indian actor'], ['Viola Davis', 'American actor'], ['Tilda Swinton', 'Scottish actor'],
+    ],
+  },
+  cities: {
+    name: 'Cities', subtitle: 'Skylines, streets & familiar landmarks', color: '#82c8da', symbol: '⌂', preview: 0, kind: 'places',
+    cards: [
+      ['Paris', 'France'], ['Rome', 'Italy'], ['London', 'United Kingdom'],
+      ['Berlin', 'Germany'], ['Tokyo', 'Japan'], ['New York City', 'United States'],
+      ['Amsterdam', 'Netherlands'], ['Venice', 'Italy'], ['Barcelona', 'Spain'],
+      ['Athens', 'Greece'], ['Istanbul', 'Turkey'], ['Moscow', 'Russia'],
+      ['Cairo', 'Egypt'], ['Marrakesh', 'Morocco'], ['Dubai', 'United Arab Emirates'],
+      ['Mumbai', 'India'], ['Beijing', 'China'], ['Seoul', 'South Korea'],
+      ['Singapore', 'City-state in Southeast Asia'], ['Sydney', 'Australia'], ['Rio de Janeiro', 'Brazil'],
+      ['Mexico City', 'Mexico'], ['Cape Town', 'South Africa'], ['San Francisco', 'United States'],
+    ],
+  },
+  countries: {
+    name: 'Countries', subtitle: 'Landscapes, cultures & connections worldwide', color: '#91c89b', symbol: '◎', preview: 7, kind: 'places',
+    cards: [
+      ['France', 'Western Europe'], ['Italy', 'Southern Europe'], ['United Kingdom', 'Northwestern Europe'],
+      ['Germany', 'Central Europe'], ['Spain', 'Southwestern Europe'], ['Greece', 'Southeastern Europe'],
+      ['Norway', 'Northern Europe'], ['Japan', 'East Asia'], ['China', 'East Asia'],
+      ['India', 'South Asia'], ['South Korea', 'East Asia'], ['Indonesia', 'Southeast Asia'],
+      ['Turkey', 'Europe and West Asia'], ['Saudi Arabia', 'West Asia'], ['Egypt', 'North Africa and Sinai'],
+      ['Morocco', 'North Africa'], ['Kenya', 'East Africa'], ['South Africa', 'Southern Africa'],
+      ['United States', 'North America'], ['Canada', 'North America'], ['Mexico', 'North America'],
+      ['Brazil', 'South America'], ['Australia', 'Oceania'], ['New Zealand', 'Oceania'],
+    ],
+  },
+  regions: {
+    name: 'French Regions', subtitle: 'Coasts, mountains & regional stories', color: '#d1bb83', symbol: '◒', preview: 8, kind: 'places',
+    description: '18 present-day regions, including the five overseas regions, plus six historic regions. Historic cards are labelled on the card.',
+    cards: [
+      ['Auvergne-Rhône-Alpes', 'Alpine peaks and volcanic hills'], ['Bourgogne-Franche-Comté', 'Vineyards and tiled roofs'], ['Bretagne', 'Atlantic coast and lighthouses'],
+      ['Centre-Val de Loire', 'Loire castles and river'], ['Corse', 'Mediterranean island and mountains'], ['Grand Est', 'Cathedrals and timbered towns'],
+      ['Hauts-de-France', 'Belfries and northern coast'], ['Île-de-France', 'Paris and Versailles'], ['Normandie', 'Chalk cliffs and apple orchards'],
+      ['Nouvelle-Aquitaine', 'Atlantic dunes and vineyards'], ['Occitanie', 'Medieval walls and sunflowers'], ['Pays de la Loire', 'Loire river and Nantes'],
+      ["Provence-Alpes-Côte d’Azur", 'Lavender and Mediterranean coast'], ['Guadeloupe', 'Caribbean islands and volcano'], ['Martinique', 'Caribbean island and Mount Pelée'],
+      ['Guyane', 'Amazonian forest and spaceport'], ['La Réunion', 'Indian Ocean volcanic island'], ['Mayotte', 'Indian Ocean lagoon and mangroves'],
+      ['Alsace', 'Historic region · Storks and canals'], ['Lorraine', 'Historic region · Nancy and mirabelles'], ['Bourgogne', 'Historic region · Vineyards and abbeys'],
+      ['Champagne', 'Historic region · Reims and sparkling wine'], ['Picardie', 'Historic region · Somme Bay'], ['Auvergne', 'Historic region · Volcanic uplands'],
+    ],
+  },
   greek: {
     name: 'Greek Mythology', subtitle: 'Gods, monsters & dangerously good clues', color: '#b5a3ec', symbol: '✦',
     cards: [
@@ -80,7 +146,7 @@ const definitions = {
 };
 
 export const DECKS = Object.fromEntries(Object.entries(definitions).map(([id, deck]) => [id, {
-  ...deck, id, atlas: `assets/${id}.png`,
+  ...deck, id, kind: deck.kind || 'people', atlas: `assets/${id}.webp`,
   cards: deck.cards.map(([name, subtitle], index) => ({id: `${id}-${index}`, deck: id, index, name, subtitle})),
 }]));
 export const CARDS = Object.fromEntries(Object.values(DECKS).flatMap(d => d.cards).map(c => [c.id, c]));
