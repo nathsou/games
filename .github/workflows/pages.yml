@@ -31,6 +31,13 @@ jobs:
         run: npm test
         working-directory: flip-it
 
+      - name: Nonocube install
+        run: npm ci
+        working-directory: nonocube
+      - name: Nonocube type-check and tests
+        run: npm run typecheck && npm test
+        working-directory: nonocube
+
   midnight-test:
     runs-on: ubuntu-latest
     steps:
@@ -50,6 +57,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build Nonocube
+        run: npm ci && npx vite build
+        working-directory: nonocube
       - name: Assemble site
         run: |
           mkdir -p _site/spacegolf _site/flip-it
@@ -63,6 +76,8 @@ jobs:
           cp -r midnight/src midnight/assets _site/midnight/
           cp -r similo _site/similo
           cp -r shared _site/shared
+          cp -r nonocube/dist _site/nonocube
+          cp nonocube/preview.jpg _site/nonocube/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
