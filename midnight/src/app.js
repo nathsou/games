@@ -38,7 +38,7 @@ function notify(message) {
 function name() { return typeof prefs.name === 'string' ? prefs.name.slice(0, 24) || 'You' : 'You'; }
 function opponentHtml(){return '<label class="label" for="ai-opponent">OPPONENT</label><select id="ai-opponent"><option value="dealer" '+(prefs.opponent!=='model'?'selected':'')+'>Dealer · offline, no API calls</option><option value="model" '+(prefs.opponent==='model'?'selected':'')+'>AI · shared provider & model</option></select>'+button('AI SETTINGS ↗','ai-settings','outline compact');}
 function stopAI(message=''){aiController?.abort();aiController=null;aiBusy=false;aiError=message;}
-function names() { return mode === 'online' ? session?.names || ['You', 'Partner'] : mode === 'solo' ? [name(), 'The Dealer'] : [name(), 'Partner']; }
+function names() { return mode === 'online' ? session?.names || ['You', 'Partner'] : mode === 'solo' ? [name(), selectedOpponent==='model'?'AI opponent':'The Dealer'] : [name(), 'Partner']; }
 function mySeat() { return mode === 'online' ? session.team ? 0 : session.seat : seat; }
 function view() { return mode === 'online' ? session?.view : game ? playerView(game, seat) : null; }
 function connected() { return Boolean(peer?.connected && session?.readyForPlay); }
@@ -196,7 +196,7 @@ async function decideBot(state,player) {
     if(controller.signal.aborted)throw new DOMException('Cancelled','AbortError');
     aiMemory.push({round:state.round,phase:state.phase,action:result.action,rationale:result.rationale});aiMemory=aiMemory.slice(-6);
     return result.action;
-  } catch(error){aiError=error.name==='AbortError'?'AI paused. Retry when ready.':error.name==='TimeoutError'?'The AI took too long. Retry when ready.':error.message;throw error;}
+  } catch(error){if(aiController===controller)aiError=error.name==='AbortError'?'AI paused. Retry when ready.':error.name==='TimeoutError'?'The AI took too long. Retry when ready.':error.message;throw error;}
   finally {if(aiController===controller){aiBusy=false;aiController=null;render();}}
 }
 function prepareBot() {
@@ -498,8 +498,8 @@ document.addEventListener('click', async event => {
     else if (action === 'tick') { source = null; await act({kind: 'tick', lot: target.dataset.lot}); }
     else if (action === 'uncover') { handoff = false; chosen = null; render(); }
     else if (action === 'rules') showRules();
-    else if (action === 'table-menu') { scene = 'menu'; selectedGame = view().type; render(); }
-    else if (action === 'resume') { scene = 'game'; render(); scheduleBot(); }
+    else if (action === 'table-menu') { scene = 'menu'; selectedGame = view().type;generation++;stopAI();botContext='';if(session){clearTimeout(session.botTimer);session.botKey='';}render(); }
+    else if (action === 'resume') { scene = 'game';prepareBot();session?.prepareBot();render();scheduleBot();session?.scheduleBot(); }
     else if (action === 'rematch') {
       if (mode === 'online') session.start(view().type);
       else startOffline(view().type, mode);
