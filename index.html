@@ -34,7 +34,7 @@
   h1 { margin: 0; font-size: clamp(34px, 6vw, 56px); font-weight: 800; letter-spacing: .01em; line-height: 1.05; }
   h1 span { font-weight: 300; background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
   header p { margin: 14px 0 0; color: var(--dim); font-size: 18px; max-width: 46ch; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 24px; }
   .card {
     display: flex; flex-direction: column; text-decoration: none; color: inherit; overflow: hidden;
     background: var(--card); border: 1px solid var(--edge); border-radius: 24px;
@@ -76,6 +76,15 @@
         <p>Slingshot a golf ball around planets and let gravity bend its path. Sink it in the fewest strokes across 30 handmade holes, endless generated ones, or levels you build yourself.</p>
         <div class="tags"><span>WebGL2</span><span>Physics</span><span>Puzzle</span><span>Touch &amp; mouse</span></div>
         <div class="play"><span>Play now</span><i aria-hidden="true">&#8594;</i></div>
+      </div>
+    </a>
+    <a class="card" href="midnight/">
+      <div class="shot"><img src="midnight/preview.png" alt="Midnight Table: a green felt card table with original pixel art and three quick games" loading="lazy"></div>
+      <div class="body">
+        <h2>Midnight Table</h2>
+        <p>Three little rivalries: Backhand, Closing Time, and Pocket Heist. Play the dealer, pass a screen, or invite a friend for a private duel or a team game.</p>
+        <div class="tags"><span>Cards &amp; bluffing</span><span>2 players</span><span>WebRTC co-op</span><span>Touch &amp; mouse</span></div>
+        <div class="play"><span>Take a seat</span><i aria-hidden="true">&#8594;</i></div>
       </div>
     </a>
   </section>

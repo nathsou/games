@@ -1,5 +1,6 @@
 import {createGame, applyAction, playerView, GAMES, winner} from './rules.js';
 import {randomHex} from './peer.js';
+import {botAction} from './bot.js';
 
 function canonical(value) {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
@@ -42,9 +43,12 @@ export function validateView(view) {
   return view;
 }
 export class TableSession {
-  constructor({seat = 0, name = 'You', onUpdate, onError}) {
+  constructor({seat = 0, name = 'You', team = false, onUpdate, onError}) {
     this.seat = seat;
-    this.names = seat === 0 ? [name, 'Partner'] : ['Host', name];
+    this.members = seat === 0 ? [name, 'Partner'] : ['Host', name];
+    this.team = team;
+    this.names = this.members.slice();
+    this.botKey = '';
     this.onUpdate = onUpdate;
     this.onError = onError;
     this.series = [0, 0];
@@ -72,15 +76,45 @@ export class TableSession {
   }
   start(type, seed = crypto.getRandomValues(new Uint32Array(1))[0]) {
     if (this.seat !== 0 || !this.peer?.connected) throw new Error('Only the connected host can deal a new game.');
+    clearTimeout(this.botTimer);
     this.state = createGame(type, seed);
+    this.botKey = '';
     this.epoch = randomHex(8);
     this.resetChoices();
     this.sync();
   }
   sync() {
-    this.view = playerView(this.state, this.seat);
-    this.peer.send({type: 'state', epoch: this.epoch, view: playerView(this.state, 1), names: this.names, series: this.series});
+    this.prepareBot();
+    this.names = this.team ? [(this.members[0] + ' + ' + this.members[1]).slice(0, 24), 'The Dealer'] : this.members.slice();
+    this.view = playerView(this.state, this.team ? 0 : this.seat);
+    this.peer.send({type: 'state', epoch: this.epoch, view: playerView(this.state, this.team ? 0 : 1), names: this.names, members: this.members, team: this.team, series: this.series});
     this.onUpdate();
+    this.scheduleBot();
+  }
+  prepareBot() {
+    if (!this.team || this.seat !== 0 || !this.state || ['over', 'reveal'].includes(this.state.phase)) return;
+    const key = contextFor(this.epoch, this.state);
+    if (this.botKey !== key) {
+      this.botKey = key;
+      this.botPrepared = botAction(this.state, 1);
+    }
+  }
+  scheduleBot() {
+    clearTimeout(this.botTimer);
+    if (!this.team || this.seat !== 0 || !this.peer?.connected || !this.state || ['over', 'reveal'].includes(this.state.phase)) return;
+    const s = this.state;
+    const needed = s.type === 'closing' ? s.turn === 1 : s.type === 'backhand' ? s.pending[0] && !s.pending[1] : s.phase === 'guard' ? s.guards[0] && !s.guards[1] : s.raids[0] && !s.raids[1];
+    if (!needed) return;
+    const epoch = this.epoch;
+    this.botTimer = setTimeout(() => {
+      if (!this.peer?.connected || epoch !== this.epoch) return;
+      try {
+        const action = this.state.type === 'closing' ? botAction(this.state, 1) : this.botPrepared;
+        this.state = applyAction(this.state, 1, action);
+        this.countWin();
+        this.sync();
+      } catch (error) { this.onError(error); }
+    }, 400);
   }
   simultaneous() { return this.view && ['choose', 'guard', 'raid'].includes(this.view.phase); }
   context() { return contextFor(this.epoch, this.view); }
@@ -88,6 +122,19 @@ export class TableSession {
   async choose(action) {
     if (!this.peer?.connected) throw new Error('Reconnect your partner before continuing.');
     if (!this.view) throw new Error('Wait for the host to deal.');
+    if (this.team) {
+      if (this.movePending) return;
+      if (this.seat === 0) {
+        this.state = applyAction(this.state, 0, action);
+        this.countWin();
+        this.sync();
+      } else {
+        this.movePending = true;
+        this.peer.send({type: 'action', epoch: this.epoch, revision: this.view.revision, action});
+        this.onUpdate();
+      }
+      return;
+    }
     if (this.view.phase === 'reveal') {
       if (this.ready[this.seat]) return;
       this.ready[this.seat] = true;
@@ -156,7 +203,7 @@ export class TableSession {
     try {
       if (message.type === 'hello') {
         if (typeof message.name !== 'string') throw new Error('Invalid player name.');
-        this.names[1 - this.seat] = message.name.slice(0, 24) || 'Partner';
+        this.members[1 - this.seat] = message.name.slice(0, 24) || 'Partner';
         if (this.seat === 0) {
           if (this.state) this.sync();
           else this.start(this.initialGame || 'backhand');
@@ -168,11 +215,14 @@ export class TableSession {
         if (!/^[a-f0-9]{16}$/.test(message.epoch) || !Array.isArray(message.names) ||
           message.names.length !== 2 || message.names.some(n => typeof n !== 'string' || n.length > 24) ||
           !Array.isArray(message.series) || message.series.length !== 2 || message.series.some(n => !Number.isInteger(n) || n < 0)) throw new Error('Invalid table update.');
+        if (typeof message.team !== 'boolean' || !Array.isArray(message.members) || message.members.length !== 2 || message.members.some(n => typeof n !== 'string' || n.length > 24)) throw new Error('Invalid team update.');
         const changed = !this.view || message.epoch !== this.epoch || contextFor(message.epoch, next) !== this.context() || next.revision !== this.view.revision;
         if (changed) this.resetChoices();
         this.epoch = message.epoch;
         this.view = next;
         this.names = message.names;
+        this.members = message.members;
+        this.team = message.team;
         this.series = message.series;
         this.movePending = false;
         this.onUpdate();
@@ -206,9 +256,9 @@ export class TableSession {
         this.ready[1 - this.seat] = true;
         this.advanceIfReady();
         this.onUpdate();
-      } else if (message.type === 'action' && this.seat === 0 && this.state.type === 'closing') {
+      } else if (message.type === 'action' && this.seat === 0 && (this.state.type === 'closing' || this.team)) {
         if (message.revision !== this.state.revision) { this.sync(); return; }
-        this.state = applyAction(this.state, 1, message.action);
+        this.state = applyAction(this.state, this.team ? 0 : 1, message.action);
         this.countWin();
         this.sync();
       } else throw new Error('Unexpected table message.');
