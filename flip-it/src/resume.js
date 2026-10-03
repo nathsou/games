@@ -3,19 +3,21 @@ import {validateView} from './session.js';
 
 const KEY = 'flip-it.last-table.v2';
 // Saves stay on this browser. Pairing tokens and relay credentials are never saved.
-export function saveTable(session, storage = globalThis.localStorage) {
+export function saveTable(session, storage) {
   try {
+    storage ||= globalThis.localStorage;
     if (!session?.view) return;
     storage.setItem(KEY, JSON.stringify({version: 2, savedAt: Date.now(), seat: session.seat,
       team: session.team, members: session.members, controllers: session.controllers,
       view: session.view, state: session.seat === 0 ? session.state : null}));
   } catch { /* Storage is optional, including in private browsing. */ }
 }
-export function forgetTable(storage = globalThis.localStorage) {
-  try { storage.removeItem(KEY); } catch {}
+export function forgetTable(storage) {
+  try { (storage || globalThis.localStorage).removeItem(KEY); } catch {}
 }
-export function loadTable(storage = globalThis.localStorage) {
+export function loadTable(storage) {
   try {
+    storage ||= globalThis.localStorage;
     const raw = storage.getItem(KEY);
     if (!raw || raw.length > 250000) return null;
     const saved = JSON.parse(raw);
