@@ -31,7 +31,7 @@ function save(data) {
 export function trackGame(game, mode) {
   if(!game || mode==='replay')return;
   const data=ledger(), existing=data.games.find(g=>g.id===game.id);
-  const entry={id:game.id, game:game.arcadeGame || 'similo', theme:game.theme || game.arcadeGame, clueTheme:game.clueTheme, mode, variant:game.variant,
+  const entry={id:game.id, game:game.arcadeGame || 'cluance', theme:game.theme || game.arcadeGame, clueTheme:game.clueTheme, mode, variant:game.variant,
     started:game.started, result:game.result, state:['over','matchOver'].includes(game.phase)?'finished':'in progress',
     aiTurns:(game.history || []).flatMap(r=>['giver','guesser'].flatMap(role=>
       r[role+'Source'] && r[role+'Source']!=='Human' ? [`${r.round}:${role}`] : []))};

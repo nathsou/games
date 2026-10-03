@@ -80,7 +80,7 @@ export class PeerLink {
     });
   }
   async invite() {
-    this.attach(this.pc.createDataChannel('similo', {ordered: true}));
+    this.attach(this.pc.createDataChannel('cluance', {ordered: true}));
     await this.pc.setLocalDescription(await this.pc.createOffer());
     await gather(this.pc);
     return encodePairing(this.pc.localDescription);

@@ -1,4 +1,4 @@
-# Similo Arcade
+# Cluance
 
 A cooperative visual deduction game with original retro pixel art. Play with a friend through manual WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. **No runtime or development packages, CDNs, frameworks, fonts, build step, or backend.**
 
@@ -14,7 +14,7 @@ Open <http://127.0.0.1:4173>. Optionally set `PORT` to use another port. The pre
 
 ## GitHub Pages
 
-The `similo/` directory is already the deployable game. In repository Settings → Pages, choose **Deploy from a branch**, `main`, and `/ (root)`. Once this PR is merged and Pages publishes the branch, the game is available at `https://nathsou.github.io/games/similo/`. All file paths are relative, so deployment under a subdirectory works without configuration.
+Publish `cluance/` together with the repository's `shared/` directory. The Pages workflow assembles both alongside the other games when changes reach `main`. The game URL is `https://nathsou.github.io/games/cluance/`; relative imports also support another static host with the same directory layout. The local preview server serves the shared files automatically.
 
 There is no hosted room registry. AI mode makes browser requests directly to the user's selected provider. Multiplayer uses browser-to-browser WebRTC and, by default, a public STUN service for route discovery. No TURN relay is configured, so some restrictive networks cannot connect; the STUN server can be changed or disabled in Settings.
 
@@ -105,4 +105,9 @@ Provider documentation: [GPT-6 Luna](https://developers.openai.com/api/docs/mode
 
 ## Collection integration
 
-AI provider/model preferences, reasoning effort, output budget, opt-in remembered keys, custom pricing and the usage ledger are shared with Flip it and Midnight Table through `shared/ai/`. Existing Similo settings and usage history migrate automatically. Card size, music, sound and game setup remain Similo preferences. Appearance is shared separately with the other card games. The latest giver/guesser decision schema, role-filtered images, sealed intentions and spending controls are preserved. Publish `shared/` alongside the game folders.
+AI provider/model preferences, reasoning effort, output budget, opt-in remembered keys, custom pricing and the usage ledger are shared with Flip it and Midnight Table through `shared/ai/`. Existing settings, saved games and usage history from the previous name remain available; the game migrates its local preferences and session to `cluance-v1:` storage. Card size, music, sound and game setup remain Cluance preferences. Appearance is shared separately with the other card games. The latest giver/guesser decision schema, role-filtered images, sealed intentions and spending controls are preserved. Publish `shared/` alongside the game folders.
+
+
+## Renaming compatibility
+
+New exports use the `cluance-replay` format and `cluance-…json` filenames. Previous `similo-arcade-replay` files still import, and their optional sealed-note fields remain compatible. The former browser storage keys are retained as migration inputs; shared settings also clear remembered keys from both namespaces when remembering is disabled or keys are forgotten. The former `similo/` address redirects to `cluance/`, preserving invitation fragments and query parameters. Credits continue to identify the original game that inspired Cluance.
