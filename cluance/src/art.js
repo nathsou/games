@@ -47,20 +47,35 @@ export function drawCard(canvas, id, {label = '', secret = false} = {}) {
   }
   if (secret) { ctx.fillStyle = '#edc878'; ctx.fillRect(145, 17, 123, 28); ctx.fillStyle = '#233335'; ctx.font = 'bold 16px "Courier New", monospace'; ctx.textAlign='center'; ctx.fillText('SECRET',207,37); }
 }
-export function cardElement(id, {interactive = false, label = '', selected = false, eliminated = false, secret = false, className = '', onClick} = {}) {
-  const card = CARDS[id];
-  const el = document.createElement(interactive ? 'button' : 'div');
-  el.className = ['card', interactive && 'interactive', selected && 'selected', eliminated && 'eliminated', secret && 'secret', className].filter(Boolean).join(' ');
-  el.dataset.card = id;
-  const summary = [card.name, card.subtitle, card.dates].filter(Boolean).join(', ');
-  if (interactive) { el.type = 'button'; el.setAttribute('aria-label', `${summary}${eliminated ? ', eliminated' : ''}${secret ? ', secret card' : ''}`); el.setAttribute('aria-pressed',String(selected)); }
-  else { el.setAttribute('role','img'); el.setAttribute('aria-label', summary); }
-  el.title = [card.name, card.subtitle, card.dates].filter(Boolean).join(' · ');
-  const canvas = document.createElement('canvas'); canvas.setAttribute('aria-hidden','true'); drawCard(canvas, id, {label}); el.append(canvas);
-  if (selected) { const mark = document.createElement('span'); mark.className='selection-mark'; mark.textContent='×'; el.append(mark); }
-  if (secret) { const mark = document.createElement('span'); mark.className='secret-mark'; mark.textContent='SECRET'; el.append(mark); }
-  if (eliminated) { const mark = document.createElement('span'); mark.className='removed-mark'; mark.textContent='×'; el.append(mark); }
-  if (onClick) el.addEventListener('click',onClick);
+// The UI uses unframed art; observationImage keeps its explicit, labelled AI view.
+function drawArt(canvas,id) {
+  const card=CARDS[id],deck=DECKS[card.deck],atlas=atlases.get(card.atlas||deck.atlas);
+  canvas.width=300;canvas.height=400;
+  const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+  ctx.fillStyle=deck.color;ctx.fillRect(0,0,300,400);
+  if(!atlas)return;
+  const columns=card.columns||deck.columns,rows=card.rows||deck.rows,index=card.atlasIndex??card.index;
+  const sw=atlas.naturalWidth/columns,sh=atlas.naturalHeight/rows;
+  const cw=Math.min(sw,sh*.75),ch=Math.min(sh,sw/.75);
+  ctx.drawImage(atlas,index%columns*sw+(sw-cw)/2,Math.floor(index/columns)*sh+Math.max(0,(sh-ch)*.2),cw,ch,0,0,300,400);
+}
+export function cardElement(id, {interactive=false,label='',selected=false,eliminated=false,secret=false,className='',caption='m',roundTag='',onClick}={}) {
+  const card=CARDS[id],el=document.createElement(interactive?'button':'div');
+  el.className=['card',interactive&&'interactive',selected&&'selected',eliminated&&'eliminated',secret&&'secret',`caption-${caption}`,className].filter(Boolean).join(' ');
+  el.dataset.card=id;
+  const summary=[card.name,card.subtitle,card.dates].filter(Boolean).join(', ');
+  el.setAttribute('aria-label',`${summary}${eliminated?', eliminated':''}${secret?', secret card':''}`);
+  if(interactive){el.type='button';el.setAttribute('aria-pressed',String(selected));}else el.setAttribute('role','img');
+  const art=document.createElement('span');art.className='card-art';
+  const canvas=document.createElement('canvas');canvas.setAttribute('aria-hidden','true');drawArt(canvas,id);art.append(canvas);el.append(art);
+  if(selected){const mark=document.createElement('span');mark.className='selection-mark';mark.textContent='✕';art.append(mark);}
+  if(secret){const mark=document.createElement('span');mark.className='secret-mark';mark.textContent=caption==='none'?'★':'★ SECRET';art.append(mark);}
+  if(roundTag){const mark=document.createElement('span');mark.className='round-tag';mark.textContent=roundTag;art.append(mark);}
+  if(caption!=='none'){
+    const name=document.createElement('span');name.className='card-name';name.textContent=(label?label+' ':'')+card.name;el.append(name);
+    if(caption!=='s'){const dates=document.createElement('span');dates.className='card-dates';dates.textContent=card.dates;el.append(dates);}
+  }
+  if(onClick)el.addEventListener('click',onClick);
   return el;
 }
 export function observationImage(game, role) {
