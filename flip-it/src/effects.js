@@ -55,6 +55,12 @@ export async function animateMove(root, before, event, ownSeat, view) {
     },delay+duration*.46);
     flights.push(animation.finished.catch(()=>{}).finally(()=>{clearTimeout(timer);node.remove();}));
   }
+  // A hidden hand is a region, not a card-sized rectangle. Start newly public
+  // cards at card size, spread across that region instead of stretching them.
+  function handOrigin(hand, target, index){
+    if(!hand)return null;
+    return {x:hand.x+(hand.width-target.width)/2+Math.min(index,6)*3,y:hand.y+(hand.height-target.height)/2,width:target.width,height:target.height};
+  }
   let index=0;
   for (const [id,next] of after.cards) {
     const old=before.cards.get(id);
@@ -62,7 +68,7 @@ export async function animateMove(root, before, event, ownSeat, view) {
     if (!moved && !flipped) continue;
     const target=root.querySelector('[data-visual-card="'+id+'"]');
     target.style.visibility='hidden'; hidden.push(target);
-    const source=old || {node:next.node,rect:before.hands.get(event.seat),face:next.face};
+    const source=old || {node:next.node,rect:handOrigin(before.hands.get(event.seat),next.rect,index),face:next.face};
     fly(source,next,next.rect,index++,false,flipped);
   }
   for (const [id,old] of before.cards) {
