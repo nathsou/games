@@ -411,8 +411,14 @@ export async function solvePuzzle(ctx, p, { index = 0, total = 1, mistakesBefore
     else if (p.accept === 'engine') {
       const r = await roots;
       const best = r[0].score, mine = r.find(x => x.uci === u);
-      ok = mine && mine.score >= best - (p.margin || 80);
+      ok = (mine && mine.score >= best - (p.margin || 80)) || (p.alts || []).includes(u) || (p.solution || [])[0] === u;
     } else ok = sol[step] === u || (step === 0 && (p.alts || []).includes(u)) || (step === 0 && sol.length === 0);
+    if (!ok && p.accept === 'list' && !p.wrong && sol.length === 1) {
+      // An equally strong alternative is fine too.
+      const r = await ask('roots', { fen: pos.toFEN(), rules: pos.rules, depth: 4 });
+      const want = r.find(x => x.uci === sol[0]), mine = r.find(x => x.uci === u);
+      ok = !!(want && mine && mine.score >= want.score - 30);
+    }
     board.arrows = [];
     const fenBefore = pos.toFEN();
     const cap = mFlags(m) & F_CAPTURE;
