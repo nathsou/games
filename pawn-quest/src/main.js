@@ -7,7 +7,7 @@ import { PAWN, QUEEN, WHITE } from './chess.js';
 import { sfx, playMusic, setSfx, setMusic, unlockAudio } from './audio.js';
 import { levelById, LEVELS } from './curriculum.js';
 import { levelScreen } from './level.js';
-import { mapScreen, currentLevel } from './map.js';
+import { mapScreen, currentLevel, isUnlocked } from './map.js';
 import { BOARD_THEMES } from './board.js';
 import { installThemeControls, loadTheme, THEME_KEY } from '../../shared/theme.js';
 
@@ -50,7 +50,10 @@ async function route() {
   const [, page, arg] = (location.hash || '#/').split('/');
   try {
     if (page === 'map') cleanup = mapScreen(app, nav, arg, nav.celebrate);
-    else if (page === 'level' && levelById(arg)) cleanup = levelScreen(app, levelById(arg), nav);
+    else if (page === 'level' && levelById(arg)) {
+      if (!isUnlocked(levelById(arg))) { toast('That level is still locked. Keep climbing!'); location.replace('#/map'); return; }
+      cleanup = levelScreen(app, levelById(arg), nav);
+    }
     else if (page === 'arena') cleanup = (await import('./arena.js')).arenaScreen(app, nav);
     else if (page === 'codex') cleanup = (await import('./codex.js')).codexScreen(app, nav, arg);
     else if (page === 'practice') cleanup = (await import('./practice.js')).practiceScreen(app, nav, arg);

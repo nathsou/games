@@ -184,7 +184,7 @@ export function describeTactic(pos, m, who = 'You') {
     if (!check && pos.usesChecks()) {
       pos.makeNull();
       const mt = mateInOne(pos);
-      if (mt) res.push({ type: 'mate threat', score: 60, text: `This threatens checkmate with ${pos.san(mt)}.`, targets: [], arrows: [[mFrom(mt), mTo(mt)]] });
+      if (mt) { const ms = pos.san(mt); res.push({ type: 'mate threat', score: 60, mateSan: ms, text: `This threatens checkmate with ${ms}.`, targets: [], arrows: [[mFrom(mt), mTo(mt)]] }); }
       pos.unmakeNull();
     }
   } finally {
@@ -224,7 +224,7 @@ export function principleNote(pos, m, history = []) {
   const homeRank = us === WHITE ? 0 : 7;
   let phase = 0;
   for (const sq of pos.pieces()) phase += [0, 0, 1, 1, 2, 4, 0][typeOf(pos.b[sq])];
-  if (fl & F_CASTLE) return { tone: 'good', tag: 'castling', text: 'Castling tucks your king behind its pawns and brings a rook toward the centre. Great habit!' };
+  if (fl & F_CASTLE) return { tone: 'good', tag: 'castling', text: 'Castling tucks your king behind its pawns and brings a rook toward the center. Great habit!' };
   if (phase >= 18 && ply < 24) {
     if (t === PAWN && ['d4', 'e4', 'd5', 'e5'].includes(sqName(to)) && !(fl & F_CAPTURE)) return { tone: 'good', tag: 'center', text: 'Central pawns claim space and open lines for your bishops and queen.' };
     if (t === QUEEN && ply < 10) {
@@ -247,7 +247,7 @@ export function principleNote(pos, m, history = []) {
   if (phase <= 8 && t === KING) {
     const cd = Math.max(3 - (to & 7), (to & 7) - 4) + Math.max(3 - (to >> 4), (to >> 4) - 4);
     const cd0 = Math.max(3 - (from & 7), (from & 7) - 4) + Math.max(3 - (from >> 4), (from >> 4) - 4);
-    if (cd < cd0) return { tone: 'good', tag: 'active-king', text: 'In the endgame the king becomes a fighter. Bringing it to the centre is excellent.' };
+    if (cd < cd0) return { tone: 'good', tag: 'active-king', text: 'In the endgame the king becomes a fighter. Bringing it to the center is excellent.' };
   }
   if (phase <= 10 && t === PAWN) {
     let passed = true;
@@ -397,7 +397,10 @@ export function explainMove(pos, m, { depth = 4, timeMs = 900, history = [], use
       if (!reasons.length) {
         const tac = describeTactic(pos, reply, Them);
         const lost = -materialSwing(pos, replyPv.slice(0, 5), us);
-        if (tac && tac.type !== 'check') {
+        if (tac && tac.type === 'mate threat') {
+          reasons.push(`After **${out.reply.san}**, ${Them} threatens ${tac.mateSan ? `**${tac.mateSan}** ` : ''}checkmate!`);
+          out.tags.push('mate threat');
+        } else if (tac && tac.type !== 'check') {
           reasons.push(`${Them} has a ${tac.type} with **${out.reply.san}**${lost >= 150 ? ', winning material' : ''}. ${tac.text.replace(/^[^!]*! /, '')}`);
           out.tags.push(tac.type);
         } else if (lost >= 150) {
@@ -450,45 +453,138 @@ function materialSwing(pos, line, color) {
 
 // ------------------------------------------------------------ hints
 
+// Lone-king technique (king + queen / rook(s) vs king): the "box" method.
+// The box = squares the enemy king could reach, step by step, without crossing guarded squares.
+function boxArea(pos, them) {
+  const k = pos.king[them];
+  const seen = new Set([k]), stack = [k];
+  while (stack.length) {
+    const sq = stack.pop();
+    for (const d of [1, -1, 16, -16, 15, 17, -15, -17]) {
+      const t = sq + d;
+      if (t & 0x88 || seen.has(t)) continue;
+      if (pos.isAttacked(t, them ^ 1)) continue;
+      const p = pos.b[t];
+      if (p && colorOf(p) === them) continue;
+      seen.add(t); stack.push(t);
+    }
+  }
+  return seen.size;
+}
+
+export function isLoneKing(pos) {
+  const us = pos.turn, them = us ^ 1;
+  if (pos.rules.variant !== 'standard' || pos.pieces(them).length !== 1) return false;
+  const mine = pos.pieces(us).map(sq => typeOf(pos.b[sq]));
+  return mine.some(t => t === QUEEN || t === ROOK) && !mine.includes(PAWN);
+}
+
+// Pick a teaching move: mate if possible, else shrink the box safely, else walk the king closer.
+export function techniqueMove(pos) {
+  const us = pos.turn, them = us ^ 1;
+  const dist = (a, b) => Math.max(Math.abs((a & 7) - (b & 7)), Math.abs((a >> 4) - (b >> 4)));
+  const area0 = boxArea(pos, them);
+  const options = [];
+  for (const m of pos.legalMoves()) {
+    const t = typeOf(pos.b[mFrom(m)]);
+    pos.make(m);
+    const st = pos.status();
+    if (st && st.reason === 'checkmate') { pos.unmake(); return { move: m, kind: 'mate', area0, area: 0 }; }
+    const safe = !st && !hangingPieces(pos, us).length && pos.repetitions() < 2;
+    const area = boxArea(pos, them), kd = dist(pos.king[us], pos.king[them]);
+    pos.unmake();
+    if (safe) options.push({ move: m, t, area, kd });
+  }
+  const kd0 = dist(pos.king[us], pos.king[them]);
+  const shrink = options.filter(o => o.t !== KING && o.area < area0).sort((a, b) => a.area - b.area || a.kd - b.kd);
+  // Don't squeeze so hard that only the king's own square is left before our king arrives.
+  if (shrink.length && (shrink[0].area >= 2 || kd0 <= 2)) return { move: shrink[0].move, kind: 'shrink', area0, area: shrink[0].area };
+  const walk = options.filter(o => o.t === KING && o.area <= area0 && o.kd < kd0).sort((a, b) => a.kd - b.kd || a.area - b.area);
+  if (walk.length) return { move: walk[0].move, kind: 'walk', area0, area: walk[0].area };
+  // Otherwise let the engine find the precise move (king + rook needs tempo play).
+  const r = search(pos, { depth: 5, timeMs: 700 });
+  return r.move ? { move: r.move, kind: 'engine', area0, area: area0 } : null;
+}
+
+function loneKingHint(pos) {
+  if (!isLoneKing(pos)) return null;
+  const tm = techniqueMove(pos);
+  if (!tm) return null;
+  const sq = n => `${n} square${n === 1 ? '' : 's'}`;
+  const texts = {
+    mate: ['Time for the final blow! Find a check where the king has no escape square and your piece can\'t be captured.', 'Checkmate!'],
+    shrink: [`Squeeze the box! His king can roam ${sq(tm.area0)}. Find a safe move that makes his box smaller, without stalemating him.`, `It shrinks the box from ${sq(tm.area0)} to ${sq(tm.area)}.`],
+    walk: ['The box can\'t shrink any more on its own. Walk your king closer: checkmate needs teamwork!', 'Your king steps toward his king to help.'],
+    engine: ['Keep the box closed. Sometimes you need a clever waiting move so his king has to step back.', 'It keeps the box tight and forces his king to give way.'],
+  }[tm.kind];
+  return { move: tm.move, nudge: texts[0], why: texts[1] };
+}
+
+const VARIANT_MATE = {
+  'pawn-wars': ['You can force a pawn through! Count the moves: who reaches the end first?', 'It wins the race to promote.'],
+  'king-capture': ['You can hunt down the enemy king! Look at what attacks it.', 'It leads to capturing the king.'],
+  'capture-all': ['You can win this! Go after the last enemy pieces.', 'It leads to capturing everything.'],
+};
+const VARIANT_DEFAULT = {
+  'pawn-wars': ['Keep your pawns side by side so they protect each other, and look for a pawn that can break through.', 'It keeps your pawns strong.'],
+  'king-capture': ['Is your king safe? Then look for a piece of his you can capture safely.', 'It improves your position.'],
+  'capture-all': ['Look at each enemy piece: can you capture one safely? If not, move a piece to a square where nothing can capture it.', 'It keeps your pieces safe.'],
+};
+
 // Graduated hint for the side to move. level 1 = nudge, 2 = which piece, 3 = the move.
 export function hint(pos, { depth = 4, timeMs = 900, history = [] } = {}) {
   pos = pos.clone();
-  const us = pos.turn;
+  const us = pos.turn, v = pos.rules.variant;
   const best = search(pos, { depth, timeMs });
   if (!best.move) return null;
   const m = best.move, from = mFrom(m), to = mTo(m);
   const t = typeOf(pos.b[from]);
   const san = pos.san(m);
+  const out = { move: m, uci: uci(m), san, from, to, piece: t, score: best.score };
+  const lone = loneKingHint(pos);
+  if (lone) { const lm = lone.move; return { ...out, move: lm, uci: uci(lm), san: pos.san(lm), from: mFrom(lm), to: mTo(lm), piece: typeOf(pos.b[mFrom(lm)]), nudge: lone.nudge, why: lone.why }; }
   const hanging = hangingPieces(pos, us);
-  const tac = describeTactic(pos, m);
+  const tac = v === 'standard' ? describeTactic(pos, m) : null;
   const threat = opponentThreat(pos, 2);
   let nudge, why;
   if (isMateScore(best.score) && best.score > 0) {
     const n = Math.ceil((MATE - best.score) / 2);
-    nudge = n === 1 ? 'There is a checkmate in one move! Look at every check you can give.' : `You have a forced checkmate in ${n}. Start with a forcing move: a check!`;
-    why = n === 1 ? 'It\'s checkmate.' : 'It starts a forced mate.';
+    if (VARIANT_MATE[v]) [nudge, why] = VARIANT_MATE[v];
+    else {
+      nudge = n === 1 ? 'There is a checkmate in one move! Look at every check you can give.' : `You have a forced checkmate in ${n}. Start with a forcing move: a check!`;
+      why = n === 1 ? 'It\'s checkmate.' : 'It starts a forced mate.';
+    }
   } else if ((mFlags(m) & F_CAPTURE) && threatOn(pos, to, us) >= 200 && !hanging.some(h => h.gain >= 300)) {
-    nudge = 'Is anything of your opponent\'s unprotected? Count attackers and defenders.';
-    why = `It wins the ${N(typeOf(pos.b[to]))} on [${sqName(to)}].`;
+    const defended = pos.attackers(to, us ^ 1).length > 0;
+    nudge = defended ? 'You can win material! Is one of your cheaper pieces attacking something valuable?' : 'Is anything of your opponent\'s unprotected? Count attackers and defenders.';
+    why = `It wins the ${N(typeOf(pos.b[to]))} on [${sqName(to)}]${defended ? ': even if they take back, you come out ahead' : ''}.`;
   } else if (tac && tac.type !== 'check' && tac.type !== 'mate threat') {
     nudge = `Look for a ${tac.type}${tac.type === 'fork' ? ': one piece attacking two at once' : ''}.`;
     why = tac.text;
   } else if (threat && threat.mate) {
-    nudge = `Careful! Your opponent threatens checkmate with ${threat.san}. Find a way to stop it.`;
-    why = 'It stops the checkmate threat.';
+    nudge = v === 'pawn-wars' ? 'Danger! An enemy pawn is about to reach the end. Stop it or be faster!' : v === 'standard' ? `Careful! Your opponent threatens checkmate with ${threat.san}. Find a way to stop it.` : 'Careful! Your king is in danger. Make it safe first.';
+    why = v === 'pawn-wars' ? 'It deals with the enemy pawn.' : 'It stops the threat.';
   } else if (hanging.length && hanging[0].gain >= 200) {
     const h = hanging[0];
     nudge = `Your ${N(h.type)} on [${sqName(h.sq)}] is in danger. Move it, protect it, or block the attack.`;
     why = from === h.sq ? 'It moves the attacked piece to safety.' : 'It deals with the threat.';
-  } else if (threat && (threat.mate || threat.gain >= 200)) {
-    nudge = threat.mate ? `Careful! Your opponent threatens checkmate with ${threat.san}.` : `Your opponent threatens ${threat.san}. How can you stop it?`;
+  } else if (threat && threat.gain >= 200) {
+    nudge = `Your opponent threatens ${threat.san}. How can you stop it?`;
     why = 'It stops your opponent\'s threat.';
+  } else if (VARIANT_DEFAULT[v]) {
+    [nudge, why] = VARIANT_DEFAULT[v];
   } else {
     const note = principleNote(pos, m, history);
-    if (note && note.tone === 'good') { nudge = { castling: 'Your king would love to be safe. Can you castle?', center: 'Fight for the centre squares d4, e4, d5 and e5.', development: 'Bring a new piece into the game.', 'active-king': 'Endgame time: activate your king!', 'passed-pawn': 'A passed pawn wants to run!' }[note.tag]; why = note.text; }
-    else { nudge = 'No tricks right now. Improve your worst piece or make your position safer.'; why = 'It improves your position.'; }
+    if (note && note.tone === 'good') { nudge = { castling: 'Your king would love to be safe. Can you castle?', center: 'Fight for the center squares d4, e4, d5 and e5.', development: 'Bring a new piece into the game.', 'active-king': 'Endgame time: activate your king!', 'passed-pawn': 'A passed pawn wants to run!' }[note.tag]; why = note.text; }
+    else {
+      pos.make(m);
+      const hits = pos.attacksFrom(to).filter(x => pos.b[x] && colorOf(pos.b[x]) !== us && typeOf(pos.b[x]) !== KING && PV[typeOf(pos.b[x])] >= 300);
+      pos.unmake();
+      nudge = 'No tricks right now. Which of your pieces is doing the least? Find it a better square.';
+      why = hits.length ? `It puts pressure on the ${N(typeOf(pos.b[hits[0]]))} on [${sqName(hits[0])}].` : `It brings your ${N(t)} to a more useful square.`;
+    }
   }
-  return { move: m, uci: uci(m), san, from, to, piece: t, nudge, why, score: best.score };
+  return { ...out, nudge, why };
 }
 
 // ------------------------------------------------------------ tidy summaries

@@ -61,7 +61,7 @@ export class Game {
     this.board.movable = this.user === 'both' ? 'both' : this.user;
     this.board.legalFor = sq => (this.over || this.thinking || (this.user !== 'both' && this.pos.turn !== this.user)) ? [] : this.pos.legalMoves().filter(m => mFrom(m) === sq);
     this.board.onMove = moves => this.userMove(moves);
-    this.board.onIllegal = () => sfx.illegal();
+    this.board.onIllegal = (f, t) => { sfx.illegal(); this.emit('illegal', { from: f, to: t }); };
     this.refresh();
   }
 
@@ -126,7 +126,7 @@ export class Game {
           title: h('h2', { class: 'warn-title' }, '⚠ Wait a second!'),
           body: richEl('div', `${review.text}`, 'modal-body'),
           buttons: [{ label: 'Take it back', value: 'undo', cls: 'gold' }, { label: 'Play it anyway', value: 'keep', cls: 'ghost' }],
-          dismissable: false,
+          dismissable: false, className: 'warn',
         });
         this.board.arrows = [];
         if (tok !== this.token) return;
