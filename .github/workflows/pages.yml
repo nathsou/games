@@ -78,6 +78,9 @@ jobs:
           cp -r shared _site/shared
           cp -r nonocube/dist _site/nonocube
           cp nonocube/preview.jpg _site/nonocube/
+          mkdir -p _site/pawn-quest
+          cp pawn-quest/index.html pawn-quest/style.css pawn-quest/preview.png _site/pawn-quest/
+          cp -r pawn-quest/src pawn-quest/assets _site/pawn-quest/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
