@@ -2,6 +2,7 @@ import {DECKS, CARDS} from './decks.js';
 
 export const REMOVALS = [1, 2, 3, 4, 1];
 export const PROTOCOL = 1;
+export const DIMENSIONS = ['role', 'dates', 'geography', 'stories', 'traits', 'appearance'];
 export function shuffle(items, random = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296) {
   const result = [...items];
   for (let i = result.length - 1; i > 0; i--) {
@@ -24,14 +25,28 @@ export function createGame({theme = 'french', clueTheme = theme, variant = 'clas
 }
 export function remaining(game) { return game.board.filter(id => !game.eliminated.includes(id)); }
 export function note(text) { return typeof text === 'string' ? text.trim().slice(0, 1200) : ''; }
+function cardList(ids, active) {
+  return Array.isArray(ids) && new Set(ids).size === ids.length && ids.every(id => active.includes(id));
+}
+function dimensionList(values) {
+  return Array.isArray(values) && values.length > 0 && values.length <= DIMENSIONS.length &&
+    new Set(values).size === values.length && values.every(value => DIMENSIONS.includes(value));
+}
 export function playClue(game, action) {
   if (game.phase !== 'clue') throw new Error('Wait for the next clue turn.');
   if (!game.hand.includes(action.card)) throw new Error('Choose a card from your hand.');
   if (!['similar', 'different'].includes(action.relation)) throw new Error('Choose Similar or Different.');
+  if (action.expectedRemovals !== undefined && (!cardList(action.expectedRemovals, remaining(game)) ||
+      action.expectedRemovals.length !== REMOVALS[game.round] || action.expectedRemovals.includes(game.secret))) {
+    throw new Error('Expected removals must name exactly the required number of remaining alternatives, keeping the secret safe.');
+  }
+  if (action.dimensions !== undefined && !dimensionList(action.dimensions)) throw new Error('Choose valid clue dimensions.');
   const next = structuredClone(game);
   next.history.push({round: game.round + 1, active: remaining(game), card: action.card,
     relation: action.relation, giverNote: note(action.rationale), removed: [], guesserNote: '',
-    giverSource: note(action.source), guesserSource: ''});
+    giverSource: note(action.source), guesserSource: '',
+    ...(action.expectedRemovals !== undefined ? {expectedRemovals:[...action.expectedRemovals]} : {}),
+    ...(action.dimensions !== undefined ? {giverDimensions:[...action.dimensions]} : {})});
   next.hand = next.hand.filter(id => id !== action.card);
   if (next.variant === 'classic' && next.draw.length) next.hand.push(next.draw.shift());
   next.phase = 'guess';
@@ -45,8 +60,15 @@ export function eliminate(game, action) {
       ids.some(id => !remaining(game).includes(id))) {
     throw new Error(`Choose exactly ${REMOVALS[game.round]} different remaining card(s).`);
   }
+  if (action.keptCards !== undefined && (!cardList(action.keptCards, remaining(game)) ||
+      action.keptCards.length !== remaining(game).length - ids.length || action.keptCards.some(id => ids.includes(id)))) {
+    throw new Error('Keep and remove must be separate lists that together cover every remaining card.');
+  }
+  if (action.dimensions !== undefined && !dimensionList(action.dimensions)) throw new Error('Choose valid interpretation dimensions.');
   const next = structuredClone(game);
   Object.assign(next.history.at(-1), {removed: [...ids], guesserNote: note(action.rationale), guesserSource: note(action.source)});
+  if (action.keptCards !== undefined) next.history.at(-1).keptCards = [...action.keptCards];
+  if (action.dimensions !== undefined) next.history.at(-1).guesserDimensions = [...action.dimensions];
   next.eliminated.push(...ids);
   if (ids.includes(next.secret)) { next.phase = 'over'; next.result = 'loss'; }
   else if (next.round === 4) { next.phase = 'over'; next.result = 'win'; }
@@ -56,7 +78,8 @@ export function eliminate(game, action) {
 }
 export function viewFor(game, role) {
   const {draw, hand, secret, history, ...publicState} = game;
-  const view = {...structuredClone(publicState), role, history: history.map(({giverNote, guesserNote, giverSource, guesserSource, ...round}) => ({...structuredClone(round)}))};
+  const view = {...structuredClone(publicState), role, history: history.map(({giverNote, guesserNote, giverSource, guesserSource,
+    expectedRemovals, keptCards, giverDimensions, guesserDimensions, ...round}) => ({...structuredClone(round)}))};
   if (role === 'giver' && game.phase !== 'over') { view.secret = secret; view.hand = [...hand]; }
   if (game.phase === 'over') {
     view.secret = secret;
@@ -76,11 +99,18 @@ export function validatePublicView(view) {
       !Array.isArray(view.history) || view.history.length > 5 ||
       view.history.some(r => !CARDS[r.card] || !['similar','different'].includes(r.relation) ||
         !Array.isArray(r.active) || r.active.some(id => !view.board.includes(id)) ||
-        !Array.isArray(r.removed) || r.removed.some(id => !view.board.includes(id)))) {
+        !Array.isArray(r.removed) || r.removed.some(id => !view.board.includes(id)) ||
+        (r.expectedRemovals !== undefined && (!cardList(r.expectedRemovals, r.active) ||
+          r.expectedRemovals.length !== REMOVALS[r.round - 1] || r.expectedRemovals.includes(view.secret))) ||
+        (r.keptCards !== undefined && (!cardList(r.keptCards, r.active) ||
+          r.keptCards.length !== r.active.length - r.removed.length || r.keptCards.some(id => r.removed.includes(id)))) ||
+        (r.giverDimensions !== undefined && !dimensionList(r.giverDimensions)) ||
+        (r.guesserDimensions !== undefined && !dimensionList(r.guesserDimensions)))) {
     throw new Error('Your partner sent an incompatible game state.');
   }
   if (view.phase !== 'over' && ('secret' in view || 'hand' in view || 'draw' in view ||
-      view.history.some(r => 'giverNote' in r || 'guesserNote' in r))) throw new Error('Unexpected private information in the game update.');
+      view.history.some(r => ['giverNote','guesserNote','giverSource','guesserSource','expectedRemovals','keptCards',
+        'giverDimensions','guesserDimensions'].some(key => key in r)))) throw new Error('Unexpected private information in the game update.');
   if (view.phase === 'over' && (!view.board.includes(view.secret) || !['win','loss'].includes(view.result))) throw new Error('Invalid final reveal.');
   return view;
 }
@@ -104,7 +134,9 @@ export function aiObservation(game, role) {
       const clue = {id:r.card, name:CARDS[r.card].name, relation:r.relation};
       const removedCards = r.removed.map(id => ({id, name:CARDS[id].name}));
       return [{round:r.round, role, source,
-        action: role === 'giver' ? {clue} : {removedCards},
+        action: role === 'giver' ? {clue, ...(r.expectedRemovals ? {expectedRemovals:r.expectedRemovals.map(id => ({id,name:CARDS[id].name}))} : {})} :
+          {removedCards, ...(r.keptCards ? {keptCards:r.keptCards.map(id => ({id,name:CARDS[id].name}))} : {})},
+        dimensions: (role === 'giver' ? r.giverDimensions : r.guesserDimensions) || [],
         ...(role === 'giver' ? {publicResponse:{removedCards, resolved:r.removed.length>0}} : {receivedClue:clue}),
         explanation:role === 'giver' ? r.giverNote : r.guesserNote}];
     }),
