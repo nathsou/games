@@ -24,13 +24,13 @@ export function erase(name) { try { localStorage.removeItem(PREFIX + name); loca
 export const DEFAULT_SETTINGS = {provider: 'openrouter', models: {openrouter: 'openai/gpt-6-luna', openai: 'gpt-6-luna', anthropic: 'claude-sonnet-4-6'},
   efforts: {openrouter: 'medium', openai: 'medium', anthropic: 'medium'}, keys: {}, tokenBudget: 8192,
   stun: 'stun:stun.l.google.com:19302', sound: true, music: true, musicVolume: 22, muted: false, effects: true,
-  appearance: 'system', tableCardSize: 'comfortable', prices: {}};
+  appearance: 'system', tableCardSize: 'comfortable', detailsMode:'drawer', reduceMotion:false, prices: {}};
 export function loadSettings() {
   const saved = read('settings', {});
   return {...DEFAULT_SETTINGS, ...saved, muted:false, sound:saved.muted?false:saved.sound??DEFAULT_SETTINGS.sound,
     music: saved.muted?false:saved.music ?? saved.sound ?? DEFAULT_SETTINGS.music,
     appearance:['dark','light','system'].includes(saved.appearance)?saved.appearance:DEFAULT_SETTINGS.appearance,
     tableCardSize:['compact','comfortable','large'].includes(saved.tableCardSize)?saved.tableCardSize:DEFAULT_SETTINGS.tableCardSize,
-    prices: {...saved.prices}, models: {...DEFAULT_SETTINGS.models, ...saved.models},
+    detailsMode:saved.detailsMode==='peek'?'peek':'drawer', reduceMotion:!!saved.reduceMotion, prices: {...saved.prices}, models: {...DEFAULT_SETTINGS.models, ...saved.models},
     efforts: {...DEFAULT_SETTINGS.efforts, ...saved.efforts}, keys: {...saved.keys}, ...loadAI(), appearance:loadTheme()};
 }
