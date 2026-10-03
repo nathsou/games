@@ -17,7 +17,7 @@ export function drawBody(r, w, i) {
   const seed = b.seed || i * 7 + 3;
   switch (b.type) {
     case 'sun':
-      r.sprite(false, T.SUN, x, y, R * 3.8, R, seed, 0, 0, 1, 1, 1, 1);
+      r.sprite(false, T.SUN, x, y, R * 4.6, R, seed, 0, 0, 1, 1, 1, 1);
       break;
     case 'blackhole':
       r.sprite(false, T.BLACKHOLE, x, y, R * 4.2, R, seed, 0, 0, 1, 1, 1, 1);
@@ -28,7 +28,7 @@ export function drawBody(r, w, i) {
       break;
     default: {
       const atmo = b.atmo || 0;
-      const ext = R + Math.max(atmo, R * 0.14) + 6;
+      const ext = R + Math.max(atmo, R * 0.2) + 8;
       r.sprite(false, T.PLANET, x, y, ext, R, seed, LOOK_ID[b.look] ?? 0, atmo, 1, 1, 1, 1);
     }
   }
@@ -38,13 +38,16 @@ export function drawBody(r, w, i) {
 // opts: { S, showHole, time }
 export function drawLevel(r, w, t, opts = {}) {
   ensureBodies(w, t);
+  // the first sun in a level lights every planet
+  r.sun = null;
+  for (let i = 0; i < w.n; i++) if (w.kind[i] === 'sun') { r.sun = { x: w.px[i], y: w.py[i] }; break; }
   for (const z of w.winds) {
     r.sprite(false, T.WIND, z.x, z.y, z.r * 1.04, z.r, z.x * 0.01, z.ax, z.ay, 1, 1, 1, 1);
   }
   w.portals.forEach((p, k) => {
     const pal = PORTAL_COLORS[k % PORTAL_COLORS.length];
-    r.sprite(false, T.WORMHOLE, p.a.x, p.a.y, PORTAL_R * 2.6, PORTAL_R * 1.15, k, 0, 0, pal[0][0], pal[0][1], pal[0][2], 1);
-    r.sprite(false, T.WORMHOLE, p.b.x, p.b.y, PORTAL_R * 2.6, PORTAL_R * 1.15, k, 0, 0, pal[1][0], pal[1][1], pal[1][2], 1);
+    r.sprite(false, T.WORMHOLE, p.a.x, p.a.y, PORTAL_R * 4.2, PORTAL_R * 1.15, k, 0, 0, pal[0][0], pal[0][1], pal[0][2], 1);
+    r.sprite(false, T.WORMHOLE, p.b.x, p.b.y, PORTAL_R * 4.2, PORTAL_R * 1.15, k, 0, 0, pal[1][0], pal[1][1], pal[1][2], 1);
   });
   for (let i = 0; i < w.n; i++) drawBody(r, w, i);
   const S = opts.S;
