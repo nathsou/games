@@ -40,7 +40,8 @@ function deal(state) {
   state.phase = 'playing';
   state.turn = (state.starter + state.round) % state.hands.length;
   // In double-action rhythm the opening player gets only the right action.
-  state.beat = state.options.quickTurns ? 0 : 1;
+  state.beat = 1;
+  state.opening = true;
   state.pending = null; state.repliesRemaining = 0;
   state.moves = 0;
   state.log = [];
@@ -52,7 +53,7 @@ export function createMatch(options = {}, seed = 1, starter = 0, players = 2) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff || !Number.isInteger(players) || players < 2 || players > 5 || !Number.isInteger(starter) || starter < 0 || starter >= players) throw new Error('Invalid deal.');
   return deal({options: optionsFor(options), seed, starter, round: 0, revision: 0, scores: Array(players).fill(0), history: []});
 }
-export function availableLanes(state) { return state.options.quickTurns ? [0, 1] : [state.beat]; }
+export function availableLanes(state) { return state.options.quickTurns ? [1, 0] : [state.beat]; }
 function clearLane(state, seat, lane) {
   state.discard.push(...state.table[seat][lane]);
   state.table[seat][lane] = [];
@@ -141,15 +142,15 @@ export function applyAction(original, seat, action) {
     state.repliesRemaining--;
     if (state.repliesRemaining <= 0) { finishRound(state, previousPending, 'survived'); return state; }
     // Every other seat gets one reply. The earliest empty hand keeps priority.
-    state.turn = (seat + 1) % state.hands.length; state.beat = 0;
+    state.turn = (seat + 1) % state.hands.length; state.beat = 1; state.opening = false;
   } else {
     state.pending = null; state.repliesRemaining = 0;
     if (!state.hands[seat].length) {
       if (!state.options.lastChance) { finishRound(state, seat, 'empty'); return state; }
       state.pending = seat; state.repliesRemaining = state.hands.length - 1;
-      state.turn = (seat + 1) % state.hands.length; state.beat = 0;
-    } else if (!state.options.quickTurns && state.beat === 0) state.beat = 1;
-    else { state.turn = (seat + 1) % state.hands.length; state.beat = 0; }
+      state.turn = (seat + 1) % state.hands.length; state.beat = 1; state.opening = false;
+    } else if (!state.options.quickTurns && state.beat === 1 && !state.opening) state.beat = 0;
+    else { state.turn = (seat + 1) % state.hands.length; state.beat = 1; state.opening = false; }
   }
   const key = positionKey(state);
   state.visits[key] = (state.visits[key] || 0) + 1;

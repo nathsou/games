@@ -57,19 +57,19 @@ test('A blocked add is forbidden, and taking transfers the entire set flipped', 
   assert.equal(next.hands[0].length, 3); assert.equal(next.hands[1].length, 1);
   assert.equal(next.hands[0].find(c => c.id === card.id).face, 1 - card.face); assertState(next);
 });
-test('Double turns have a one-action opener and fixed left/right order', () => {
+test('Double turns use right then left, with only the right action for the opener', () => {
   let state = createMatch({quickTurns: false}, 123);
   assert.equal(state.turn, 0); assert.equal(state.beat, 1);
   assert.throws(() => applyAction(state, 0, {kind: 'flip', lane: 0}));
-  state = applyAction(state, 0, {kind: 'flip', lane: 1}); assert.equal(state.turn, 1); assert.equal(state.beat, 0);
-  state = applyAction(state, 1, {kind: 'flip', lane: 0}); assert.equal(state.turn, 1); assert.equal(state.beat, 1);
-  state = applyAction(state, 1, {kind: 'flip', lane: 1}); assert.equal(state.turn, 0); assert.equal(state.beat, 0);
+  state = applyAction(state, 0, {kind: 'flip', lane: 1}); assert.equal(state.turn, 1); assert.equal(state.beat, 1);
+  state = applyAction(state, 1, {kind: 'flip', lane: 1}); assert.equal(state.turn, 1); assert.equal(state.beat, 0);
+  state = applyAction(state, 1, {kind: 'flip', lane: 0}); assert.equal(state.turn, 0); assert.equal(state.beat, 1);
 });
 test('Last chance gives exactly one response, including an interrupted double turn', () => {
   let state = fixture({hands: [[4], [5, 1]], options: {quickTurns: false}, beat: 0});
   state = applyAction(state, 0, {kind: 'play', lane: 0, cards: [state.hands[0][0].id]});
   assert.equal(state.phase, 'playing'); assert.equal(state.pending, 0); assert.equal(state.turn, 1);
-  state = applyAction(state, 1, {kind: 'play', lane: 0, cards: [state.hands[1][0].id]});
+  state = applyAction(state, 1, {kind: 'play', lane: 1, cards: [state.hands[1][0].id]});
   assert.equal(state.pending, null); assert.equal(state.hands[0].length, 1); assert.equal(state.phase, 'playing'); assertState(state);
 });
 test('An uncountered empty hand wins; if both are empty the first finisher wins', () => {
