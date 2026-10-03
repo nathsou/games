@@ -20,6 +20,6 @@ All sound is synthesized through native WebAudio oscillators, filters, stereo pa
 
 Music follows the selected board theme at setup and the actual board theme during play and replay. It starts after a user gesture, fades between themes, pauses while the tab is hidden and resumes without a burst of overdue notes. Music temporarily softens under the victory fanfare or descending loss cue. A native compressor limits the combined output.
 
-The top audio button mutes music and effects together. Settings has independent music and effect switches and a music-volume slider. These preferences are saved locally. An existing saved sound-off preference keeps music off until the player enables it. Unsupported or blocked audio does not prevent play.
+The top music button pauses background music only, preserving the sound-effects preference. Settings has independent music and effect switches and a music-volume slider. These preferences are saved locally. An existing saved sound-off preference keeps music off until the player enables it. Older saved master-mute settings migrate to music off and effects off, so updating the game does not unexpectedly restore sound. Unsupported or blocked audio does not prevent play.
 
 Result animations run briefly, once per completed live game. Replaying rounds does not repeat them. The effects preference and the browser's reduced-motion preference suppress the canvas celebration and card animation while preserving the explicit result text.

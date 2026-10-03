@@ -27,3 +27,7 @@ For each legal hand card, the giver considers both directions and compares plaus
 Different requires a recognizable contextual contrast. Similar is not discouraged because the task involves removals. The prompt imposes no sign quota or mechanical alternation; an equally clear direct Similar association breaks an otherwise equal tie. Only the short explanation of the chosen move is recorded and revealed at the end, preserving the partner's information boundary.
 
 Current provider guidance used: [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna) and [OpenAI's GPT-6 prompting guidance](https://developers.openai.com/api/docs/guides/latest-model). Prompt behavior was checked with the selected Luna model rather than assuming another model's behavior transfers unchanged.
+
+## Decision memory
+
+Every request carries the full public clue/removal trail and the model’s own short explanations. Explicit `ownPreviousActions` records now pair each earlier AI move with its explanation: givers see their chosen clue and direction plus the public removals in response; guessers see their removals and the clue they received. Earlier sources are retained when the player changes models or effort. The prompt asks the model to preserve coherent associations and reconsider them after feedback. The partner’s sealed notes remain excluded, and a guesser never receives the target or private hand. This is recorded game memory, not a stored provider conversation or an internal reasoning transcript.

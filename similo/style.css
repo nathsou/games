@@ -51,3 +51,53 @@ dialog.outcome-dialog::backdrop{background:#021719bd}
 @media(max-width:660px){.reveal-hero h1{font-size:29px}dialog.outcome-dialog{padding:28px 21px}.outcome-dialog .modal-header h2{font-size:36px}.outcome-dialog .modal-header>div{padding:0 25px}.outcome-summary{font-size:12px}#outcome-secret{width:115px}}
 @media(prefers-reduced-motion:reduce){#outcome-secret{animation:none}}
 input[type=range]{accent-color:var(--gold);padding:5px 0;background:transparent;border:0}
+/* Readable table cards, separate detail controls and a full-sized clue trail. */
+:root{--table-card-width:160px}
+.board{grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--table-card-width)),1fr))}
+.table-layout .board{max-width:none}
+.card-with-details{width:min(100%,var(--table-card-width));margin-inline:auto;min-width:0}
+.table-layout .board .card,.board .card-with-details .card,.hand .card-with-details .card{width:100%;max-width:none;margin:0}
+.card-details{display:block;width:100%;min-height:36px;margin-top:8px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--ink);font-size:11px;letter-spacing:.2px}
+.card-details:hover{border-color:var(--gold);color:var(--gold)}
+.hand{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,96px),1fr));align-items:start}
+.hand .card-with-details{width:100%;max-width:132px}
+.board-label{align-items:center;gap:12px;flex-wrap:wrap}
+.card-size-control{display:flex;gap:8px;align-items:center;font-size:10px;letter-spacing:0;white-space:nowrap}
+.card-size-control select{width:auto;font-size:11px;padding:6px 8px;max-width:150px}
+.clue-history{flex-wrap:wrap;overflow:visible;gap:14px;padding:5px 4px 12px}
+.clue-token{flex:0 0 188px;min-width:0;max-width:none;padding:14px 12px}
+.clue-token .card,.clue-token.different .card{width:118px;margin:0 auto 13px;box-shadow:0 3px var(--shadow)}
+.clue-name{display:block;font-size:12px;font-weight:bold;text-align:center;line-height:1.5;margin-bottom:6px;color:var(--ink)}
+.clue-token p{font-size:11px}.clue-token small{font-size:10px;margin-top:7px}
+.clue-token.different .card{width:min(118px,calc(100% / 1.37))}
+.current-clue .card{width:100px}.current-clue.different .card{width:82px;margin:12px 7px}
+.current-clue>div:first-child{flex-shrink:0}.current-clue>div:last-child{min-width:0;overflow-wrap:anywhere}
+@media(max-width:660px){.card-details{min-height:40px}.clue-token{flex-basis:calc((100% - 14px)/2);padding:12px 9px}.clue-token .card{width:104px}.clue-token.different .card{width:min(104px,calc(100% / 1.37))}.clue-name{font-size:11px}.board-label{letter-spacing:.8px}.card-size-control{margin-left:auto}.hand{min-height:0}}
+
+/* Light keeps the cream cards and retro palette, with readable paper surfaces. */
+:root[data-color-theme=light]{color-scheme:light;--ink:#253833;--muted:#51645b;--gold:#8a5b11;--red:#ad3e31;--mint:#1f6e53;--blue:#2b5f9b;--panel:#f8f1e3;--deep:#e9ddc6;--line:#a4b09b;--shadow:#b5baa6}
+[data-color-theme=light] body{background:#f0eadb}
+[data-color-theme=light] #ambience{opacity:.07}
+[data-color-theme=light] .scanlines{opacity:.18}
+[data-color-theme=light] .topbar,[data-color-theme=light] .footer{border-color:#a2ad9566}
+[data-color-theme=light] .footer{color:var(--muted)}
+[data-color-theme=light] .logo-mark{background:#bb6552;color:#fff1d4;box-shadow:3px 3px #c5bca5}
+[data-color-theme=light] .mode,[data-color-theme=light] .setup-panel,[data-color-theme=light] .deck-choice,[data-color-theme=light] .side-panel,[data-color-theme=light] .hand-section,[data-color-theme=light] .clue-token,[data-color-theme=light] .replay-tab,[data-color-theme=light] .icon-button{background:var(--panel);color:var(--ink);border-color:var(--line)}
+[data-color-theme=light] .mode.selected,[data-color-theme=light] .deck-choice.selected{background:#e4ecd8;border-color:var(--gold)}
+[data-color-theme=light] .button{background:#ebbd6a;color:#253833;border-color:#ad833c;box-shadow:0 4px #c7bba2}
+[data-color-theme=light] .button.secondary{background:#e2e8da;color:var(--ink);border-color:var(--line)}
+[data-color-theme=light] .button.danger{background:#ce6c59;color:#fff9e9;border-color:#9a4539}
+[data-color-theme=light] .button.blue{background:#a7c7dd;color:var(--ink);border-color:#6c95b0}
+[data-color-theme=light] input,[data-color-theme=light] select,[data-color-theme=light] textarea,[data-color-theme=light] .segmented button{background:#fffbef;color:var(--ink);border-color:var(--line)}
+[data-color-theme=light] input::placeholder,[data-color-theme=light] textarea::placeholder{color:#65766b}
+[data-color-theme=light] .segmented button.selected,[data-color-theme=light] .replay-tab.selected,[data-color-theme=light] .round-step.current,[data-color-theme=light] .pair-steps .active{background:#e8be70;color:#253833;border-color:#a77d31}
+[data-color-theme=light] .round-step,[data-color-theme=light] .pair-steps span{background:#eee8d7;color:var(--muted);border-color:var(--line)}
+[data-color-theme=light] .round-step.done{background:#ddebd9;color:var(--mint)}
+[data-color-theme=light] dialog{background:#f8f1e3;border-color:#95a08d;box-shadow:10px 10px #b7bcaa77}
+[data-color-theme=light] dialog::backdrop{background:#354b4359}
+[data-color-theme=light] .inline-error{background:#f3ddd2;color:#843b31;border-color:#c58a7b}
+[data-color-theme=light] .pair-success,[data-color-theme=light] .resume-banner,[data-color-theme=light] .connection-badge{background:#deead7;color:#28513b;border-color:#8cac86}
+[data-color-theme=light] .reveal-hero.win,[data-color-theme=light] dialog.outcome-dialog.win{background:linear-gradient(125deg,#d5e5cc,#f8f1e3);border-color:#6f8d5d;box-shadow:0 0 35px #71885b20}
+[data-color-theme=light] .reveal-hero.loss,[data-color-theme=light] dialog.outcome-dialog.loss{background:linear-gradient(125deg,#eed6cc,#f8f1e3);border-color:#b45b4d}
+[data-color-theme=light] .outcome-dialog::backdrop{background:#354b436e}
+[data-color-theme=light] input[type=range]{background:transparent}
