@@ -75,6 +75,7 @@ function render() {
   const changed=scene==='game' && !handoff && !renderedPosition?.handoff && position && renderedPosition && position.mode===renderedPosition.mode && position.seat===renderedPosition.seat && position.round===renderedPosition.round && position.moves===renderedPosition.moves+1 && position.revision===renderedPosition.revision+1;
   const animate=changed && motionEnabled();
   if (animate) animating=true;
+  const inputFocus=document.activeElement?.id==='chat-input' ? {start:document.activeElement.selectionStart,end:document.activeElement.selectionEnd} : null;
   const focus = document.activeElement?.dataset;
   const remembered = focus?.action ? {...focus} : null;
   app.innerHTML = scene === 'menu' || !view() ? renderMenu() : renderGame();
@@ -85,6 +86,7 @@ function render() {
     const token=++animationGeneration;
     animateMove(app,before,current.log.at(-1),mySeat()).finally(()=>{if (token!==animationGeneration)return;animating=false;render();scheduleBot();});
   }
+  if (inputFocus) { const input=document.querySelector('#chat-input'); if(input&&!input.disabled){input.focus({preventScroll:true});input.setSelectionRange(inputFocus.start,inputFocus.end);} }
   if (remembered) {
     const match = [...app.querySelectorAll('[data-action]')].find(el => Object.entries(remembered).every(([k, v]) => el.dataset[k] === v));
     if (match && !match.disabled) match.focus({preventScroll:true});
@@ -96,12 +98,12 @@ function renderMenu() {
   const heroes = [{id:'hero1', ends:[1,5], face:0}, {id:'hero2', ends:[6,2], face:0}, {id:'hero3', ends:[3,4], face:0}];
   let html = '<div class="menu-layout"><section class="intro"><p class="eyebrow">THE DOUBLE-SIDED CARD DUEL</p><h1>Same hand.<br><em>New tricks.</em></h1><p class="intro-copy">Build a set. Leave it exposed. Hope they don’t have a better idea.<br>Every card has another side. Every move can flip the game.</p><div class="hero-art" aria-label="Illustrated double-value cards">' + heroes.map((c,i) => cardHtml(c, false, false, [-13,2,15][i])).join('') + '<span class="hero-stamp">FLIP THE ODDS</span></div><div class="feature-line"><div><b>Play a set.</b><span>Matching ranks.<br>A little calculated risk.</span></div><div><b>Turn the tables.</b><span>Beat a set and send it<br>back with a twist.</span></div><div><b>Flip your hand.</b><span>Your next good idea<br>might be upside down.</span></div></div><div class="menu-bottom"><span>First to two round wins.</span><button class="text-button" data-action="rules">How to play ↗</button></div></section><aside class="panel"><p class="eyebrow">MAKE IT YOUR MATCH</p><h2 class="panel-title">Deal yourself in.</h2><p class="small">Mix these three options however you like. They stay fixed for the whole match.</p><div class="option-list">';
   for (const key of OPTION_KEYS) html += '<label class="option" for="option-' + key + '"><input type="checkbox" id="option-' + key + '" data-option="' + key + '" ' + (options[key] ? 'checked ' : '') + (guest ? 'disabled ' : '') + '><span><b>' + optionInfo[key][0] + '</b><small>' + optionInfo[key][1] + '<br>' + optionInfo[key][2] + '</small></span></label>';
-  html += '</div><details class="lobby-ai"><summary>Add AI opponents · optional</summary>'+aiLobby(guest)+'</details><label class="label" for="player-name">YOUR NAME</label><input id="player-name" maxlength="24" value="' + esc(name()) + '" autocomplete="nickname">';
+  html += '</div><details class="lobby-ai"><summary>Table options · AI & teams</summary>'+aiLobby(guest)+(!online?'<label class="team-choice"><input id="lobby-team" type="checkbox" '+(prefs.team?'checked':'')+'><span>Team up against the dealer<small>Turn on before inviting a friend.</small></span></label>':'')+'</details><label class="label" for="player-name">YOUR NAME</label><input id="player-name" maxlength="24" value="' + esc(name()) + '" autocomplete="nickname">';
   if (online) html += button(guest ? 'HOST CHOOSES THE NEXT MATCH' : 'DEAL A NEW MATCH →', 'deal-online', 'gold', guest) + button('LEAVE ONLINE TABLE', 'leave-online', 'outline');
   else html += button(aiPlayers(4,1).some(t=>t==='model')?'PLAY THE AI TABLE →':'PLAY THE DEALER →', 'start-solo') + button('PASS & PLAY', 'start-local', 'dark');
   if (view()) html += button('RESUME CURRENT MATCH', 'resume', 'outline');
   if (prefs.lastPlayer?.name && !online) html += '<div class="last-player"><span>LAST AT YOUR TABLE</span><strong>'+esc(prefs.lastPlayer.name)+'</strong>'+button('RECONNECT ↗','reconnect-last','outline compact')+'</div>';
-  html += '<hr class="divider"><p class="small">A friend. Two screens. One table.</p>' + button(online ? 'CONNECTION DETAILS' : 'INVITE A FRIEND ↗', 'host', 'gold') + (!online ? button('JOIN A FRIEND', 'join', 'outline') + '<label class="team-choice"><input id="lobby-team" type="checkbox" '+(prefs.team?'checked':'')+'><span>Team up against the dealer<small>Turn on before inviting a friend.</small></span></label>' : '') + '</aside></div>';
+  html += '<hr class="divider"><p class="small">A friend. Two screens. One table.</p>' + button(online ? 'CONNECTION DETAILS' : 'INVITE A FRIEND ↗', 'host', 'gold') + (!online ? button('JOIN A FRIEND', 'join', 'outline') : '') + '</aside></div>';
   return html;
 }
 function renderGame() {
@@ -159,7 +161,7 @@ function renderTable(v) {
   }
   html += '</div>';
   if (v.pending !== null) html += '<div class="last-chance" role="status"><strong>LAST CHANCE!</strong> ' + (v.pending === p ? 'Your hand is empty. '+v.repliesRemaining+' '+(v.repliesRemaining===1?'reply remains.':'replies remain.') : esc(ns[v.pending])+' has an empty hand. Return cards to that player to stop the win.') + '</div>';
-  html += '<p class="table-instruction" role="status">' + (turn ? preview ? 'A peek at your other side.' : 'Your move.' : esc(ns[v.turn]) + ' is thinking…') + '<small>' + (turn ? v.options.quickTurns ? 'Select matching ranks. Play a set, or flip your hand.' : 'Use your ' + (v.beat ? 'right' : 'left') + ' space for this action.' : 'Watch their move. Plan your next flip.') + '</small></p><div class="zone-title"><span>YOUR PLAY SPACES</span><span>' + (v.options.quickTurns ? 'CHOOSE EITHER' : (v.opening ? 'OPENING ACTION' : 'ACTION ' + (v.beat ? 1 : 2) + ' / 2')) + '</span></div><div class="table-row">';
+  html += '<p class="table-instruction" role="status">' + (animating ? 'Watch the cards.' : turn ? preview ? 'A peek at your other side.' : 'Your move.' : esc(ns[v.turn]) + ' is thinking…') + '<small>' + (turn ? v.options.quickTurns ? 'Select matching ranks. Play a set, or flip your hand.' : 'Use your ' + (v.beat ? 'right' : 'left') + ' space for this action.' : 'Watch their move. Plan your next flip.') + '</small></p><div class="zone-title"><span>YOUR PLAY SPACES</span><span>' + (v.options.quickTurns ? 'CHOOSE EITHER' : (v.opening ? 'OPENING ACTION' : 'ACTION ' + (v.beat ? 1 : 2) + ' / 2')) + '</span></div><div class="table-row">';
   for (let own=0;own<2;own++) {
     const set = v.table[p][own], canChoose = turn && availableLanes(v).includes(own);
     html += '<article data-space-seat="'+p+'" data-space-lane="'+own+'" class="play-space ' + (own === lane && turn ? 'chosen' : '') + '"><button type="button" class="space-select" data-action="lane" data-lane="' + own + '" aria-pressed="' + (own===lane) + '" ' + (!canChoose ? 'disabled' : '') + '>' + (own === lane && turn ? '● ' : '○ ') + (own ? 'RIGHT' : 'LEFT') + ' SPACE' + (set.length ? ' · ' + set.length + ' × ' + setValue(set) : '') + '</button><div class="space-cards">' + (set.length ? set.map(c => cardHtml(c)).join('') : '<span class="space-empty">↕</span>') + '</div><p class="cash-note">' + (set.length ? own === lane && turn ? 'These ' + set.length + ' cards leave on your move.' : 'Leave exposed, or cash out next.' : own === lane && turn ? 'Your new set will go here.' : 'An empty place for a new idea.') + '</p></article>';

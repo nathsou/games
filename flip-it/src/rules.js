@@ -117,7 +117,7 @@ function execute(state, seat, action) {
 }
 function positionKey(state) {
   const cards = hand => hand.map(card => card.id + ':' + card.face).sort().join(',');
-  return JSON.stringify([state.turn, state.beat, state.pending, state.hands.map(cards), state.table.map(row => row.map(cards)), state.discard.map(c => c.id).sort()]);
+  return JSON.stringify([state.turn, state.beat, state.options.quickTurns ? false : state.opening, state.pending, state.hands.map(cards), state.table.map(row => row.map(cards)), state.discard.map(c => c.id).sort()]);
 }
 function finishRound(state, winner, reason) {
   state.result = {winner, reason, moves: state.moves, round: state.round + 1};
