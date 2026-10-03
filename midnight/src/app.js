@@ -33,7 +33,7 @@ function name() { return typeof prefs.name === 'string' ? prefs.name.slice(0, 24
 function names() { return mode === 'online' ? session?.names || ['You', 'Partner'] : mode === 'solo' ? [name(), 'The Dealer'] : [name(), 'Partner']; }
 function mySeat() { return mode === 'online' ? session.team ? 0 : session.seat : seat; }
 function view() { return mode === 'online' ? session?.view : game ? playerView(game, seat) : null; }
-function connected() { return Boolean(peer?.connected); }
+function connected() { return Boolean(peer?.connected && session?.readyForPlay); }
 function blocked() { return mode === 'online' && (!connected() || session.movePending); }
 function locked() {
   const v = view(), p = mySeat();
@@ -155,7 +155,7 @@ function renderHeist(v) {
   }
   html += '</div><p class="table-instruction" role="status">' + statusInstruction(v.phase === 'guard' ? 'Set a defense. Sell the story.<small>Your higher-value loot stays in the vault.</small>' : 'Their vault looks awfully tempting.<small>Take the outside coins, or raid both piles.</small>') + '</p>';
   if (v.phase === 'guard') {
-    html += '<div class="hand defenses" aria-label="Your defenses">' + v.hands[p].map((card, i) => '<button class="playing-card defense-card ' + card.kind + ' ' + (chosen === card.id ? 'selected' : '') + '" style="--tilt:' + (i - (v.hands[p].length - 1) / 2) * 1.5 + 'deg" data-action="select-card" data-card="' + card.id + '" aria-pressed="' + (chosen === card.id) + '" aria-label="Choose ' + card.kind + '" ' + (locked() || blocked() ? 'disabled' : '') + '><span class="rank">' + card.kind.toUpperCase() + '</span><span class="suit" aria-hidden="true">' + (card.kind === 'alarm' ? '⚑' : '✦') + '</span><span class="card-caption">' + (card.kind === 'alarm' ? 'REAL TRAP' : 'EMPTY VAULT') + '</span></button>').join('') + '</div><div class="table-controls">' + button(locked() ? 'DEFENSE LOCKED ✓' : 'LOCK IN DEFENSE →', 'lock-card', 'gold', !chosen || locked() || blocked()) + '</div>';
+    html += '<div class="hand defenses" aria-label="Your defenses">' + v.hands[p].map((card, i) => '<button class="playing-card defense-card ' + card.kind + ' ' + (chosen === card.id ? 'selected' : '') + '" style="--tilt:' + (i - (v.hands[p].length - 1) / 2) * 1.5 + 'deg" data-action="select-card" data-card="' + card.id + '" aria-pressed="' + (chosen === card.id) + '" aria-label="Choose ' + card.kind + '" ' + (locked() || blocked() ? 'disabled' : '') + '><span class="rank">' + card.kind.toUpperCase() + '</span><span class="suit" aria-hidden="true">' + (card.kind === 'alarm' ? '⚑' : '✦') + '</span><span class="card-caption">' + (card.kind === 'alarm' ? 'REAL TRAP' : 'NO ALARM') + '</span></button>').join('') + '</div><div class="table-controls">' + button(locked() ? 'DEFENSE LOCKED ✓' : 'LOCK IN DEFENSE →', 'lock-card', 'gold', !chosen || locked() || blocked()) + '</div>';
   } else {
     const loot = v.loot[1 - p], total = loot[0].value + loot[1].value;
     html += '<div class="raid-options">' + ['safe', 'raid'].map(choice => '<button class="raid-option ' + (chosen === choice ? 'selected' : '') + '" data-action="select-raid" data-choice="' + choice + '" aria-pressed="' + (chosen === choice) + '" ' + (locked() || blocked() ? 'disabled' : '') + '><b>' + (choice === 'safe' ? 'EASY MONEY' : 'RAID THE VAULT') + '</b><small>' + (choice === 'safe' ? loot[0].value + ' coins, guaranteed.<br>They keep the vault.' : total + ' coins if it’s a bluff.<br>Zero if it’s an alarm.') + '</small></button>').join('') + '</div><div class="table-controls">' + button(locked() ? 'APPROACH LOCKED ✓' : 'LOCK IN APPROACH →', 'lock-raid', '', !chosen || locked() || blocked()) + '</div>';
@@ -173,7 +173,7 @@ function renderEnd(v) {
 }
 function eventText(r) {
   const ns = names();
-  if (r.kind === 'backhand') return 'Round ' + r.round + ': ' + r.played[0].value + ' vs ' + r.played[1].value + '. ' + (r.winner === null ? r.value + ' points carried over.' : esc(ns[r.winner]) + ' won ' + r.value + ' points.');
+  if (r.kind === 'backhand') return 'Round ' + esc(r.round) + ': ' + r.played[0].value + ' vs ' + r.played[1].value + '. ' + (r.winner === null ? r.value + ' points carried over.' : esc(ns[r.winner]) + ' won ' + r.value + ' points.');
   if (r.kind === 'closing') return r.winner === null ? 'An empty auction closed; ' + r.value + ' points discarded.' : esc(ns[r.winner]) + ' won ' + r.value + ' points' + (r.cubes[0] === r.cubes[1] ? ' on first-bid priority.' : '.');
   const descriptions = {safe: 'took easy money', caught: 'hit an alarm', clean: 'called a bluff'};
   return esc(ns[0]) + ' ' + descriptions[r.outcomes[0]] + '; ' + esc(ns[1]) + ' ' + descriptions[r.outcomes[1]] + '. +' + r.gain[0] + ' / +' + r.gain[1] + ' coins.';
@@ -318,7 +318,7 @@ function renderPair() {
   if (pairKind === 'connected') {
     html += '<p class="modal-copy">You are connected directly to ' + esc(session.members[1 - session.seat]) + '. Keep both game tabs open while you play.</p>' + button('BACK TO THE TABLE →', 'close-modal', 'gold');
   } else if (pairKind === 'return') {
-    html += '<p class="modal-copy">' + esc(pairMessage || 'Looking for your original hosting tab…') + '</p><p class="modal-copy">Keep the hosting tab open. If it cannot be found, paste the reply there or create a fresh invitation.</p>' + button('COPY REPLY LINK', 'copy', 'gold') + button('BACK TO GAMES', 'close-modal', 'outline');
+    html += '<p class="modal-copy">' + esc(pairMessage || 'Looking for your original hosting tab…') + '</p><p class="modal-copy">Keep the hosting tab open. If it cannot be found, paste the reply there or create a fresh invitation.</p><label class="label" for="pair-output">REPLY LINK</label><textarea id="pair-output" class="link-output" readonly>' + esc(pairOut) + '</textarea>' + button('COPY REPLY LINK', 'copy', 'gold') + button('BACK TO GAMES', 'close-modal', 'outline');
   } else {
     html += '<div class="pair-steps"><div class="pair-step ' + (!pairOut ? 'active' : '') + '">01<br>HOST SHARES AN INVITE</div><div class="pair-step ' + (pairOut ? 'active' : '') + '">02<br>GUEST SHARES A REPLY</div><div class="pair-step">03<br>HOST ACCEPTS. PLAY.</div></div>';
     if (pairKind === 'host') {
@@ -522,7 +522,7 @@ document.addEventListener('keydown', event => {
   if (!v || ['over','reveal'].includes(v.phase) || blocked()) return;
   if (/^[1-6]$/.test(event.key) && v.type !== 'closing' && v.phase !== 'raid' && !locked()) {
     const card = v.hands[mySeat()][Number(event.key) - 1];
-    if (card) { chosen = card.id; render(); event.preventDefault(); }
+    if (card) { chosen = card.id; render(); app.querySelector('.playing-card.selected')?.focus({preventScroll: true}); event.preventDefault(); }
   }
   if (event.key === 'Enter' && chosen && !locked() && (document.activeElement.tagName !== 'BUTTON' || ['select-card', 'select-raid'].includes(document.activeElement.dataset.action))) {
     const kind = v.type === 'backhand' ? 'bid' : v.phase === 'guard' ? 'guard' : 'raid';
