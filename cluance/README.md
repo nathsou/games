@@ -1,6 +1,8 @@
 # Cluance
 
-A cooperative visual deduction game with original retro pixel art. Play with a friend through link-based WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. **No runtime or development packages, CDNs, frameworks, fonts, build step, or backend.**
+A cooperative visual deduction game with original retro pixel art. Play with a friend through link-based WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. **No runtime or development packages, CDNs, frameworks, build step, or backend. Martian Mono and DM Mono are self-hosted with their SIL OFL licences.**
+
+The interface follows the supplied [UX/UI redesign](UX_REDESIGN.md), with paper tones, full-bleed artwork and self-hosted mono typography.
 
 ## Run
 
@@ -29,7 +31,7 @@ The board has twelve illustrated people or places. The clue giver starts with fi
 
 **Classic hand:** draw one replacement after each clue. **Fixed five:** no replacements; use the initial five cards in a considered order.
 
-Eleven decks with 267 active illustrated cards: ten 24-card decks and a 27-card French Regions deck.
+Eleven decks with **330 active illustrated cards: 30 in every theme**, matching the publisher's [30-card Similo deck size](https://horribleguild.com/eu/product/similo-history/). Scientists includes Charles Babbage, Philosophers includes Jean-Paul Sartre, and Writers includes Albert Camus. Every existing and new card has an [individual audit record](CARD_AUDIT.md); inconsistent artwork was redrawn from scratch with imagegen.
 
 1. French History
 2. Global History
@@ -43,15 +45,19 @@ Eleven decks with 267 active illustrated cards: ten 24-card decks and a 27-card 
 10. Countries
 11. French Regions
 
-Cities include Paris, Rome, London, Berlin, Tokyo and New York City, with 18 more cities worldwide. French Regions uses the division as it stood on 31 December 2015: [22 metropolitan regions](https://www.insee.fr/fr/statistiques/1906658), including Corsica, and five overseas regions. Every region has one original illustration, dates and public context. Centre-Val de Loire uses its [name adopted in January 2015](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000030110734). New deals exclude the merged post-2016 regions. Old region IDs and their artwork are preserved only for compatible saved games and replays.
+Cities include Paris, Rome, London, Berlin, Tokyo and New York City, with 24 more cities worldwide. French Regions contains the complete division as it stood on 31 December 2015: [22 metropolitan regions](https://www.insee.fr/fr/statistiques/1906658), including Corsica, and five overseas regions. Three additional cards depict **historical provinces: Anjou, Touraine and Provence**, explicitly labelled in their captions and descriptions; they are not extra administrative regions of 2015. Every card has one original illustration, dates and public context. Centre-Val de Loire uses its [name adopted in January 2015](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000030110734). New deals exclude the merged post-2016 regions. Old region IDs and their artwork are preserved only for compatible saved games and replays.
 
 Every card displays a date caption and has a short description available in card inspection. People have lifespans or labelled birth years; places have labelled landmarks or milestones. Approximate and traditional dates are marked, and mythological figures are identified as myths. The [card context notes](CARD_CONTEXT.md) explain these conventions and link selected references.
 
-Choose board and clue decks independently, including people/place combinations. When themes overlap, clue cards depicting the same subject as a board card are excluded. The opening screen also offers future theme ideas and a collection browser. All decks use smaller WebP delivery images; the original generated PNGs are retained with their prompts.
+Choose board and clue decks independently, including people/place combinations. When themes overlap, clue cards depicting the same subject as a board card are excluded. The opening sentence chooses your role, partner, board deck, clue deck and hand variant. Collection is a searchable full page with all 330 cards. All decks use smaller WebP delivery images; the original generated PNGs are retained with their prompts.
 
-Select cards with a mouse, touch, or keyboard; activate focused buttons with Enter or Space. Click **Details** below a board or hand card to see its artwork, dates and short biography without changing your selection. Click a clue to inspect it. Right-click, double-click, and the **I** shortcut remain available. The final round offers a larger side-by-side comparison of the last two candidates. The AI observation includes a matching close-up comparison. Choose **Compact**, **Comfortable** or **Large** from the table’s card-size control, or in **Settings**; the board rearranges to fit the screen. Settings also offers **Light**, **Dark** and **System** appearance. System follows your operating system, including changes during play. These preferences are saved locally. Standard browser zoom works. Reduced-motion preferences disable animation.
+Select cards with a mouse, touch, or keyboard. The table keeps the board and clue trail together, with the giver’s hand between Similar and Different drop zones. Tap a hand card then a zone, or drag it there. Arrow keys browse the hand; **S**/**D** choose a direction and **Enter** plays the selected clue. Different clues stay sideways throughout the table and replay.
 
-Each board theme has an [original WebAudio composition](MUSIC.md), with music starting after a user gesture and pausing in hidden tabs. The top music button pauses only background music, leaving the sound-effects setting unchanged; Settings offers independent music and effect switches and a music-volume slider. Wins and losses open an explicit result dialog with the revealed card, a brief celebration or falling-card effect, and a corresponding musical cue before opening the sealed interpretations.
+Click the **ⓘ** affordance on a card, right-click, double-click or press **I** to open its details drawer. Use **←/→** to browse, **M** to mark an eligible card, and **Esc** to close. Compare the latest clue with up to two candidates, including the final two. The AI observation retains its explicit labels and final comparison. Settings offers Drawer or Peek details, Compact/Comfortable/Large cards, Light/Dark/System appearance and Reduce motion. These preferences are saved locally; System follows operating-system changes. Reduced-motion preferences disable animation.
+
+One-screen play removes card elements while covered. Hold the reveal ring for 800 ms with a pointer, Space or Enter, or use the confirmation fallback. Closed drawers also discard their artwork. Explanations remain sealed until the game ends. The reveal scrubber supports arrow keys and 1.6-second autoplay, compares expected and actual removals when recorded, and exports compatible JSON replays.
+
+Each board theme has an [original WebAudio composition](MUSIC.md), with music starting after a user gesture and pausing in hidden tabs. The top music button pauses only background music, leaving the sound-effects setting unchanged; Settings offers a music-volume slider and a sound-effects switch. Wins and losses open an explicit result dialog with the revealed card, a brief celebration or falling-card effect, and a corresponding musical cue before opening the sealed interpretations.
 
 ## AI settings
 
@@ -85,8 +91,10 @@ These are cooperative games between trusted players. A local browser that runs a
 
 - `src/game.js`: rules, dealing, move validation, role projections, replay/network validation.
 - `src/decks.js`: the eleven card rosters and future theme ideas.
+- `src/expansion.js`: the 63 appended subjects, date captions and biographies.
+- `src/artwork.js`: subject-based redraw mappings shared across overlapping themes.
 - `src/context.js`: shared dates and descriptions for all card subjects.
-- `src/art.js`: Canvas card rendering, atlas loading, AI observation images and animated felt.
+- `src/art.js`: full-bleed Canvas artwork, captions, atlas loading and labelled AI observation images.
 - `src/app.js`: accessible native controls, game flow, pairing, local saving, replay and settings.
 - `src/peer.js`: Cluance configuration for the shared invitation tokens and WebRTC transport.
 - `src/ai.js`: image requests and provider-specific authentication, models and reasoning controls.
@@ -94,6 +102,8 @@ These are cooperative games between trusted players. A local browser that runs a
 - `src/usage.js`: local request ledger, provider usage normalization, captured pricing and spending summaries.
 - `src/music.js`, `src/outcome.js`: eleven original scores, WebAudio playback and finite result animations.
 - `assets/PROMPTS.md`: the complete image-generation prompts and provenance.
+- `assets/EXPANSION_PROMPTS.md`: expansion/redesign prompts and accepted or rejected dispositions.
+- `CARD_AUDIT.md`: individual findings for all 330 active cards and 24 archived region cards.
 
 No tests or test suites are included, as requested. Verification is performed directly in the browser. [Play notes](PLAY_NOTES.md) record the live GPT-6 Luna games, prompt refinements, interface checks and remaining limitations.
 

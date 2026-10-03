@@ -1,5 +1,7 @@
 # Artwork provenance
 
+This file documents the original atlases. The [30-card expansion and redraw prompts](EXPANSION_PROMPTS.md) document the additional assets, rejected candidates and final artwork mappings; [CARD_AUDIT.md](../CARD_AUDIT.md) records every individual review.
+
 These eleven original illustration atlases were generated with the built-in ImageGen tool on 3 October 2026. The tool exposes no model selector, so a specific image model version cannot be verified. No commercial Similo or Balatro artwork was used.
 
 Each atlas has six columns and four rows, except the replacement `regions-2015` atlas, which has six columns and five rows (27 illustrations and three unused cells). Card names and framing are drawn by Canvas, rather than baked into the images. The renderer crops each cell proportionally; the atlas dimensions may differ between outputs. Portraits and landscapes are stylized interpretations, not documentary likenesses or geographical maps. Place cards can combine landmarks and natural or cultural motifs into a symbolic montage.

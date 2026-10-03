@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 import {resolve, extname, sep} from 'node:path';
 const root = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const sharedRoot = resolve(root, '../shared');
-const types = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.webp':'image/webp', '.json': 'application/json', '.svg':'image/svg+xml'};
+const types = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.webp':'image/webp', '.json': 'application/json', '.svg':'image/svg+xml', '.ttf':'font/ttf', '.woff2':'font/woff2'};
 createServer(async (req, res) => {
   try {
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
