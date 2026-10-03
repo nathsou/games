@@ -7,7 +7,7 @@ const canvas=document.getElementById('game'),audio=new Audio();
 let ui,lastAccessible=-1;
 const input={right:null,throwing:null,throwClock:0};
 const hooks={
-  start(){ui.guide=false;ui.focus=-1;lastAccessible=-1;clearInput();canvas.focus();},
+  start(){ui.guide=false;ui.focus=-1;lastAccessible=-1;clearInput();renderer.center();canvas.focus();},
   select(){},notice(text){ui.notice=text;},clearNotice(){ui.notice='';},
   pause(){ui.focus=-1;clearInput();},resume(){ui.focus=-1;canvas.focus();},
   hud(g){
@@ -35,8 +35,8 @@ function act(id){
   else if(id==='sound'){audio.setMuted(!audio.muted);ui.muted=audio.muted;}
   else if(id==='fullscreen')fullscreen();
   else if(id==='guide'){ui.guideResume=game.mode==='playing';if(ui.guideResume)game.pause();ui.guide=true;ui.guidePage=0;}
-  else if(id==='guide-next')ui.guidePage=1;
-  else if(id==='guide-prev')ui.guidePage=0;
+  else if(id==='guide-next')ui.guidePage=(ui.guidePage+1)%ui.guidePages;
+  else if(id==='guide-prev')ui.guidePage=(ui.guidePage+ui.guidePages-1)%ui.guidePages;
   else if(id==='close-guide')closeGuide();
   else if(id==='title'){game.mode='title';game.keys.clear();audio.setActive(false);ui.notice='';}
   else if(id==='work')game.workNearby();
@@ -69,7 +69,7 @@ document.addEventListener('keydown',e=>{
   const key=e.key.toLowerCase();
   if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(key))e.preventDefault();
   if(key==='f'&&!e.repeat){fullscreen();return;}
-  if(ui.guide){if(key==='escape'||key==='enter')closeGuide();else if(key==='arrowright')ui.guidePage=1;else if(key==='arrowleft')ui.guidePage=0;else if(key==='tab'){e.preventDefault();ui.focus=(ui.focus+1)%ui.buttons.length;}return;}
+  if(ui.guide){if(key==='escape')closeGuide();else if(key==='enter'){const b=ui.buttons[ui.focus];if(b)act(b.id);else closeGuide();}else if(key==='arrowright')act('guide-next');else if(key==='arrowleft')act('guide-prev');else if(key==='tab'){e.preventDefault();ui.focus=(ui.focus+1)%ui.buttons.length;}return;}
   if(key==='tab'||(game.mode!=='playing'&&(key==='arrowup'||key==='arrowdown'))){e.preventDefault();const direction=e.shiftKey||key==='arrowup'?-1:1;ui.focus=(ui.focus+direction+ui.buttons.length)%ui.buttons.length;return;}
   if(key==='enter'){const b=ui.buttons[ui.focus>=0?ui.focus:0];if(b)act(b.id);return;}
   if(key==='escape'||key==='p'){if(game.mode==='playing')game.pause();else if(game.mode==='paused')game.resume();return;}
