@@ -1,3 +1,8 @@
+import {installThemeControls} from '../../shared/theme.js';
+import {loadAI} from '../../shared/ai/config.js';
+import {chooseTurn} from '../../shared/ai/turn.js';
+import {openAISettings,aiStatusHtml} from '../../shared/ai/panel.js';
+import {describeTurn} from './ai.js';
 import {DEFAULT_OPTIONS, OPTION_KEYS, optionsFor, createMatch, applyAction, playerView, availableLanes, legalActions, valueOf, reverseOf, setValue, previewMove} from './rules.js';
 import {botAction} from './bot.js';
 import {FlipSession} from './session.js';
@@ -10,6 +15,7 @@ let prefs;
 try { prefs = JSON.parse(localStorage.getItem('flip-it.preferences') || '{}'); } catch { prefs = {}; }
 if (!prefs || typeof prefs !== 'object' || Array.isArray(prefs)) prefs = {};
 try { prefs.options = optionsFor(prefs.options); } catch { prefs.options = {...DEFAULT_OPTIONS}; }
+let aiController=null,aiBusy=false,aiError='',offlineControllers=[],aiHistory=new Map(),matchId='';
 let scene = 'menu', mode = 'solo', game = null, seat = 0, lane = 0, chosen = [], handoff = false, preview = false;
 let session = null, peer = null, linkStatus = 'idle', botTimer = null, generation = 0, lastViewKey = '';
 let pairKind = 'host', pairBusy = false, pairOut = '', pairError = '', pairMessage = '', pairingOpen = false;
@@ -26,7 +32,17 @@ function button(label, action, className = '', disabled = false, attributes = ''
 }
 function savePrefs() { try { localStorage.setItem('flip-it.preferences', JSON.stringify(prefs)); } catch {} }
 function name() { return typeof prefs.name === 'string' ? prefs.name.trim().slice(0, 24) || 'You' : 'You'; }
-function names() { return mode === 'online' ? session?.names || ['You', 'Friend'] : mode === 'solo' ? [name(), 'The Dealer'] : [name(), 'Partner']; }
+function aiPlayers(max=3,minimum=0) {
+  const count=Math.max(minimum,Math.min(max,Number(prefs.aiCount)||0));
+  return Array.from({length:count},(_,i)=>prefs.aiKinds?.[i]==='dealer'?'dealer':(prefs.aiKinds?.[i]==='model'?'model':prefs.opponent==='model'?'model':'dealer'));
+}
+function controllers() {return mode==='online'?session?.controllers||[]:offlineControllers;}
+function names() {return mode==='online'?session?.names||['You','Friend']:offlineControllers.map((kind,i)=>kind==='human'?(i===0?name():'Partner'):(kind==='model'?'AI ':'Dealer ')+(i-(mode==='solo'?1:2)+1));}
+function aiLobby(disabled=false) {
+  const count=Math.min(4,Math.max(0,Number(prefs.aiCount)||0));
+  return '<label class="label" for="ai-count">AI SEATS · UP TO FIVE PLAYERS TOTAL</label><select id="ai-count" '+(disabled?'disabled':'')+'>'+[0,1,2,3,4].map(n=>'<option value="'+n+'" '+(n===count?'selected':'')+'>'+n+(n===0?' · humans only / solo dealer':' opponent'+(n===1?'':'s'))+'</option>').join('')+'</select>'+Array.from({length:count},(_,i)=>'<label class="label" for="ai-kind-'+i+'">OPPONENT '+(i+1)+'</label><select id="ai-kind-'+i+'" data-ai-seat="'+i+'" '+(disabled?'disabled':'')+'><option value="model" '+((prefs.aiKinds?.[i]||prefs.opponent)==='model'?'selected':'')+'>AI · shared provider & model</option><option value="dealer" '+((prefs.aiKinds?.[i]||prefs.opponent)!=='model'?'selected':'')+'>Dealer · offline, no API calls</option></select>').join('')+'<p class="small">Two separate human seats leave room for three opponents. Team play shares one human seat. Solo always includes at least one opponent.</p>'+button('AI SETTINGS ↗','ai-settings','outline compact');
+}
+function stopAI(message='') {aiController?.abort();aiController=null;aiBusy=false;aiError=message;}
 function mySeat() { return mode === 'online' ? session?.team ? 0 : session?.seat || 0 : seat; }
 function view() { return mode === 'online' ? session?.view : game ? playerView(game, seat) : null; }
 function connected() { return Boolean(peer?.connected && session?.readyForPlay); }
@@ -42,9 +58,10 @@ function tag() {
 }
 function cardHtml(card, interactive = false, isPreview = false, tilt = 0) {
   const rank = isPreview ? reverseOf(card) : valueOf(card), next = isPreview ? valueOf(card) : reverseOf(card);
-  const art = (rank - 1) % 6, selected = chosen.includes(card.id);
+  const palette=['#c84768','#6853ae','#007f81','#cf782c','#b79a0b','#376ca4','#923b80','#388451','#b34b35','#4252ac'];
+  const selected = chosen.includes(card.id);
   const attrs = interactive ? ' data-action="select-card" data-card="' + card.id + '" aria-pressed="' + selected + '" aria-label="Rank ' + rank + ', flips to ' + next + (selected ? ', selected' : '') + '" ' + (!myTurn() || isPreview ? 'disabled' : '') : ' role="img" aria-label="Rank ' + rank + ', flips to ' + next + '"';
-  return '<' + (interactive ? 'button type="button"' : 'span') + ' class="flip-card ' + (selected && interactive ? 'selected ' : '') + (isPreview ? 'preview' : '') + '" style="--art-x:' + art % 3 * 50 + '%;--art-y:' + Math.floor(art / 3) * 100 + '%;--tilt:' + tilt + 'deg"' + attrs + '><span class="card-face"><span class="card-rank">' + rank + '</span><span class="card-next">↕' + next + '</span><span class="card-rank other">' + next + '</span></span></' + (interactive ? 'button' : 'span') + '>';
+  return '<' + (interactive ? 'button type="button"' : 'span') + ' class="flip-card ' + (selected && interactive ? 'selected ' : '') + (isPreview ? 'preview' : '') + '" style="--active-color:' + palette[(rank-1)%10] + ';--reverse-color:' + palette[(next-1)%10] + ';--tilt:' + tilt + 'deg"' + attrs + '><span class="card-face"><span class="card-rank ' + (rank===10?'ten':'') + '">' + rank + '</span><span class="card-corner">' + rank + '<small>↕' + next + '</small></span><span class="card-rank other ' + (next===10?'ten':'') + '">' + next + '</span></span></' + (interactive ? 'button' : 'span') + '>';
 }
 function optionBadges(options) {
   return '<div class="match-options">' + OPTION_KEYS.map(key => '<span><i class="option-dot ' + (options[key] ? '' : 'off') + '"></i>' + optionInfo[key][0] + ': ' + (options[key] ? 'ON' : 'OFF') + '</span>').join('') + '</div>';
@@ -62,9 +79,9 @@ function renderMenu() {
   const online = mode === 'online' && connected(), guest = online && session.seat === 1;
   const options = guest ? session.view.options : prefs.options;
   const heroes = [{id:'hero1', ends:[1,5], face:0}, {id:'hero2', ends:[6,2], face:0}, {id:'hero3', ends:[3,4], face:0}];
-  let html = '<div class="menu-layout"><section class="intro"><p class="eyebrow">TWO PLAYERS. TWO SIDES. ONE MORE ROUND.</p><h1>A little<br>friendly <em>rivalry.</em></h1><p class="intro-copy">Build a set. Leave it exposed. Hope they don’t have a better idea.<br>Every card has another side. Every move can flip the game.</p><div class="hero-art" aria-label="Illustrated double-value cards">' + heroes.map((c,i) => cardHtml(c, false, false, [-13,2,15][i])).join('') + '<span class="hero-stamp">QUICK LITTLE DUELS</span></div><div class="feature-line"><div><b>Play a set.</b><span>Matching ranks.<br>A little calculated risk.</span></div><div><b>Turn the tables.</b><span>Beat a set and send it<br>back with a twist.</span></div><div><b>Flip your hand.</b><span>Your next good idea<br>might be upside down.</span></div></div><div class="menu-bottom"><span>First to two round wins.</span><button class="text-button" data-action="rules">How to play ↗</button></div></section><aside class="panel"><p class="eyebrow">MAKE IT YOUR MATCH</p><h2 class="panel-title">A few little twists.</h2><p class="small">Mix these three options however you like. They stay fixed for the whole match.</p><div class="option-list">';
+  let html = '<div class="menu-layout"><section class="intro"><p class="eyebrow">TWO SIDES. GOOD COMPANY. ONE MORE ROUND.</p><h1>A little<br>friendly <em>rivalry.</em></h1><p class="intro-copy">Build a set. Leave it exposed. Hope they don’t have a better idea.<br>Every card has another side. Every move can flip the game.</p><div class="hero-art" aria-label="Illustrated double-value cards">' + heroes.map((c,i) => cardHtml(c, false, false, [-13,2,15][i])).join('') + '<span class="hero-stamp">QUICK LITTLE DUELS</span></div><div class="feature-line"><div><b>Play a set.</b><span>Matching ranks.<br>A little calculated risk.</span></div><div><b>Turn the tables.</b><span>Beat a set and send it<br>back with a twist.</span></div><div><b>Flip your hand.</b><span>Your next good idea<br>might be upside down.</span></div></div><div class="menu-bottom"><span>First to two round wins.</span><button class="text-button" data-action="rules">How to play ↗</button></div></section><aside class="panel"><p class="eyebrow">MAKE IT YOUR MATCH</p><h2 class="panel-title">A few little twists.</h2><p class="small">Mix these three options however you like. They stay fixed for the whole match.</p><div class="option-list">';
   for (const key of OPTION_KEYS) html += '<label class="option" for="option-' + key + '"><input type="checkbox" id="option-' + key + '" data-option="' + key + '" ' + (options[key] ? 'checked ' : '') + (guest ? 'disabled ' : '') + '><span><b>' + optionInfo[key][0] + '</b><small>' + optionInfo[key][1] + '<br>' + optionInfo[key][2] + '</small></span></label>';
-  html += '</div><label class="label" for="player-name">YOUR NAME</label><input id="player-name" maxlength="24" value="' + esc(name()) + '" autocomplete="nickname">';
+  html += '</div>'+aiLobby(guest)+'<label class="label" for="player-name">YOUR NAME</label><input id="player-name" maxlength="24" value="' + esc(name()) + '" autocomplete="nickname">';
   if (online) html += button(guest ? 'HOST CHOOSES THE NEXT MATCH' : 'DEAL A NEW MATCH →', 'deal-online', 'gold', guest) + button('LEAVE ONLINE TABLE', 'leave-online', 'outline');
   else html += button('PLAY THE DEALER →', 'start-solo') + button('PASS & PLAY', 'start-local', 'dark');
   if (view()) html += button('RESUME CURRENT MATCH', 'resume', 'outline');
@@ -75,9 +92,10 @@ function renderGame() {
   const v = view(), p = mySeat(), ns = names();
   let html = '<section class="game-heading"><div><p class="eyebrow">A QUICK LITTLE CARD DUEL</p><h1>Flip it.</h1></div><div class="heading-actions">' + tag() + button('RULES ?', 'rules', 'outline compact') + button('MENU', 'menu', 'outline compact') + '</div></section>';
   if (mode === 'online' && !connected()) html += '<div class="disconnect" role="status"><span>Your friend is disconnected. The match is saved in the host’s tab.</span>' + button(session.seat ? 'JOIN AGAIN' : 'RECONNECT', session.seat ? 'join' : 'host', 'compact gold') + '</div>';
+  html += aiStatusHtml({busy:aiBusy,error:aiError,controller:mode!=='online'||session?.seat===0});
   html += '<div class="table-layout"><aside class="sidebar"><div class="panel"><p class="eyebrow">FIRST TO TWO</p><div class="scoreboard">';
-  for (let i=0;i<2;i++) html += '<div class="score-seat ' + (v.turn === i && v.phase === 'playing' ? 'active' : '') + '"><div class="score-name"><b>' + esc(ns[i]) + '</b><span>' + (i === p ? '✦' : '◆') + '</span></div><div class="wins" aria-label="' + v.scores[i] + ' rounds won">' + [0,1].map(j => '<span class="win-dot ' + (j < v.scores[i] ? 'won' : '') + '"></span>').join('') + '</div></div>';
-  html += '</div></div><div class="panel"><p class="eyebrow">THIS MATCH</p>' + optionBadges(v.options) + '</div><p class="sidebar-note"><b>Top rank counts.</b><br>The small ↕ number is what the card becomes after a flip.<br><br>Sets compete by size. A higher pair beats a lower pair, even if it’s your own.</p><p class="sidebar-note">' + (mode === 'online' && session.team ? 'You share a hand against the dealer. Either teammate can make the move.' : mode === 'local' ? 'Pass the screen when prompted. Hands are hidden between players.' : 'Select matching cards, then play or add. F flips your hand; Enter plays a selected set.') + '</p></aside><section class="felt-table" aria-label="Flip it game table"><div class="table-meta"><span>ROUND ' + String(v.round+1).padStart(2,'0') + '</span><span>' + (v.options.compactDeck ? '24' : '40') + ' CARDS · ' + v.discardCount + ' BANKED</span></div>';
+  for (let i=0;i<v.hands.length;i++) html += '<div class="score-seat ' + (v.turn === i && v.phase === 'playing' ? 'active' : '') + '"><div class="score-name"><b>' + esc(ns[i]) + '</b><span>' + (i === p ? '✦' : '◆') + '</span></div><div class="wins" aria-label="' + v.scores[i] + ' rounds won">' + [0,1].map(j => '<span class="win-dot ' + (j < v.scores[i] ? 'won' : '') + '"></span>').join('') + '</div></div>';
+  html += '</div></div><div class="panel"><p class="eyebrow">THIS MATCH</p>' + optionBadges(v.options) + '</div><p class="sidebar-note"><b>The upright number counts.</b><br>The upside-down number becomes active after a flip.<br><br>Sets compete by size. A higher pair beats a lower pair, even if it’s your own.</p><p class="sidebar-note">' + (mode === 'online' && session.team ? 'You share a hand against the dealer. Either teammate can make the move.' : mode === 'local' ? 'Pass the screen when prompted. Hands are hidden between players.' : 'Select matching cards, then play or add. F flips your hand; Enter plays a selected set.') + '</p></aside><section class="felt-table" aria-label="Flip it game table"><div class="table-meta"><span>ROUND ' + String(v.round+1).padStart(2,'0') + '</span><span>' + (v.options.compactDeck ? '24' : '40') + ' CARDS · ' + v.discardCount + ' BANKED</span></div>';
   if (handoff) html += '<div class="handoff"><div class="card-back" aria-hidden="true"></div><p class="eyebrow">KEEP YOUR CARDS CLOSE</p><h2>Over to ' + esc(ns[seat]) + '.</h2><p>Pass the screen, then reveal your hand when you’re ready.</p>' + button('I’M READY →', 'uncover', 'gold') + '</div>';
   else if (v.phase !== 'playing') html += renderEnd(v);
   else html += renderTable(v);
@@ -85,20 +103,24 @@ function renderGame() {
   return html + '</section></div>';
 }
 function actionValid(actions, action) {
-  return actions.some(a => a.kind === action.kind && a.lane === action.lane && a.target === action.target && (!a.cards || a.cards.length === action.cards?.length && a.cards.every(id => action.cards.includes(id))));
+  return actions.some(a => a.kind === action.kind && a.lane === action.lane && a.target === action.target && (a.targetSeat ?? (view().hands.length===2?1-mySeat():-1)) === (action.targetSeat ?? (view().hands.length===2?1-mySeat():-1)) && (!a.cards || a.cards.length === action.cards?.length && a.cards.every(id => action.cards.includes(id))));
 }
 function renderTable(v) {
-  const p = mySeat(), other = 1-p, ns = names(), turn = myTurn();
+  const p = mySeat(), ns = names(), turn = myTurn();
   if (!availableLanes(v).includes(lane)) lane = availableLanes(v)[0];
   const actions = turn ? legalActions(v, p) : [];
   const play = {kind:'play', lane, cards:chosen}, canPlay = actionValid(actions, play);
-  let html = '<div class="opponent-hand" aria-label="Opponent has ' + v.hands[other].length + ' cards">' + Array.from({length: Math.min(v.hands[other].length, 18)}, () => '<span class="card-back" aria-hidden="true"></span>').join('') + '</div><div class="zone-title"><span>' + esc(ns[other]) + '</span><span>' + v.hands[other].length + ' CARDS IN HAND</span></div><div class="table-row">';
-  for (let target=0;target<2;target++) {
-    const set = v.table[other][target], add = {kind:'add',lane,target,cards:chosen}, take = {kind:'take',lane,target};
-    html += '<article class="play-space"><div class="space-header"><span>' + (target ? 'RIGHT' : 'LEFT') + ' SPACE</span><strong>' + (set.length ? set.length + ' × ' + setValue(set) : 'EMPTY') + '</strong></div><div class="space-cards">' + (set.length ? set.map(c => cardHtml(c)).join('') : '<span class="space-empty">✦</span>') + '</div><div class="space-controls">' + button('ADD 1', 'add', 'mint', !actionValid(actions, add) || preview, 'data-target="' + target + '"') + button('TAKE & FLIP', 'take', 'dark', !actionValid(actions, take) || preview, 'data-target="' + target + '"') + '</div></article>';
+  let html = '';
+  for (let other=0;other<v.hands.length;other++) {
+    if(other===p)continue;
+    html += '<div class="rival-zone"><div class="zone-title"><span>'+esc(ns[other])+(v.turn===other?' · TO PLAY':'')+'</span><span>'+v.hands[other].length+' CARDS IN HAND</span></div><div class="table-row">';
+    for(let target=0;target<2;target++) {
+      const set=v.table[other][target],owner=v.hands.length===2?{}:{targetSeat:other},add={kind:'add',lane,target,cards:chosen,...owner},take={kind:'take',lane,target,...owner};
+      html += '<article class="play-space"><div class="space-header"><span>'+(target?'RIGHT':'LEFT')+' SPACE</span><strong>'+(set.length?set.length+' × '+setValue(set):'EMPTY')+'</strong></div><div class="space-cards">'+(set.length?set.map(c=>cardHtml(c)).join(''):'<span class="space-empty">✦</span>')+'</div><div class="space-controls">'+button('ADD 1','add','mint',!actionValid(actions,add)||preview,'data-target="'+target+'" data-owner="'+other+'"')+button('TAKE & FLIP','take','dark',!actionValid(actions,take)||preview,'data-target="'+target+'" data-owner="'+other+'"')+'</div></article>';
+    }
+    html += '</div></div>';
   }
-  html += '</div>';
-  if (v.pending !== null) html += '<div class="last-chance" role="status"><strong>LAST CHANCE!</strong> ' + (v.pending === p ? 'Your hand is empty. One reply stands between you and the win.' : 'Their hand is empty. Send a set back this action, or they win.') + '</div>';
+  if (v.pending !== null) html += '<div class="last-chance" role="status"><strong>LAST CHANCE!</strong> ' + (v.pending === p ? 'Your hand is empty. '+v.repliesRemaining+' reply/replies remain.' : esc(ns[v.pending])+' has an empty hand. Return cards to that player to stop the win.') + '</div>';
   html += '<p class="table-instruction" role="status">' + (turn ? preview ? 'A peek at your other side.' : 'Make your next good move.' : esc(ns[v.turn]) + ' is thinking…') + '<small>' + (turn ? v.options.quickTurns ? 'Choose a space to cash out, then take one action.' : 'Use your ' + (v.beat ? 'right' : 'left') + ' space for this action.' : 'Every card has a second side. Watch what comes back.') + '</small></p><div class="zone-title"><span>YOUR PLAY SPACES</span><span>' + (v.options.quickTurns ? 'CHOOSE EITHER' : 'ACTION ' + (v.beat+1) + ' / 2') + '</span></div><div class="table-row">';
   for (let own=0;own<2;own++) {
     const set = v.table[p][own], canChoose = turn && availableLanes(v).includes(own);
@@ -132,14 +154,15 @@ function eventText(e) {
 }
 function resetSelection() { chosen = []; preview = false; if (view()) lane = availableLanes(view())[0]; }
 function startOffline(nextMode, options = prefs.options) {
-  clearTimeout(botTimer); generation++;
+  clearTimeout(botTimer); generation++; stopAI(); aiHistory.clear();matchId=crypto.randomUUID();
   const old=peer; peer=null; old?.close(); session=null; linkStatus='idle';
-  mode=nextMode; seat=0; scene='game'; game=createMatch(options,crypto.getRandomValues(new Uint32Array(1))[0]);
+  mode=nextMode; seat=0; scene='game'; offlineControllers=[...Array(mode==='solo'?1:2).fill('human'),...aiPlayers(mode==='solo'?4:3,mode==='solo'?1:0)];
+  game=createMatch(options,crypto.getRandomValues(new Uint32Array(1))[0],0,offlineControllers.length);
   handoff=mode==='local'; resetSelection(); sound('deal'); render(); scheduleBot();
 }
 function afterOfflineMove(previousTurn) {
   resetSelection();
-  if (mode==='local' && game.phase==='playing') { seat=game.turn; handoff=previousTurn!==seat; }
+  if (mode==='local' && game.phase==='playing' && offlineControllers[game.turn]==='human') { const oldSeat=seat;seat=game.turn;handoff=oldSeat!==seat; }
   if (game.phase==='matchOver') sound('win'); else if (game.phase==='roundOver') sound('reveal');
   render(); scheduleBot();
 }
@@ -153,18 +176,27 @@ function act(action) {
 function scheduleBot() {
   clearTimeout(botTimer);
   const state=mode==='online'?session?.state:game;
-  if (scene!=='game' || !state || state.phase!=='playing' || state.turn!==1 || mode==='local' || mode==='online' && (!session.team || session.seat || !connected())) return;
-  const revision=state.revision, epoch=generation;
-  botTimer=setTimeout(() => {
-    if (generation!==epoch || scene!=='game') return;
+  if(scene!=='game'||!state||state.phase!=='playing'||controllers()[state.turn]==='human'||aiBusy||aiError||mode==='online'&&(session.seat||!connected()))return;
+  const revision=state.revision,epoch=generation,actor=state.turn;
+  botTimer=setTimeout(async()=>{
+    if(generation!==epoch||scene!=='game')return;
     const current=mode==='online'?session?.state:game;
-    if (!current || current.revision!==revision || current.turn!==1 || mode==='online' && !connected()) return;
+    if(!current||current.revision!==revision||mode==='online'&&!connected())return;
+    const memoryKey=(mode==='online'?session.epoch:matchId)+'/'+current.round+'/'+actor;
     try {
-      const action=botAction(playerView(current,1));
-      if (mode==='online') session.dealerMove(action);
-      else { game=applyAction(game,1,action); afterOfflineMove(1); }
-    } catch(error) { notify(error.message); }
-  },550);
+      let action;
+      if(controllers()[actor]==='model') {
+        const controller=new AbortController();aiController=controller;aiBusy=true;render();
+        const move=await chooseTurn(describeTurn(current,actor,aiHistory.get(memoryKey)||[]),{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(90000)]),gameId:mode==='online'?session.epoch:matchId,role:'seat-'+actor,round:current.round});
+        if(controller.signal.aborted||generation!==epoch||scene!=='game'||(mode==='online'&&!connected())||(mode==='online'?session.state:game).revision!==revision)return;
+        action=move.action;aiHistory.set(memoryKey,[...(aiHistory.get(memoryKey)||[]),{action,rationale:move.rationale}].slice(-6));
+      } else action=botAction(playerView(current,actor),actor);
+      aiBusy=false;aiController=null;
+      if(mode==='online')session.botMove(actor,action);
+      else {game=applyAction(game,actor,action);afterOfflineMove(actor);}
+      sound('tap');scheduleBot();
+    } catch(error) {aiBusy=false;aiController=null;if(generation!==epoch)return;aiError=error.name==='AbortError'?'AI paused. Retry when ready.':error.name==='TimeoutError'?'The AI took too long. Retry when ready.':error.message;render();}
+  },450);
 }
 function updateOnline() {
   if (!session?.view) return render();
@@ -177,9 +209,9 @@ function updateOnline() {
 function networkError(error) { notify(error.message); render(); }
 function makePeer(role,config) {
   const preserved=role===0 && mode==='online' && session?.seat===0 && session.state;
-  const old=peer; peer=null; old?.close(); clearTimeout(botTimer); generation++;
+  const old=peer; peer=null; old?.close(); clearTimeout(botTimer); generation++;stopAI();aiHistory.clear();
   mode='online'; chosen=[]; preview=false; handoff=false;
-  if (!preserved) { session=new FlipSession({seat:role,name:name(),options:prefs.options,team:role===0 && Boolean(prefs.team),onUpdate:updateOnline,onError:networkError}); scene='menu'; }
+  if (!preserved) { session=new FlipSession({seat:role,name:name(),options:prefs.options,team:role===0 && Boolean(prefs.team),aiPlayers:aiPlayers(prefs.team?4:3,prefs.team?1:0),onUpdate:updateOnline,onError:networkError}); scene='menu'; }
   const link=new PeerLink({config,onMessage:message=>peer===link?session.receive(message):undefined,onStatus:status=>{
     if (peer!==link) return; linkStatus=status;
     if ((status==='open'||status==='connected') && link.connected && !link.helloSent) { link.helloSent=true; session.opened(); }
@@ -326,14 +358,17 @@ async function scanCode(target) {
 function showRules() {
   stopScan(); pairingOpen=false;
   const options=scene==='game' && view() ? view().options : prefs.options;
-  modalContent.innerHTML=modalHead('A little twist.','FLIP IT / HOW TO PLAY')+'<ol class="rules-list"><li>Empty your hand to win a round. <strong>First to two round wins</strong> takes the match. Both players start with '+(options.compactDeck?'12':'20')+' cards.</li><li>Each card has two ranks. <strong>The top rank is active.</strong> The small ↕ rank tells you what it becomes after a flip. Rearranging your hand is free; changing orientation is an action.</li><li>'+(options.quickTurns?'Take <strong>one action each</strong>, alternating. Choose either of your two play spaces.':'Take <strong>two actions</strong>: left space, then right. The opening player gets only the right action. Starting player alternates each round.')+' Before your action, <strong>cash out the set in that space</strong>: those cards leave play.</li><li><strong>Play:</strong> select one or more cards with the same active rank. Put them in your chosen space. Your rank must beat every other set of the same size. Lower sets return to their owners’ hands <strong>flipped</strong>—including your own other set.</li><li><strong>Add:</strong> put exactly one matching card into an opponent’s set. Its new size must beat every other set of that size; those lower sets return flipped.</li><li><strong>Take:</strong> pick up an opponent’s entire set into your hand, flipping each card. <strong>Flip:</strong> rotate every card in your hand. Each uses your whole action.</li><li>'+(options.lastChance?'With <strong>Last chance ON</strong>, an empty hand gives the opponent exactly one response, overriding the normal turn order. If your hand stays empty, you win. If both hands are empty, the first finisher wins. A successful counter can give the responder their own last-chance window.':'With <strong>Last chance OFF</strong>, emptying your hand wins immediately.')+'</li><li>Three appearances of the same position draw the round. A round also draws after '+(options.compactDeck?'120':'180')+' actions. Nobody scores; redeal with the other player starting.</li></ol><p class="rule-example"><strong>A little example:</strong> their pair of 3s is exposed. Play two 5s to send the 3s back flipped. Or add one 3 to their pair: it becomes a triple, and might bounce another lower triple—even yours.</p>'+optionBadges(options)+button('GOT IT. LET’S PLAY →','close-modal','gold');
+  modalContent.innerHTML=modalHead('A little twist.','FLIP IT / HOW TO PLAY')+'<ol class="rules-list"><li>Empty your hand to win a round. <strong>First to two round wins</strong> takes the match. The deck is dealt evenly clockwise; with an uneven deal, the extra cards rotate each round.</li><li>Each card has two ranks. <strong>The top rank is active.</strong> The upside-down rank tells you what it becomes after a flip. Rearranging your hand is free; changing orientation is an action.</li><li>'+(options.quickTurns?'Take <strong>one action each</strong>, alternating. Choose either of your two play spaces.':'Take <strong>two actions</strong>: left space, then right. The opening player gets only the right action. Starting player alternates each round.')+' Before your action, <strong>cash out the set in that space</strong>: those cards leave play.</li><li><strong>Play:</strong> select one or more cards with the same active rank. Put them in your chosen space. Your rank must beat every other set of the same size. Lower sets return to their owners’ hands <strong>flipped</strong>—including your own other set.</li><li><strong>Add:</strong> put exactly one matching card into an opponent’s set. Its new size must beat every other set of that size; those lower sets return flipped.</li><li><strong>Take:</strong> pick up an opponent’s entire set into your hand, flipping each card. <strong>Flip:</strong> rotate every card in your hand. Each uses your whole action.</li><li>'+(options.lastChance?'With <strong>Last chance ON</strong>, an empty hand gives each other player exactly one response, overriding the normal turn order. If your hand stays empty, you win. If multiple hands are empty, the first finisher has priority. A successful counter can give the responder their own last-chance window.':'With <strong>Last chance OFF</strong>, emptying your hand wins immediately.')+'</li><li>Three appearances of the same position draw the round. A round also draws after '+(options.compactDeck?'120':'180')+' actions. Nobody scores; redeal with the other player starting.</li></ol><p class="rule-example"><strong>A little example:</strong> their pair of 3s is exposed. Play two 5s to send the 3s back flipped. Or add one 3 to their pair: it becomes a triple, and might bounce another lower triple—even yours.</p>'+optionBadges(options)+button('GOT IT. LET’S PLAY →','close-modal','gold');
   if (!modal.open) modal.showModal();
 }
 document.addEventListener('click',async event=>{
   const target=event.target.closest('[data-action]'); if (!target || target.disabled) return;
   const action=target.dataset.action;
   try {
-    if (action==='start-solo') startOffline('solo');
+    if(action==='ai-settings')openAISettings(()=>{stopAI();render();scheduleBot();});
+    else if(action==='cancel-ai'){generation++;stopAI('AI paused. Retry when ready.');render();}
+    else if(action==='retry-ai'){stopAI();render();scheduleBot();}
+    else if (action==='start-solo') startOffline('solo');
     else if (action==='start-local') startOffline('local');
     else if (action==='select-card') {
       if (!myTurn() || preview) return;
@@ -346,14 +381,14 @@ document.addEventListener('click',async event=>{
       sound('tap'); render();
     } else if (action==='lane') { if (!myTurn()) return; lane=Number(target.dataset.lane); render(); }
     else if (action==='play') act({kind:'play',lane,cards:chosen});
-    else if (action==='add') act({kind:'add',lane,target:Number(target.dataset.target),cards:chosen});
-    else if (action==='take') act({kind:'take',lane,target:Number(target.dataset.target)});
+    else if (action==='add') act({kind:'add',lane,target:Number(target.dataset.target),...(view().hands.length>2?{targetSeat:Number(target.dataset.owner)}:{}),cards:chosen});
+    else if (action==='take') act({kind:'take',lane,target:Number(target.dataset.target),...(view().hands.length>2?{targetSeat:Number(target.dataset.owner)}:{})});
     else if (action==='flip') act({kind:'flip',lane});
     else if (action==='clear') { chosen=[]; render(); }
     else if (action==='preview') { preview=!preview; chosen=[]; render(); }
     else if (action==='uncover') { handoff=false; render(); }
     else if (action==='rules') showRules();
-    else if (action==='menu') { event.preventDefault(); scene='menu'; clearTimeout(botTimer); render(); }
+    else if (action==='menu') { event.preventDefault(); scene='menu'; clearTimeout(botTimer);generation++;stopAI();render(); }
     else if (action==='resume') { scene='game'; render(); scheduleBot(); }
     else if (action==='next') act({kind:'next'});
     else if (action==='rematch') {
@@ -385,7 +420,9 @@ document.addEventListener('click',async event=>{
   }
 });
 document.addEventListener('change',event=>{
-  if (event.target.dataset.option && OPTION_KEYS.includes(event.target.dataset.option)) {
+  if(event.target.id==='ai-count'){prefs.aiCount=Number(event.target.value);prefs.aiKinds=Array.from({length:prefs.aiCount},(_,i)=>prefs.aiKinds?.[i]||'model');savePrefs();render();}
+  else if(event.target.dataset.aiSeat!==undefined){prefs.aiKinds||=[];prefs.aiKinds[Number(event.target.dataset.aiSeat)]=event.target.value;savePrefs();}
+  else if (event.target.dataset.option && OPTION_KEYS.includes(event.target.dataset.option)) {
     prefs.options[event.target.dataset.option]=event.target.checked; savePrefs();
   } else if (event.target.id==='player-name') {
     prefs.name=event.target.value.trim().slice(0,24)||'You'; savePrefs();
@@ -447,7 +484,7 @@ async function handleHash() {
   }
 }
 window.addEventListener('hashchange',handleHash);
-window.addEventListener('pagehide',()=>{stopScan();clearTimeout(botTimer);peer?.close();bus?.close();});
+window.addEventListener('pagehide',()=>{stopAI();stopScan();clearTimeout(botTimer);peer?.close();bus?.close();});
 if (typeof BarcodeDetector!=='undefined' && navigator.mediaDevices?.getUserMedia) BarcodeDetector.getSupportedFormats().then(formats=>{canScan=formats.includes('qr_code');if(pairingOpen)renderPair();}).catch(()=>{});
 applySettings();render();handleHash();
 // Read-only, redacted diagnostics for browser playtests. No action or private
@@ -456,3 +493,5 @@ Object.defineProperty(window,'__flipit',{value:{
   get state(){return view()?structuredClone(view()):null;},
   get mode(){return mode;},get seat(){return mySeat();},get connected(){return connected();},get handoff(){return handoff;}
 }});
+
+installThemeControls(document.querySelector('.topbar nav'));

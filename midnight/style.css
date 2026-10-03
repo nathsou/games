@@ -2229,3 +2229,5 @@ body.no-fx *,body.no-fx *:before,body.no-fx *:after {
     margin-top:0
   }
 }
+
+.panel select,dialog select{width:100%;padding:10px;background:#092b2e;color:var(--paper);border:1px solid #afc3ae45;font:12px var(--mono);border-radius:4px}.disconnect{flex-wrap:wrap}

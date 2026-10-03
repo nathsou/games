@@ -15,8 +15,8 @@ export function botAction(view, seat = view.turn) {
     const shed = view.hands[seat].length - own.length;
     let score = shed * 15 + after.event.cashed * 2;
     if (!own.length) score += 500;
-    if (view.pending === 1 - seat && after.hands[1 - seat].length) score += 2000;
-    score += (after.hands[1 - seat].length - view.hands[1 - seat].length) * 6;
+    if (view.pending !== null && view.pending !== seat && after.hands[view.pending].length) score += 2000;
+    score += after.hands.reduce((n,h,p)=>n+(p===seat?0:h.length-view.hands[p].length),0)*6;
     score += potential(own) * .45;
     if (action.kind === 'flip') score += (potential(own) - potential(view.hands[seat])) * 1.7 - 7;
     if (action.kind === 'take') score -= 4;
