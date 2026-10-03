@@ -25,6 +25,9 @@ jobs:
       - name: Spacegolf tests
         run: npm test
         working-directory: spacegolf
+      - name: Flip it tests
+        run: npm test
+        working-directory: flip-it
 
   deploy:
     needs: test
@@ -36,8 +39,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Assemble site
         run: |
-          mkdir -p _site/spacegolf
+          mkdir -p _site/spacegolf _site/flip-it
           cp index.html _site/
+          cp flip-it/index.html flip-it/style.css flip-it/preview.png _site/flip-it/
+          cp -r flip-it/src flip-it/assets _site/flip-it/
           cp spacegolf/index.html spacegolf/preview.jpg _site/spacegolf/
           cp -r spacegolf/src _site/spacegolf/src
           touch _site/.nojekyll

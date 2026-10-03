@@ -1,0 +1,25 @@
+name: Flip it checks
+
+on:
+  push:
+    branches: ['codex/flip-it']
+  pull_request:
+    paths: ['flip-it/**', 'index.html', '.github/workflows/**']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Flip it rules, sessions and QR tests
+        run: npm test
+        working-directory: flip-it
+      - name: Existing Spacegolf tests
+        run: npm test
+        working-directory: spacegolf
