@@ -290,6 +290,7 @@ const W4 = {
       rules: { variant: 'standard', castling: false, enPassant: false },
       setup: 'Ke1 Qd1 ke5', side: 'w', bot: { depth: 3 }, maxMoves: 25, botDelay: 350,
       goal: 'Checkmate the runaway king within 25 moves. No stalemate!',
+      tip: 'Box him in with the queen a knight\'s move away, walk your king up, and avoid stalemate!',
       intro: [
         { who: 'rollo', text: 'Eek! A queen?! You\'ll never catch me! Wheee!' },
         'King Rollo is alone, but slippery. Here\'s the secret recipe:',
@@ -340,7 +341,7 @@ const W5 = {
       intro: ['One of your pieces is under attack! Save it: move it to a safe square, protect it, or block the attack.'],
     },
     {
-      id: 'cct', kind: 'puzzle', title: 'Checks, Captures, Threats', icon: '?', drill: { gens: ['mate1', 'free-piece', 'save-piece', 'mate1-rook', 'free-piece'] }, codex: ['cct'],
+      id: 'cct', kind: 'puzzle', title: 'Checks, Captures, Threats', icon: '?', drill: { gens: ['mate1', 'free-piece', 'save-piece', 'mate1-rook', 'free-piece'], prompt: 'Checks, captures or threats? Find the best move!' }, codex: ['cct'],
       intro: [
         'Here\'s the secret habit of strong players. Before **every** move, look for:',
         '**Checks**: can I check the king? Maybe it\'s mate!',
@@ -513,7 +514,7 @@ const W7 = {
         'Fiona is sharp! She sets up forks and double attacks. Use your danger vision.',
         'Remember your routine every move: **checks, captures, threats**. For her moves AND yours.',
       ],
-      extra: { type: 'noHints', label: 'Win without hints or takebacks' },
+      extra: { type: 'keepQueen', label: 'Win without losing your queen' },
     },
   ],
 };
@@ -545,12 +546,14 @@ const W8 = {
         'A race against the clock! You have **10 moves** to get your pieces out.',
         'Develop both knights and both bishops, castle, and don\'t lose any material. Ready, set, develop!',
       ],
-      extra: { type: 'noHints', label: 'No hints or takebacks' },
+      extra: { type: 'moves', n: 8, label: 'Done in 8 moves or fewer' },
     },
     {
       id: 'ladder', kind: 'battle', title: 'Rook Ladder', icon: 'R', character: 'rollo', codex: ['ladder'],
       rules: { variant: 'standard', castling: false }, setup: 'Kh1 Ra1 Rb2 ke5', side: 'w', bot: { depth: 3 }, maxMoves: 15, botDelay: 300,
       goal: 'Checkmate with two rooks in 15 moves.',
+      lines: { start: 'Two rooks?! Uh-oh... you\'ll never get up those stairs!', lose: 'The ladder got me...', win: 'Too slow! I wriggled free!' },
+      tip: 'Rooks take turns: one cuts off a rank, the other checks on the next rank. Keep both rooks far from his king.',
       intro: [
         'Two rooks make the easiest checkmate: the **ladder**!',
         'One rook cuts off the king along a rank, the other gives check on the next rank. Then they swap roles, pushing the king step by step to the edge.',
@@ -562,6 +565,8 @@ const W8 = {
       id: 'loneRook', kind: 'battle', title: 'The Lone Rook', icon: 'R', character: 'rollo', codex: ['krk'],
       rules: { variant: 'standard', castling: false }, setup: 'Ke1 Ra1 ke5', side: 'w', bot: { depth: 3 }, maxMoves: 40, botDelay: 300,
       goal: 'Checkmate with king and rook within 40 moves.',
+      lines: { start: 'Only one rook? Ha! Catch me if you can!', lose: 'Squeezed into the corner... well played.', win: 'Hee hee, too slow!' },
+      tip: 'Box him in with the rook, walk your king up in front of his, and check along the edge when the kings face each other.',
       intro: [
         'One rook is harder, but you can do it!',
         'The rook builds a box around the enemy king. Your king walks up to face him. When the kings face each other, a rook check on the edge squeezes him further.',
@@ -573,6 +578,8 @@ const W8 = {
       id: 'outrun', kind: 'battle', title: 'Outrun the King', icon: 'P', character: 'rollo', codex: ['square-rule'],
       rules: { variant: 'standard', castling: false }, setup: 'Kh1 Pa5 ke5', side: 'w', bot: { depth: 4 }, maxMoves: 30, botDelay: 300,
       goal: 'Promote your pawn, then checkmate within 30 moves.',
+      lines: { start: 'A little pawn? I\'ll catch it before it gets anywhere!', lose: 'It outran me... and then a queen!', win: 'Gotcha!' },
+      tip: 'Rule of the square: if his king can\'t step inside the square from your pawn to the last rank, just run! Then mate with your new queen, like in Check Castle.',
       intro: [
         'Can the king catch your pawn? Use the **rule of the square**: draw a square from the pawn to the last rank. If the king can\'t step into it, the pawn wins the race!',
         'Run, pawn, run! Then finish with your new queen.',
@@ -582,14 +589,14 @@ const W8 = {
     {
       id: 'iron', kind: 'battle', title: 'Final Boss: The Iron Queen', icon: 'boss', boss: true, character: 'iron', codex: ['char-iron'],
       rules: { variant: 'standard' }, fen: 'start', side: 'w',
-      bot: { depth: 3, noise: 40, blunder: 0.07, book: true, opening: 20 }, threats: false, warnings: true,
+      bot: { depth: 3, noise: 25, blunder: 0.05, book: true, opening: 10 }, threats: false, warnings: true,
       goal: 'Defeat the Iron Queen and earn your crown!',
       intro: [
         { who: 'iron', text: 'So. The little pawn wants a crown. You will have to **earn** it.' },
         'This is it: the last rank! Everything you\'ve learned comes together now.',
         'Develop, castle, look for checks, captures and threats every move, and don\'t rush. I believe in you!',
       ],
-      extra: { type: 'noHints', label: 'Win without hints or takebacks' },
+      extra: { type: 'castled', label: 'Castle during the game' },
     },
   ],
 };

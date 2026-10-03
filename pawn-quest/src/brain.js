@@ -11,7 +11,8 @@ function rebuild({ fen, rules, moves = [] }) {
   for (const u of moves) {
     const m = pos.moveFromUci(u);
     if (!m) break;
-    hist.push({ from: mFrom(m), to: mTo(m), cap: !!(mFlags(m) & F_CAPTURE) });
+    const capType = (mFlags(m) & F_CAPTURE) ? ((pos.b[mTo(m)] & 7) || 1) : 0;
+    hist.push({ from: mFrom(m), to: mTo(m), cap: !!capType, capType });
     pos.make(m);
   }
   pos.stack.length = 0; // keep hash history for repetitions, drop undo info
