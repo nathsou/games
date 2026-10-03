@@ -82,6 +82,6 @@ No tests or test suites are included, as requested. Verification is performed di
 
 ## Credits and documentation
 
-Independent game inspired by [Similo](https://www.gigamic.com/blog/post/tout-sur-la-gamme-similo), designed by Hjalmar Hach, Pierluca Zizzi and Martino Chiacchiera. All portrait illustrations here are newly generated, stylized art; no commercial Similo or Balatro artwork is used. The built-in image tool does not expose a model selector, so the requested image model version cannot be verified. The full prompt set is saved with the assets.
+Independent game inspired by [Similo](https://www.gigamic.com/blog/post/tout-sur-la-gamme-similo), designed by Hjalmar Hach, Pierluca Zizzi and Martino Chiacchiera. All illustrations here are newly generated, stylized art; no commercial Similo or Balatro artwork is used. The built-in image tool does not expose a model selector, so the requested image model version cannot be verified. The full prompt set is saved with the assets.
 
 Provider documentation: [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna), [OpenAI images](https://developers.openai.com/api/docs/guides/images-vision), [OpenRouter reasoning](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens), [Anthropic effort](https://platform.claude.com/docs/en/build-with-claude/effort). Connection documentation: [WebRTC peer connections](https://webrtc.org/getting-started/peer-connections).

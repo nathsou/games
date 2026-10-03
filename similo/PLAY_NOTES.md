@@ -26,3 +26,13 @@ These few games demonstrate working live requests and identify failure modes; th
 - Desktop and phone layouts were visually inspected. The board kept stable card positions and the phone layout did not overflow horizontally.
 
 Direct pairing was verified locally. Cross-network connectivity depends on the peers' networks; there is no TURN relay. Module syntax and whitespace checks were performed separately from browser play.
+
+## Expansion to eleven themes
+
+Five new 24-card decks add Singers, Actors, Cities, Countries and French Regions. All five galleries were opened in the browser and their crops and labels inspected. The regions deck includes all 18 present-day regions and six labelled historic regions. The eleven-deck setup and place-card board fit a 390-pixel phone viewport without horizontal overflow. Card inspection was corrected to show a large portrait or landscape on phones, including the historic-region label.
+
+A complete live GPT-6 Luna game used a Cities board, a fixed Countries hand and high reasoning effort. It ended in a shared win with Beijing as the target. China and Japan supported the East Asian connection; Spain and Saudi Arabia supplied contrasts; Morocco's blue architecture distinguished Beijing's blue temple roof from Seoul's green roof and pink blossoms in the final round. This verifies a working place-aware, mixed-deck game; it remains one play observation, not a win-rate estimate.
+
+One-screen play was also opened with a French Regions board and Singer clues. The board dealt twelve cards, the classic hand held five, and playing a singer clue passed through the privacy curtain to a guesser view with the hand and secret hidden.
+
+The game now loads native-browser-encoded WebP delivery copies (8,832,934 bytes total), retaining the original generated PNGs (37,471,039 bytes total). Delivery images preserve dimensions and composition and reduce the image transfer by about 76%. No dependencies or tests were added.
