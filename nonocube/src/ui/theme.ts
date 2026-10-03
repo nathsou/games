@@ -1,154 +1,32 @@
 import { hexToRgb, type Vec3 } from '../render/math.ts';
-import { renderStyle, type RenderStyle } from '../render/style.ts';
+import { renderStyle } from '../render/style.ts';
 
-/**
- * Color themes. Each collection has its own vivid theme; the rest of the app uses "sunset".
- * A theme drives the page backdrop (CSS variables) and the 3D scene colors.
- */
-export interface Theme {
-  /** Backdrop gradient stops: light → saturated → deep. */
-  bg: [string, string, string];
-  /** UI accent (primary buttons, active tool). */
-  accent: string;
-  /** Painted ("keep") cubes. */
-  paint: string;
-  /** Unbroken, unpainted cubes. */
-  cube: string;
-  /** Clue numbers. */
-  ink: string;
-  plinth: string;
-}
-
-const NEUTRAL = { cube: '#f2efe8', ink: '#2b2d42', plinth: '#fbfaf7' };
-
-/** Minimal rooms: near-white backdrops with a faint tint; color lives in the accents. */
-export const THEMES: Record<string, Theme> = {
-  sunset: { bg: ['#fdf9f5', '#fbf1ec', '#f3edf6'], accent: '#ff5e7e', paint: '#5b8def', ...NEUTRAL },
-  'first-steps': { bg: ['#fffaf6', '#fff1ec', '#fde8e4'], accent: '#ff6b6b', paint: '#4f8cff', ...NEUTRAL },
-  kitchen: { bg: ['#fffbf4', '#fff2e8', '#fbe9e2'], accent: '#e8384f', paint: '#12a594', ...NEUTRAL },
-  garden: { bg: ['#f8fcf6', '#edf7ea', '#e2f1df'], accent: '#22a06b', paint: '#ff7a45', ...NEUTRAL },
-  critters: { bg: ['#fffcf2', '#fff5de', '#fcedc9'], accent: '#f08c00', paint: '#7b61ff', ...NEUTRAL },
-  toybox: { bg: ['#f9f9ff', '#f0efff', '#e7e5ff'], accent: '#6a4dff', paint: '#ff5c93', ...NEUTRAL },
-  space: { bg: ['#f7f6fd', '#ecebfa', '#e0ddf5'], accent: '#7048e8', paint: '#15aabf', ...NEUTRAL },
-  chess: { bg: ['#fbfaf6', '#f3f1e7', '#e8eadf'], accent: '#b7862a', paint: '#e0524a', ...NEUTRAL },
-  architecture: { bg: ['#f8fbff', '#ebf4fd', '#deecf9'], accent: '#1c7ed6', paint: '#f08c00', ...NEUTRAL },
+/** One Mono palette drives both the DOM and WebGL scene. */
+export const THEMES = {
+  light: { bg: '#ffffff', ink: '#000000', muted: '#5c5c5c', soft: '#e6e6e6', cube: '#ffffff', paint: '#000000', plinth: '#ededed' },
+  dark: { bg: '#000000', ink: '#ffffff', muted: '#a3a3a3', soft: '#262626', cube: '#2a2a2a', paint: '#ffffff', plinth: '#1a1a1a' },
 };
-
-export function themeFor(collectionId?: string): string {
-  return collectionId && THEMES[collectionId] ? collectionId : 'sunset';
-}
-
-/** Current 3D scene colors (read by the renderers every frame). */
 export const sceneColors: { cube: Vec3; paint: Vec3; ink: Vec3; plinth: Vec3; accent: Vec3; wash: Vec3; washAmt: number } = {
-  cube: hexToRgb(THEMES.sunset.cube),
-  paint: hexToRgb(THEMES.sunset.paint),
-  ink: hexToRgb(THEMES.sunset.ink),
-  plinth: hexToRgb(THEMES.sunset.plinth),
-  accent: hexToRgb(THEMES.sunset.accent),
-  wash: [0.87, 0.89, 0.94],
-  washAmt: 0.6,
+  cube: [1, 1, 1], paint: [0, 0, 0], ink: [0, 0, 0], plinth: hexToRgb('#ededed'), accent: [0, 0, 0], wash: hexToRgb('#e6e6e6'), washAmt: 0.35,
 };
-
-// ------------------------------------------------------------------ design systems
-
-export type DesignId = 'soft' | 'swiss' | 'bold' | 'paper';
-
-export interface Design {
-  id: DesignId;
-  name: string;
-  blurb: string;
-  /** Color scheme the design needs ('auto' follows the Theme setting). */
-  scheme: 'auto' | 'light' | 'dark';
-  style: RenderStyle;
-  /** Scene color overrides; functions receive the collection theme. */
-  cube?: (t: Theme) => string;
-  ink?: (t: Theme) => string;
-  plinth?: (t: Theme) => string;
-  edgeColor?: (t: Theme) => string;
-  /** Hovered cube outline, and the wash on its three rows. */
-  hover: { outline: string; width: number; wash: string; washAmt: number };
-}
-
-const BASE_STYLE: RenderStyle = { bevel: 0.16, edge: 0.3, edgeColor: [0, 0, 0], edgeWidth: 0.022, flat: 0, ao: 1, spec: 1, shadow: 1, lines: 1, hoverColor: [0.17, 0.18, 0.26], hoverWidth: 0.05 };
-
-export const DESIGNS: Record<DesignId, Design> = {
-  soft: { id: 'soft', name: 'Soft', blurb: 'Rounded, airy and calm', scheme: 'auto', style: BASE_STYLE, hover: { outline: '#3a3d55', width: 0.045, wash: '#dfe3f0', washAmt: 0.6 } },
-  swiss: {
-    id: 'swiss',
-    name: 'Swiss',
-    blurb: 'White, hairlines, square and precise',
-    scheme: 'light',
-    style: { ...BASE_STYLE, bevel: 0.006, edge: 0.9, edgeWidth: 0.012, flat: 0.92, ao: 0.25, spec: 0, shadow: 0.35, lines: 0.9 },
-    hover: { outline: '#111111', width: 0.028, wash: '#e7e7e7', washAmt: 0.6 },
-    cube: () => '#ffffff',
-    ink: () => '#111111',
-    plinth: () => '#ffffff',
-    edgeColor: () => '#111111',
-  },
-  bold: {
-    id: 'bold',
-    name: 'Bold',
-    blurb: 'Thick outlines, hard shadows, loud',
-    scheme: 'light',
-    style: { ...BASE_STYLE, bevel: 0.04, edge: 1, edgeWidth: 0.055, flat: 0.85, ao: 0.3, spec: 0, shadow: 0.7, lines: 1.8 },
-    hover: { outline: '#111111', width: 0.1, wash: '#e2e2e2', washAmt: 0.75 },
-    cube: () => '#ffffff',
-    ink: () => '#111111',
-    plinth: () => '#ffffff',
-    edgeColor: () => '#111111',
-  },
-  paper: {
-    id: 'paper',
-    name: 'Paper',
-    blurb: 'Ink drawings on cream paper',
-    scheme: 'light',
-    style: { ...BASE_STYLE, bevel: 0.05, edge: 0.8, edgeWidth: 0.03, flat: 0.8, ao: 0.45, spec: 0, shadow: 0.55, lines: 1.3 },
-    hover: { outline: '#1f3a6b', width: 0.06, wash: '#dce4f2', washAmt: 0.6 },
-    cube: () => '#fbf6ea',
-    ink: () => '#1f3a6b',
-    plinth: () => '#fbf6ea',
-    edgeColor: () => '#1f3a6b',
-  },
-};
-
-let design: DesignId = 'soft';
-export const currentDesign = (): Design => DESIGNS[design];
-
-/** Switch design system: CSS tokens via [data-design], render style, scene colors. */
-export function applyDesign(id: DesignId): void {
-  design = DESIGNS[id as DesignId] ? id : 'soft';
-  const d = DESIGNS[design];
-  document.documentElement.setAttribute('data-design', design);
-  Object.assign(renderStyle, d.style);
-  const name = current;
-  current = '';
-  applyTheme(name || 'sunset');
-}
-
-let current = '';
 const listeners = new Set<() => void>();
 export const onThemeChange = (fn: () => void) => (listeners.add(fn), () => listeners.delete(fn));
+export const themeFor = (_collectionId?: string): string => 'mono';
 
-export function applyTheme(name: string): void {
-  if (name === current) return;
-  current = name;
-  const t = THEMES[name] ?? THEMES.sunset;
+export function applyTheme(_name = 'mono'): void {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  const t = THEMES[dark ? 'dark' : 'light'];
   const root = document.documentElement.style;
-  root.setProperty('--room-a', t.bg[0]);
-  root.setProperty('--room-b', t.bg[1]);
-  root.setProperty('--room-c', t.bg[2]);
-  root.setProperty('--accent', t.accent);
-  root.setProperty('--paint', t.paint);
-  const d = DESIGNS[design];
-  sceneColors.cube = hexToRgb(d.cube?.(t) ?? t.cube);
-  sceneColors.paint = hexToRgb(t.paint);
-  sceneColors.ink = hexToRgb(d.ink?.(t) ?? t.ink);
-  sceneColors.plinth = hexToRgb(d.plinth?.(t) ?? t.plinth);
-  sceneColors.accent = hexToRgb(t.accent);
-  renderStyle.edgeColor = hexToRgb(d.edgeColor?.(t) ?? '#000000');
-  renderStyle.hoverColor = hexToRgb(d.hover.outline);
-  renderStyle.hoverWidth = d.hover.width;
-  sceneColors.wash = hexToRgb(d.hover.wash);
-  sceneColors.washAmt = d.hover.washAmt;
-  for (const l of listeners) l();
+  for (const [key, value] of Object.entries({ bg: t.bg, ink: t.ink, 'ink-2': t.muted, 'ink-3': t.muted, accent: t.ink, paint: t.paint, 'accent-ink': t.bg, 'accent-soft': t.soft, plinth: t.plinth })) root.setProperty(`--${key}`, value);
+  for (const key of ['cube', 'paint', 'ink', 'plinth'] as const) sceneColors[key] = hexToRgb(t[key]);
+  sceneColors.accent = sceneColors.ink;
+  sceneColors.wash = hexToRgb(t.soft);
+  Object.assign(renderStyle, { bevel: 0.04, edge: 1, edgeColor: sceneColors.ink, edgeWidth: 0.05, flat: 0.85, ao: 0.3, spec: 0, shadow: 0.5, lines: 1, hoverColor: sceneColors.ink, hoverWidth: 0.08 });
+  for (const fn of listeners) fn();
+}
+
+/** Museum pieces use neutral tones by height, while editor data keeps its palette. */
+export function layerColor(y: number, height: number): Vec3 {
+  const tones = document.documentElement.dataset.theme === 'dark' ? ['#ffffff', '#b3b3b3', '#707070', '#3d3d3d'] : ['#000000', '#4d4d4d', '#8c8c8c', '#c9c9c9'];
+  return hexToRgb(tones[Math.min(3, Math.floor(y * 4 / Math.max(1, height)))]);
 }

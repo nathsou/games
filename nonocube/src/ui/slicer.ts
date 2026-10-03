@@ -1,10 +1,11 @@
 import { sfx } from '../audio/sfx.ts';
 import type { Axis, Dims } from '../core/grid.ts';
 import type { OrbitCamera } from '../render/camera.ts';
-import { clamp, hexToRgb, type Vec3 } from '../render/math.ts';
+import { clamp, type Vec3 } from '../render/math.ts';
 import type { CutCap, LineBatch } from '../render/renderer.ts';
 import { h, icon } from './dom.ts';
 import { I } from './icons.ts';
+import { sceneColors } from './theme.ts';
 import { hideTooltip } from './tooltip.ts';
 
 export const AXIS_COLORS = ['#e5534b', '#3bb37a', '#3d7be0'];
@@ -265,7 +266,7 @@ export class Slicer {
     if (!this.peel) return null;
     const a = this.axis;
     const dim = this.dims[a];
-    const c = hexToRgb(AXIS_COLORS[a]);
+    const c = sceneColors.ink;
     return this.sign > 0 ? { face: a * 2, pos: dim - this.peel - 0.5, color: c } : { face: a * 2 + 1, pos: this.peel - 0.5, color: c };
   }
 
@@ -293,7 +294,7 @@ export class Slicer {
           const t = -half[a] + k;
           pts.push(...p(t), ...p(t, inward[0], inward[1], inward[2]));
         }
-        const c = hexToRgb(AXIS_COLORS[a]);
+        const c = sceneColors.ink;
         const active = a === this.axis && this.peel > 0;
         out.push({ points: Float32Array.from(pts), color: [c[0], c[1], c[2], active ? 0.85 : 0.4] });
       }
@@ -304,7 +305,7 @@ export class Slicer {
       const max = [half[0], half[1], half[2]];
       const cut = this.sign * (half[a] - this.peel);
       min[a] = max[a] = cut;
-      const c = hexToRgb(AXIS_COLORS[a]);
+      const c = sceneColors.ink;
       const corners: number[][] = [];
       const others = [0, 1, 2].filter((b) => b !== a);
       for (const [u, v] of [[0, 0], [1, 0], [1, 1], [0, 1]]) {
