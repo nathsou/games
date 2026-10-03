@@ -92,6 +92,6 @@ The desktop table fits common laptop viewports, including 1280×720 and 1440×90
 
 ## Browser UI regression checks
 
-With the local server running, `npm run test:ui` checks laptop and phone layouts, rules/settings/replay dialog scrolling, both deck sizes and turn modes, multi-card mouse/touch drags, invalid drop indicators, cancellation, per-card flights, and native replay slider dragging and keyboard focus. It uses real controls and the read-only, redacted diagnostics.
+With the local server running, `npm run test:ui` checks laptop and phone layouts, rules/settings/replay dialog scrolling, both deck sizes and turn modes, multi-card mouse/touch drags, invalid drop indicators, cancellation, per-card flights, interrupted replay cleanup, and native replay slider dragging and keyboard focus. It uses real controls and the read-only, redacted diagnostics.
 
 Playwright and Chromium are optional test tools; neither ships with the game. Install Playwright in your development environment or set `PLAYWRIGHT_MODULE` to its module path. `CHROMIUM_PATH` selects a system browser; `CHROMIUM_NO_SANDBOX=1` supports isolated Linux test containers that require it. `FLIP_IT_URL` overrides the local server URL, and `FLIP_IT_ARTIFACTS` optionally writes fresh screenshots to a directory. The ordinary `npm test` remains dependency-free.
