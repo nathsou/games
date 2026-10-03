@@ -655,6 +655,11 @@ function resumeGame() {
 function showPassScreen() {
   closeDrawer();
   if (modal.open) modal.close();
+  // The guesser's view is public; only the giver's private view needs a hold.
+  if (localRole === "guesser") {
+    renderGame();
+    return;
+  }
   setScreen("curtain");
   app.innerHTML = `<section class="pass-curtain"><p class="eyebrow">ROUND ${game.round + 1} · ONE SCREEN</p><h1>Pass to the ${localRole === "giver" ? "clue giver" : "guesser"}.</h1><p>${localRole === "giver" ? "Guesser, look away. The secret and the hand appear after you hold." : "The secret and hand are hidden. Hold when you’re ready to read the clues."}</p><button id="pass-ready" class="hold-ring" aria-label="Hold for 800 milliseconds to reveal your turn"><span><strong>Hold</strong><small>to reveal</small></span></button><button id="accessible-reveal" class="text-button">Reveal with confirmation</button><button id="swap-seats" class="text-button curtain-footer">Wrong person? Swap seats</button></section>`;
   let frame,

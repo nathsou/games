@@ -25,7 +25,7 @@ There is no hosted room registry. AI mode makes browser requests directly to the
 - **Play with a friend:** the creator is the clue giver. Create and send an invitation link. The friend opens it, receives a reply link automatically, and sends it back. The creator pastes the reply; both browsers open the shared table. Keep both tabs open. This exchange contains connection metadata, not the secret, hand, notes, or API keys.
 - **Guess the AI's card:** the AI knows the secret and chooses one clue card and its direction each round.
 - **Give clues to AI:** you know the secret and play clues; the AI chooses cards to eliminate.
-- **Play on one screen:** pass the device between roles using a privacy curtain. No provider key is required.
+- **Play on one screen:** the guesser's public view opens immediately after a clue. Hold to reveal the clue giver's secret and hand when switching back. No provider key is required.
 
 The board has twelve illustrated people or places. The clue giver starts with five cards and plays one as **Similar** (upright) or **Different** (sideways). The guesser eliminates **1, 2, 3, 4, 1** cards across five rounds. Removing the secret loses immediately; leaving it alone wins. Clues accumulate and remain relevant.
 
