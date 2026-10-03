@@ -29,7 +29,7 @@ The board has twelve illustrated people or places. The clue giver starts with fi
 
 **Classic hand:** draw one replacement after each clue. **Fixed five:** no replacements; use the initial five cards in a considered order.
 
-Eleven decks with 267 active illustrated cards: ten 24-card decks and a 27-card French Regions deck.
+Eleven decks with **330 active illustrated cards: 30 in every theme**, matching the publisher's [30-card Similo deck size](https://horribleguild.com/eu/product/similo-history/). Scientists includes Charles Babbage, Philosophers includes Jean-Paul Sartre, and Writers includes Albert Camus. Every existing and new card has an [individual audit record](CARD_AUDIT.md); inconsistent artwork was redrawn from scratch with imagegen.
 
 1. French History
 2. Global History
@@ -43,7 +43,7 @@ Eleven decks with 267 active illustrated cards: ten 24-card decks and a 27-card 
 10. Countries
 11. French Regions
 
-Cities include Paris, Rome, London, Berlin, Tokyo and New York City, with 18 more cities worldwide. French Regions uses the division as it stood on 31 December 2015: [22 metropolitan regions](https://www.insee.fr/fr/statistiques/1906658), including Corsica, and five overseas regions. Every region has one original illustration, dates and public context. Centre-Val de Loire uses its [name adopted in January 2015](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000030110734). New deals exclude the merged post-2016 regions. Old region IDs and their artwork are preserved only for compatible saved games and replays.
+Cities include Paris, Rome, London, Berlin, Tokyo and New York City, with 24 more cities worldwide. French Regions contains the complete division as it stood on 31 December 2015: [22 metropolitan regions](https://www.insee.fr/fr/statistiques/1906658), including Corsica, and five overseas regions. Three additional cards depict **historical provinces: Anjou, Touraine and Provence**, explicitly labelled in their captions and descriptions; they are not extra administrative regions of 2015. Every card has one original illustration, dates and public context. Centre-Val de Loire uses its [name adopted in January 2015](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000030110734). New deals exclude the merged post-2016 regions. Old region IDs and their artwork are preserved only for compatible saved games and replays.
 
 Every card displays a date caption and has a short description available in card inspection. People have lifespans or labelled birth years; places have labelled landmarks or milestones. Approximate and traditional dates are marked, and mythological figures are identified as myths. The [card context notes](CARD_CONTEXT.md) explain these conventions and link selected references.
 
@@ -85,6 +85,8 @@ These are cooperative games between trusted players. A local browser that runs a
 
 - `src/game.js`: rules, dealing, move validation, role projections, replay/network validation.
 - `src/decks.js`: the eleven card rosters and future theme ideas.
+- `src/expansion.js`: the 63 appended subjects, date captions and biographies.
+- `src/artwork.js`: subject-based redraw mappings shared across overlapping themes.
 - `src/context.js`: shared dates and descriptions for all card subjects.
 - `src/art.js`: Canvas card rendering, atlas loading, AI observation images and animated felt.
 - `src/app.js`: accessible native controls, game flow, pairing, local saving, replay and settings.
@@ -94,6 +96,8 @@ These are cooperative games between trusted players. A local browser that runs a
 - `src/usage.js`: local request ledger, provider usage normalization, captured pricing and spending summaries.
 - `src/music.js`, `src/outcome.js`: eleven original scores, WebAudio playback and finite result animations.
 - `assets/PROMPTS.md`: the complete image-generation prompts and provenance.
+- `assets/EXPANSION_PROMPTS.md`: expansion/redesign prompts and accepted or rejected dispositions.
+- `CARD_AUDIT.md`: individual findings for all 330 active cards and 24 archived region cards.
 
 No tests or test suites are included, as requested. Verification is performed directly in the browser. [Play notes](PLAY_NOTES.md) record the live GPT-6 Luna games, prompt refinements, interface checks and remaining limitations.
 

@@ -1,5 +1,17 @@
 # Browser play notes
 
+## 30-card collection audit — 3 October 2026
+
+The expanded collection has 330 active cards, 30 per theme. All eleven collection galleries were opened in Chromium at 1440 × 1000 and checked at 390 × 844; every accessible label was matched to its subject and date caption. Babbage, Sartre and Camus were opened in the inspector and their biographies checked. There were no browser JavaScript errors or failed asset requests.
+
+All 330 active cards and 24 archived region cards were rendered through the production Canvas renderer at 288 × 392 and visually inspected individually on full-card contact sheets. [CARD_AUDIT.md](CARD_AUDIT.md) records a specific finding for each card, including rejected generations and the accepted redesigns.
+
+A one-screen Fixed five game used a Scientists board containing all six additions, with Babbage as the target and new Philosophers as clue cards. It completed all five rounds through the actual UI, alternated Similar/Different clues, hid the private hand from the guesser, survived a reload/resume after round two, opened the final-two comparison and reached the victory dialog. The exported replay reimported with its five rounds and Babbage target intact. An independently created old-format `similo-arcade-replay` with archived `regions-0`–`regions-16` IDs also imported and displayed the original region artwork correctly.
+
+Temporary direct checks completed 242 five-round deals: all 121 board/clue combinations in both hand variants, including subject exclusion across overlapping themes. They also compared every pre-expansion ID/name/index with the original roster, checked all date/description fields and confirmed that each atlas index is in range and each artwork file exists. Module syntax and whitespace checks passed. No test files or dependencies were added. These checks validate the expanded collection and rendering; no paid provider calls were needed for this artwork change.
+
+French Regions retains the complete 27-region administrative set of 2015, plus three explicitly labelled historical provinces to reach 30 cards. Its collection description and individual province captions distinguish the two kinds of subject.
+
 Recorded during implementation on 2026-10-03. These are direct play observations, not an automated suite. No tests were written.
 
 ## Live GPT-6 Luna play
