@@ -143,3 +143,10 @@ test('The action cap draws ordinary play but lets the pending last chance finish
   state=applyAction(state,1,{kind:'flip',lane:0});
   assert.equal(state.result.reason,'survived');assert.equal(state.moves,181);validateView(playerView(state,1),1);assertState(state);
 });
+
+test('quick turns expose a single legal space and reject occupied retired spaces',()=>{
+  const state=createMatch({},7);assert(legalActions(state).every(a=>a.lane===0));
+  assert.throws(()=>applyAction(state,0,{kind:'flip',lane:1}));
+  const bad=playerView(state,0);bad.table[0][1].push(bad.hands[0].pop());
+  assert.throws(()=>validateView(bad,0),/play spaces/);
+});

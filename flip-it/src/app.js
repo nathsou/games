@@ -25,7 +25,7 @@ let scene = 'menu', mode = 'solo', game = null, seat = 0, lane = 1, chosen = [],
 let session = null, peer = null, linkStatus = 'idle', botTimer = null, generation = 0, lastViewKey = '';
 let pairKind = 'host', pairBusy = false, pairOut = '', pairError = '', pairMessage = '', pairingOpen = false, pairOffer = '';
 const replayStore=new ReplayStore();
-let replayOpen=false,replayRecord=null,replayIndex=0,replayTimer=null,replayOnlyHighlights=false,storageNotified=false;
+let replayOpen=false,replayRecord=null,replayIndex=0,replayTimer=null,replayOnlyHighlights=false,storageNotified=false,replayPosition=null;
 let chatDraft = '', animating = false, renderedPosition = null, animationGeneration = 0;
 let scanStream = null, scanTimer = null, scanGeneration = 0, canScan = false, toastTimer;
 const bus = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('flip-it-pairing') : null;
@@ -148,12 +148,13 @@ document.addEventListener('submit', event => {
   catch(error) { notify(error.message); }
 });
 document.addEventListener('paste', event => {
-  if (event.target.id!=='pair-input' || !pairingOpen || pairKind!=='host' || pairBusy || peer?.connected) return;
+  if (event.target.id!=='pair-input' || !pairingOpen || !['host','join'].includes(pairKind) || pairBusy || peer?.connected) return;
   const input=event.clipboardData?.getData('text');
   if (!input) return;
-  // Pasting an intact reply finishes the host step; the explicit button remains
+  const host=pairKind==='host';
+  // An intact pasted link advances either seat automatically. Buttons remain
   // available for typed links and browsers without clipboard event data.
-  decodePairing(input,'answer').then(()=>acceptReply(input)).catch(error=>{pairError=error.message;renderPair();});
+  decodePairing(input,host?'answer':'offer').then(()=>host?acceptReply(input):joinInvitation(input)).catch(error=>{pairError=error.message;renderPair();});
 });
 function actionValid(actions, action) {
   return actions.some(a => a.kind === action.kind && a.lane === action.lane && a.target === action.target && (a.targetSeat ?? (view().hands.length===2?1-mySeat():-1)) === (action.targetSeat ?? (view().hands.length===2?1-mySeat():-1)) && (!a.cards || a.cards.length === action.cards?.length && a.cards.every(id => action.cards.includes(id))));
@@ -169,7 +170,7 @@ function renderTable(v) {
     html += '<div class="rival-zone"><div class="zone-title"><span>'+esc(ns[other])+(v.turn===other?' · TO PLAY':'')+'</span><span class="rival-hand" data-hand-seat="'+other+'"><span class="mini-fan" aria-hidden="true">'+Array.from({length:Math.min(v.hands[other].length,7)},()=>'<i class="mini-back"></i>').join('')+'</span>'+v.hands[other].length+' CARDS</span></div><div class="table-row ' + (v.options.quickTurns?'single-space':'') + '">';
     for(const target of (v.options.quickTurns?[0]:[0,1])) {
       const set=v.table[other][target],owner=v.hands.length===2?{}:{targetSeat:other},add={kind:'add',lane,target,cards:chosen,...owner},take={kind:'take',lane,target,...owner};
-      html += '<article data-space-seat="'+other+'" data-space-lane="'+target+'" class="play-space"><div class="space-header"><span>'+(target?'RIGHT':'LEFT')+' SPACE</span><strong>'+(set.length?set.length+' × '+setValue(set):'EMPTY')+'</strong></div><div class="space-cards">'+(set.length?set.map(c=>cardHtml(c)).join(''):'<span class="space-empty">✦</span>')+'</div><div class="space-controls">'+button('ADD 1','add','mint',!actionValid(actions,add)||preview,'data-target="'+target+'" data-owner="'+other+'"')+button('TAKE & FLIP','take','dark',!actionValid(actions,take)||preview,'data-target="'+target+'" data-owner="'+other+'"')+'</div></article>';
+      html += '<article data-space-seat="'+other+'" data-space-lane="'+target+'" class="play-space"><div class="space-header"><span>'+(v.options.quickTurns?'PLAY':target?'RIGHT':'LEFT')+' SPACE</span><strong>'+(set.length?set.length+' × '+setValue(set):'EMPTY')+'</strong></div><div class="space-cards">'+(set.length?set.map(c=>cardHtml(c)).join(''):'<span class="space-empty">✦</span>')+'</div><div class="space-controls">'+button('ADD 1','add','mint',!actionValid(actions,add)||preview,'data-target="'+target+'" data-owner="'+other+'"')+button('TAKE & FLIP','take','dark',!actionValid(actions,take)||preview,'data-target="'+target+'" data-owner="'+other+'"')+'</div></article>';
     }
     html += '</div></div>';
   }
@@ -187,7 +188,7 @@ function renderTable(v) {
     try {
       const impact = previewMove(v,p,play);
       hint = impact.event.returned.length ? impact.event.returned.map(r => (r.seat===p ? 'Your' : 'Their') + ' ' + r.count + ' cards return as ' + r.to.join(', ')).join('. ') + '.' : 'This set is legal. It stays exposed until you cash it out.';
-    } catch { hint = 'Blocked at this size. Try fewer cards, another space, or add one to their set.'; }
+    } catch { hint = 'Blocked at this size. Try fewer cards'+(v.options.quickTurns?'':', another space')+', or add one to their set.'; }
   }
   return html + '<p class="move-hint">' + esc(hint) + '</p>';
 }
@@ -196,10 +197,11 @@ function renderEnd(v) {
   const title = winner === null ? 'A little stalemate.' : esc(ns[winner]) + (match ? ' takes the match.' : ' takes the round.');
   const reason = r.reason === 'repeat' ? 'The same position came around three times. Drawn round: shuffle and try again.' : r.reason === 'limit' ? 'A long back-and-forth. Drawn round: a fresh deal keeps things moving.' : r.reason === 'survived' ? 'The last-chance reply couldn’t put cards back in their hand.' : 'An empty hand. A well-earned round.';
   const ready = mode === 'online' && session.ready[session.seat], guest = mode === 'online' && session.seat === 1;
-  return '<div class="ending pop"><div class="trophy" aria-hidden="true">✦</div><p class="eyebrow">' + (match ? 'GOOD COMPANY. GOOD GAME.' : 'A MOMENT TO CATCH YOUR BREATH.') + '</p><h2>' + title + '</h2><p>' + reason + '</p><div class="ending-score"><span>' + v.scores.join(' : ') + '</span></div>' + (match ? button(guest ? 'HOST CAN DEAL A REMATCH' : 'ONE MORE MATCH →', 'rematch', 'gold', guest || mode==='online' && !connected()) : button(ready ? 'WAITING FOR YOUR FRIEND…' : 'NEXT ROUND →', 'next', 'gold', ready || mode==='online' && !connected())) + button('CHANGE MATCH OPTIONS', 'menu', 'outline') + '</div>';
+  return '<div class="ending pop"><div class="trophy" aria-hidden="true">✦</div><p class="eyebrow">' + (match ? 'GOOD COMPANY. GOOD GAME.' : 'A MOMENT TO CATCH YOUR BREATH.') + '</p><h2>' + title + '</h2><p>' + reason + '</p><div class="ending-score"><span>' + v.scores.join(' : ') + '</span></div>' + (match ? button(guest ? 'HOST CAN DEAL A REMATCH' : 'ONE MORE MATCH →', 'rematch', 'gold', guest || mode==='online' && !connected()) : button(ready ? 'WAITING FOR YOUR FRIEND…' : 'NEXT ROUND →', 'next', 'gold', ready || mode==='online' && !connected())) + button('GAME HIGHLIGHTS ↗','game-highlights','outline') + button('CHANGE MATCH OPTIONS', 'menu', 'outline') + '</div>';
 }
 function eventText(e,ns=names()) {
-  if (!e || e.kind==='deal') return 'A fresh deal.';
+  if (!e) return 'Recording starts at this position.';
+  if (e.kind==='deal') return 'A fresh deal.';
   const who = esc(ns[e.seat]);
   let text = who + (e.kind==='flip' ? ' flipped their hand.' : e.kind==='take' ? ' took ' + e.count + ' cards and flipped them.' : e.kind==='add' ? ' added a ' + e.value + ' to '+esc(ns[e.targetSeat])+'’s set.' : ' played ' + e.count + ' × ' + e.value + '.');
   if (e.cashed) text += ' Cashed out ' + e.cashed + '.';
@@ -220,14 +222,15 @@ function beginReplayDialog(){
 }
 function showReplayLibrary(){
   pauseReplay();beginReplayDialog();
-  modalContent.innerHTML=modalHead('A few memorable flips.','SAVED ON THIS BROWSER')+'<p class="modal-copy">Your last eight games, with every recorded move and its highlights. Older games are removed as browser storage fills. Recordings include only the cards visible to this browser.</p><div class="replay-library">'+(replayStore.records.length?replayStore.records.map(r=>'<article><div><h3>'+r.names.map(esc).join(' / ')+'</h3><p>'+esc(new Date(r.updated).toLocaleString())+' · '+r.entries.filter(e=>e.event?.kind!=='deal').length+' actions · '+(r.entries.at(-1).view.phase==='matchOver'?'Finished':'In progress')+'</p></div><div>'+button('WATCH ↗','open-recording','gold compact',false,'data-recording="'+esc(r.id)+'"')+button('DELETE','delete-recording','outline compact',false,'data-recording="'+esc(r.id)+'"')+'</div></article>').join(''):'<p class="modal-copy">Play a game to start your collection.</p>')+'</div>';
+  modalContent.innerHTML=modalHead('A few memorable flips.','SAVED ON THIS BROWSER')+'<p class="modal-copy">Your last eight games, with every recorded move and its highlights. Older games are removed as browser storage fills. Recordings include only the cards visible to this browser.</p><div class="replay-library">'+(replayStore.records.length?replayStore.records.map(r=>'<article><div><h3>'+r.names.map(esc).join(' / ')+'</h3><p>'+esc(new Date(r.updated).toLocaleString())+' · '+r.entries.filter(e=>e.event&&e.event.kind!=='deal').length+' actions · '+(r.entries.at(-1).view.phase==='matchOver'?'Finished':'In progress')+'</p></div><div>'+button('WATCH ↗','open-recording','gold compact',false,'data-recording="'+esc(r.id)+'"')+button('DELETE','delete-recording','outline compact',false,'data-recording="'+esc(r.id)+'"')+'</div></article>').join(''):'<p class="modal-copy">Play a game to start your collection.</p>')+'</div>';
 }
 function openRecording(record){
   if(!record){notify('No moves have been recorded yet.');return;}
-  pauseReplay();replayRecord=record;replayIndex=record.entries.length-1;replayOnlyHighlights=false;beginReplayDialog();renderReplay();
+  pauseReplay();replayPosition=null;replayRecord=record;replayIndex=record.entries.length-1;replayOnlyHighlights=false;beginReplayDialog();renderReplay();
 }
 function eventVisual(e){
-  if(!e||e.kind==='deal')return '<span class="log-symbol">▥</span><span class="log-label">DEAL</span>';
+  if(!e)return '<span class="log-symbol">▣</span><span class="log-label">SNAPSHOT</span>';
+  if(e.kind==='deal')return '<span class="log-symbol">▥</span><span class="log-label">DEAL</span>';
   let html=e.kind==='flip'?'<span class="log-symbol">↕</span><span class="log-label">HAND FLIPPED</span>':e.kind==='take'?'<span class="log-rank">'+e.value+'</span><span class="log-arrow">× '+e.count+' → ↕</span>':'<span class="log-rank">'+e.value+'</span><span class="log-arrow">× '+e.count+(e.kind==='add'?' · +1':'')+'</span>';
   if(e.cashed)html+='<span class="log-bank">▤ +'+e.cashed+'</span>';
   for(const r of e.returned)html+='<span class="log-return"><span class="log-rank">'+r.from+'</span> × '+r.count+' ↩ <span class="log-flips">'+r.to.join(' · ')+'</span></span>';
@@ -235,27 +238,30 @@ function eventVisual(e){
 }
 function replayBoard(entry){
   const v=entry.view,ns=replayRecord.names;
-  let html='<div class="replay-board"><div class="table-meta"><span>ROUND '+(v.round+1)+' · ACTION '+v.moves+'</span><span>▤ BANK '+v.discardCount+'</span></div><div class="replay-seats">';
+  let html='<div class="replay-board"><div class="table-meta"><span>ROUND '+(v.round+1)+' · ACTION '+v.moves+'</span><span data-bank>▤ BANK '+v.discardCount+'</span></div><div class="replay-seats">';
   for(let i=0;i<v.hands.length;i++) {
-    html+='<section class="replay-seat"><div class="zone-title"><span>'+esc(ns[i])+'</span><span>'+v.hands[i].length+' IN HAND · '+v.scores[i]+' WINS</span></div><div class="table-row '+(v.options.quickTurns?'single-space':'')+'">';
-    for(const lane of(v.options.quickTurns?[0]:[0,1]))html+='<div class="play-space"><span class="eyebrow">'+(v.options.quickTurns?'PLAY SPACE':lane?'RIGHT':'LEFT')+'</span><div class="space-cards">'+(v.table[i][lane].map(c=>cardHtml(c)).join('')||'<span class="space-empty">✦</span>')+'</div></div>';
+    html+='<section class="replay-seat"><div class="zone-title"><span>'+esc(ns[i])+'</span><span data-hand-seat="'+i+'"><span class="mini-fan" aria-hidden="true">'+Array.from({length:Math.min(v.hands[i].length,5)},()=>'<i class="mini-back"></i>').join('')+'</span> '+v.hands[i].length+' IN HAND · '+v.scores[i]+' WINS</span></div><div class="table-row '+(v.options.quickTurns?'single-space':'')+'">';
+    for(const lane of(v.options.quickTurns?[0]:[0,1]))html+='<div class="play-space" data-space-seat="'+i+'" data-space-lane="'+lane+'"><span class="eyebrow">'+(v.options.quickTurns?'PLAY SPACE':lane?'RIGHT':'LEFT')+'</span><div class="space-cards">'+(v.table[i][lane].map(c=>cardHtml(c)).join('')||'<span class="space-empty">✦</span>')+'</div></div>';
     html+='</div></section>';
   }
   // During pass-and-play the replay shows the public table. Private hands stay
   // behind the handoff curtain, including in recordings opened from the menu.
-  if(replayRecord.mode!=='local')html+='</div><div class="replay-hand"><p class="eyebrow">'+esc(ns[entry.seat])+'’S RECORDED HAND</p><div class="hand">'+v.hands[entry.seat].map(c=>cardHtml(c)).join('')+'</div></div>';
+  if(replayRecord.mode!=='local')html+='</div><div class="replay-hand"><p class="eyebrow">'+esc(ns[entry.seat])+'’S RECORDED HAND</p><div class="hand" data-hand-seat="'+entry.seat+'">'+v.hands[entry.seat].map(c=>cardHtml(c)).join('')+'</div></div>';
   else html+='</div><p class="small">Pass & play recordings show the public table.</p>';
   if(v.result)html+='<p class="replay-result">'+(v.result.winner===null?'Drawn round':esc(ns[v.result.winner])+' won the '+(v.phase==='matchOver'?'match':'round'))+'.</p>';
   return html+'</div>';
 }
 function renderReplay(){
   if(!replayRecord)return;
+  const before=captureTable(modalContent);
   const r=replayRecord,entry=r.entries[replayIndex],marks=highlights(r),markMap=new Map(marks.map(m=>[m.index,m.label]));
   const items=r.entries.map((e,index)=>({entry:e,index})).filter(({index})=>!replayOnlyHighlights||markMap.has(index));
   const scroll=modal.querySelector('.action-timeline')?.scrollTop;
-  modalContent.innerHTML=modalHead('Every twist, remembered.','ACTION LOG / REPLAY')+'<div class="replay-controls">'+button('←','replay-step','outline compact',replayIndex===0,'data-step="-1" aria-label="Previous action"')+button(replayTimer?'PAUSE':'PLAY ▶','replay-play','gold compact')+button('→','replay-step','outline compact',replayIndex===r.entries.length-1,'data-step="1" aria-label="Next action"')+'<label class="replay-scrubber">'+(replayIndex+1)+' / '+r.entries.length+'<input id="replay-scrubber" type="range" min="0" max="'+(r.entries.length-1)+'" value="'+replayIndex+'" aria-label="Replay action"></label>'+button('SAVED GAMES','replay-library','outline compact')+'</div>'+(r.partial?'<p class="small">This recording started partway through the game or missed updates while this browser was away.</p>':'')+'<div class="replay-layout"><section><div class="replay-caption" aria-live="polite">'+eventVisual(entry.event)+'<p>'+eventText(entry.event,r.names)+'</p></div>'+replayBoard(entry)+'</section><aside class="replay-log"><div class="replay-log-head"><span>'+r.entries.filter(e=>e.event?.kind!=='deal').length+' ACTIONS</span>'+button(replayOnlyHighlights?'ALL ACTIONS':'HIGHLIGHTS · '+marks.length,'replay-filter','outline compact',false,'aria-pressed="'+replayOnlyHighlights+'"')+'</div><ol class="action-timeline" aria-label="Complete game action log">'+items.map(({entry:e,index})=>'<li><button type="button" data-action="replay-jump" data-index="'+index+'" class="log-entry '+(index===replayIndex?'current':'')+'" aria-current="'+(index===replayIndex?'step':'false')+'"><span class="log-meta">R'+(e.view.round+1)+' / '+(e.event?.kind==='deal'?'DEAL':'MOVE '+e.view.moves)+(markMap.has(index)?' · ★ '+esc(markMap.get(index)):'')+'</span><span class="log-visual">'+eventVisual(e.event)+'</span><span class="log-text">'+eventText(e.event,r.names)+'</span></button></li>').join('')+'</ol></aside></div>';
+  modalContent.innerHTML=modalHead('Every twist, remembered.','ACTION LOG / REPLAY')+'<div class="replay-controls">'+button('←','replay-step','outline compact',replayIndex===0,'data-step="-1" aria-label="Previous action"')+button(replayTimer?'PAUSE':'PLAY ▶','replay-play','gold compact')+button('→','replay-step','outline compact',replayIndex===r.entries.length-1,'data-step="1" aria-label="Next action"')+'<label class="replay-scrubber">'+(replayIndex+1)+' / '+r.entries.length+'<input id="replay-scrubber" type="range" min="0" max="'+(r.entries.length-1)+'" value="'+replayIndex+'" aria-label="Replay action"></label>'+button('SAVED GAMES','replay-library','outline compact')+'</div>'+(r.partial?'<p class="small">This recording started partway through the game or missed updates while this browser was away.</p>':'')+'<div class="replay-layout"><section><div class="replay-caption" aria-live="polite">'+eventVisual(entry.event)+'<p>'+eventText(entry.event,r.names)+'</p></div>'+replayBoard(entry)+'</section><aside class="replay-log"><div class="replay-log-head"><span>'+r.entries.filter(e=>e.event&&e.event.kind!=='deal').length+' ACTIONS</span>'+button(replayOnlyHighlights?'ALL ACTIONS':'HIGHLIGHTS · '+marks.length,'replay-filter','outline compact',false,'aria-pressed="'+replayOnlyHighlights+'"')+'</div><ol class="action-timeline" aria-label="Complete game action log">'+items.map(({entry:e,index})=>'<li><button type="button" data-action="replay-jump" data-index="'+index+'" class="log-entry '+(index===replayIndex?'current':'')+'" aria-current="'+(index===replayIndex?'step':'false')+'"><span class="log-meta">R'+(e.view.round+1)+' / '+(!e.event?'SNAPSHOT':e.event.kind==='deal'?'DEAL':'MOVE '+e.view.moves)+(markMap.has(index)?' · ★ '+esc(markMap.get(index)):'')+'</span><span class="log-visual">'+eventVisual(e.event)+'</span><span class="log-text">'+eventText(e.event,r.names)+'</span></button></li>').join('')+'</ol></aside></div>';
   modal.querySelector('#replay-scrubber').oninput=event=>{pauseReplay();replayIndex=Number(event.target.value);renderReplay();};
   if(scroll!==undefined)modal.querySelector('.action-timeline').scrollTop=scroll;
+  if(replayPosition?.id===r.id&&replayPosition.index+1===replayIndex&&replayPosition.round===entry.view.round&&replayPosition.seat===entry.seat&&replayPosition.revision+1===entry.view.revision&&entry.event?.kind!=='deal'&&entry.event&&motionEnabled())animateMove(modalContent,before,entry.event,entry.seat,entry.view);
+  replayPosition={id:r.id,index:replayIndex,round:entry.view.round,seat:entry.seat,revision:entry.view.revision};
 }
 function toggleReplay(){
   if(replayTimer){pauseReplay();renderReplay();return;}
@@ -321,6 +327,7 @@ function restoreTable() {
   session = new FlipSession({seat:saved.seat, name:saved.members[saved.seat], team:saved.team, options:saved.view.options, onUpdate:updateOnline, onError:networkError, onSocial:updateSocial});
   Object.assign(session, {members:saved.members, controllers:saved.controllers, state:saved.state, view:saved.view});
   mode='online'; scene='game'; linkStatus='closed'; resetSelection();
+  if(saved.migrated)notify('Quick turns now use one space. Cards from the retired space returned to their owners flipped.');
 }
 function updateOnline() {
   if (!session?.view) return render();
@@ -471,7 +478,7 @@ async function scanCode(target) {
 function showRules() {
   stopScan(); pairingOpen=false;
   const options=scene==='game' && view() ? view().options : prefs.options;
-  modalContent.innerHTML=modalHead('A little twist.','FLIP IT / HOW TO PLAY')+'<ol class="rules-list"><li>Empty your hand to win a round. <strong>First to two round wins</strong> takes the match. The deck is dealt evenly clockwise; with an uneven deal, the extra cards rotate each round.</li><li>Each card has two ranks. <strong>The top rank is active.</strong> The upside-down rank tells you what it becomes after a flip. Rearranging your hand is free; changing orientation is an action.</li><li>'+(options.quickTurns?'Take <strong>one action each</strong>, alternating. Choose either of your two play spaces.':'Take <strong>two actions</strong>: right space, then left. The opening player gets only the right action. Starting player alternates each round.')+' Before your action, <strong>cash out the set in that space</strong>: those cards leave play.</li><li><strong>Play:</strong> select one or more cards with the same active rank. Put them in your chosen space. Your rank must beat every other set of the same size. Lower sets return to their owners’ hands <strong>flipped</strong>—including your own other set.</li><li><strong>Add:</strong> put exactly one matching card into an opponent’s set. Its new size must beat every other set of that size; those lower sets return flipped.</li><li><strong>Take:</strong> pick up an opponent’s entire set into your hand, flipping each card. <strong>Flip:</strong> rotate every card in your hand. Each uses your whole action.</li><li>'+(options.lastChance?'With <strong>Last chance ON</strong>, an empty hand gives each other player exactly one response, overriding the normal turn order. If your hand stays empty, you win. If multiple hands are empty, the first finisher has priority. A successful counter can give the responder their own last-chance window.':'With <strong>Last chance OFF</strong>, emptying your hand wins immediately.')+'</li><li>Three appearances of the same position draw the round. A round also draws after '+(options.compactDeck?'120':'180')+' actions. Nobody scores; redeal with the other player starting.</li></ol><p class="rule-example"><strong>A little example:</strong> their pair of 3s is exposed. Play two 5s to send the 3s back flipped. Or add one 3 to their pair: it becomes a triple, and might bounce another lower triple—even yours.</p>'+optionBadges(options)+button('GOT IT. LET’S PLAY →','close-modal','gold');
+  modalContent.innerHTML=modalHead('A little twist.','FLIP IT / HOW TO PLAY')+'<ol class="rules-list"><li>Empty your hand to win a round. <strong>First to two round wins</strong> takes the match. The deck is dealt evenly clockwise; with an uneven deal, the extra cards rotate each round.</li><li>Each card has two ranks. <strong>The top rank is active.</strong> The upside-down rank tells you what it becomes after a flip. Rearranging your hand is free; changing orientation is an action.</li><li>'+(options.quickTurns?'Take <strong>one action each</strong>, alternating. Use your single play space.':'Take <strong>two actions</strong>: right space, then left. The opening player gets only the right action. Starting player alternates each round.')+' Before your action, <strong>cash out the set in that space</strong>: those cards leave play.</li><li><strong>Play:</strong> select one or more cards with the same active rank. Put them in your chosen space. Your rank must beat every other set of the same size. Lower sets return to their owners’ hands <strong>flipped</strong>—including your own other set.</li><li><strong>Add:</strong> put exactly one matching card into an opponent’s set. Its new size must beat every other set of that size; those lower sets return flipped.</li><li><strong>Take:</strong> pick up an opponent’s entire set into your hand, flipping each card. <strong>Flip:</strong> rotate every card in your hand. Each uses your whole action.</li><li>'+(options.lastChance?'With <strong>Last chance ON</strong>, an empty hand gives each other player exactly one response, overriding the normal turn order. If your hand stays empty, you win. If multiple hands are empty, the first finisher has priority. A successful counter can give the responder their own last-chance window.':'With <strong>Last chance OFF</strong>, emptying your hand wins immediately.')+'</li><li>Three appearances of the same position draw the round. A round also draws after '+(options.compactDeck?'120':'180')+' actions. Nobody scores; redeal with the other player starting.</li></ol><p class="rule-example"><strong>A little example:</strong> their pair of 3s is exposed. Play two 5s to send the 3s back flipped. Or add one 3 to their pair: it becomes a triple, and might bounce another lower triple—even yours.</p>'+optionBadges(options)+button('GOT IT. LET’S PLAY →','close-modal','gold');
   if (!modal.open) modal.showModal();
 }
 document.addEventListener('click',async event=>{
@@ -500,6 +507,7 @@ document.addEventListener('click',async event=>{
     else if (action==='clear') { chosen=[]; render(); }
     else if (action==='preview') { preview=!preview; chosen=[]; render(); }
     else if (action==='uncover') { handoff=false; render(); }
+    else if (action==='game-highlights') {openRecording(currentRecording());replayOnlyHighlights=true;renderReplay();}
     else if (action==='game-log') openRecording(currentRecording());
     else if (action==='replay-library') showReplayLibrary();
     else if (action==='open-recording') openRecording(replayStore.records.find(r=>r.id===target.dataset.recording));
@@ -608,7 +616,7 @@ async function handleHash() {
   }
 }
 window.addEventListener('hashchange',handleHash);
-window.addEventListener('pagehide',()=>{stopAI();stopScan();clearTimeout(botTimer);peer?.close();bus?.close();});
+window.addEventListener('pagehide',()=>{pauseReplay();stopAI();stopScan();clearTimeout(botTimer);peer?.close();bus?.close();});
 if (typeof BarcodeDetector!=='undefined' && navigator.mediaDevices?.getUserMedia) BarcodeDetector.getSupportedFormats().then(formats=>{canScan=formats.includes('qr_code');if(pairingOpen)renderPair();}).catch(()=>{});
 restoreTable();applySettings();render();handleHash();
 // Read-only, redacted diagnostics for browser playtests. No action or private

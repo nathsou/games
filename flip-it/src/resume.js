@@ -26,7 +26,7 @@ export function loadTable(storage) {
         !Array.isArray(saved.controllers) || saved.controllers.length < 2 || saved.controllers.length > 5 ||
         saved.controllers.some((t, i) => i < (saved.team ? 1 : 2) ? t !== 'human' : !['model', 'dealer'].includes(t))) return null;
     const visibleSeat = saved.team ? 0 : saved.seat;
-    validateView(saved.view, visibleSeat);
+    validateView(saved.view, visibleSeat, {legacySpaces:saved.version===2});
     if (saved.controllers.length !== saved.view.hands.length) return null;
     if (saved.seat === 0) {
       assertState(saved.state); optionsFor(saved.state.options);
@@ -44,7 +44,12 @@ export function loadTable(storage) {
           row[1] = [];
         });
       }
+      for (const state of [saved.view,saved.state].filter(Boolean)) {
+        state.log=[];
+        if(state.pending!==null&&state.hands[state.pending].length){state.pending=null;state.repliesRemaining=0;}
+      }
       if (saved.state) saved.state.visits = {};
+      validateView(saved.view,visibleSeat);
       saved.migrated = true;
     }
     return saved;

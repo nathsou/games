@@ -191,7 +191,7 @@ export function legalActions(state, seat = state.turn) {
     for (let targetSeat = 0; targetSeat < state.hands.length; targetSeat++) {
       if (targetSeat === seat) continue;
       const owner = state.hands.length === 2 ? {} : {targetSeat};
-      for (let target = 0; target < 2; target++) {
+      for (const target of (state.options.quickTurns ? [0] : [0,1])) {
         const set = base.table[targetSeat][target]; if (!set.length) continue;
         actions.push({kind:'take',lane,target,...owner});
         const rank = setValue(set);
