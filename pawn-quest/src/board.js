@@ -171,6 +171,36 @@ export class BoardView {
     c.addEventListener('pointerup', e => this.pointerUp(e));
     c.addEventListener('pointercancel', () => { this.drag = null; });
     c.addEventListener('pointerleave', () => { this.hover = -1; });
+    // Keyboard: arrows move a cursor, Enter/Space acts like a tap.
+    c.tabIndex = 0;
+    this.cursor = -1;
+    c.addEventListener('keydown', e => {
+      if (!this.interactive) return;
+      const d = { ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }[e.key];
+      if (d) {
+        e.preventDefault();
+        if (this.cursor < 0) this.cursor = this.selected >= 0 ? this.selected : 0x34;
+        const sgn = this.flipped ? -1 : 1;
+        const f = Math.min(7, Math.max(0, (this.cursor & 7) + d[0] * sgn)), r = Math.min(7, Math.max(0, (this.cursor >> 4) + d[1] * sgn));
+        this.cursor = r * 16 + f;
+      } else if ((e.key === 'Enter' || e.key === ' ') && this.cursor >= 0) {
+        e.preventDefault();
+        this.activate(this.cursor);
+      } else if (e.key === 'Escape') this.select(-1);
+    });
+    c.addEventListener('blur', () => { this.cursor = -1; });
+  }
+
+  // Same as tapping a square.
+  activate(sq) {
+    if (!this.interactive || this.anims.length) return;
+    if (this.interactive === 'tap') { this.onTap?.(sq); return; }
+    if (this.selected >= 0 && sq !== this.selected) {
+      const m = this.targets(this.selected).filter(m => mTo(m) === sq);
+      if (m.length) { this.choose(m); return; }
+    }
+    if (this.canMove(sq)) this.select(sq);
+    else { this.select(-1); this.onTap?.(sq); }
   }
 
   canMove(sq) {
@@ -401,6 +431,10 @@ export class BoardView {
       const { x, y } = this.sqXY(sqParse(this.hoverChip));
       ctx.fillStyle = 'rgba(94,242,196,0.35)'; ctx.fillRect(x, y, S, S);
       this.outline(ctx, x, y, '#5ef2c4');
+    }
+    if (this.cursor >= 0 && this.interactive) {
+      const { x, y } = this.sqXY(this.cursor);
+      this.corners(ctx, x, y, Math.sin(t / 150) > 0 ? '#5ef2c4' : '#ffffff', 0, 6);
     }
     if (this.hover >= 0 && this.interactive) {
       const { x, y } = this.sqXY(this.hover);

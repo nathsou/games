@@ -580,7 +580,7 @@ const W8 = {
     {
       id: 'iron', kind: 'battle', title: 'Final Boss: The Iron Queen', icon: 'boss', boss: true, character: 'iron', codex: ['char-iron'],
       rules: { variant: 'standard' }, fen: 'start', side: 'w',
-      bot: { depth: 3, noise: 28, blunder: 0.05, book: true, opening: 20 }, threats: false, warnings: true,
+      bot: { depth: 3, noise: 40, blunder: 0.07, book: true, opening: 20 }, threats: false, warnings: true,
       goal: 'Defeat the Iron Queen and earn your crown!',
       intro: [
         { who: 'iron', text: 'So. The little pawn wants a crown. You will have to **earn** it.' },
