@@ -7,7 +7,7 @@ export function saveTable(session, storage) {
   try {
     storage ||= globalThis.localStorage;
     if (!session?.view) return;
-    storage.setItem(KEY, JSON.stringify({version: 2, savedAt: Date.now(), seat: session.seat,
+    storage.setItem(KEY, JSON.stringify({version: 3, savedAt: Date.now(), seat: session.seat,
       team: session.team, members: session.members, controllers: session.controllers,
       view: session.view, state: session.seat === 0 ? session.state : null}));
   } catch { /* Storage is optional, including in private browsing. */ }
@@ -21,7 +21,7 @@ export function loadTable(storage) {
     const raw = storage.getItem(KEY);
     if (!raw || raw.length > 250000) return null;
     const saved = JSON.parse(raw);
-    if (saved.version !== 2 || ![0, 1].includes(saved.seat) || typeof saved.team !== 'boolean' ||
+    if (![2,3].includes(saved.version) || ![0, 1].includes(saved.seat) || typeof saved.team !== 'boolean' ||
         !Array.isArray(saved.members) || saved.members.length !== 2 || saved.members.some(n => typeof n !== 'string' || n.length > 24) ||
         !Array.isArray(saved.controllers) || saved.controllers.length < 2 || saved.controllers.length > 5 ||
         saved.controllers.some((t, i) => i < (saved.team ? 1 : 2) ? t !== 'human' : !['model', 'dealer'].includes(t))) return null;
@@ -35,6 +35,18 @@ export function loadTable(storage) {
           Object.values(saved.state.visits).some(n => !Number.isInteger(n) || n < 1) ||
           JSON.stringify(playerView(saved.state, 0)) !== JSON.stringify(saved.view)) return null;
     } else if (saved.state !== null) return null;
+    // Older quick-turn saves had two spaces. Return the retired right pile
+    // flipped, preserving every card rather than hiding an occupied space.
+    if (saved.version === 2 && saved.view.options.quickTurns) {
+      for (const state of [saved.view, saved.state].filter(Boolean)) {
+        state.table.forEach((row, seat) => {
+          state.hands[seat].push(...row[1].map(card => card.hidden ? card : state === saved.view && seat !== visibleSeat ? {hidden:true} : {...card,face:1-card.face}));
+          row[1] = [];
+        });
+      }
+      if (saved.state) saved.state.visits = {};
+      saved.migrated = true;
+    }
     return saved;
   } catch { return null; }
 }

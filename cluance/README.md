@@ -1,6 +1,6 @@
 # Cluance
 
-A cooperative visual deduction game with original retro pixel art. Play with a friend through manual WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. **No runtime or development packages, CDNs, frameworks, fonts, build step, or backend.**
+A cooperative visual deduction game with original retro pixel art. Play with a friend through link-based WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. **No runtime or development packages, CDNs, frameworks, fonts, build step, or backend.**
 
 ## Run
 
@@ -111,3 +111,7 @@ AI provider/model preferences, reasoning effort, output budget, opt-in remembere
 ## Renaming compatibility
 
 New exports use the `cluance-replay` format and `cluance-…json` filenames. Previous `similo-arcade-replay` files still import, and their optional sealed-note fields remain compatible. The former browser storage keys are retained as migration inputs; shared settings also clear remembered keys from both namespaces when remembering is disabled or keys are forgotten. The game is hosted only at `cluance/`; the former `similo/` redirect has been removed. Credits continue to identify the original game that inspired Cluance.
+
+## Shared invitations
+
+Flip it and Cluance use the same three-step invitation controls and WebRTC transport. Creating an invitation starts automatically; opening or pasting an invitation prepares a reply automatically. Both links support copy, native share and QR codes. Paste the reply into the host tab to connect automatically, or open it in another tab of the same browser to send it to the original host. Connection settings include optional TURN credentials (kept in memory) and STUN configuration. Make a fresh invite or remake a reply to apply changed settings. Replies are bound to their original invitation; another table’s reply is rejected. Previous SIM invitation codes must be regenerated as new CL links. The saved host table still resumes with a fresh invitation.
