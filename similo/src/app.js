@@ -7,6 +7,7 @@ import {loadSettings, read, write, erase} from './storage.js';
 import {chime, setMusic, unlockAudio} from './sound.js';
 import {THEME_MUSIC} from './music.js';
 import {animateOutcome} from './outcome.js';
+import {trackGame, markUsage, usageSnapshot, gameUsage, usageSummary, formatSpend, formatUSD, modelPrice, priceKey} from './usage.js';
 
 const app = document.getElementById('app');
 const modal = document.getElementById('modal');
@@ -32,7 +33,7 @@ function currentView() { return mode==='peer-guest' ? game : viewFor(game,humanR
 function isHumanTurn() { return game && game.phase!=='over' && ((game.phase==='clue') === (humanRole()==='giver')); }
 function isPeer() { return mode==='peer-host'||mode==='peer-guest'; }
 function saveSession() {
-  if (game && ['ai-giver','ai-guesser','local','peer-host'].includes(mode)) write('session',{game,mode,localRole});
+  if (game && ['ai-giver','ai-guesser','local','peer-host'].includes(mode)) {trackGame(game,mode);write('session',{game,mode,localRole});}
 }
 function resetTurn() { selected.clear();clueCard=null;relation='similar';draftNote='';aiError='';pendingGuess=false; }
 function cancelAI() { aiGeneration++;aiController?.abort();aiController=null;aiBusy=false; }
@@ -73,7 +74,7 @@ function renderHome() {
     <button class="mode ${setup.mode==='ai-giver'?'selected':''}" data-mode="ai-giver"><span class="mode-icon">✦</span><span class="arrow">↗</span><h3>Guess the AI’s card</h3><p>Your AI partner plays a card. You decide what it means—and which cards to remove.</p></button>
     <button class="mode ${setup.mode==='ai-guesser'?'selected':''}" data-mode="ai-guesser"><span class="mode-icon">▣</span><span class="arrow">↗</span><h3>Give clues to AI</h3><p>You know the secret. Choose your clues carefully and see how another mind reads them.</p></button>
   </div>
-  <section class="setup-panel"><div class="section-title"><h2>02 / SET THE TABLE</h2><span>24 illustrated cards per deck</span></div><div class="deck-grid" id="deck-grid"></div>
+  <section class="setup-panel"><div class="section-title"><h2>02 / SET THE TABLE</h2><span>24–27 illustrated cards per deck</span></div><div class="deck-grid" id="deck-grid"></div>
   <div class="setup-options"><div><label class="field-label" for="clue-theme">Clue deck</label><select id="clue-theme">${options([['same','Same as the board'],...Object.values(DECKS).map(d=>[d.id,d.name])],setup.clueTheme)}</select><p class="help-text">Mix themes for unexpected associations.</p></div><div><span class="field-label">The clue giver’s hand</span><div class="segmented"><button id="classic" class="${setup.variant==='classic'?'selected':''}" aria-pressed="${setup.variant==='classic'}">Classic</button><button id="fixed" class="${setup.variant==='fixed'?'selected':''}" aria-pressed="${setup.variant==='fixed'}">Fixed five</button></div><p class="help-text">${setup.variant==='fixed'?'Five cards to start. No refills. Make every card count.':'Five cards in hand. Draw a new card after each clue.'}</p></div></div>
   <div class="setup-bottom"><p class="help-text">${setup.mode==='peer-host'?'Share an invitation, then paste your friend’s reply. No accounts or room server.':`AI partner: ${esc(settings.models[settings.provider])}<br>Explanations stay sealed until the final reveal.`}</p><button class="button" id="start-game">${setup.mode==='peer-host'?'Create invitation ⇄':'Deal the cards ↗'}</button></div></section>
   <div class="home-bottom"><button class="text-button" id="join-friend">Have an invitation? Join your friend →</button><button class="text-button" id="play-local">Play on one screen</button><button class="text-button" id="theme-ideas">More theme ideas ✦</button></div><div class="home-bottom"><button class="text-button" id="open-replay">Open a saved replay ↓</button><button class="text-button" id="browse-decks">Browse the card collection ▣</button><input id="replay-file" type="file" accept="application/json,.json" hidden></div>`;
@@ -112,7 +113,7 @@ function resumeGame(){
   try {
     validatePublicView(viewFor(saved.game,'guesser'));
     if(!saved.game.board.includes(saved.game.secret)||!Array.isArray(saved.game.hand)||saved.game.hand.some(id=>!CARDS[id])||!Array.isArray(saved.game.draw)||saved.game.draw.some(id=>!CARDS[id]))throw new Error();
-    cancelAI();game=saved.game;mode=saved.mode;localRole=saved.localRole==='guesser'?'guesser':'giver';resetTurn();screen=game.phase==='over'?'reveal':'game';
+    cancelAI();game=saved.game;mode=saved.mode;localRole=saved.localRole==='guesser'?'guesser':'giver';resetTurn();screen=game.phase==='over'?'reveal':'game';trackGame(game,mode);
     if(mode==='peer-host' && game.phase!=='over') {renderGame();openPairing('host',true);}
     else if(game.phase==='over')renderReveal();else {renderGame();if(mode==='local')showPassScreen();else runAI();}
   }catch{erase('session');toast('The saved game could not be restored. Start a new one.');renderHome();}
@@ -149,7 +150,7 @@ function renderGame(){
   ${aiError?`<div class="inline-error" role="alert">${esc(aiError)}</div><div class="pair-actions"><button class="button small" id="retry-ai">Retry turn</button><button class="button small secondary" id="fix-ai">Settings</button></div>`:''}
   ${pendingGuess?'<p class="status-note" role="status">Waiting for your partner’s browser to confirm your move…</p>':''}
   ${isPeer()&&!peer?.connected?'<p class="status-note">The connection is paused. Keep this game open and pair again.</p><button class="button small secondary" id="reconnect">Reconnect ⇄</button>':''}
-  <p class="help-text">Tap Details below a card to read its dates and biography. Tap a clue to inspect it.</p></aside></div>`;
+  <p class="help-text">Tap Details below a card to read its dates and biography. Tap a clue to inspect it.</p>${mode?.startsWith('ai-')?'<div id="game-usage" class="game-usage" aria-live="polite">'+gameUsageHTML()+'</div>':''}</aside></div>`;
   for(let i=0;i<view.board.length;i++){
     const id=view.board[i], removed=view.eliminated.includes(id);
     const element=mountCard($('board'),id,{interactive:true,label:String(i+1).padStart(2,'0'),selected:selected.has(id),eliminated:removed,secret:role==='giver'&&id===view.secret,
@@ -227,9 +228,9 @@ async function runAI(){
       let move;
       try {move=await chooseMove(settings,game,role,image,controller.signal,correction);}
       catch(error){if(error.code!=='INVALID_MOVE'||attempt===1)throw error;correction=`Your previous output was invalid: ${error.message} Return ONLY the JSON move with the required fields.`;continue;}
-      if(generation!==aiGeneration||game.id!==id||game.revision!==revision)return;
+      if(generation!==aiGeneration||game.id!==id||game.revision!==revision){markUsage(move.usageId,'discarded');return;}
       try {next=role==='giver'?playClue(game,move):eliminate(game,move);break;}
-      catch(error){if(attempt===1)throw error;correction=`Your previous move was invalid: ${error.message} Return a corrected legal move.`;}
+      catch(error){markUsage(move.usageId,'invalid');if(attempt===1)throw error;correction=`Your previous move was invalid: ${error.message} Return a corrected legal move.`;}
     }
     aiBusy=false;commitGame(next);
   }catch(error){
@@ -244,7 +245,7 @@ function confirmLeave(){
 function renderReveal(){
   if(!game||game.phase!=='over')return;
   screen='reveal';app.hidden=false;updateMusic();const view=currentView();replayRound=Math.min(replayRound,view.history.length-1);const round=view.history[replayRound];
-  app.innerHTML=`<section class="reveal-hero ${view.result}"><div><p class="eyebrow">${view.result==='win'?'A shared victory':'The secret slipped away'}</p><h1>${view.result==='win'?'You both win!':'You both lose.'}</h1><p>The secret was <strong>${esc(CARDS[view.secret].name)}</strong>. ${view.result==='win'?'You kept it on the table through all five rounds.':'It was removed in round '+view.history.length+'.'} Now open the sealed interpretations.</p><div class="reveal-controls"><button class="button small" id="rematch">Deal again ↗</button><button class="button small secondary" id="export-replay">Save replay ↓</button><button class="button small secondary" id="reveal-home">Back to start</button></div></div><div id="reveal-secret"></div></section>
+  app.innerHTML=`<section class="reveal-hero ${view.result}"><div><p class="eyebrow">${view.result==='win'?'A shared victory':'The secret slipped away'}</p><h1>${view.result==='win'?'You both win!':'You both lose.'}</h1><p>The secret was <strong>${esc(CARDS[view.secret].name)}</strong>. ${view.result==='win'?'You kept it on the table through all five rounds.':'It was removed in round '+view.history.length+'.'} Now open the sealed interpretations.</p>${usageSnapshot().games.some(g=>g.id===game.id)?'<div id="game-usage" class="game-usage">'+gameUsageHTML()+'</div>':''}<div class="reveal-controls"><button class="button small" id="rematch">Deal again ↗</button><button class="button small secondary" id="export-replay">Save replay ↓</button><button class="button small secondary" id="reveal-home">Back to start</button></div></div><div id="reveal-secret"></div></section>
   <div class="section-title"><h2>WHAT DID YOU SEE?</h2><span>Recorded when each move was made.</span></div><nav class="replay-tabs" aria-label="Replay rounds">${view.history.map((r,i)=>`<button class="replay-tab ${replayRound===i?'selected':''}" data-round="${i}" aria-pressed="${replayRound===i}">Round ${i+1} ${r.removed.includes(view.secret)?'×':'✓'}</button>`).join('')}</nav>
   <div class="replay-layout"><section><div class="board-label"><span>THE BOARD BEFORE ROUND ${replayRound+1}</span><span>RED MARKS: REMOVED THIS ROUND</span></div><div class="board replay-board" id="replay-board"></div></section><aside class="side-panel"><div class="replay-clue"><div id="replay-clue"></div><div><h3>${esc(CARDS[round.card].name)}</h3><p>${round.relation==='similar'?'↑ Similar':'→ Different'}</p></div></div><div class="rationale"><h3>The clue giver meant</h3><p>${esc(round.giverNote||'No interpretation was recorded.')}</p><small>${esc(round.giverSource||'Human')}</small></div><div class="rationale"><h3>The guesser saw</h3><p>${esc(round.guesserNote||'No interpretation was recorded.')}</p><small>${esc(round.guesserSource||'Human')}</small></div><p class="removed-list">Removed: <strong>${esc(round.removed.map(id=>CARDS[id].name).join(', '))}</strong></p></aside></div>`;
   mountCard($('reveal-secret'),view.secret);
@@ -397,32 +398,80 @@ function showCollection(theme){
   for(const card of DECKS[theme].cards)mountCard($('collection-grid'),card.id,{interactive:true,onClick:()=>inspectCard(card.id)});
   $('collection-theme').onchange=event=>showCollection(event.target.value);
 }
-let settingsDraft, availableModels=[], settingsRemember=true;
+function gameUsageHTML(){
+  const u=gameUsage(game.id), guide=u.completedTurns && !u.unknown && game.phase!=='over'?
+    `<small>Rough five-round guide: ${formatUSD(u.costUSD/u.completedTurns*5)}.<br>Based on this game’s responses; later rounds may differ.</small>`:'';
+  return `<span>Estimated API cost · this game</span><strong>${esc(formatSpend(u))}</strong><small>${u.requests} ${u.requests===1?'request':'requests'}${u.unknown?` · ${u.unknown} awaiting usage or pricing`:''}</small>${guide}`;
+}
+function usagePanelHTML(){
+  const data=usageSnapshot(), u=data.total, count=n=>n.toLocaleString();
+  const modes={'ai-giver':'AI gives clues','ai-guesser':'AI guesses',local:'One screen','peer-host':'With a friend'};
+  const models=[...new Set(data.requests.map(r=>priceKey(r.provider,r.model)))].map(key=>{
+    const requests=data.requests.filter(r=>priceKey(r.provider,r.model)===key), summary=usageSummary(requests);
+    return `<li><span>${esc(PROVIDERS[requests[0].provider]?.name||requests[0].provider)} · ${esc(requests[0].model)}</span><strong>${esc(formatSpend(summary))}</strong></li>`;
+  }).join('');
+  const rows=[...data.games].sort((a,b)=>b.started-a.started).map(g=>`<tr><td><strong>${esc(DECKS[g.theme]?.name||g.theme)}</strong><small>${esc(new Date(g.started).toLocaleString())}<br>${esc(modes[g.mode]||g.mode)} · ${g.result==='win'?'Won':g.result==='loss'?'Lost':'In progress / saved'}</small></td><td>${g.usage.requests}</td><td>${esc(formatSpend(g.usage))}${g.usage.unknown?`<small>${g.usage.unknown} unconfirmed / unpriced</small>`:''}</td><td>${count(g.usage.inputTokens+g.usage.outputTokens)}</td></tr>`).join('');
+  return `<p class="help-text">This browser’s recorded games since ${esc(new Date(data.since).toLocaleDateString())}. Costs are in USD; estimates may differ from your provider’s bill. Earlier games cannot be backfilled.</p>
+    <div class="usage-metrics"><div><span>Estimated total</span><strong>${esc(formatSpend(u))}</strong></div><div><span>Games recorded</span><strong>${data.games.length}</strong></div><div><span>AI requests</span><strong>${u.requests}</strong></div></div>
+    <p class="help-text">${count(u.inputTokens)} input · ${count(u.outputTokens)} output tokens<br>${count(u.cachedTokens)} cached input · ${count(u.reasoningTokens)} reasoning tokens reported. Reasoning is already included in output.</p>
+    ${u.unknown?`<p class="help-text usage-warning">${u.unknown} request${u.unknown===1?'':'s'} or earlier move${u.unknown===1?'':'s'} lack confirmed usage or pricing. Totals cover known costs only; ≥ means at least. Cancelled or interrupted requests may still be billed.</p>`:''}
+    ${!data.persistent?'<p class="inline-error">Browser storage is unavailable. These totals are kept only for this visit.</p>':''}
+    ${models?`<ul class="usage-models">${models}</ul>`:''}
+    ${rows?`<div class="usage-table-wrap" tabindex="0" aria-label="All recorded games"><table class="usage-table"><caption>All recorded games</caption><thead><tr><th scope="col">Game</th><th scope="col">Requests</th><th scope="col">Est. USD</th><th scope="col">Tokens</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="help-text">Play a game to start your usage history. Games with human players use no AI requests.</p>'}
+    <p class="help-text">Includes correction attempts and responses whose moves were rejected. OpenRouter’s reported cost takes priority; other providers use returned token counts and saved rates. Taxes, special pricing and account-wide activity are outside this estimate. No keys, pictures or sealed notes are saved in the usage history.</p>`;
+}
+function refreshUsageViews(){
+  if($('game-usage')&&game)$('game-usage').innerHTML=gameUsageHTML();
+  if($('usage-panel'))$('usage-panel').innerHTML=usagePanelHTML();
+  if($('usage-summary'))$('usage-summary').textContent=`API usage · ${formatSpend(usageSnapshot().total)} recorded`;
+}
+window.addEventListener('similo-usage-change',refreshUsageViews);
+window.addEventListener('storage',event=>{if(event.key==='similo-arcade-v1:usage')refreshUsageViews();});
+let settingsDraft, availableModels=[], settingsRemember=true, pricingError='';
+function renderPriceFields(){
+  const provider=settingsDraft.provider, model=settingsDraft.models[provider], rate=modelPrice(settingsDraft,provider,model);
+  const fields=[['input','Input'],['cachedInput','Cached input'],['cacheWrite','Cache writes'],['output','Output, including reasoning']];
+  $('pricing-fields').dataset.model=model;
+  $('pricing-fields').innerHTML=`<p class="help-text">USD per million tokens · ${esc(model)}.<br>${rate?esc(rate.source||'Saved rates')+(rate.verified?' · checked '+esc(rate.verified):''):'No saved rates. OpenRouter can report costs directly; enter rates here to estimate other models.'}</p><div class="modal-grid">${fields.map(([key,label])=>`<div class="form-field"><label class="field-label" for="rate-${key}">${label}</label><input type="number" id="rate-${key}" min="0" step="any" placeholder="Unknown" value="${rate?.[key]??''}"></div>`).join('')}</div><p class="help-text">Rates apply to future requests. Leave cache rates blank to estimate those tokens at the input rate. Load OpenRouter models to fetch catalog prices. Provider-reported costs always take priority.</p>`;
+}
+function capturePricing(){
+  pricingError='';if(!$('pricing-fields'))return;
+  const provider=settingsDraft.provider, model=$('pricing-fields').dataset.model, key=priceKey(provider,model);
+  const values=Object.fromEntries(['input','cachedInput','cacheWrite','output'].map(k=>[k,$('rate-'+k).value===''?null:Number($('rate-'+k).value)]));
+  if(Object.values(values).every(v=>v===null)){delete settingsDraft.prices[key];return;}
+  if(values.input===null||values.output===null||Object.values(values).some(v=>v!==null&&(!Number.isFinite(v)||v<0))){pricingError='Enter both input and output rates, or leave all rates blank.';return;}
+  const previous=modelPrice(settingsDraft,provider,model);
+  if(previous&&Object.keys(values).every(k=>values[k]===previous[k]))return;
+  settingsDraft.prices[key]={...values,source:'Your custom rates',verified:new Date().toISOString().slice(0,10)};
+}
 function captureSettings(){
-  if(!$('provider'))return;const provider=settingsDraft.provider;
+  if(!$('provider'))return;const provider=settingsDraft.provider;capturePricing();
   settingsDraft.keys[provider]=$('api-key').value.trim();settingsDraft.models[provider]=$('model').value.trim();settingsDraft.efforts[provider]=$('effort').value;
   settingsDraft.tokenBudget=Number($('token-budget').value);settingsDraft.stun=$('stun').value.trim();settingsDraft.effects=$('effects').checked;settingsDraft.sound=$('sound').checked;settingsDraft.music=$('music').checked;settingsDraft.musicVolume=Number($('music-volume').value);settingsDraft.appearance=$('appearance').value;settingsDraft.tableCardSize=$('preference-card-size').value;settingsRemember=$('remember-key').checked;
 }
 function openSettings(){settingsDraft=structuredClone(settings);availableModels=[];settingsRemember=settings.rememberKeys!==false;renderSettings();}
 function renderSettings(){
   const provider=settingsDraft.provider,info=PROVIDERS[provider];
-  showModal('Make yourself at home.','Settings',`<form id="settings-form"><div class="modal-grid"><div class="form-field"><label class="field-label" for="appearance">Appearance</label><select id="appearance">${options([['system','System'],['light','Light'],['dark','Dark']],settingsDraft.appearance)}</select></div><div class="form-field"><label class="field-label" for="preference-card-size">Table card size</label><select id="preference-card-size">${options(CARD_SIZES,settingsDraft.tableCardSize)}</select></div></div><div class="form-field"><label class="field-label" for="provider">Provider</label><select id="provider">${options(Object.entries(PROVIDERS).map(([id,p])=>[id,p.name]),provider)}</select></div>
+  showModal('Make yourself at home.','Settings',`<details class="usage-panel"><summary id="usage-summary">API usage · ${esc(formatSpend(usageSnapshot().total))} recorded</summary><div id="usage-panel">${usagePanelHTML()}</div></details><form id="settings-form"><div class="modal-grid"><div class="form-field"><label class="field-label" for="appearance">Appearance</label><select id="appearance">${options([['system','System'],['light','Light'],['dark','Dark']],settingsDraft.appearance)}</select></div><div class="form-field"><label class="field-label" for="preference-card-size">Table card size</label><select id="preference-card-size">${options(CARD_SIZES,settingsDraft.tableCardSize)}</select></div></div><div class="form-field"><label class="field-label" for="provider">Provider</label><select id="provider">${options(Object.entries(PROVIDERS).map(([id,p])=>[id,p.name]),provider)}</select></div>
   <div class="form-field"><label class="field-label" for="api-key">${esc(info.name)} API key</label><div class="form-row"><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Your personal provider key" value="${esc(settingsDraft.keys[provider]||'')}"><button type="button" class="button small secondary" id="show-key">Show</button></div><label class="check-row"><input type="checkbox" id="remember-key" ${settingsRemember?'checked':''}>Remember keys on this browser</label><p class="help-text">${settingsRemember?'Saved in this browser’s local storage.':'Kept in memory for this visit.'} Keys go directly to your selected provider with AI requests. Browser storage is readable by scripts on this origin; use a personal key with a spending limit. <a href="${info.keyUrl}" target="_blank" rel="noopener noreferrer">Get a key ↗</a></p><button type="button" class="text-button" id="forget-keys">Forget all saved keys</button></div>
   <div class="form-field"><label class="field-label" for="model">Vision model</label><div class="form-row"><input id="model" list="model-list" autocomplete="off" spellcheck="false" value="${esc(settingsDraft.models[provider])}" required><button type="button" class="button small secondary" id="load-models">Load models</button></div><datalist id="model-list">${availableModels.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('')}</datalist><p class="help-text" id="model-status">${availableModels.length?`${availableModels.length} models available. Select one or enter an exact model ID.`:'Enter an exact model ID, or load the provider’s list. Choose a model that accepts images.'}</p></div>
   <div class="modal-grid"><div class="form-field"><label class="field-label" for="effort">Reasoning effort</label><select id="effort">${options(info.efforts.map(e=>[e,e==='default'?'Provider default':e[0].toUpperCase()+e.slice(1)]),settingsDraft.efforts[provider])}</select></div><div class="form-field"><label class="field-label" for="token-budget">Response token budget</label><select id="token-budget">${options([2048,4096,8192,16384,32768].map(n=>[String(n),n.toLocaleString()]),String(settingsDraft.tokenBudget))}</select></div></div><p class="help-text">Effort support depends on the model. “Provider default” leaves it unset. Higher effort may take longer and needs more response tokens. Unsupported choices are reported; they are never silently changed.</p>
+  <details class="usage-panel"><summary>Model pricing for estimates</summary><div id="pricing-fields"></div></details>
   <details style="margin-top:20px"><summary class="field-label">Music, effects & connection</summary><label class="check-row"><input id="sound" type="checkbox" ${settingsDraft.sound?'checked':''}>Arcade sounds & outcome fanfares</label><label class="check-row"><input id="music" type="checkbox" ${settingsDraft.music?'checked':''}>Theme background music</label><label class="field-label" for="music-volume">Music volume · <span id="music-volume-value">${settingsDraft.musicVolume}%</span></label><input id="music-volume" type="range" min="0" max="70" step="1" value="${settingsDraft.musicVolume}"><p class="help-text">Original composition: ${esc(THEME_MUSIC[screen==='home'?setup.theme:game?.theme||setup.theme].title)}.<br>Music follows the board theme, fades between tracks and pauses when this tab is hidden. The top music button pauses music while keeping sound effects unchanged.</p><label class="check-row"><input id="effects" type="checkbox" ${settingsDraft.effects?'checked':''}>Table animations & result effects</label><label class="field-label" for="stun">STUN server for direct pairing</label><input id="stun" value="${esc(settingsDraft.stun)}" spellcheck="false" placeholder="stun:stun.l.google.com:19302"><p class="help-text">Comma-separated STUN URLs. Leave blank to try local-network connections only. No relay server is used.</p></details>
   <div class="modal-footer"><span class="help-text">No account with this game.<br>No keys in invitations or replays.</span><button class="button" type="submit">Save settings ✓</button></div></form>`);
+  renderPriceFields();
+  $('model').onchange=()=>{capturePricing();settingsDraft.models[settingsDraft.provider]=$('model').value.trim();renderPriceFields();};
   $('music-volume').oninput=()=>{$('music-volume-value').textContent=$('music-volume').value+'%';};
   $('provider').onchange=event=>{const next=event.target.value;captureSettings();settingsDraft.provider=next;availableModels=[];renderSettings();};
   $('show-key').onclick=()=>{const field=$('api-key');field.type=field.type==='password'?'text':'password';$('show-key').textContent=field.type==='password'?'Show':'Hide';};
   $('forget-keys').onclick=()=>{settings.keys={};settingsDraft.keys={};write('settings',{...settings,keys:{}});$('api-key').value='';toast('All saved provider keys were removed.');};
   $('load-models').onclick=async()=>{
     captureSettings();const currentProvider=settingsDraft.provider;const button=$('load-models'),status=$('model-status');button.disabled=true;status.textContent='Loading the provider’s model list…';
-    try{const models=await listModels(currentProvider,settingsDraft.keys[currentProvider]||'',AbortSignal.timeout(20000));if(!$('provider')||settingsDraft.provider!==currentProvider)return;availableModels=models;$('model-list').innerHTML=models.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');status.textContent=`${models.length} ${currentProvider==='openrouter'?'image-capable ':''}models loaded. You can also enter an exact ID.`;}
+    try{const models=await listModels(currentProvider,settingsDraft.keys[currentProvider]||'',AbortSignal.timeout(20000));if(!$('provider')||settingsDraft.provider!==currentProvider)return;availableModels=models;for(const m of models){if(m.pricing&&!settingsDraft.prices[priceKey(currentProvider,m.id)]?.source?.startsWith('Your custom')){const n=v=>v===undefined||v===null||v===''?null:Number(v)*1e6;const input=n(m.pricing.prompt),output=n(m.pricing.completion);if(Number.isFinite(input)&&input>=0&&Number.isFinite(output)&&output>=0)settingsDraft.prices[priceKey(currentProvider,m.id)]={input,output,cachedInput:n(m.pricing.input_cache_read),cacheWrite:n(m.pricing.input_cache_write),source:'OpenRouter model catalog',verified:new Date().toISOString().slice(0,10)};}}renderPriceFields();$('model-list').innerHTML=models.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');status.textContent=`${models.length} ${currentProvider==='openrouter'?'image-capable ':''}models loaded. You can also enter an exact ID.`;}
     catch(error){status.textContent=error.message;}finally{button.disabled=false;}
   };
   $('settings-form').onsubmit=event=>{
-    event.preventDefault();captureSettings();if(!settingsDraft.models[settingsDraft.provider])return;
+    event.preventDefault();captureSettings();if(!settingsDraft.models[settingsDraft.provider])return;if(pricingError){toast(pricingError);return;}
     if(settingsDraft.stun&&settingsDraft.stun.split(',').some(url=>!/^stuns?:[^\s]+$/.test(url.trim()))){toast('Use STUN URLs such as stun:stun.l.google.com:19302.');return;}
     settings={...settingsDraft,rememberKeys:settingsRemember};const persisted={...settings,keys:settingsRemember?settings.keys:{}};
     const saved=write('settings',persisted);applyPreferences();modal.close();toast(saved?'Settings saved.':'Settings kept for this visit; browser storage is unavailable.');

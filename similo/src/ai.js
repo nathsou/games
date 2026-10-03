@@ -1,4 +1,5 @@
 import {aiObservation} from './game.js';
+import {beginUsage, finishUsage, markUsage} from './usage.js';
 
 export const PROVIDERS = {
   openrouter: {name: 'OpenRouter', url: 'https://openrouter.ai/api/v1', keyUrl: 'https://openrouter.ai/settings/keys', efforts: ['default','none','minimal','low','medium','high','xhigh','max']},
@@ -23,7 +24,9 @@ async function request(url, options, key) {
   if (!response.ok) {
     let message = body.error?.message || body.message || `Request failed (${response.status}).`;
     if (key) message = String(message).replaceAll(key, '[key hidden]');
-    throw new Error(String(message).slice(0, 500));
+    const error=new Error(String(message).slice(0,500));
+    if(body.usage)error.usageResponse={id:body.id,model:body.model,usage:body.usage};
+    throw error;
   }
   return body;
 }
@@ -31,7 +34,8 @@ export async function listModels(provider, key, signal) {
   const body = await request(PROVIDERS[provider].url + '/models', {headers: headers(provider, key), signal}, key);
   return (body.data || []).filter(m => provider !== 'openrouter' || m.architecture?.input_modalities?.includes('image'))
     .map(m => ({id: m.id, name: m.name || m.display_name || m.id,
-      reasoning: provider === 'openrouter' ? (m.supported_parameters || []).some(p => p === 'reasoning' || p === 'reasoning.effort') : null}))
+      reasoning: provider === 'openrouter' ? (m.supported_parameters || []).some(p => p === 'reasoning' || p === 'reasoning.effort') : null,
+      pricing:provider==='openrouter' && m.pricing ? m.pricing : null}))
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 export function parseMove(text) {
@@ -81,11 +85,17 @@ export async function chooseMove(settings, game, role, image, signal, correction
   const key = settings.keys[provider];
   if (!key) throw new Error(`Add your ${PROVIDERS[provider].name} key in Settings first.`);
   const {url, body} = buildRequest(settings, aiObservation(game, role), image, correction);
-  const data = await request(url, {method:'POST', headers:headers(provider,key), body:JSON.stringify(body), signal}, key);
+  const usageId=beginUsage(game,role,settings);let data;
+  try {data=await request(url, {method:'POST', headers:headers(provider,key), body:JSON.stringify(body), signal}, key);}
+  catch(error){if(error.usageResponse)finishUsage(usageId,error.usageResponse);markUsage(usageId,signal?.aborted?'cancelled':'failed');throw error;}
+  finishUsage(usageId,data);
   let text;
   if (provider === 'openai') text = (data.output || []).filter(o => o.type === 'message').flatMap(m => m.content || [])
     .filter(c => c.type === 'output_text').map(c => c.text).join('');
   else if (provider === 'anthropic') text = (data.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
   else text = data.choices?.[0]?.message?.content;
-  return {...parseMove(text), source: `${PROVIDERS[provider].name} · ${settings.models[provider]} · ${settings.efforts[provider]} effort`};
+  let move;
+  try {move=parseMove(text);}catch(error){markUsage(usageId,'invalid');throw error;}
+  markUsage(usageId,'completed');
+  return {...move, usageId, source: `${PROVIDERS[provider].name} · ${settings.models[provider]} · ${settings.efforts[provider]} effort`};
 }
