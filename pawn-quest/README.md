@@ -47,13 +47,29 @@ squares; par is computed by breadth-first search), **quiz** (tap squares or pick
 answers are computed from the position), **puzzle** (handmade or generated and verified by the
 engine), and **battle** (play a character with a goal and up to three stars).
 
+## The coach
+
+* **Move grades** come from the engine's score before and after your move (win probability, with a
+  material floor so a dropped piece is always flagged). **Explanations** name the concrete reason:
+  the piece that hangs and why (unprotected, attacked by something cheaper, outnumbered), the
+  opponent's fork/pin/skewer/discovery, an allowed mate, a missed free piece or mate, or an
+  opening/endgame principle.
+* **Blunder warnings** stop a bad move before the opponent replies ("Take it back" / "Play it anyway").
+* **Battle coaching** speaks every turn: free material first, then your pieces in danger, then a
+  short reminder of the "checks, captures, threats" routine. Captures against you are explained
+  (or recognised as a fair trade).
+* **Hints** are graduated (idea, then piece, then move). For king + queen/rook against a lone king
+  they teach the box method by counting the enemy king's squares.
+* Illegal moves and wrong quiz answers get a one-sentence reason.
+
 ## Code map
 
 | File | Role |
 | --- | --- |
 | `src/chess.js` | 0x88 rules: legal moves, SAN, FEN, draws, and the teaching variants (no kings, king capture, capture-all, pawn wars). Verified with perft. |
 | `src/engine.js` | Evaluation (tapered PSTs, pawn structure, mop-up) and alpha-beta search with quiescence, TT and killers; bot personalities (noise, believable blunders, greed, style). |
-| `src/coach.js` | SEE, hanging pieces, threat detection, tactic recognition, move grading and explanations, hints. |
+| `src/coach.js` | SEE, hanging pieces, threat detection, tactic recognition, move grading and explanations, hints, lone-king technique. |
+| `src/battlecoach.js` | Turn-by-turn advice and capture notes in quest battles. |
 | `src/gen.js` | Procedural puzzles, each verified by the engine. |
 | `src/brain.js`, `worker.js`, `ai.js` | Engine requests run in a Web Worker (main-thread fallback). |
 | `src/curriculum.js`, `levelkit.js`, `level.js` | Level data, pure level logic, and the level screen. |
