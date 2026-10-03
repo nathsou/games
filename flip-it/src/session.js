@@ -5,7 +5,7 @@ const integer = (value, max) => Number.isInteger(value) && value >= 0 && value <
 export function validateView(view, visibleSeat) {
   if (!view || ![0, 1].includes(visibleSeat)) throw new Error('Invalid game update.');
   const options = optionsFor(view.options), deck = makeDeck(options.compactDeck);
-  if (!integer(view.revision, 2000000) || !integer(view.round, 10000) || !integer(view.moves, 180) ||
+  if (!integer(view.revision, 2000000) || !integer(view.round, 10000) || !integer(view.moves, 10000) ||
       !['playing', 'roundOver', 'matchOver'].includes(view.phase) || ![0, 1].includes(view.turn) || ![0, 1].includes(view.beat) ||
       ![null, 0, 1].includes(view.pending) || !integer(view.discardCount, deck.length) ||
       !Array.isArray(view.scores) || view.scores.length !== 2 || view.scores.some(n => !integer(n, 2)) ||
@@ -26,7 +26,7 @@ export function validateView(view, visibleSeat) {
   }
   if (view.hands.flat().length + view.table.flat(2).length + view.discardCount !== deck.length ||
       view.pending !== null && (view.hands[view.pending].length !== 0 || view.turn === view.pending)) throw new Error('Invalid card count.');
-  const resultOK = result => result && [null, 0, 1].includes(result.winner) && ['empty', 'survived', 'repeat', 'limit'].includes(result.reason) && integer(result.moves, 180) && Number.isInteger(result.round) && result.round > 0 && result.round <= 10001;
+  const resultOK = result => result && [null, 0, 1].includes(result.winner) && ['empty', 'survived', 'repeat', 'limit'].includes(result.reason) && integer(result.moves, 10000) && Number.isInteger(result.round) && result.round > 0 && result.round <= 10001;
   if (!Array.isArray(view.history) || view.history.length > 10001 || view.history.some(r => !resultOK(r)) ||
       view.result !== null && !resultOK(view.result) || !Array.isArray(view.log) || view.log.length > 12) throw new Error('Invalid round update.');
   for (const event of view.log) {

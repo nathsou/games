@@ -128,3 +128,18 @@ test('The dealer uses a redacted view and makes legal moves for every option com
     }
   }
 });
+test('Cashing out a chosen space removes its block before the new set is validated', () => {
+  const state=fixture({hands:[[2,3],[5]],table:[[[6],[]],[[],[]]]});
+  assert.throws(()=>applyAction(state,0,{kind:'play',lane:1,cards:[state.hands[0][0].id]}));
+  const next=applyAction(state,0,{kind:'play',lane:0,cards:[state.hands[0][0].id]});
+  assert.equal(valueOf(next.table[0][0][0]),2);assert.equal(next.discard.length,state.discard.length+1);assertState(next);
+});
+test('The action cap draws ordinary play but lets the pending last chance finish', () => {
+  let capped=fixture();capped.moves=119;capped=applyAction(capped,0,{kind:'flip',lane:0});
+  assert.equal(capped.result.reason,'limit');assert.equal(capped.phase,'roundOver');
+  let state=fixture({hands:[[6],[1]],options:{compactDeck:false}});state.moves=179;
+  state=applyAction(state,0,{kind:'play',lane:0,cards:[state.hands[0][0].id]});
+  assert.equal(state.pending,0);assert.equal(state.phase,'playing');
+  state=applyAction(state,1,{kind:'flip',lane:0});
+  assert.equal(state.result.reason,'survived');assert.equal(state.moves,181);validateView(playerView(state,1),1);assertState(state);
+});
