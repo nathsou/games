@@ -39,18 +39,18 @@ export class UI {
     if(this.game.mode==='won'||this.game.mode==='ended')this.end(c,w,h);
   }
   title(c,w,h){
-    const compact=w<720,x=compact?36:Math.max(65,w*.065),y=Math.max(120,h*.21),width=Math.min(420,w-2*x),scale=compact?.85:1;
+    const compact=w<720,short=h<530,x=compact?28:Math.max(50,w*.065),y=short?108:Math.max(120,h*.21),width=Math.min(short?620:420,w-2*x),scale=short?.68:compact?.85:1;
     const shade=c.createLinearGradient(0,0,w,0);shade.addColorStop(0,'#101e20f5');shade.addColorStop(.52,'#101e20dc');shade.addColorStop(1,'#101e2038');c.fillStyle=shade;c.fillRect(0,0,w,h);
     this.text(c,'mosslight✳',x,57,27,C.cream,'left','sans-serif');this.text(c,'A SMALL WOODLAND ADVENTURE',x,79,9,C.muted);
     this.text(c,'LITTLE FRIENDS. BIG ADVENTURE.',x,y,10,C.leaf);
     this.text(c,'The woods are',x,y+69*scale,57*scale,C.cream,'left','sans-serif');this.text(c,'full of wonder.',x,y+129*scale,57*scale,C.leaf,'left','Georgia');
-    const after=this.wrap(c,'Your ship has gone dark. Gather a leafy crew, recover three lost lanterns, and find your way home.',x,y+173*scale,width,15,C.muted,25);
-    this.button(c,'start','Venture into the woods',x,after+19,Math.min(310,width),55,true);
-    this.button(c,'cozy','Take your time',x,after+85,Math.min(310,width),55,false,'A relaxed expedition · no dusk timer');
-    const foot=after+168;this.text(c,'CLICK',x,foot,10,C.cream);this.text(c,'move / send crew',x,foot+18,10,C.muted);this.text(c,'RIGHT CLICK / Q',x+175,foot,10,C.cream);this.text(c,'whistle friends back',x+175,foot+18,10,C.muted);
-    if(this.best&&Number.isFinite(this.best.time))this.text(c,`QUICKEST EXPEDITION · ${formatTime(this.best.time)}`,x,foot+47,10,C.leaf);
+    const after=this.wrap(c,'Your ship has gone dark. Gather a leafy crew, recover three lost lanterns, and find your way home.',x,y+173*scale,width,short?13:15,C.muted,short?21:25);
+    this.button(c,'start','Venture into the woods',x,after+15,short?225:Math.min(310,width),short?45:55,true);
+    this.button(c,'cozy','Take your time',short?x+237:x,short?after+15:after+81,short?225:Math.min(310,width),short?45:55,false,'No dusk timer · explore freely');
+    const foot=after+(short?89:164);this.text(c,'CLICK',x,foot,10,C.cream);this.text(c,'move / send crew',x,foot+18,10,C.muted);this.text(c,'RIGHT CLICK / Q',x+175,foot,10,C.cream);this.text(c,'whistle friends back',x+175,foot+18,10,C.muted);
+    if(!short&&this.best&&Number.isFinite(this.best.time))this.text(c,`QUICKEST EXPEDITION · ${formatTime(this.best.time)}`,x,foot+47,10,C.leaf);
     this.button(c,'guide','?',w-124,22,40,36);this.button(c,'fullscreen',this.fullscreen?'↙':'⛶',w-74,22,50,36);
-    this.text(c,'F · FULLSCREEN',w-26,h-23,9,C.muted,'right');this.text(c,'WASD · MOVE    TAB / ENTER · MENUS',x,h-23,9,C.muted);
+    this.text(c,'F · FULLSCREEN',w-26,h-23,9,C.muted,'right');this.text(c,this.touch?'TAP · MOVE / WORK':'WASD · MOVE    TAB / ENTER · MENUS',x,h-23,9,C.muted);
   }
   hud(c,w,h){
     const g=this.game,small=w<720;
@@ -67,9 +67,9 @@ export class UI {
       this.buttons.push({id:'select-'+type,x,y:barY+5,w:unit-4,h:55,label:type==='all'?'Everyone':TYPES[type].name});
       if(selected||this.focus===this.buttons.length-1||this.hover==='select-'+type){c.fillStyle='#c9df931f';c.fillRect(x,barY+5,unit-4,55);c.strokeStyle='#c9df9380';c.strokeRect(x+.5,barY+5.5,unit-5,54);}
       const color=type==='all'?C.leaf:TYPES[type].color;
-      this.text(c,type==='all'?'✳':'♠',x+14,barY+36,24,color);this.text(c,type==='all'?'Everyone':TYPES[type].name,x+34,barY+26,small?10:12,C.cream,'left','sans-serif');
-      this.text(c,type==='all'?'4 · all crew':`${i} · ${['fighters','swimmers','2× carry'][type]}`,x+34,barY+44,small?7:8,C.muted);
-      this.text(c,String(type==='all'?active.length:active.filter(m=>m.type===type).length),x+unit-15,barY+37,16,C.cream,'right');
+      const count=String(type==='all'?active.length:active.filter(m=>m.type===type).length);
+      if(w<520){this.text(c,type==='all'?'✳':'♠',x+unit/2-15,barY+28,21,color,'center');this.text(c,count,x+unit/2+12,barY+26,15,C.cream,'center');this.text(c,type==='all'?'Everyone':TYPES[type].name,x+unit/2-2,barY+48,11,C.cream,'center','sans-serif');}
+      else {this.text(c,type==='all'?'✳':'♠',x+14,barY+36,24,color);this.text(c,type==='all'?'Everyone':TYPES[type].name,x+34,barY+26,small?10:12,C.cream,'left','sans-serif');this.text(c,type==='all'?'4 · all crew':`${i} · ${['fighters','swimmers','2× carry'][type]}`,x+34,barY+44,small?7:8,C.muted);this.text(c,count,x+unit-15,barY+37,16,C.cream,'right');}
     });
     this.text(c,String(g.crew.filter(m=>m.state==='follow').length),barX+barWidth-34,barY+29,21,C.cream,'center');this.text(c,'with you',barX+barWidth-34,barY+45,8,C.muted,'center');
     if(this.notice&&g.noticeTime>0){const width=Math.min(440,w-40),x=(w-width)/2,y=small?123:22;c.fillStyle='#eeefd3';const rows=Math.ceil(this.notice.length/(width/6.4));c.fillRect(x,y,width,rows*18+22);this.wrap(c,this.notice,x+15,y+23,width-30,12,'#2b432d',18);}
@@ -93,11 +93,12 @@ export class UI {
   }
   fieldGuide(c,w,h){
     this.scrim(c,w,h);const pw=Math.min(650,w-34),ph=Math.min(h-28,625),x=(w-pw)/2,y=(h-ph)/2;this.panel(c,x,y,pw,ph);
-    const size=ph<520?11:13,line=ph<520?16:21;
-    this.text(c,'THE CAPTAIN’S FIELD GUIDE',x+26,y+32,10,C.leaf);this.text(c,this.guidePage?'Small but mighty.':'Leave no leaf behind.',x+26,y+78,31,C.cream,'left','Georgia');
-    let row=this.wrap(c,this.guidePage?'Three kinds of friend. Three lanterns to recover. A whole little world to explore.':'Recover all three lanterns. Crews carry them home automatically. Deliver berries to grow more friends at the ship.',x+26,y+109,pw-52,size,C.muted,line)+18;
-    const entries=this.guidePage?[['EMBER','Brave red friends. Fight twice as hard, and pass through ember patches unharmed.'],['TIDE','Blue friends can swim across the stream. A team made entirely of Tides can carry cargo across water.'],['HONEY','Golden friends count as two carriers. Perfect for heavy lanterns and small hauling teams.'],['GROW','Walk close to sprouts to recruit. Whistle new friends at camp. If only a few survive, the ship grows reinforcements.'],['RESCUE','Red rings warn of bites. Whistle wilted friends before their glow fades. Build the bridge or use the southern ford.']]:[['MOVE','WASD / arrows, or click ground. Shift to sprint. Click the map to travel farther.'],['SEND','Click a task; E works nearby; Space sends toward your pointer. Shift + click throws one; hold to keep throwing.'],['WHISTLE','Hold right click around the pointer, or hold Q around you. Recalls workers and revives wilted friends.'],['SELECT','1 Ember · 2 Tide · 3 Honey · 4 Everyone. Mouse wheel or Z / X cycles through your crew.'],['REST','Esc / P pauses. M toggles sound. F toggles fullscreen. Switching tabs pauses the expedition.']];
+    const short=ph<520||pw<520,size=short?11:13,line=short?16:21;this.guidePages=short?4:2;this.guidePage=Math.min(this.guidePage,this.guidePages-1);const crewPage=short?this.guidePage>=2:this.guidePage===1;
+    this.text(c,'THE CAPTAIN’S FIELD GUIDE',x+26,y+32,10,C.leaf);this.text(c,crewPage?'Small but mighty.':'Leave no leaf behind.',x+26,y+78,31,C.cream,'left','Georgia');
+    let row=this.wrap(c,crewPage?'Three kinds of friend. Three lanterns to recover. A whole little world to explore.':'Recover all three lanterns. Crews carry them home automatically. Deliver berries to grow more friends at the ship.',x+26,y+109,pw-52,size,C.muted,line)+18;
+    let entries=crewPage?[['EMBER','Brave red friends. Fight twice as hard, and pass through ember patches unharmed.'],['TIDE','Blue friends can swim across the stream. A team made entirely of Tides can carry cargo across water.'],['HONEY','Golden friends count as two carriers. Perfect for heavy lanterns and small hauling teams.'],['GROW','Walk close to sprouts to recruit. Whistle new friends at camp. If only a few survive, the ship grows reinforcements.'],['RESCUE','Red rings warn of bites. Whistle wilted friends before their glow fades. Build the bridge or use the southern ford.']]:[['MOVE','WASD / arrows, or click ground. Shift to sprint. Click the map to travel farther.'],['SEND','Click a task; E works nearby; Space sends toward your pointer. Shift + click throws one; hold to keep throwing.'],['WHISTLE','Hold right click around the pointer, or hold Q around you. Recalls workers and revives wilted friends.'],['SELECT','1 Ember · 2 Tide · 3 Honey · 4 Everyone. Mouse wheel or Z / X cycles through your crew.'],['REST','Esc / P pauses. M toggles sound. F toggles fullscreen. Switching tabs pauses the expedition.']];
+    if(short)entries=entries.slice(this.guidePage%2===0?0:3,this.guidePage%2===0?3:5);
     for(const [label,copy] of entries){this.text(c,label,x+26,row,9,C.leaf);row=this.wrap(c,copy,x+104,row,pw-130,size,C.muted,line)+18;}
-    this.button(c,this.guidePage?'guide-prev':'guide-next',this.guidePage?'← Controls':'Crew & tactics →',x+26,y+ph-65,150,43);this.button(c,'close-guide','Back to the woods',x+188,y+ph-65,pw-214,43,true);
+    this.text(c,`${this.guidePage+1} / ${this.guidePages}`,x+pw-27,y+32,9,C.muted,'right');this.button(c,'guide-prev','←',x+26,y+ph-65,51,43);this.button(c,'guide-next','→',x+85,y+ph-65,51,43);this.button(c,'close-guide','Back to the woods',x+148,y+ph-65,pw-174,43,true);
   }
 }

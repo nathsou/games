@@ -12,7 +12,8 @@ function text(ctx,label,x,y,size=10,color='#d8e3bc',align='center'){ctx.font=`${
 
 export class Renderer {
   constructor(canvas,game){this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:false});this.game=game;this.tick=0;this.reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;this.resize();this.cacheTerrain();}
-  resize(){const rect=this.canvas.getBoundingClientRect();this.canvas.width=Math.round(clamp(rect.width,600,1100));this.canvas.height=Math.round(this.canvas.width*rect.height/rect.width);this.w=this.canvas.width;this.h=this.canvas.height;}
+  resize(){const rect=this.canvas.getBoundingClientRect();this.canvas.width=Math.round(clamp(rect.width,360,1100));this.canvas.height=Math.round(this.canvas.width*rect.height/rect.width);this.w=this.canvas.width;this.h=this.canvas.height;}
+  center(){const g=this.game;g.camera.x=clamp(g.player.x-this.w/2,0,Math.max(0,WORLD.w-this.w));g.camera.y=clamp(g.player.y-this.h/2,0,Math.max(0,WORLD.h-this.h));}
   screenPoint(clientX,clientY){const r=this.canvas.getBoundingClientRect();return {x:(clientX-r.left)/r.width*this.w+this.game.camera.x,y:(clientY-r.top)/r.height*this.h+this.game.camera.y};}
   mapPoint(clientX,clientY){
     const r=this.canvas.getBoundingClientRect(),sx=(clientX-r.left)/r.width*this.w,sy=(clientY-r.top)/r.height*this.h;
