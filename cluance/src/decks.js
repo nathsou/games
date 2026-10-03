@@ -1,4 +1,6 @@
 import {CARD_CONTEXT, REGION_2015_CONTEXT} from './context.js';
+import {EXPANSION} from './expansion.js';
+import {ART_OVERRIDES} from './artwork.js';
 
 // Preserve the original subjects and artwork when opening an older saved game.
 const legacyRegions = [
@@ -132,9 +134,9 @@ const definitions = {
     ],
   },
   regions: {
-    name: 'French Regions', subtitle: 'The 27 regions of France in 2015', color: '#d1bb83', symbol: '◒', preview: 3, kind: 'places',
+    name: 'French Regions', subtitle: '27 regions of 2015 & 3 historical provinces', color: '#d1bb83', symbol: '◒', preview: 3, kind: 'places',
     atlas:'assets/regions-2015.webp', columns:6, rows:5, cardPrefix:'regions-2015',
-    description:'One card for each region as it stood on 31 December 2015: 22 metropolitan regions, including Corsica, and five overseas regions. No post-2016 mergers.',
+    description:'All 27 regions as they stood on 31 December 2015: 22 metropolitan regions, including Corsica, and five overseas regions. Three additional cards depict explicitly labelled historical provinces: Anjou, Touraine and Provence. These are not administrative regions of 2015. No post-2016 mergers.',
     cards: [
       ['Alsace', 'Storks, timbered houses and canals'], ['Aquitaine', 'Atlantic dunes and Bordeaux vineyards'], ['Auvergne', 'Volcanic peaks and lava-stone churches'],
       ['Basse-Normandie', 'Mont Saint-Michel and tidal bays'], ['Bourgogne', 'Vineyards and stone châteaux'], ['Bretagne', 'Atlantic coast and lighthouses'],
@@ -164,7 +166,13 @@ const definitions = {
 
 export const DECKS = Object.fromEntries(Object.entries(definitions).map(([id, deck]) => [id, {
   ...deck, id, kind: deck.kind || 'people', atlas: deck.atlas || `assets/${id}.webp`, columns:deck.columns||6, rows:deck.rows||4,
-  cards: deck.cards.map(([name, subtitle], index) => ({id: `${deck.cardPrefix||id}-${index}`, deck: id, index, name, subtitle, ...(id==='regions'?REGION_2015_CONTEXT:CARD_CONTEXT)[name]})),
+  cards: [
+    ...deck.cards.map(([name, subtitle], index) => ({id: `${deck.cardPrefix||id}-${index}`, deck: id, index, name, subtitle, ...(id==='regions'?REGION_2015_CONTEXT:CARD_CONTEXT)[name]})),
+    ...(EXPANSION[id] || []).map(([name, subtitle, dates, description], atlasIndex) => ({
+      id: `${deck.cardPrefix || id}-${deck.cards.length + atlasIndex}`, deck: id, index: deck.cards.length + atlasIndex,
+      name, subtitle, dates, description, atlas: `assets/${id}-extra.webp`, atlasIndex, columns: 3, rows: 2,
+    })),
+  ].map(card => ({...card, ...ART_OVERRIDES[card.name]})),
 }]));
 export const CARDS = Object.fromEntries([...Object.values(DECKS).flatMap(d => d.cards),
   ...legacyRegions.map(([name,subtitle],index)=>({id:`regions-${index}`,deck:'regions',index,name,subtitle,...CARD_CONTEXT[name],atlas:LEGACY_REGION_ATLAS,columns:6,rows:4}))].map(c => [c.id,c]));
