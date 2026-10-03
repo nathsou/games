@@ -73,6 +73,21 @@
       "scrollH": 720,
       "scrollW": 1280,
       "tableBottom": 698
+    },
+    {
+      "scenario": "light-theme-text-contrast",
+      "bodyColor": "rgb(35, 61, 53)",
+      "passed": true
+    },
+    {
+      "scenario": "40-card-hand-component-stress",
+      "widths": [
+        768,
+        1280,
+        1440
+      ],
+      "noHorizontalOverflow": true,
+      "note": "DOM-only layout stress, not a game-state mutation"
     }
   ]
 }
