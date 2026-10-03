@@ -44,7 +44,11 @@ export async function decodePairing(input, expectedType) {
 function gather(pc) {
   if (pc.iceGatheringState === 'complete') return Promise.resolve();
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => { cleanup(); reject(new Error('Connection setup timed out. Try again or change your STUN server in Settings.')); }, 25000);
+    const timeout = setTimeout(() => {
+      cleanup();
+      if (pc.localDescription?.sdp.includes('a=candidate:')) resolve();
+      else reject(new Error('Connection setup timed out. Try again or change your STUN server in Settings.'));
+    }, 12000);
     function cleanup() { clearTimeout(timeout); pc.removeEventListener('icegatheringstatechange', change); }
     function change() { if (pc.iceGatheringState === 'complete') { cleanup(); resolve(); } }
     pc.addEventListener('icegatheringstatechange', change);

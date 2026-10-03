@@ -15,7 +15,7 @@ if (!DECKS[setup.theme]) setup.theme='french';
 if (setup.clueTheme !== 'same' && !DECKS[setup.clueTheme]) setup.clueTheme='same';
 let game = null, mode = null, localRole='giver', screen='home', selected = new Set(), clueCard=null, relation='similar', draftNote='';
 let peer=null, peerStatus='', pendingGuess=false, pairingKind=null, pairingCode='', pairingError='', pairingBusy=false;
-let aiBusy=false, aiError='', aiController=null, aiGeneration=0, replayRound=0, toastTimer, artReady=false;
+let aiBusy=false, aiError='', aiController=null, aiGeneration=0, replayRound=0, toastTimer;
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const options = (items, current) => items.map(([value,label]) => `<option value="${esc(value)}"${value===current?' selected':''}>${esc(label)}</option>`).join('');
@@ -27,7 +27,7 @@ function currentView() { return mode==='peer-guest' ? game : viewFor(game,humanR
 function isHumanTurn() { return game && game.phase!=='over' && ((game.phase==='clue') === (humanRole()==='giver')); }
 function isPeer() { return mode==='peer-host'||mode==='peer-guest'; }
 function saveSession() {
-  if (game && mode!=='peer-guest') write('session',{game,mode,localRole});
+  if (game && ['ai-giver','ai-guesser','local','peer-host'].includes(mode)) write('session',{game,mode,localRole});
 }
 function resetTurn() { selected.clear();clueCard=null;relation='similar';draftNote='';aiError='';pendingGuess=false; }
 function cancelAI() { aiGeneration++;aiController?.abort();aiController=null;aiBusy=false; }
@@ -64,8 +64,8 @@ function renderHome() {
   <section class="setup-panel"><div class="section-title"><h2>02 / SET THE TABLE</h2><span>24 illustrated cards per deck</span></div><div class="deck-grid" id="deck-grid"></div>
   <div class="setup-options"><div><label class="field-label" for="clue-theme">Clue deck</label><select id="clue-theme">${options([['same','Same as the board'],...Object.values(DECKS).map(d=>[d.id,d.name])],setup.clueTheme)}</select><p class="help-text">Mix themes for unexpected associations.</p></div><div><span class="field-label">The clue giver’s hand</span><div class="segmented"><button id="classic" class="${setup.variant==='classic'?'selected':''}" aria-pressed="${setup.variant==='classic'}">Classic</button><button id="fixed" class="${setup.variant==='fixed'?'selected':''}" aria-pressed="${setup.variant==='fixed'}">Fixed five</button></div><p class="help-text">${setup.variant==='fixed'?'Five cards to start. No refills. Make every card count.':'Five cards in hand. Draw a new card after each clue.'}</p></div></div>
   <div class="setup-bottom"><p class="help-text">${setup.mode==='peer-host'?'Share an invitation, then paste your friend’s reply. No accounts or room server.':`AI partner: ${esc(settings.models[settings.provider])}<br>Explanations stay sealed until the final reveal.`}</p><button class="button" id="start-game">${setup.mode==='peer-host'?'Create invitation ⇄':'Deal the cards ↗'}</button></div></section>
-  <div class="home-bottom"><button class="text-button" id="join-friend">Have an invitation? Join your friend →</button><button class="text-button" id="play-local">Play on one screen</button><button class="text-button" id="theme-ideas">More theme ideas ✦</button></div>`;
-  ['french-17','greek-18','scientists-14'].forEach(id=>mountCard($('hero-art'),id));
+  <div class="home-bottom"><button class="text-button" id="join-friend">Have an invitation? Join your friend →</button><button class="text-button" id="play-local">Play on one screen</button><button class="text-button" id="theme-ideas">More theme ideas ✦</button></div><div class="home-bottom"><button class="text-button" id="open-replay">Open a saved replay ↓</button><button class="text-button" id="browse-decks">Browse the card collection ▣</button><input id="replay-file" type="file" accept="application/json,.json" hidden></div>`;
+  ['french-17','greek-18','scientists-14'].forEach(id=>$('hero-art').insertBefore(cardElement(id),$('hero-art').querySelector('.hero-stamp')));
   for(const deck of Object.values(DECKS)) {
     const button=document.createElement('button');button.className=`deck-choice ${setup.theme===deck.id?'selected':''}`;button.type='button';button.setAttribute('aria-pressed',String(setup.theme===deck.id));
     mountCard(button,deck.cards[deck.id==='greek'?4:deck.id==='scientists'?15:deck.id==='writers'?11:deck.id==='philosophers'?0:5].id);
@@ -80,6 +80,9 @@ function renderHome() {
   $('join-friend').onclick=()=>openPairing('guest');
   $('play-local').onclick=()=>start('local');
   $('theme-ideas').onclick=showThemeIdeas;
+  $('open-replay').onclick=()=>$('replay-file').click();
+  $('replay-file').onchange=event=>importReplay(event.target.files[0]);
+  $('browse-decks').onclick=()=>showCollection(setup.theme);
   if($('resume'))$('resume').onclick=resumeGame;
 }
 function saveSetup(){write('setup',setup);}
@@ -184,12 +187,14 @@ async function runAI(){
   if(!game||screen!=='game'||!mode?.startsWith('ai-')||isHumanTurn()||game.phase==='over'||aiBusy)return;
   const generation=++aiGeneration, id=game.id, revision=game.revision;
   const role=humanRole()==='giver'?'guesser':'giver';
-  aiBusy=true;aiError='';aiController=new AbortController();renderGame();
-  const timeout=setTimeout(()=>aiController?.abort(),180000);
+  aiBusy=true;aiError='';const controller=new AbortController();aiController=controller;renderGame();
+  const timeout=setTimeout(()=>controller.abort(),180000);
   try{
     const image=observationImage(game,role);let next;let correction='';
     for(let attempt=0;attempt<2;attempt++){
-      const move=await chooseMove(settings,game,role,image,aiController.signal,correction);
+      let move;
+      try {move=await chooseMove(settings,game,role,image,controller.signal,correction);}
+      catch(error){if(error.code!=='INVALID_MOVE'||attempt===1)throw error;correction=`Your previous output was invalid: ${error.message} Return ONLY the JSON move with the required fields.`;continue;}
       if(generation!==aiGeneration||game.id!==id||game.revision!==revision)return;
       try {next=role==='giver'?playClue(game,move):eliminate(game,move);break;}
       catch(error){if(attempt===1)throw error;correction=`Your previous move was invalid: ${error.message} Return a corrected legal move.`;}
@@ -220,8 +225,10 @@ function renderReveal(){
   $('export-replay').onclick=exportReplay;
   $('reveal-home').onclick=()=>{cancelAI();const old=peer;peer=null;old?.close();mode=null;game=null;pairingKind=null;erase('session');updateConnection();renderHome();};
   if(mode==='peer-guest'){$('rematch').textContent='Ask for another game ⇄';$('rematch').disabled=!peer?.connected;}
+  if(mode==='replay'){$('rematch').textContent='Play this setup ↗';}
 }
 function rematch(){
+  if(mode==='replay'){setup.theme=game.theme;setup.clueTheme=game.clueTheme===game.theme?'same':game.clueTheme;setup.variant=game.variant;game=null;mode=null;renderHome();return;}
   if(mode==='peer-guest'){try{peer.send({type:'rematch-request',gameId:game.id});toast('Your partner has been asked to deal again.');}catch(error){toast(error.message);}return;}
   if(mode==='peer-host'){
     if(!peer?.connected){toast('Reconnect your friend to deal again.');openPairing('host',true);return;}
@@ -237,6 +244,17 @@ function exportReplay(){
   const view=viewFor(game,'guesser');
   const blob=new Blob([JSON.stringify({format:'similo-arcade-replay',version:PROTOCOL,game:view},null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`similo-${game.theme}-${new Date().toISOString().slice(0,10)}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);toast('Replay saved. It contains the board and revealed notes, with no provider keys.');
+}
+async function importReplay(file){
+  if(!file)return;
+  try{
+    if(file.size>131072)throw new Error('This replay is too large.');
+    const replay=JSON.parse(await file.text());
+    if(replay.format!=='similo-arcade-replay'||replay.version!==PROTOCOL||replay.game?.phase!=='over'||!replay.game.history?.length)throw new Error('Choose a completed Similo Arcade replay.');
+    const imported=validatePublicView(replay.game);
+    if(imported.history.some(r=>!Number.isInteger(r.round)||r.round<1||r.round>5||['giverNote','guesserNote','giverSource','guesserSource'].some(k=>typeof r[k]!=='string'||r[k].length>1200)))throw new Error('This replay contains invalid round notes.');
+    cancelAI();peer?.close();peer=null;mode='replay';game=imported;replayRound=0;resetTurn();updateConnection();renderReveal();
+  }catch(error){toast(error instanceof SyntaxError?'This file is not a valid replay.':error.message);}
 }
 function updateConnection(){
   const badge=$('connection-badge');badge.hidden=!peer;badge.textContent=peer?.connected?'● FRIEND CONNECTED':peerStatus==='connecting'?'◌ CONNECTING':'○ DISCONNECTED';badge.classList.toggle('offline',!peer?.connected);
@@ -331,6 +349,11 @@ function showRules(){
   showModal('A little trust goes a long way.','How to play',`<p class="pair-copy">You’re a team. Keep one secret character on the table through five rounds.</p><ol class="rules-list"><li><strong>The clue giver sees the secret.</strong> There are 12 characters on the board and five private cards in the giver’s hand.</li><li><strong>Play one illustrated clue.</strong> Choose Similar ↑ for a shared trait, or Different → for a contrast. It can be a color, a prop, a story, a personality, or any association you think your partner will see. Only the card and its direction are shared.</li><li><strong>The guesser removes characters.</strong> Remove 1, then 2, then 3, then 4, then 1. All previous clues remain relevant.</li><li><strong>Leave the secret standing.</strong> Removing it ends the game immediately. If it’s the last character left, you both win.</li><li><strong>Open your sealed interpretations.</strong> Optional human notes and AI explanations are recorded with each move, then revealed together at the end.</li></ol><div class="rules-rounds"><span>1</span><span>2</span><span>3</span><span>4</span><span>1</span></div><p class="help-text"><strong>Classic:</strong> draw a new card after each clue.<br><strong>Fixed five:</strong> start with five cards and never draw replacements. Choose the order carefully.<br><strong>Mixed decks:</strong> use one theme for characters and another for clues.</p><p class="help-text">This is an independent game inspired by Similo, designed by Hjalmar Hach, Pierluca Zizzi and Martino Chiacchiera. The illustrations here are original generated artwork; they are not the commercial card art.</p>`);
 }
 function showThemeIdeas(){showModal('More worlds to interpret.','Future deck ideas',`<div class="theme-ideas">${THEME_IDEAS.map(([name,description])=>`<div class="theme-idea"><h3>${esc(name)}</h3><p>${esc(description)}</p></div>`).join('')}</div><p class="help-text">The six illustrated decks are available now. These are suggestions for future additions.</p>`);}
+function showCollection(theme){
+  showModal('The card collection.','Six illustrated worlds',`<label class="field-label" for="collection-theme">Deck</label><select id="collection-theme">${options(Object.values(DECKS).map(d=>[d.id,d.name]),theme)}</select><div class="collection-grid" id="collection-grid"></div><p class="help-text">Select a card to see its full illustration.</p>`);
+  for(const card of DECKS[theme].cards)mountCard($('collection-grid'),card.id,{interactive:true,onClick:()=>inspectCard(card.id)});
+  $('collection-theme').onchange=event=>showCollection(event.target.value);
+}
 let settingsDraft, availableModels=[], settingsRemember=true;
 function captureSettings(){
   if(!$('provider'))return;const provider=settingsDraft.provider;
@@ -370,7 +393,7 @@ window.addEventListener('beforeunload',()=>saveSession());
 applyPreferences();startAmbience($('ambience'),()=>settings.effects);
 app.innerHTML='<section class="hero"><div><p class="eyebrow">Setting the table</p><h1>Six worlds.<br>One <em>connection.</em></h1><p>Shuffling the illustrated decks…</p></div></section>';
 try{
-  await loadArt();artReady=true;renderHome();
+  await loadArt();renderHome();
   if(location.hash.startsWith('#pair=')){
     const invitation=location.hash.slice(6);history.replaceState(null,'',location.pathname+location.search);openPairing('guest',false,decodeURIComponent(invitation));
   }

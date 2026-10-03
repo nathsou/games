@@ -57,7 +57,7 @@ export function eliminate(game, action) {
 export function viewFor(game, role) {
   const {draw, hand, secret, history, ...publicState} = game;
   const view = {...structuredClone(publicState), role, history: history.map(({giverNote, guesserNote, giverSource, guesserSource, ...round}) => ({...structuredClone(round)}))};
-  if (role === 'giver') { view.secret = secret; view.hand = [...hand]; }
+  if (role === 'giver' && game.phase !== 'over') { view.secret = secret; view.hand = [...hand]; }
   if (game.phase === 'over') {
     view.secret = secret;
     view.history = structuredClone(history);

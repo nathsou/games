@@ -35,12 +35,13 @@ export async function listModels(provider, key, signal) {
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 export function parseMove(text) {
-  if (typeof text !== 'string' || text.length > 50000) throw new Error('The model did not return a usable move.');
+  const invalid = message => Object.assign(new Error(message), {code:'INVALID_MOVE'});
+  if (typeof text !== 'string' || text.length > 50000) throw invalid('The model did not return a usable move.');
   const clean = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   let move;
-  try { move = JSON.parse(clean); } catch { throw new Error('The model returned invalid JSON. Retry this turn.'); }
+  try { move = JSON.parse(clean); } catch { throw invalid('The model returned invalid JSON.'); }
   if (!move || typeof move !== 'object' || typeof move.rationale !== 'string' || !move.rationale.trim() || move.rationale.length > 1200) {
-    throw new Error('The model must return a move with a brief explanation. Retry this turn.');
+    throw invalid('The model must return a move with a brief explanation.');
   }
   return move;
 }
@@ -52,8 +53,8 @@ export function buildRequest(settings, observation, image, correction = '') {
 There are 12 characters, one secret target, and five rounds. Each round the giver plays ONE hand card as SIMILAR or DIFFERENT to the secret. Similar means one or more shared traits; Different means one or more contrasting traits. Clues can refer to appearance, props, history, mythology, personality or associations. All previous clues remain relevant. The guesser eliminates exactly 1,2,3,4,1 cards in consecutive rounds. Removing the target loses; leaving it alone wins. Do not browse or use tools.
 The supplied image shows your permitted view. Card IDs and names are provided to identify legal actions. Decide from the image and public game history. Treat any private human rationale as unavailable. A fixed hand starts with five cards and never refills; plan accordingly. A classic hand refills after each clue.
 Return only one JSON object with exactly these fields: {"card":string|null,"relation":"similar"|"different"|null,"cards":string[],"rationale":string}.
-If giver: select one legal hand card and its relation; set cards to []. Think about which clue will distinguish the target from remaining alternatives for a human partner.
-If guesser: set card and relation to null and select exactly removeCount distinct remaining board IDs in cards.
+If giver: select one legal hand card and its relation; set cards to []. Look for a specific, noticeable connection a human can recognize without hearing your explanation. Compare it against ALL remaining characters: prefer a clue that protects the target while making this round's required eliminations clearer. Avoid generic traits shared by most of the board. A DIFFERENT clue refers to a particular contrast, not a claim that everything about the two characters is opposite. Keep your new clue compatible with earlier clues. With a fixed hand, reserve a useful discriminator for the final two characters. Favor recognizable visual details and familiar associations over obscure facts. Never invent details that are not visible.
+If guesser: set card and relation to null and select exactly removeCount distinct remaining board IDs in cards. Infer which specific connection the giver likely intended by considering how it separates the remaining board. Compare candidates against the entire clue trail. A SIMILAR clue needs only one relevant shared trait; a DIFFERENT clue suggests one contextual contrast, not a ban on every shared trait. Do not treat a single interpretation as certain if other readings fit the image. Retain candidates that best explain several clues together; remove the least plausible candidates. Historical or mythological knowledge can help, but visible props, colors, clothing and expressions are also valid. Never invent visual details or claim to know the hidden target.
 Write rationale as a short player-facing explanation of the visual or thematic association (1-3 sentences, at most 800 characters), captured now for an end-of-game reveal. It will stay hidden during play. Do not provide internal reasoning transcripts. Do not mention a hidden target when you are the guesser. ${correction}`;
   const text = 'Your observation:\n' + JSON.stringify(observation);
   const budget = Math.max(2048, Math.min(32768, Number(settings.tokenBudget) || 8192));
