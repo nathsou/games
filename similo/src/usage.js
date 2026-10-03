@@ -28,7 +28,7 @@ function save(data) {
   window.dispatchEvent(new Event('similo-usage-change'));
 }
 export function trackGame(game, mode) {
-  if(!game || mode==='replay' || mode==='peer-guest')return;
+  if(!game || mode==='replay')return;
   const data=ledger(), existing=data.games.find(g=>g.id===game.id);
   const entry={id:game.id, theme:game.theme, clueTheme:game.clueTheme, mode, variant:game.variant,
     started:game.started, result:game.result, state:game.phase==='over'?'finished':'in progress',
@@ -89,6 +89,7 @@ export function usageSummary(requests, games=[]) {
     inputTokens:requests.reduce((sum,r)=>sum+(r.inputTokens||0),0),
     outputTokens:requests.reduce((sum,r)=>sum+(r.outputTokens||0),0),
     cachedTokens:requests.reduce((sum,r)=>sum+(r.cachedTokens||0),0),
+    cacheWriteTokens:requests.reduce((sum,r)=>sum+(r.cacheWriteTokens||0),0),
     reasoningTokens:requests.reduce((sum,r)=>sum+(r.reasoningTokens||0),0)};
 }
 export function usageSnapshot() {

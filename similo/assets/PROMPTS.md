@@ -2,7 +2,7 @@
 
 These eleven original illustration atlases were generated with the built-in ImageGen tool on 3 October 2026. The tool exposes no model selector, so a specific image model version cannot be verified. No commercial Similo or Balatro artwork was used.
 
-Each atlas has six columns and four rows. Card names and framing are drawn by Canvas, rather than baked into the images. The renderer crops each cell proportionally; the atlas dimensions may differ between outputs. Portraits and landscapes are stylized interpretations, not documentary likenesses or geographical maps. Place cards can combine landmarks and natural or cultural motifs into a symbolic montage.
+Each atlas has six columns and four rows, except the replacement `regions-2015` atlas, which has six columns and five rows (27 illustrations and three unused cells). Card names and framing are drawn by Canvas, rather than baked into the images. The renderer crops each cell proportionally; the atlas dimensions may differ between outputs. Portraits and landscapes are stylized interpretations, not documentary likenesses or geographical maps. Place cards can combine landmarks and natural or cultural motifs into a symbolic montage.
 
 The PNG files preserve the original generated outputs. Matching WebP delivery copies were encoded with the browser's native Canvas encoder at quality 0.94, keeping the original dimensions and composition. The game loads these smaller copies; no image-processing dependency is required.
 
@@ -93,6 +93,7 @@ Row 4: David Bowie pale face orange-red hair lightning-bolt face paint electric 
 Precisely regular full-bleed 6 by 4 grid. NO TEXT.
 ```
 
+
 ## actors.png
 
 ```text
@@ -132,7 +133,7 @@ Row 4: United States Grand Canyon red sandstone eagle and distant Statue of Libe
 Precisely regular full-bleed 6 by 4 grid. NO TEXT.
 ```
 
-## regions.png
+## regions.png (archived, for older saves and replays)
 
 ```text
 Use case: stylized-concept. Asset type: production pixel-art illustration atlas for a retro visual deduction card game.
@@ -143,4 +144,47 @@ Row 2: Hauts-de-France Amiens Gothic cathedral brick belfry and coastal dunes co
 Row 3: Provence-Alpes-Cote d'Azur lavender field red ochre village Mediterranean sailboat and limestone calanque; Guadeloupe La Soufriere lush volcanic mountain tropical waterfall turquoise sea and hibiscus; Martinique Mount Pelee volcanic slopes colorful coastal Creole houses and sugarcane; Guyane Amazonian rainforest brown river and space-launch rocket rising above canopy; La Reunion Piton de la Fournaise glowing lava crater rugged volcanic island and tropical coast; Mayotte turquoise lagoon mangrove trees sea turtle and small traditional outrigger boat.
 Row 4: Alsace historic region half-timbered Colmar houses canal and white stork nest; Lorraine historic region Place Stanislas ornate gilded Nancy gates and mirabelle plum branch; Bourgogne historic region medieval Clos de Vougeot stone vineyard castle grapes and wine barrel; Champagne historic region Reims Gothic cathedral chalk wine cellar and sparkling golden wine glass; Picardie historic region Somme Bay tidal marsh migrating birds and rural windmill; Auvergne historic region rounded Puy de Dome dormant volcanic summit black volcanic-stone church and green pasture.
 Precisely regular full-bleed 6 by 4 grid. NO TEXT.
+```
+
+## regions-2015.png and regions-2015.webp
+
+Generated on 2026-10-03 with the built-in image-generation tool, using the original region atlas as a style reference. Its model version is not exposed. The PNG preserves the generated output; the WebP was encoded at quality 0.94 with native Canvas, at 1254 × 1254 pixels. The new atlas has six columns and five rows: 27 active region illustrations and three unused cells. Original mixed-region artwork remains available only for legacy saves and replays.
+
+```text
+Use case: stylized-concept. Asset type: one production illustration atlas for a retro pixel-art deduction card game. Input image is STYLE REFERENCE ONLY: use its chunky pixels, saturated postcard colors, theatrical lighting and crisp landmark shapes. Create a NEW COMPLETE atlas, not edits to the old arrangement.
+EXACT layout: SIX equal columns by FIVE equal rows, 30 equal edge-to-edge rectangular cells, no gutters and no margins. Overall image approximately square, each cell portrait proportion. The FIRST 27 cells have one illustration per French region as it existed on 31 December 2015. The LAST THREE cells are plain uniform dark teal (#15383a) unused space. Precisely maintain this grid and row-major order. No text, numbers, labels, borders, logos or watermarks anywhere. No maps or flags. Do not draw merged post-2016 regions. Every scene must be wholly inside its own cell; no connecting panoramas. Keep the central landmark large and within the center 80% of each cell. Sharp original 1990s pixel-art, stepped edges and subtle dithering, rich but limited colors, matching the reference. No photographic realism. No people as main subjects.
+ROW 1 left to right:
+1 ALSACE: Colmar timbered houses along a canal, large white stork perched on a nest, warm orange roofs.
+2 AQUITAINE: Dune du Pilat sand dune and Atlantic pine forest with Bordeaux vineyard and barrel, blue and sandy gold.
+3 AUVERGNE: rounded Puy de Dome volcanic peak and black lava-stone Romanesque church, lush green uplands.
+4 BASSE-NORMANDIE: Mont Saint-Michel abbey island rising above a tidal bay, apple branch, blue-gray and gold.
+5 BOURGOGNE: Clos de Vougeot stone château centered in golden vineyard rows, grapes and wine barrel.
+6 BRETAGNE: pink granite coastal rocks, stone lighthouse, Atlantic waves and striped sailboat.
+ROW 2:
+7 CENTRE-VAL DE LOIRE: Château de Chambord towers reflected in the Loire, white stone and green riverbanks.
+8 CHAMPAGNE-ARDENNE: Reims cathedral above vineyard slopes, sparkling wine glass and wooded Ardennes, amber.
+9 CORSE: Genoese coastal tower, rugged Mediterranean mountains and turquoise bay.
+10 FRANCHE-COMTE: Besançon citadel perched above the winding Doubs river, Jura hills and a wheel of Comté cheese.
+11 HAUTE-NORMANDIE: Étretat chalk cliff arch and a Rouen cathedral spire above Seine-side timbered houses, cool blue.
+12 ILE-DE-FRANCE: Versailles golden gate and formal gardens with distant Eiffel Tower silhouette.
+ROW 3:
+13 LANGUEDOC-ROUSSILLON: Carcassonne fortified walls, Mediterranean vineyard, coastal flamingo, sunny ochre.
+14 LIMOUSIN: Limoges blue-white porcelain pitcher large in foreground, green chestnut woods and red sandstone Collonges houses.
+15 LORRAINE: Nancy Place Stanislas gilded iron gates and pale stone architecture, yellow mirabelle plum branch.
+16 MIDI-PYRENEES: Toulouse red-brick basilica Saint-Sernin, a Garonne bridge and high Pyrenees behind.
+17 NORD-PAS-DE-CALAIS: Arras brick belfry, a dark coal spoil heap and northern coast dunes, slate sky.
+18 PAYS DE LA LOIRE: Nantes giant wooden mechanical elephant on the Loire waterfront, river and cranes.
+ROW 4:
+19 PICARDIE: Amiens Gothic cathedral large central spire and Somme Bay tidal marsh with migrating birds.
+20 POITOU-CHARENTES: La Rochelle twin stone harbor towers, ocean sailboat and a green Marais Poitevin canal.
+21 PROVENCE-ALPES-COTE D'AZUR: lavender rows, ochre Provençal village and white limestone calanque above blue Mediterranean.
+22 RHONE-ALPES: snowy Mont Blanc and cable car with Lyon's Rhône riverside in foreground, icy white and blue.
+23 GUADELOUPE: La Soufrière lush volcanic mountain, tropical waterfall, turquoise bay and red hibiscus.
+24 GUYANE: Amazonian forest and brown river, Ariane-style rocket rising above the canopy, tropical green.
+ROW 5:
+25 MARTINIQUE: Mont Pelée volcanic slopes, colorful Creole coastal houses and sugarcane beside blue Caribbean sea.
+26 LA REUNION: Piton de la Fournaise glowing lava crater, rugged island mountains and tropical coast, lava orange.
+27 MAYOTTE: turquoise Indian Ocean lagoon, mangrove roots, sea turtle and small outrigger boat.
+28-30 plain dark teal unused cells, no objects.
+Exact 6 columns and 5 rows. All 27 unique scenes in specified order. NO TEXT.
 ```
