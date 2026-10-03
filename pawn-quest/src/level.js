@@ -459,7 +459,7 @@ export async function solvePuzzle(ctx, p, { index = 0, total = 1, mistakesBefore
     } catch {}
     if (!ctx.alive) return null;
     if (why && why.reply) board.arrows = (why.arrows || []).filter(a => a.color === 'bad').slice(0, 1);
-    const msg = p.accept === 'mate' ? (pos.inCheck() ? 'That\'s check, but the king can escape. Look for a check with no way out!' : pos.status()?.reason === 'stalemate' ? 'Oh no, that\'s **stalemate**! Leave the king a move.' : 'That\'s not checkmate. Look at every check you can give!')
+    const msg = p.wrong ? `Not quite. ${p.wrong}` : p.accept === 'mate' ? (pos.inCheck() ? 'That\'s check, but the king can escape. Look for a check with no way out!' : pos.status()?.reason === 'stalemate' ? 'Oh no, that\'s **stalemate**! Leave the king a move.' : 'That\'s not checkmate. Look at every check you can give!')
       : why && why.grade !== 'best' && why.grade !== 'good' ? `Not quite. ${why.text}` : 'That\'s a fine move, but there\'s something stronger. Try again!';
     await speech.say(msg);
     await board.animateSlide(mTo(m), mFrom(m), pos.b[mTo(m)], 200);

@@ -262,7 +262,9 @@ b { color: var(--gold); font-weight: 800; }
 .practice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); gap: 14px; }
 .practice-card { text-align: left; padding: 16px; cursor: pointer; color: var(--text); background: var(--panel); border: 3px solid var(--edge); border-radius: 10px; box-shadow: 0 5px 0 var(--shadow); display: flex; flex-direction: column; gap: 6px; transition: transform .1s; }
 .practice-card:hover:not(:disabled) { transform: translateY(-3px); border-color: var(--gold); }
-.practice-card:disabled { opacity: .55; cursor: default; }
+.practice-card:disabled { filter: grayscale(.9) brightness(.8); cursor: default; }
+.practice-card { position: relative; padding-right: 70px; }
+.practice-card .card-icon { position: absolute; right: 14px; top: 14px; width: 48px; height: 48px; }
 .practice-card h3 { margin: 0; font-size: 18px; }
 .practice-card p { margin: 0; color: var(--dim); font-size: 14px; }
 .practice-card .meta { font-size: 12px; font-weight: 900; color: var(--gold); text-transform: uppercase; letter-spacing: .08em; }

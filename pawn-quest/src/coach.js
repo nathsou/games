@@ -318,18 +318,28 @@ export function explainMove(pos, m, { depth = 4, timeMs = 900, history = [], use
   if (grade === 'best' || grade === 'good' || grade === 'ok') {
     const parts = [];
     const gained = materialSwing(pos, [m, ...replyPv.slice(0, 3)], us);
+    const last = history.length ? history[history.length - 1] : null;
+    const lastTo = last && last.cap ? last.to : -1;
+    const capturedType = (mFlags(m) & F_CAPTURE) ? (typeOf(pos.b[mTo(m)]) || PAWN) : 0;
     if (isMateScore(scoreAfter) && scoreAfter > 0) parts.push(`You have a forced checkmate coming. Keep finding the checks!`);
     else if (tacticNow && tacticNow.type !== 'check') { parts.push(tacticNow.text); out.arrows.push(...tacticNow.arrows.map(a => ({ from: a[0], to: a[1], color: 'good' }))); out.tags.push(tacticNow.type); }
-    else if ((mFlags(m) & F_CAPTURE) && gained >= 200) parts.push(`You win material: the ${N(typeOf(pos.b[mTo(m)]) || PAWN)} was there for the taking.`);
+    else if (capturedType && to === lastTo) parts.push(`You take back the ${N(capturedType)}. Recapturing keeps the trade even.`);
+    else if (capturedType && gained >= 80) parts.push(`You win material: the ${N(capturedType)} on [${sqName(to)}] was there for the taking.`);
+    else if (capturedType) {
+      pos.make(m);
+      const canTakeBack = pos.attackers(to, them).length > 0;
+      pos.unmake();
+      parts.push(canTakeBack && moverType !== KING && Math.abs(PV[capturedType] - PV[moverType]) <= 50 ? `A fair trade: ${N(moverType)} for ${N(capturedType)}.` : `You capture the ${N(capturedType)}.`);
+    }
     const saved = hangingBefore.find(h => h.sq === from && h.gain >= 200);
     if (saved && !parts.length) parts.push(`${Your} ${N(saved.type)} was under attack, and now it's safe.`);
-    if (!parts.length && note && note.tone === 'meh') { parts.push(note.text); out.tags.push(note.tag); }
+    if (!parts.length && note && note.tone === 'meh' && grade !== 'best') { parts.push(note.text); out.tags.push(note.tag); }
     if (!parts.length && tacticNow) { parts.push(tacticNow.text); out.tags.push('check'); }
-    if (!parts.length && note) { parts.push(note.text); out.tags.push(note.tag); }
+    if (!parts.length && note && note.tone === 'good') { parts.push(note.text); out.tags.push(note.tag); }
     if (!parts.length) {
       // Describe what the move does: protect something, or create a threat.
       const hangingAfter = (() => { pos.make(m); const x = hangingPieces(pos, us); pos.unmake(); return x; })();
-      const fixed = hangingBefore.filter(hb => hb.gain >= 100 && !hangingAfter.some(ha => ha.sq === hb.sq));
+      const fixed = hangingBefore.filter(hb => hb.gain >= 100 && hb.sq !== from && !hangingAfter.some(ha => ha.sq === hb.sq));
       pos.make(m);
       const hits = pos.attacksFrom(to).filter(t => pos.b[t] && colorOf(pos.b[t]) === them && typeOf(pos.b[t]) !== KING && threatOn(pos, t, us) >= 200);
       pos.unmake();
@@ -362,10 +372,12 @@ export function explainMove(pos, m, { depth = 4, timeMs = 900, history = [], use
         const lost = -materialSwing(pos, replyPv.slice(0, 4), us);
         if (lost >= 90 || vt === QUEEN) {
           if (rTo === to) {
-            const defended = pos.attackers(to, us).length > 0;
-            reasons.push(defended
-              ? `${Your} ${N(vt)} on [${sqName(to)}] can be taken by a ${N(capturer)}. Even though it's protected, a ${N(capturer)} is worth less than a ${N(vt)}, so you lose material.`
-              : `${Your} ${N(vt)} on [${sqName(to)}] is unprotected: ${theirPossessive} ${N(capturer)} can simply take it.`);
+            const defenders = pos.attackers(to, us).length, attackers = pos.attackers(to, them).length;
+            reasons.push(!defenders
+              ? `${Your} ${N(vt)} on [${sqName(to)}] is unprotected: ${theirPossessive} ${N(capturer)} can simply take it.`
+              : PV[capturer] < PV[vt]
+                ? `${Your} ${N(vt)} on [${sqName(to)}] can be taken by a ${N(capturer)}. Even though it's protected, a ${N(capturer)} is worth less than a ${N(vt)}, so you lose material.`
+                : `${Your} ${N(vt)} on [${sqName(to)}] is attacked ${attackers} time${attackers > 1 ? 's' : ''} but protected only ${defenders} time${defenders > 1 ? 's' : ''}, so it will be lost. Count attackers and defenders!`);
             out.tags.push('hanging');
           } else if (hangingBefore.some(h => h.sq === rTo)) {
             reasons.push(`${Your} ${N(vt)} on [${sqName(rTo)}] was already under attack and is still hanging. Save attacked pieces first!`);
@@ -488,7 +500,7 @@ export function threatSummary(pos) {
   if (pos.usesChecks() && pos.inCheck()) out.push({ kind: 'check', text: 'You are in check! Move the king, block the attack, or capture the attacker.' });
   const t = out.length ? null : opponentThreat(pos, 2);
   if (t && t.mate) out.push({ kind: 'mate', move: t.move, text: `Danger: your opponent threatens checkmate with **${t.san}**!` });
-  const hanging = hangingPieces(pos, us).filter(h => h.gain >= 100);
+  const hanging = hangingPieces(pos, us).filter(h => h.gain >= 200);
   for (const h of hanging.slice(0, 2)) out.push({ kind: 'hanging', sq: h.sq, text: `Your ${N(h.type)} on [${sqName(h.sq)}] is under attack${h.defenders.length ? ' and not protected enough' : ' and unprotected'}.` });
   if (!out.length && t && t.gain >= 200) out.push({ kind: 'threat', move: t.move, text: `Your opponent threatens **${t.san}**, winning material.` });
   return out;
