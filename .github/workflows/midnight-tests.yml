@@ -1,0 +1,22 @@
+name: Midnight Table checks
+
+on:
+  pull_request:
+    paths: ['midnight/**', 'index.html', '.github/workflows/**']
+  push:
+    paths: ['midnight/**', 'index.html', '.github/workflows/**']
+
+permissions:
+  contents: read
+
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Rules, automated playthroughs, pairing and commitments
+        run: npm test
+        working-directory: midnight

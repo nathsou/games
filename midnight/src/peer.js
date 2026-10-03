@@ -83,15 +83,16 @@ export class PeerLink {
     this.onMessage = onMessage;
     this.onStatus = onStatus;
     this.pc.addEventListener('datachannel', e => this.attach(e.channel));
-    this.pc.addEventListener('connectionstatechange', () => onStatus(this.pc.connectionState));
+    this.pc.addEventListener('connectionstatechange', () => { if (!this.closed) onStatus(this.pc.connectionState); });
   }
   attach(channel) {
     if (this.channel) { channel.close(); return; }
     this.channel = channel;
-    channel.addEventListener('open', () => this.onStatus('open'));
-    channel.addEventListener('close', () => this.onStatus('closed'));
-    channel.addEventListener('error', () => this.onStatus('failed'));
+    channel.addEventListener('open', () => { if (!this.closed) this.onStatus('open'); });
+    channel.addEventListener('close', () => { if (!this.closed) this.onStatus('closed'); });
+    channel.addEventListener('error', () => { if (!this.closed) this.onStatus('failed'); });
     channel.addEventListener('message', e => {
+      if (this.closed) return;
       if (typeof e.data !== 'string' || e.data.length > LIMIT) return this.onStatus('invalid-message');
       try {
         const message = JSON.parse(e.data);
@@ -129,6 +130,6 @@ export class PeerLink {
     if (data.length > LIMIT || this.channel.bufferedAmount > LIMIT * 4) throw new Error('The connection is busy. Try again in a moment.');
     this.channel.send(data);
   }
-  get connected() { return this.channel?.readyState === 'open'; }
-  close() { this.channel?.close(); this.pc.close(); }
+  get connected() { return this.channel?.readyState === 'open' && this.pc.connectionState === 'connected'; }
+  close() { if (this.closed) return; this.closed = true; this.channel?.close(); this.pc.close(); this.onStatus('closed'); }
 }
