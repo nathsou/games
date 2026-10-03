@@ -1,6 +1,6 @@
 # Flip it
 
-A two-to-five-player shedding game with large, crisp double-value cards and three independent match options. Vanilla HTML, CSS and JavaScript: no build, npm dependencies, CDN scripts, remote images or external fonts.
+A two-to-five-player shedding game with original retro double-value cards and a compact laptop table and three independent match options. Vanilla HTML, CSS and JavaScript: no build, npm dependencies, CDN scripts, remote images or external fonts.
 
 Run `npm start` from this folder and open `http://localhost:8080/flip-it/`. Run `npm test` for deterministic rule, privacy, peer session and QR tests, or `npm run playtest` for 400 reproducible dealer rounds. The server serves the collection root too. Publish this folder's index, stylesheet, src, assets and preview together; the repository's Pages workflow does this.
 
@@ -10,7 +10,7 @@ All three default ON. The host chooses them before a match; both screens show th
 
 | Option | ON | OFF |
 | --- | --- | --- |
-| Quick turns | One action each, alternating; choose either play space | Two actions, left then right. Opening player gets only the right action |
+| Quick turns | One action each, alternating; choose either play space | Two actions, right then left. Opening player gets only the right action |
 | Compact deck | 24 cards, six ranks, dealt clockwise | 40 cards, ten ranks, dealt clockwise |
 | Last chance | Emptying a hand gives every other player exactly one counter action | Emptying a hand wins immediately |
 
@@ -29,7 +29,7 @@ At the beginning of an action, the set in the acting player's chosen (or prescri
 
 A last-chance reply overrides ordinary turn order, including the remainder of a double turn. If the first finisher is still empty after the reply, that player wins even if the responding player also became empty. Otherwise, if the responder became empty, they get their own last-chance window. A successful counter with cards remaining resumes normal turn scheduling from the reply action.
 
-The digital interface selects a play space without discarding immediately. Discard and action are applied together, atomically: changing your choice or attempting an illegal move cannot lose cards. Selecting a different active rank starts a new selection. Select a single card before Add; Take needs no selection. Flip preview is informational and cannot play cards.
+The right space is selected first by default (quick turns still allow either space). The digital interface selects a play space without discarding immediately. Discard and action are applied together, atomically: changing your choice or attempting an illegal move cannot lose cards. Selecting a different active rank starts a new selection. Select a single card before Add; Take needs no selection. Flip preview is informational and cannot play cards.
 
 ## Deck
 
@@ -44,13 +44,19 @@ For N ranks (6 or 10), each rank is paired with its next neighbour and the rank 
 
 ## Online pairing
 
-Online play uses a reliable ordered WebRTC data channel and native browser APIs. There is no signalling server: the host shares an invitation link or QR; the guest opens it and sends a reply link or QR; the host accepts that reply. Opening a reply beside the original host tab delivers it via BroadcastChannel when supported. Otherwise paste it into the host's reply field. Links contain session descriptions and are not permanent rooms; keep both tabs open.
+Online play uses a reliable ordered WebRTC data channel and native browser APIs. There is no signalling server: the host clicks Invite to generate an invitation link or QR; the guest opens it and sends a reply link or QR; the host pastes that reply to connect automatically, or uses Accept Reply. Opening a reply beside the original host tab delivers it via BroadcastChannel when supported. Otherwise paste it into the host's reply field. Links contain session descriptions and are not permanent rooms; keep both tabs open while playing. Connection settings and a fresh-invite/reply control remain available after link generation. The lobby’s Table options includes team play and optional AI seats.
 
 QR encoding is the repository's existing dependency-free Model 2 byte encoder, with seven level-L size profiles. A native BarcodeDetector scans in-app where supported. Ordinary phone camera scanning and pasted links work independently of that API. Very long links fall back to copy/share rather than displaying a misleading QR.
 
 Online play requires HTTPS or localhost. The default configurable STUN address is `stun:stun.l.google.com:19302`, which is a network service rather than a shipped library. Leave it blank for local-network tests. Restrictive networks may require a TURN relay supplied in Connection settings. Relay passwords remain in memory and are not saved to preferences or pairing links. No relay is provided by this game.
 
-The host owns the authoritative state and sees the dealt hands internally. This design keeps normal opponent UI and network views private; it does not defend against a malicious host editing code. Invalid/stale actions cannot mutate state. Disconnects pause online actions and the team dealer. Reconnect from the original host tab using a fresh invite to resume the same match. Reloading or closing that host tab loses the in-memory match.
+The host owns the authoritative state and sees the dealt hands internally. This design keeps normal opponent UI and network views private; it does not defend against a malicious host editing code. Invalid/stale actions cannot mutate state. Disconnects pause online actions and the team dealer. The last opponent and the host’s authoritative match are saved locally, with a redacted view on the guest. Reloading opens the saved table paused; Reconnect makes a fresh invite and resumes the same match after the reply. The lobby also remembers the last opponent. Explicitly leaving the online table or starting an offline game clears the saved match. Storage denial falls back to keeping the match in the open tab. TURN passwords and pairing links are never persisted. Both players must use the current protocol (v2) for right-first turns.
+
+## Table talk and motion
+
+Online duel and team tables include private peer-to-peer chat (240 characters per message, the latest 60 messages) and six reactions. Both peers see the same host-ordered messages. Chat is independent of turns, game revision and AI prompts; messages and reactions stay in memory. A short rate limit prevents reaction floods.
+
+Visible card flights show plays, bank deposits, takes and cards returning flipped. Your hand flips face by face; an opponent’s anonymous card backs flip without exposing their ranks. Controls pause during movement, so the dealer and player do not outrun the animation. The last-move strip also explains the action and changed ranks.
 
 ## Controls and access
 

@@ -21,7 +21,7 @@ try { prefs.options = optionsFor(prefs.options); } catch { prefs.options = {...D
 let aiController=null,aiBusy=false,aiError='',offlineControllers=[],aiHistory=new Map(),matchId='';
 let scene = 'menu', mode = 'solo', game = null, seat = 0, lane = 1, chosen = [], handoff = false, preview = false;
 let session = null, peer = null, linkStatus = 'idle', botTimer = null, generation = 0, lastViewKey = '';
-let pairKind = 'host', pairBusy = false, pairOut = '', pairError = '', pairMessage = '', pairingOpen = false;
+let pairKind = 'host', pairBusy = false, pairOut = '', pairError = '', pairMessage = '', pairingOpen = false, pairOffer = '';
 let chatDraft = '', animating = false, renderedPosition = null, animationGeneration = 0;
 let scanStream = null, scanTimer = null, scanGeneration = 0, canScan = false, toastTimer;
 const bus = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('flip-it-pairing') : null;
@@ -84,7 +84,7 @@ function render() {
   renderedPosition=scene==='game' ? position : null;
   if (animate) {
     const token=++animationGeneration;
-    animateMove(app,before,current.log.at(-1),mySeat()).finally(()=>{if (token!==animationGeneration)return;animating=false;render();scheduleBot();});
+    animateMove(app,before,current.log.at(-1),mySeat(),current).finally(()=>{if (token!==animationGeneration)return;animating=false;render();scheduleBot();});
   }
   if (inputFocus) { const input=document.querySelector('#chat-input'); if(input&&!input.disabled){input.focus({preventScroll:true});input.setSelectionRange(inputFocus.start,inputFocus.end);} }
   if (remembered) {
@@ -141,6 +141,14 @@ document.addEventListener('submit', event => {
   try { session.sendSocial('chat',chatDraft.trim()); chatDraft=''; document.querySelector('#chat-input').value=''; }
   catch(error) { notify(error.message); }
 });
+document.addEventListener('paste', event => {
+  if (event.target.id!=='pair-input' || !pairingOpen || pairKind!=='host' || pairBusy || peer?.connected) return;
+  const input=event.clipboardData?.getData('text');
+  if (!input) return;
+  // Pasting an intact reply finishes the host step; the explicit button remains
+  // available for typed links and browsers without clipboard event data.
+  decodePairing(input,'answer').then(()=>acceptReply(input)).catch(error=>{pairError=error.message;renderPair();});
+});
 function actionValid(actions, action) {
   return actions.some(a => a.kind === action.kind && a.lane === action.lane && a.target === action.target && (a.targetSeat ?? (view().hands.length===2?1-mySeat():-1)) === (action.targetSeat ?? (view().hands.length===2?1-mySeat():-1)) && (!a.cards || a.cards.length === action.cards?.length && a.cards.every(id => action.cards.includes(id))));
 }
@@ -189,7 +197,7 @@ function eventText(e) {
   const who = esc(names()[e.seat]);
   let text = who + (e.kind==='flip' ? ' flipped their hand.' : e.kind==='take' ? ' took ' + e.count + ' cards and flipped them.' : e.kind==='add' ? ' added a ' + e.value + ' to '+esc(names()[e.targetSeat])+'’s set.' : ' played ' + e.count + ' × ' + e.value + '.');
   if (e.cashed) text += ' Cashed out ' + e.cashed + '.';
-  if (e.returned.length) text += ' ' + e.returned.map(r => esc(names()[r.seat]) + ' received ' + r.count + ' flipped cards').join('; ') + '.';
+  if (e.returned.length) text += ' ' + e.returned.map(r => esc(names()[r.seat]) + ' received ' + r.count + ' flipped cards ('+r.from+' → '+r.to.join(', ')+')').join('; ') + '.';
   return text;
 }
 function resetSelection() { chosen = []; preview = false; if (view()) lane = availableLanes(view())[0]; }
@@ -309,13 +317,13 @@ function renderPair() {
     html += '<div class="pair-steps"><div class="pair-step ' + (!pairOut ? 'active' : '') + '">01<br>HOST SHARES AN INVITE</div><div class="pair-step ' + (pairOut ? 'active' : '') + '">02<br>GUEST SHARES A REPLY</div><div class="pair-step">03<br>HOST ACCEPTS. PLAY.</div></div>';
     if (pairKind === 'host') {
       if (pairOut) {
-        html += '<p class="modal-copy">Send this invitation to your friend, or let them scan the QR code. Keep this tab open.</p><label class="label" for="pair-output">YOUR INVITATION</label><textarea id="pair-output" class="link-output" readonly spellcheck="false">' + esc(pairOut) + '</textarea><div class="button-row">' + button('COPY INVITE ↗', 'copy', 'gold') + button('SHARE', 'share', 'dark') + '</div><div class="qr-wrap"><canvas id="pair-qr" aria-label="Scan this invitation QR code"></canvas></div><p class="qr-note">Scan with your phone’s camera to open the invite.</p><hr class="divider"><label class="label" for="pair-input">PASTE YOUR FRIEND’S REPLY LINK</label><textarea id="pair-input" placeholder="Their reply link goes here…" spellcheck="false"></textarea>' + button(pairBusy ? 'CONNECTING…' : 'ACCEPT REPLY →', 'accept-reply', '', pairBusy) + (canScan ? button('SCAN REPLY QR', 'scan-reply', 'outline', pairBusy) : '');
+        html += '<p class="modal-copy">Send this invitation to your friend, or let them scan the QR code. Keep this tab open.</p><label class="label" for="pair-output">YOUR INVITATION</label><textarea id="pair-output" class="link-output" readonly spellcheck="false">' + esc(pairOut) + '</textarea><div class="button-row">' + button('COPY INVITE ↗', 'copy', 'gold') + button('SHARE', 'share', 'dark') + '</div><div class="qr-wrap"><canvas id="pair-qr" aria-label="Scan this invitation QR code"></canvas></div><p class="qr-note">Scan with your phone’s camera to open the invite.</p><hr class="divider"><label class="label" for="pair-input">PASTE YOUR FRIEND’S REPLY LINK</label><textarea id="pair-input" placeholder="Their reply link goes here…" spellcheck="false"></textarea>' + button(pairBusy ? 'CONNECTING…' : 'ACCEPT REPLY →', 'accept-reply', '', pairBusy) + (canScan ? button('SCAN REPLY QR', 'scan-reply', 'outline', pairBusy) : '') + settingsHtml() + button('MAKE A FRESH INVITE','create-invite','outline compact',pairBusy);
       } else {
         html += '<p class="modal-copy">Send the invite. Your friend opens it and sends a reply. Paste that reply here to start playing.</p><p class="modal-copy"><strong>On the table:</strong> ' + 'Flip it' + '</p><label class="team-choice"><input type="checkbox" id="team" ' + (prefs.team ? 'checked' : '') + '> <span>Play together against the dealer<small>Share a hand, discuss the move, win as a team.</small></span></label>' + settingsHtml() + button(pairBusy ? 'PREPARING INVITATION…' : 'CREATE INVITATION ↗', 'create-invite', 'gold', pairBusy);
       }
     } else {
       if (pairOut) {
-        html += '<p class="modal-copy">Your chair is ready. Send this reply to the host. They can open it beside their hosting tab, paste it, or scan it.</p><label class="label" for="pair-output">YOUR REPLY LINK</label><textarea id="pair-output" class="link-output" readonly spellcheck="false">' + esc(pairOut) + '</textarea><div class="button-row">' + button('COPY REPLY ↗', 'copy', 'gold') + button('SHARE', 'share', 'dark') + '</div><div class="qr-wrap"><canvas id="pair-qr" aria-label="Scan this reply QR code"></canvas></div><p class="qr-note">Waiting for the host to accept. Keep this tab open.</p>';
+        html += '<p class="modal-copy">Your chair is ready. Send this reply to the host. They can open it beside their hosting tab, paste it, or scan it.</p><label class="label" for="pair-output">YOUR REPLY LINK</label><textarea id="pair-output" class="link-output" readonly spellcheck="false">' + esc(pairOut) + '</textarea><div class="button-row">' + button('COPY REPLY ↗', 'copy', 'gold') + button('SHARE', 'share', 'dark') + '</div><div class="qr-wrap"><canvas id="pair-qr" aria-label="Scan this reply QR code"></canvas></div><p class="qr-note">Waiting for the host to accept. Keep this tab open.</p>' + settingsHtml() + button('REMAKE REPLY','remake-reply','outline compact',pairBusy);
       } else {
         html += '<p class="modal-copy">Open your friend’s invitation link, paste it below, or scan their invitation. No account needed.</p><label class="label" for="pair-input">INVITATION LINK</label><textarea id="pair-input" placeholder="Paste the invitation link here…" spellcheck="false"></textarea>' + settingsHtml() + button(pairBusy ? 'PREPARING YOUR REPLY…' : 'JOIN THIS TABLE →', 'join-invite', 'gold', pairBusy) + (canScan ? button('SCAN INVITATION QR', 'scan-invite', 'outline', pairBusy) : '');
       }
@@ -331,7 +339,7 @@ function renderPair() {
   }
 }
 async function createInvitation() {
-  prefs.team = Boolean(modal.querySelector('#team')?.checked); savePrefs();
+  prefs.team = modal.querySelector('#team')?.checked ?? prefs.team; savePrefs();
   const config = readConfig();
   pairBusy = true; pairError = ''; pairMessage = 'Finding a direct route. This can take a few seconds.';
   const link = makePeer(0, config);
@@ -346,7 +354,7 @@ async function createInvitation() {
 }
 async function joinInvitation(input) {
   const config = readConfig();
-  await decodePairing(input, 'offer'); // Validate before replacing any live connection.
+  await decodePairing(input, 'offer'); pairOffer=input; // Validate before replacing any live connection.
   pairBusy = true; pairError = ''; pairMessage = 'Preparing your reply. This can take a few seconds.';
   const link = makePeer(1, config); renderPair();
   try {
@@ -454,6 +462,7 @@ document.addEventListener('click',async event=>{
     else if (action==='reconnect-last') { openPair(prefs.lastPlayer?.seat ? 'join' : 'host'); if (!prefs.lastPlayer?.seat && !pairOut) await createInvitation(); }
     else if (action==='reaction') session?.sendSocial('reaction', target.dataset.reaction);
     else if (action==='create-invite') await createInvitation();
+    else if (action==='remake-reply') await joinInvitation(pairOffer);
     else if (action==='join-invite') await joinInvitation(modal.querySelector('#pair-input').value);
     else if (action==='accept-reply') await acceptReply(modal.querySelector('#pair-input').value);
     else if (action==='copy') await copyOutput();

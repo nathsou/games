@@ -4,7 +4,7 @@ export function captureTable(root) {
   const cards = new Map();
   for (const node of root.querySelectorAll('[data-visual-card]')) {
     const space = node.closest('[data-space-seat]'), hand = node.closest('[data-hand-seat]');
-    cards.set(node.dataset.visualCard, {node:node.cloneNode(true), rect:rect(node), face:node.dataset.face,
+    cards.set(node.dataset.visualCard, {node:node.cloneNode(true), rect:rect(node), face:node.dataset.face, rank:Number(node.querySelector('.card-rank:not(.other)').textContent),
       seat:Number(space?.dataset.spaceSeat ?? hand?.dataset.handSeat), lane:space ? Number(space.dataset.spaceLane) : null});
   }
   const hands = new Map([...root.querySelectorAll('[data-hand-seat]')].map(n=>[Number(n.dataset.handSeat),rect(n)]));
@@ -24,7 +24,7 @@ function reversedNode(original) {
   node.style.setProperty('--active-color',node.style.getPropertyValue('--reverse-color')); node.style.setProperty('--reverse-color',ink);
   return node;
 }
-export async function animateMove(root, before, event, ownSeat) {
+export async function animateMove(root, before, event, ownSeat, view) {
   if (!motionEnabled() || !event) return;
   const after=captureTable(root), flights=[], hidden=[];
   const destination = seat => after.hands.get(seat) || rect(root.querySelector('[data-score-seat="'+seat+'"]'));
@@ -61,9 +61,15 @@ export async function animateMove(root, before, event, ownSeat) {
     fly(source,next,next.rect,index++,false,flipped);
   }
   for (const [id,old] of before.cards) {
-    if (after.cards.has(id) || old.lane===null) continue;
+    if (after.cards.has(id)) continue;
+    if (old.lane===null) {
+      if (event.kind==='play' && view.table[event.seat][event.lane].some(c=>c.id===id)) fly(old,null,destination(event.seat),index++);
+      continue;
+    }
     const bank=old.seat===event.seat && old.lane===event.lane;
     const take=event.kind==='take' && old.seat===event.targetSeat && old.lane===event.target;
+    const returned=event.returned.some(r=>r.seat===old.seat && r.from===old.rank);
+    if (!bank && !take && !returned) continue;
     fly(old,null,bank ? rect(root.querySelector('[data-bank]')) : destination(take ? event.seat : old.seat),index++,bank,!bank);
   }
   if (event.kind==='flip' && event.seat!==ownSeat) {
