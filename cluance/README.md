@@ -1,6 +1,6 @@
 # Cluance
 
-A cooperative visual deduction game with original retro pixel art. Play with a friend through manual WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. **No runtime or development packages, CDNs, frameworks, fonts, build step, or backend.**
+A cooperative visual deduction game with original retro pixel art. Play with a friend through link-based WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. **No runtime or development packages, CDNs, frameworks, fonts, build step, or backend.**
 
 ## Run
 
@@ -16,11 +16,11 @@ Open <http://127.0.0.1:4173>. Optionally set `PORT` to use another port. The pre
 
 Publish `cluance/` together with the repository's `shared/` directory. The Pages workflow assembles both alongside the other games when changes reach `main`. The game URL is `https://nathsou.github.io/games/cluance/`; relative imports also support another static host with the same directory layout. The local preview server serves the shared files automatically.
 
-There is no hosted room registry. AI mode makes browser requests directly to the user's selected provider. Multiplayer uses browser-to-browser WebRTC and, by default, a public STUN service for route discovery. No TURN relay is configured, so some restrictive networks cannot connect; the STUN server can be changed or disabled in Settings.
+There is no hosted room registry. AI mode makes browser requests directly to the user's selected provider. Multiplayer uses browser-to-browser WebRTC and, by default, a public STUN service for route discovery. No TURN service is provided; optional relay credentials and STUN addresses can be supplied in the shared invitation controls.
 
 ## Play
 
-- **Play with a friend:** the creator is the clue giver. Create and send an invitation link. The friend opens it, creates a reply code, and sends it back. The creator pastes the reply; both browsers open the shared table. Keep both tabs open. This exchange contains connection metadata, not the secret, hand, notes, or API keys.
+- **Play with a friend:** the creator is the clue giver. Create and send an invitation link. The friend opens it, receives a reply link automatically, and sends it back. The creator pastes the reply; both browsers open the shared table. Keep both tabs open. This exchange contains connection metadata, not the secret, hand, notes, or API keys.
 - **Guess the AI's card:** the AI knows the secret and chooses one clue card and its direction each round.
 - **Give clues to AI:** you know the secret and play clues; the AI chooses cards to eliminate.
 - **Play on one screen:** pass the device between roles using a privacy curtain. No provider key is required.
@@ -88,7 +88,7 @@ These are cooperative games between trusted players. A local browser that runs a
 - `src/context.js`: shared dates and descriptions for all card subjects.
 - `src/art.js`: Canvas card rendering, atlas loading, AI observation images and animated felt.
 - `src/app.js`: accessible native controls, game flow, pairing, local saving, replay and settings.
-- `src/peer.js`: compressed invitation/reply tokens and reliable ordered WebRTC messages.
+- `src/peer.js`: Cluance configuration for the shared invitation tokens and WebRTC transport.
 - `src/ai.js`: image requests and provider-specific authentication, models and reasoning controls.
 - `src/storage.js`, `src/sound.js`: local persistence, audio controls and synthesized arcade sounds.
 - `src/usage.js`: local request ledger, provider usage normalization, captured pricing and spending summaries.
@@ -111,3 +111,7 @@ AI provider/model preferences, reasoning effort, output budget, opt-in remembere
 ## Renaming compatibility
 
 New exports use the `cluance-replay` format and `cluance-…json` filenames. Previous `similo-arcade-replay` files still import, and their optional sealed-note fields remain compatible. The former browser storage keys are retained as migration inputs; shared settings also clear remembered keys from both namespaces when remembering is disabled or keys are forgotten. The game is hosted only at `cluance/`; the former `similo/` redirect has been removed. Credits continue to identify the original game that inspired Cluance.
+
+## Shared invitations
+
+Flip it and Cluance use the same three-step invitation controls and WebRTC transport. Creating an invitation starts automatically; opening or pasting an invitation prepares a reply automatically. Both links support copy, native share and QR codes. Paste the reply into the host tab to connect automatically, or open it in another tab of the same browser to send it to the original host. Connection settings include optional TURN credentials (kept in memory) and STUN configuration. Make a fresh invite or remake a reply to apply changed settings. Replies are bound to their original invitation; another table’s reply is rejected. Previous SIM invitation codes must be regenerated as new CL links. The saved host table still resumes with a fresh invitation.
