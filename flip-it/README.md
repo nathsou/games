@@ -54,6 +54,8 @@ The host owns the authoritative state and sees the dealt hands internally. This 
 
 ## Table talk and motion
 
+Exposed opponent cards sit side by side with both numbers visible. Click or tap their cards to inspect the whole set at a larger size, with upright Top and Flips to labels for each physical card. Crowded strips scroll horizontally; the inspection view follows changes to the public set and never displays hidden hands.
+
 Online duel and team tables include private peer-to-peer chat (240 characters per message, the latest 60 messages) and six reactions. Both peers see the same host-ordered messages. Chat is independent of turns, game revision and AI prompts; messages and reactions stay in memory. A short rate limit prevents reaction floods.
 
 Visible card flights show plays, bank deposits, takes and cards returning flipped. Your hand flips face by face; an opponent’s anonymous card backs flip without exposing their ranks. Controls pause during movement, so the dealer and player do not outrun the animation. The last-move strip also explains the action and changed ranks.
