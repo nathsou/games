@@ -1,5 +1,5 @@
 import {trackArcadeGame} from '../../shared/ai/usage.js';
-import {installThemeControls,saveTheme} from '../../shared/theme.js';
+import {installThemeControls,saveTheme,THEME_KEY} from '../../shared/theme.js';
 import {loadAI} from '../../shared/ai/config.js';
 import {chooseTurn} from '../../shared/ai/turn.js';
 import {openAISettings,aiStatusHtml} from '../../shared/ai/panel.js';
@@ -562,7 +562,7 @@ document.addEventListener('click',async event=>{
     else if(action==='table-settings')showTableSettings();
     else if(action==='house-rules')showHouseRules();
     else if(action==='table-style'){prefs.table=prefs.table==='wood'?'felt':'wood';savePrefs();applySettings();render();}
-    else if(action==='theme-toggle'){saveTheme(document.documentElement.dataset.colorTheme==='light'?'dark':'light');render();}
+    else if(action==='theme-toggle')saveTheme(document.documentElement.dataset.colorTheme==='light'?'dark':'light');
     else if(action==='match-target'){prefs.options.target=Number(target.dataset.target);savePrefs();render();showHouseRules();}
     else if(action==='house-option'){prefs.options[target.dataset.key]=target.dataset.value==='true';savePrefs();render();showHouseRules();}
     else if (action==='start-game') startOffline(localHumans()===2?'local':'solo');
@@ -697,6 +697,11 @@ async function handleHash() {
 window.addEventListener('hashchange',handleHash);
 window.addEventListener('pagehide',()=>{pauseReplay();stopAI();stopScan();clearTimeout(botTimer);peer?.close();bus?.close();});
 if (typeof BarcodeDetector!=='undefined' && navigator.mediaDevices?.getUserMedia) BarcodeDetector.getSupportedFormats().then(formats=>{canScan=formats.includes('qr_code');if(pairingOpen)renderPair();}).catch(()=>{});
+installThemeControls(document.querySelector('.topbar nav'));
+function refreshThemeLabel(){for(const control of app.querySelectorAll('[data-action=theme-toggle]'))control.textContent=document.documentElement.dataset.colorTheme==='light'?'Night':'Day';}
+window.addEventListener('games-theme-change',refreshThemeLabel);
+window.addEventListener('storage',event=>{if(event.key===THEME_KEY)refreshThemeLabel();});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>queueMicrotask(refreshThemeLabel));
 restoreTable();applySettings();render();handleHash();
 // Read-only, redacted diagnostics for browser playtests. No action or private
 // host state is exported; tests must interact through the actual controls.
@@ -704,5 +709,3 @@ Object.defineProperty(window,'__flipit',{value:{
   get state(){return view()?structuredClone(view()):null;},
   get mode(){return mode;},get seat(){return mySeat();},get connected(){return connected();},get handoff(){return handoff;}
 }});
-
-installThemeControls(document.querySelector('.topbar nav'));

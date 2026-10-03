@@ -1892,7 +1892,7 @@ summary {
   }
 }
 
-@media(min-width:761px) and (max-height:800px) {
+@media(min-width:761px) {
   #app {
     padding:14px 16px 8px
   }
@@ -2341,7 +2341,7 @@ b,strong {
   max-width:33ch
 }
 
-@media(min-width:761px) and (max-height:800px) {
+@media(min-width:761px) {
   .lobby-panel {
     gap:11px;
     max-height:calc(100dvh - 58px);
@@ -2407,7 +2407,7 @@ b,strong {
   }
 }
 
-@media(min-width:761px) and (max-height:800px) {
+@media(min-width:761px) {
   .rival-zone>.zone-title {
     min-height:48px
   }
@@ -2518,7 +2518,7 @@ b,strong {
   min-width:110px
 }
 
-@media(min-width:761px) and (max-height:800px) {
+@media(min-width:761px) {
   .sidebar {
     gap:9px
   }
@@ -2620,7 +2620,7 @@ b,strong {
   opacity:.45
 }
 
-@media(min-width:761px) and (max-height:800px) {
+@media(min-width:761px) {
   .table-size-4 .rivals .play-space,.table-size-5 .rivals .play-space {
     padding:6px 8px;
     gap:3px
@@ -2662,7 +2662,7 @@ b,strong {
   }
 }
 
-@media(min-width:761px) and (max-height:800px) {
+@media(min-width:761px) {
   .table-size-4>.zone-title,.table-size-5>.zone-title {
     display:none
   }
@@ -2720,9 +2720,60 @@ dialog #chat-list {
   min-height:100px
 }
 
-@media(min-width:761px) and (max-height:800px) {
+@media(min-width:761px) {
   .lobby-panel {
     gap:10px;
     max-height:calc(100dvh - 64px)
   }
+}
+
+@media(min-width:761px) {
+  #app { padding:14px 16px 8px; }
+  .lobby-panel { align-self:start; }
+}
+@media(min-width:761px) and (min-height:850px) {
+  .hand { --card-w:84px; min-height:156px; padding-top:30px; }
+  .hand.crowded { --card-w:64px; }
+  .space-cards { min-height:74px; }
+  .space-empty { min-height:68px; }
+  .space-cards .flip-card { --card-w:50px; margin-left:-25px; }
+  .table-instruction { font-size:42px; }
+  .table-instruction small { font-size:22px; }
+  .table-size-4 .hand,.table-size-5 .hand { --card-w:68px; min-height:128px; }
+}
+/* Cards capture a drag gesture; the surrounding table still scrolls on phones. */
+.hand [data-card],.rival-space[data-action] .space-cards { touch-action:none; }
+/* Shared model controls adopt the game's HUD without changing AI behavior. */
+html[data-game=flip-it] .arcade-ai-dialog {
+  background:var(--hud);
+  color:var(--paper);
+  border:0;
+  padding:28px;
+  font:22px/1.2 var(--font);
+  box-shadow:inset 0 0 0 4px var(--k),inset 0 0 0 8px var(--edge),0 8px #00000059;
+}
+html[data-game=flip-it] .arcade-ai-dialog::backdrop { background:#0a0610cc; }
+html[data-game=flip-it] .arcade-ai-dialog h2 { color:var(--amber); }
+html[data-game=flip-it] .arcade-ai-dialog label { color:var(--soft); font-size:20px; }
+html[data-game=flip-it] .arcade-ai-dialog small { color:var(--soft); font-size:18px; }
+html[data-game=flip-it] .arcade-ai-dialog a { color:var(--amber); }
+html[data-game=flip-it] .arcade-ai-dialog .ai-error { color:var(--coral); }
+html[data-game=flip-it] .arcade-ai-dialog input:not([type=checkbox]),
+html[data-game=flip-it] .arcade-ai-dialog select {
+  color:var(--cream);
+  background:var(--k);
+  border:0;
+  font:22px/1.2 var(--font);
+}
+html[data-game=flip-it] .arcade-ai-dialog button {
+  color:var(--k);
+  background:var(--aqua);
+  border-radius:8px;
+  box-shadow:0 4px #138a9c,inset 0 0 0 3px var(--k);
+  font:26px/1 'Jersey 10';
+}
+html[data-game=flip-it] .arcade-ai-dialog button[data-ai=close],
+html[data-game=flip-it] .arcade-ai-dialog button[data-ai=forget] {
+  background:var(--coral);
+  box-shadow:0 4px #a82f35,inset 0 0 0 3px var(--k);
 }
