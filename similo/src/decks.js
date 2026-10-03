@@ -1,3 +1,5 @@
+import {CARD_CONTEXT} from './context.js';
+
 const definitions = {
   french: {
     name: 'French History', subtitle: 'Crowns, revolutions & brilliant minds', color: '#e68b68', symbol: '⚜',
@@ -147,7 +149,7 @@ const definitions = {
 
 export const DECKS = Object.fromEntries(Object.entries(definitions).map(([id, deck]) => [id, {
   ...deck, id, kind: deck.kind || 'people', atlas: `assets/${id}.webp`,
-  cards: deck.cards.map(([name, subtitle], index) => ({id: `${id}-${index}`, deck: id, index, name, subtitle})),
+  cards: deck.cards.map(([name, subtitle], index) => ({id: `${id}-${index}`, deck: id, index, name, subtitle, ...CARD_CONTEXT[name]})),
 }]));
 export const CARDS = Object.fromEntries(Object.values(DECKS).flatMap(d => d.cards).map(c => [c.id, c]));
 export const THEME_IDEAS = [
