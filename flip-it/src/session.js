@@ -2,21 +2,31 @@ import {createMatch, applyAction, playerView, optionsFor, makeDeck, valueOf} fro
 import {randomHex} from './peer.js';
 
 const integer = (value, max) => Number.isInteger(value) && value >= 0 && value <= max;
-export function validateView(view, visibleSeat) {
+export const REACTIONS = Object.freeze(['👏', '🔥', '😮', '😂', '💀', '💚']);
+export function validateSocial(message) {
+  if (!message || !['chat', 'reaction'].includes(message.kind) || typeof message.text !== 'string' ||
+      !message.text.trim() || message.text.length > 240 ||
+      message.kind === 'reaction' && !REACTIONS.includes(message.text)) throw new Error('Invalid chat message.');
+  return message;
+}
+export function validateView(view, visibleSeat, {legacySpaces=false} = {}) {
   const seats = view?.hands?.length, players = Array.from({length:Number.isInteger(seats)?seats:0},(_,i)=>i);
   if (!view || !Number.isInteger(seats) || seats < 2 || seats > 5 || !players.includes(visibleSeat)) throw new Error('Invalid game update.');
   const options = optionsFor(view.options), deck = makeDeck(options.compactDeck);
   if (!integer(view.revision, 2000000) || !integer(view.round, 10000) || !integer(view.moves, 10000) ||
-      !['playing', 'roundOver', 'matchOver'].includes(view.phase) || !players.includes(view.turn) || ![0, 1].includes(view.beat) ||
+      !['playing', 'roundOver', 'matchOver'].includes(view.phase) || !players.includes(view.turn) || ![0, 1].includes(view.beat) || typeof view.opening !== 'boolean' ||
       ![null,...players].includes(view.pending) || !integer(view.discardCount, deck.length) ||
-      !Array.isArray(view.scores) || view.scores.length !== seats || view.scores.some(n => !integer(n, 2)) ||
+      !Array.isArray(view.scores) || view.scores.length !== seats || view.scores.some(n => !integer(n, options.target)) ||
       !Array.isArray(view.hands) || view.hands.length !== seats || view.hands.some(h => !Array.isArray(h) || h.length > deck.length) ||
       !Array.isArray(view.table) || view.table.length !== seats || view.table.some(row => !Array.isArray(row) || row.length !== 2 || row.some(s => !Array.isArray(s) || s.length > 8))) throw new Error('Invalid game update.');
+  if (view.id !== undefined && (typeof view.id !== 'string' || !/^[a-f0-9]{32}$/.test(view.id)) ||
+      view.firstPlayer !== undefined && !players.includes(view.firstPlayer) ||
+      !legacySpaces && options.quickTurns && view.table.some(row=>row[1].length)) throw new Error('Invalid play spaces.');
   if (!integer(view.repliesRemaining, seats-1) || (view.pending === null) !== (view.repliesRemaining === 0)) throw new Error('Invalid reply window.');
   const seen = new Set(), sizes = new Set();
   function checkCard(card) {
     const source = deck.find(c => c.id === card?.id);
-    if (!source || !Array.isArray(card.ends) || card.ends.length !== 2 || card.ends.some((n, i) => n !== source.ends[i]) || ![0, 1].includes(card.face) || seen.has(card.id)) throw new Error('Invalid card update.');
+    if (!source || !Array.isArray(card.ends) || card.ends.length !== 2 || card.ends.some((n, i) => n !== source.ends[i]) || ![0, 1].includes(card.face) || seen.has(card.id) || card.star !== undefined && card.star !== source.star) throw new Error('Invalid card update.');
     seen.add(card.id);
   }
   for (const card of view.hands[visibleSeat]) checkCard(card);
@@ -33,7 +43,7 @@ export function validateView(view, visibleSeat) {
       view.result !== null && !resultOK(view.result) || !Array.isArray(view.log) || view.log.length > 12) throw new Error('Invalid round update.');
   const ended = view.phase !== 'playing';
   if (ended !== (view.result !== null) || ended && (view.pending !== null || view.result.round !== view.round + 1) ||
-      (view.phase === 'matchOver') !== view.scores.includes(2) ||
+      (view.phase === 'matchOver') !== view.scores.includes(options.target) ||
       view.history.length !== view.round + Number(ended) ||
       view.scores.some((score, seat) => score !== view.history.filter(r => r.winner === seat).length)) throw new Error('Inconsistent round update.');
   for (const event of view.log) {
@@ -45,22 +55,40 @@ export function validateView(view, visibleSeat) {
   return view;
 }
 export class FlipSession {
-  constructor({seat = 0, name = 'You', options, team = false, aiPlayers = [], onUpdate = () => {}, onError = () => {}} = {}) {
+  constructor({seat = 0, name = 'You', options, team = false, aiPlayers = [], onUpdate = () => {}, onError = () => {}, onSocial = () => {}} = {}) {
     this.seat = seat; this.team = team; this.options = optionsFor(options);
     this.aiPlayers = aiPlayers.filter(t=>['dealer','model'].includes(t)).slice(0, team?4:3);
     if (team && !this.aiPlayers.length) this.aiPlayers=['dealer'];
     this.controllers = [...Array(team?1:2).fill('human'),...this.aiPlayers];
     this.members = seat ? ['Host', name] : [name, 'Friend'];
     this.onUpdate = onUpdate; this.onError = onError;
+    this.onSocial = onSocial; this.messages = []; this.socialSequence = 0; this.lastSocial = [-Infinity, -Infinity];
     this.state = null; this.view = null; this.epoch = null;
     this.ready = [false, false]; this.movePending = false; this.readyForPlay = false;
   }
-  get names() { return [...(this.team?[(this.members[0]+' + '+this.members[1]).slice(0,40)]:this.members),...this.controllers.filter(t=>t!=='human').map((t,i)=>(t==='model'?'AI ':'Dealer ')+(i+1))]; }
-  setPeer(peer) { this.peer = peer; this.movePending = false; this.readyForPlay = false; this.ready = [false, false]; if (!this.seat && this.state) this.epoch = randomHex(8); }
+  get names() { return [...(this.team?[(this.members[0]+' + '+this.members[1]).slice(0,40)]:this.members),...this.controllers.filter(t=>t!=='human').map((t,i)=>(t==='model'?'AI ':'Bot ')+(i+1))]; }
+  setPeer(peer) { this.peer = peer; this.movePending = false; this.readyForPlay = false; this.ready = [false, false]; if (this.seat) this.socialSequence = 0; if (!this.seat && this.state) { this.epoch = randomHex(8); this.state.id ||= randomHex(16); } }
   opened() { this.peer.send({type: 'hello', name: this.members[this.seat]}); }
+  sendSocial(kind, text) {
+    if (!this.peer?.connected || !this.readyForPlay) throw new Error('Reconnect to send a message.');
+    const message = {type: 'social', epoch: this.epoch, kind, text};
+    validateSocial(message);
+    if (Date.now() - this.lastSocial[this.seat] < 500) throw new Error('Give it a moment before sending again.');
+    this.lastSocial[this.seat] = Date.now();
+    if (this.seat) this.peer.send(message);
+    else this.publishSocial(message, 0);
+  }
+  publishSocial(message, seat) {
+    const entry = {kind: message.kind, text: message.text, seat, sequence: ++this.socialSequence};
+    this.peer.send({type: 'social-entry', epoch: this.epoch, entry});
+    this.addSocial(entry);
+  }
+  addSocial(entry) {
+    this.messages.push(entry); this.messages = this.messages.slice(-60); this.onSocial(entry);
+  }
   start(options = this.options, seed = crypto.getRandomValues(new Uint32Array(1))[0]) {
     if (this.seat || !this.peer?.connected) throw new Error('The connected host deals the match.');
-    this.options = optionsFor(options); this.state = createMatch(this.options, seed, 0, this.controllers.length); this.epoch = randomHex(8);
+    this.options = optionsFor(options); this.state = createMatch(this.options, seed, 0, this.controllers.length); this.state.id = randomHex(16); this.epoch = randomHex(8);
     this.ready = [false, false]; this.readyForPlay = true; this.sync();
   }
   sync() {
@@ -97,6 +125,20 @@ export class FlipSession {
         if (typeof message.name !== 'string' || message.name.length > 24) throw new Error('Invalid player name.');
         this.members[1 - this.seat] = message.name || 'Friend';
         if (!this.seat) { this.readyForPlay = true; if (this.state) this.sync(); else this.start(); }
+        return;
+      }
+      if (message.type === 'social' || message.type === 'social-entry') {
+        if (!this.readyForPlay || message.epoch !== this.epoch) throw new Error('This message belongs to an earlier connection.');
+        if (message.type === 'social' && !this.seat) {
+          validateSocial(message);
+          if (Date.now() - this.lastSocial[1] < 500) return;
+          this.lastSocial[1] = Date.now(); this.publishSocial(message, 1);
+        } else if (message.type === 'social-entry' && this.seat) {
+          const entry = message.entry; validateSocial(entry);
+          if (![0, 1].includes(entry.seat) || !Number.isSafeInteger(entry.sequence) || entry.sequence < 1) throw new Error('Invalid chat message.');
+          if (entry.sequence <= this.socialSequence) return;
+          this.socialSequence = entry.sequence; this.addSocial(entry);
+        } else throw new Error('Unexpected chat message.');
         return;
       }
       if (message.type === 'state' && this.seat) {

@@ -5,7 +5,7 @@ import {botAction} from '../src/bot.js';
 import {validateView} from '../src/session.js';
 
 function fixture({hands = [[2], [3]], table = [[[], []], [[], []]], options = {}, turn = 0, beat = 0, pending = null} = {}) {
-  const state = createMatch(options, 7), pool = makeDeck(state.options.compactDeck);
+  const state = createMatch({...options, ...(table.some(row=>row[1].length)?{quickTurns:false}:{})}, 7), pool = makeDeck(state.options.compactDeck);
   function take(rank) {
     const index = pool.findIndex(c => c.ends.includes(rank));
     assert.ok(index >= 0, 'fixture has enough cards');
@@ -29,7 +29,7 @@ test('Both decks have balanced ranks and four possible reverse values per rank',
   }
 });
 test('Options are independent, strict booleans, and default to the recommended preset', () => {
-  assert.deepEqual(optionsFor(), {quickTurns: true, compactDeck: true, lastChance: true});
+  assert.deepEqual(optionsFor(), {quickTurns: true, compactDeck: true, lastChance: true, target: 2});
   assert.throws(() => optionsFor({compactDeck: 'false'})); assert.throws(() => optionsFor({unknown: true}));
 });
 test('A higher matching-size set returns the opponent cards flipped', () => {
@@ -57,19 +57,19 @@ test('A blocked add is forbidden, and taking transfers the entire set flipped', 
   assert.equal(next.hands[0].length, 3); assert.equal(next.hands[1].length, 1);
   assert.equal(next.hands[0].find(c => c.id === card.id).face, 1 - card.face); assertState(next);
 });
-test('Double turns have a one-action opener and fixed left/right order', () => {
+test('Double turns use right then left, with only the right action for the opener', () => {
   let state = createMatch({quickTurns: false}, 123);
-  assert.equal(state.turn, 0); assert.equal(state.beat, 1);
-  assert.throws(() => applyAction(state, 0, {kind: 'flip', lane: 0}));
-  state = applyAction(state, 0, {kind: 'flip', lane: 1}); assert.equal(state.turn, 1); assert.equal(state.beat, 0);
-  state = applyAction(state, 1, {kind: 'flip', lane: 0}); assert.equal(state.turn, 1); assert.equal(state.beat, 1);
-  state = applyAction(state, 1, {kind: 'flip', lane: 1}); assert.equal(state.turn, 0); assert.equal(state.beat, 0);
+  const first=state.firstPlayer,other=1-first;assert.equal(state.turn,first);assert.equal(state.beat,1);
+  assert.throws(() => applyAction(state, first, {kind: 'flip', lane: 0}));
+  state = applyAction(state, first, {kind: 'flip', lane: 1}); assert.equal(state.turn, other); assert.equal(state.beat, 1);
+  state = applyAction(state, other, {kind: 'flip', lane: 1}); assert.equal(state.turn, other); assert.equal(state.beat, 0);
+  state = applyAction(state, other, {kind: 'flip', lane: 0}); assert.equal(state.turn, first); assert.equal(state.beat, 1);
 });
 test('Last chance gives exactly one response, including an interrupted double turn', () => {
   let state = fixture({hands: [[4], [5, 1]], options: {quickTurns: false}, beat: 0});
   state = applyAction(state, 0, {kind: 'play', lane: 0, cards: [state.hands[0][0].id]});
   assert.equal(state.phase, 'playing'); assert.equal(state.pending, 0); assert.equal(state.turn, 1);
-  state = applyAction(state, 1, {kind: 'play', lane: 0, cards: [state.hands[1][0].id]});
+  state = applyAction(state, 1, {kind: 'play', lane: 1, cards: [state.hands[1][0].id]});
   assert.equal(state.pending, null); assert.equal(state.hands[0].length, 1); assert.equal(state.phase, 'playing'); assertState(state);
 });
 test('An uncountered empty hand wins; if both are empty the first finisher wins', () => {
@@ -95,7 +95,7 @@ test('Repeated positions draw and redeal instead of trapping players in a flip l
   while (state.phase === 'playing') state = applyAction(state, state.turn, {kind: 'flip', lane: 0});
   assert.equal(state.result.reason, 'repeat'); assert.equal(state.result.winner, null);
   const round = state.round; state = applyAction(state, 0, {kind: 'next'});
-  assert.equal(state.round, round + 1); assert.equal(state.turn, 1); assertState(state);
+  assert.equal(state.round, round + 1); assert.equal(state.turn,state.hands.findIndex(h=>h.some(c=>c.star))); assertState(state);
 });
 test('Views hide opponent ranks and seed, and reject malformed updates', () => {
   const state = createMatch({}, 654);
@@ -142,4 +142,55 @@ test('The action cap draws ordinary play but lets the pending last chance finish
   assert.equal(state.pending,0);assert.equal(state.phase,'playing');
   state=applyAction(state,1,{kind:'flip',lane:0});
   assert.equal(state.result.reason,'survived');assert.equal(state.moves,181);validateView(playerView(state,1),1);assertState(state);
+});
+
+test('quick turns expose a single legal space and reject occupied retired spaces',()=>{
+  const state=createMatch({},7);assert(legalActions(state).every(a=>a.lane===0));
+  assert.throws(()=>applyAction(state,0,{kind:'flip',lane:1}));
+  const bad=playerView(state,0);bad.table[0][1].push(bad.hands[0].pop());
+  assert.throws(()=>validateView(bad,0),/play spaces/);
+});
+
+test('exactly one physical starred card chooses the opener on every fresh deal',()=>{
+  for(const compactDeck of[true,false]){
+    const deck=makeDeck(compactDeck);assert.equal(deck.filter(c=>c.star).length,1);
+    for(let players=2;players<=5;players++){
+      const recipients=new Set();
+      for(let seed=1;seed<=25;seed++){
+        let state=createMatch({compactDeck,quickTurns:false},seed,seed%players,players);
+        for(let round=0;round<2;round++){
+          const owner=state.hands.findIndex(h=>h.some(c=>c.star));recipients.add(owner);
+          assert.equal(state.turn,owner);assert.equal(state.firstPlayer,owner);assert.equal(state.beat,1);assert.equal(state.opening,true);
+          assert.equal([...state.hands.flat(),...state.table.flat(2),...state.discard].filter(c=>c.star).length,1);
+          const flipped=applyAction(state,owner,{kind:'flip',lane:1});
+          assert.equal(flipped.hands[owner].find(c=>c.star).id,'c0');assert.equal(flipped.firstPlayer,owner);
+          while(state.phase==='playing')state=applyAction(state,state.turn,{kind:'flip',lane:state.beat});
+          state=applyAction(state,0,{kind:'next'});assertState(state);
+        }
+      }
+      assert.equal(recipients.size,players,'any seat can receive the star');
+    }
+  }
+});
+test('a star cannot be forged onto an ordinary public card',()=>{
+  const state=createMatch({},3),view=playerView(state,state.turn);
+  view.hands[state.turn].find(c=>c.id!=='c0').star=true;
+  assert.throws(()=>validateView(view,state.turn),/card update/);
+});
+
+test('match targets 1–5 finish at the chosen score and reject invalid targets',()=>{
+  for(const target of [1,2,3,4,5]){
+    let state=fixture({hands:[[6],[1]],options:{target,lastChance:false}});
+    state.scores=[target-1,0];
+    state=applyAction(state,0,{kind:'play',lane:0,cards:[state.hands[0][0].id]});
+    assert.equal(state.phase,'matchOver');assert.equal(state.scores[0],target);
+    assert.throws(()=>applyAction(state,0,{kind:'next'}));
+    if(target>1){
+      let early=fixture({hands:[[6],[1]],options:{target,lastChance:false}});
+      early=applyAction(early,0,{kind:'play',lane:0,cards:[early.hands[0][0].id]});
+      assert.equal(early.phase,'roundOver');early=applyAction(early,0,{kind:'next'});
+      assert.equal(early.options.target,target);assert.equal(early.round,1);
+    }
+  }
+  for(const target of [0,6,1.5,true,'3',null])assert.throws(()=>optionsFor({target}));
 });

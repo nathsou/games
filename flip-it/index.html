@@ -1,22 +1,20 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-game="flip-it">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#123c3a">
   <meta name="description" content="A little friendly rivalry. Flip cards, build sets and outwit your favourite opponent at a quick two-to-five-player table.">
-  <title>Flip it · A little friendly rivalry</title>
+  <title>Flip it · The double-number card game</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="../shared/theme.css">
 </head>
 <body>
   <div class="grain" aria-hidden="true"></div>
+  <main id="app"></main>
   <header class="topbar">
-    <a class="brand" href="./" aria-label="Flip it home">FLIP<span>↕</span>IT<span class="brand-star">✦</span></a>
     <nav aria-label="Game controls"><a href="../">All games ↗</a><button id="sound" type="button">Sound OFF</button><button id="effects" type="button">FX ON</button></nav>
   </header>
-  <main id="app"></main>
   <footer class="footer"><span>Two sides to every card. A little twist to every plan.</span><span>2–5 players · No accounts · One more round</span></footer>
   <dialog id="modal" aria-labelledby="modal-title"><div id="modal-content"></div></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
