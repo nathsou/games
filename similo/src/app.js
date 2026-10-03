@@ -36,7 +36,7 @@ function showModal(title,eyebrow,body) {
   $('modal-close').onclick=()=>modal.close();
   if (!modal.open) modal.showModal();
 }
-modal.addEventListener('click',event=>{if(event.target===modal){const rect=modal.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)modal.close();}});
+modal.addEventListener('click',event=>{if(event.target===modal&&!$('modal-close')?.hidden){const rect=modal.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)modal.close();}});
 modal.addEventListener('close',()=>{
   if(pairingKind && !peer?.connected){peer?.close();peer=null;pairingKind=null;pairingBusy=false;updateConnection();}
 });
@@ -115,15 +115,20 @@ function showPassScreen(){
 function renderGame(){
   if(!game)return;
   if(game.phase==='over'){screen='reveal';renderReveal();return;}
+  const focused=document.activeElement;
+  const focusedId=focused?.id;
+  const focusedCard=focused?.closest?.('.card');
+  const focusZone=focusedCard?.closest('#board,#hand')?.id;
   screen='game';const view=currentView(), role=humanRole(), myTurn=isHumanTurn();
   const turnTitle=myTurn?(role==='giver'?'Make a connection.':`Remove ${REMOVALS[view.round]} ${REMOVALS[view.round]===1?'character.':'characters.'}`):(aiBusy?'Your partner is thinking.':role==='giver'?'Your partner is guessing.':'A clue is on its way.');
   const turnCopy=myTurn?(role==='giver'?'Pick a card from your hand. Does it share a trait with the secret, or suggest a difference?':'Keep the secret character on the table. Every clue still counts. Click cards to mark them for removal.'):
     isPeer()?'The next move belongs to your friend. Their interpretation stays sealed until the reveal.':'Your AI partner sees only the information allowed for its role. Its explanation stays sealed.';
+  const latest=view.history.at(-1);
   app.innerHTML=`<div class="game-heading"><div><p class="eyebrow">${esc(DECKS[view.theme].name)} · ${view.variant==='fixed'?'Fixed five':'Classic hand'}</p><h1>Find the one.</h1><p>${mode==='local'?'One-screen play':isPeer()?'Two browsers. One shared victory.':`With ${esc(settings.models[settings.provider])}`} · You are the ${role==='giver'?'clue giver':'guesser'}.</p></div><div class="controls"><button class="button small secondary" id="leave-table">Leave table</button></div></div>
   <div class="table-layout"><section class="board-section"><div class="board-label"><span>THE CHARACTERS</span><span>${remaining(view).length} STILL IN PLAY</span></div><div class="board" id="board"></div>
   <section class="history-section"><div class="section-title"><h2>THE CLUE TRAIL</h2><span>All clues remain relevant.</span></div><div class="clue-history" id="clue-history"></div></section>
   ${role==='giver'?`<section class="hand-section"><div class="section-title"><h2>YOUR PRIVATE HAND</h2><span>${view.variant==='fixed'?`${view.hand.length} LEFT · NO REFILLS`:'5 CARDS · REFILLS AFTER PLAY'}</span></div><div class="hand" id="hand"></div></section>`:''}</section>
-  <aside class="side-panel"><p class="eyebrow">Round ${view.round+1} / 5</p><div class="round-track">${REMOVALS.map((n,i)=>`<span class="round-step ${i===view.round?'current':i<view.round?'done':''}" title="Round ${i+1}: remove ${n}">${i<view.round?'✓':n}</span>`).join('')}</div><h2 class="turn-title">${turnTitle}</h2><p class="turn-copy">${turnCopy}</p>
+  <aside class="side-panel"><p class="eyebrow">Round ${view.round+1} / 5</p><div class="round-track">${REMOVALS.map((n,i)=>`<span class="round-step ${i===view.round?'current':i<view.round?'done':''}" title="Round ${i+1}: remove ${n}">${i<view.round?'✓':n}</span>`).join('')}</div>${latest?`<div class="current-clue ${latest.relation}"><div id="current-clue-art"></div><div><small>CLUE ${latest.round}</small><p>${esc(CARDS[latest.card].name)}</p><strong>${latest.relation==='similar'?'↑ Similar':'→ Different'}</strong></div></div>`:''}<h2 class="turn-title">${turnTitle}</h2><p class="turn-copy">${turnCopy}</p>
   ${role==='giver'?'<div class="secret-preview"><div id="secret-preview"></div><div><p>'+esc(CARDS[view.secret].name)+'</p><small>Your secret character.<br>Keep it on the table.</small></div></div>':''}
   ${myTurn?`<form id="turn-form" class="turn-form">${role==='giver'?`<span class="field-label">The connection</span><div class="segmented"><button type="button" id="similar" class="${relation==='similar'?'selected':''}" aria-pressed="${relation==='similar'}">↑ Similar</button><button type="button" id="different" class="${relation==='different'?'selected':''}" aria-pressed="${relation==='different'}">→ Different</button></div>`:''}<label class="private-label" for="turn-note">Your interpretation <span>SEALED UNTIL THE END</span></label><textarea id="turn-note" maxlength="1200" placeholder="Optional: what connection are you making?">${esc(draftNote)}</textarea><button class="button wide ${role==='guesser'?'danger':''}" id="confirm-move" type="submit">${role==='giver'?'Play this clue ↑':'Confirm removal ×'}</button><p class="selection-count" id="selection-count"></p></form>`:''}
   ${aiBusy?'<div class="thinking" role="status"><i></i><i></i><i></i><span>Reading the table…</span></div><button class="text-button" id="cancel-ai">Cancel request</button>':''}
@@ -138,7 +143,10 @@ function renderGame(){
     attachInspect(element,id);
   }
   renderClues($('clue-history'),view.history);
+  if(latest)mountCard($('current-clue-art'),latest.card,{interactive:true,onClick:()=>inspectCard(latest.card)});
   if(role==='giver'){
+    const section=$('hand').closest('.hand-section');
+    $('board').parentElement.insertBefore(section,$('board').parentElement.querySelector('.history-section'));
     mountCard($('secret-preview'),view.secret);
     for(const id of view.hand){const element=mountCard($('hand'),id,{interactive:true,className:clueCard===id?'chosen':'',onClick:()=>{if(myTurn){clueCard=id;sound('select');renderGame();}else inspectCard(id);}});attachInspect(element,id);}
   }
@@ -153,6 +161,8 @@ function renderGame(){
   if($('fix-ai'))$('fix-ai').onclick=openSettings;
   if($('cancel-ai'))$('cancel-ai').onclick=()=>{cancelAI();aiError='Request cancelled. Retry when you’re ready.';renderGame();};
   if($('reconnect'))$('reconnect').onclick=()=>openPairing(mode==='peer-host'?'host':'guest',true);
+  if(focusedId && $(focusedId))$(focusedId).focus({preventScroll:true});
+  else if(focusZone && focusedCard){const replacement=$(focusZone)?.querySelector(`[data-card="${focusedCard.dataset.card}"]`);replacement?.focus({preventScroll:true});}
 }
 function renderClues(parent,history){
   if(!history.length){parent.innerHTML='<p class="empty-clues">The first clue will appear here. Similar ↑ · Different →</p>';return;}
@@ -350,7 +360,7 @@ function showRules(){
 }
 function showThemeIdeas(){showModal('More worlds to interpret.','Future deck ideas',`<div class="theme-ideas">${THEME_IDEAS.map(([name,description])=>`<div class="theme-idea"><h3>${esc(name)}</h3><p>${esc(description)}</p></div>`).join('')}</div><p class="help-text">The six illustrated decks are available now. These are suggestions for future additions.</p>`);}
 function showCollection(theme){
-  showModal('The card collection.','Six illustrated worlds',`<label class="field-label" for="collection-theme">Deck</label><select id="collection-theme">${options(Object.values(DECKS).map(d=>[d.id,d.name]),theme)}</select><div class="collection-grid" id="collection-grid"></div><p class="help-text">Select a card to see its full illustration.</p>`);
+  showModal('The card collection.','Six illustrated worlds',`<label class="field-label" for="collection-theme">Deck</label><select id="collection-theme">${options(Object.values(DECKS).map(d=>[d.id,d.name]),theme)}</select><div class="collection-grid" id="collection-grid"></div><p class="help-text">Select a card to inspect its illustration up close.</p>`);
   for(const card of DECKS[theme].cards)mountCard($('collection-grid'),card.id,{interactive:true,onClick:()=>inspectCard(card.id)});
   $('collection-theme').onchange=event=>showCollection(event.target.value);
 }
