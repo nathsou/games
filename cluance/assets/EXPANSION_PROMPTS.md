@@ -1,5 +1,9 @@
 # Expansion and redesign image-generation prompts
 
+The separate [French Departments artwork](DEPARTMENT_PROMPTS.md) documents the 101-card deck and scene corrections.
+
+The later [forty-card theme expansion](FORTY_CARD_PROMPTS.md) records all 100 additional illustrations and accepted correction mappings.
+
 PNG names below identify the original generated artwork. Only the WebP runtime versions are retained in Git.
 
 Original expansion generated with the built-in imagegen tool on 2026-10-03; the Musicians additions below were completed on 2026-10-04. The tool does not expose a model selector. PNGs retain the original generated pixels; WebP delivery files use quality 94. All additions are original illustrations, not copied Similo artwork.

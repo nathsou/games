@@ -1,6 +1,7 @@
 import {CARD_CONTEXT, REGION_2015_CONTEXT} from './context.js';
 import {EXPANSION} from './expansion.js';
 import {ART_OVERRIDES} from './artwork.js';
+import {DEPARTMENT_CARDS} from './departments.js';
 
 // Preserve the original subjects and artwork when opening an older saved game.
 const legacyRegions = [
@@ -134,9 +135,9 @@ const definitions = {
     ],
   },
   regions: {
-    name: 'French Regions', subtitle: '27 regions of 2015 & 3 historical provinces', color: '#d1bb83', symbol: '◒', preview: 3, kind: 'places',
+    name: 'French Regions', subtitle: '27 administrative regions of 2015', color: '#d1bb83', symbol: '◒', preview: 3, kind: 'places',
     atlas:'assets/regions-2015.webp', columns:6, rows:5, cardPrefix:'regions-2015',
-    description:'All 27 regions as they stood on 31 December 2015: 22 metropolitan regions, including Corsica, and five overseas regions. Three additional cards depict explicitly labelled historical provinces: Anjou, Touraine and Provence. These are not administrative regions of 2015. No post-2016 mergers.',
+    description:'All 27 administrative regions as they stood on 31 December 2015: 22 metropolitan regions, including Corsica, and five overseas regions. Historical provinces and territories are excluded. No post-2016 mergers.',
     cards: [
       ['Alsace', 'Storks, timbered houses and canals'], ['Aquitaine', 'Atlantic dunes and Bordeaux vineyards'], ['Auvergne', 'Volcanic peaks and lava-stone churches'],
       ['Basse-Normandie', 'Mont Saint-Michel and tidal bays'], ['Bourgogne', 'Vineyards and stone châteaux'], ['Bretagne', 'Atlantic coast and lighthouses'],
@@ -164,18 +165,31 @@ const definitions = {
   },
 };
 
+// Historical provinces from earlier releases are replay-only, never dealt or shown in the collection.
+function expansionCards(id, deck) {
+  return (EXPANSION[id] || []).map(([name, subtitle, dates, description, art], atlasIndex) => ({
+      id: `${deck.cardPrefix || id}-${deck.cards.length + atlasIndex}`, deck: id, index: deck.cards.length + atlasIndex,
+      name, subtitle, dates, description, atlas: `assets/${id}-extra.webp`, atlasIndex, columns: 3, rows: 2,
+      ...art, ...ART_OVERRIDES[name],
+    }));
+}
+
 export const DECKS = Object.fromEntries(Object.entries(definitions).map(([id, deck]) => [id, {
   ...deck, id, kind: deck.kind || 'people', atlas: deck.atlas || `assets/${id}.webp`, columns:deck.columns||6, rows:deck.rows||4,
   cards: [
     ...deck.cards.map(([name, subtitle], index) => ({id: `${deck.cardPrefix||id}-${index}`, deck: id, index, name, subtitle, ...(id==='regions'?REGION_2015_CONTEXT:CARD_CONTEXT)[name]})),
-    ...(EXPANSION[id] || []).map(([name, subtitle, dates, description, art], atlasIndex) => ({
-      id: `${deck.cardPrefix || id}-${deck.cards.length + atlasIndex}`, deck: id, index: deck.cards.length + atlasIndex,
-      name, subtitle, dates, description, atlas: `assets/${id}-extra.webp`, atlasIndex, columns: 3, rows: 2,
-      ...art,
-    })),
+    ...(id === 'regions' ? [] : expansionCards(id, deck)),
   ].map(card => ({...card, ...ART_OVERRIDES[card.name]})),
 }]));
+DECKS.departments = {
+  id: 'departments', name: 'French Departments', subtitle: '101 official departments · names & codes',
+  description: 'All 101 official French departments: 96 metropolitan departments, including Corse-du-Sud and Haute-Corse, and five overseas departments. Individual local landscapes and official department codes. Separate from the 27-region division of 2015; historical provinces and overseas collectivities are excluded.',
+  color: '#a8bb99', symbol: '◫', kind: 'places', preview: 74,
+  atlas: 'assets/departments-01.webp', columns: 5, rows: 2, cards: DEPARTMENT_CARDS,
+};
+
 export const CARDS = Object.fromEntries([...Object.values(DECKS).flatMap(d => d.cards),
+  ...expansionCards('regions', definitions.regions),
   ...legacyRegions.map(([name,subtitle],index)=>({id:`regions-${index}`,deck:'regions',index,name,subtitle,...CARD_CONTEXT[name],atlas:LEGACY_REGION_ATLAS,columns:6,rows:4}))].map(c => [c.id,c]));
 export const THEME_IDEAS = [
   ['Fairy tales', 'Witches, wolves, crowns, forests: familiar stories with wonderfully ambiguous clues.'],

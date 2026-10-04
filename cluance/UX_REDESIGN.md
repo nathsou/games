@@ -1,6 +1,6 @@
 # Cluance UX/UI redesign
 
-The supplied **Cluance redesign from ground up** handoff is the visual reference. The high-fidelity screens and tokens were implemented in the existing vanilla ES-module app; the Current and Wireframes prototypes were comparison material. The attachment's runtime, old atlas copies, remote font loading and static game data were not imported. Live collection counts use the expanded roster: **353 cards, 11 decks: 53 Musicians and 30 in each other deck**.
+The supplied **Cluance redesign from ground up** handoff is the visual reference. The high-fidelity screens and tokens were implemented in the existing vanilla ES-module app; the Current and Wireframes prototypes were comparison material. The attachment's runtime, old atlas copies, remote font loading and static game data were not imported. Live collection counts use the expanded roster: **541 cards, 12 decks: 101 French Departments, 53 Musicians, nine 40-card themes and the 27 administrative French Regions of 2015**.
 
 ## Implemented surfaces
 
@@ -46,3 +46,9 @@ Clue-giver hand during the partner’s guess: desktop and phone. Both hand varia
 Role-preserving invitation: guessing creator. Agreed role swap: phone. Both creator roles, both hand variants, swaps in both directions and cancellation races were checked with the transport stand-in; native invitation/reply acceptance was verified separately.
 
 Generated browser captures are excluded from Git; the verification descriptions above are retained.
+
+- Forty-card expansion (2026-10-04): 100 additions individually reviewed in full-bleed and labelled AI crops, searched and opened in the inspector. Each expanded theme has 40 distinct rendered images and fits desktop and 390/320px galleries. Existing card records are unchanged. See [individual findings and validation](FORTY_CARD_EXPANSION.md).
+
+- French Regions correction: historical territories were withdrawn from the expansion and the three earlier provinces moved to replay-only compatibility. The live gallery and new deals use only the 27 administrative regions of 2015.
+
+- French Departments: all 101 official names/codes checked against the government geography API. Every card was inspected in both production crops and opened in search/details. Both sorts and 1440/390/320px collection/inspector layouts pass. The new deck works for boards and clues, including mixed play with Regions. See [individual findings](DEPARTMENTS.md).
