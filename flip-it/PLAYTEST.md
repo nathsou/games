@@ -92,3 +92,12 @@ Fresh screenshots of the lobby, solo table, multiplayer chat, five-player layout
 - Chromium verified a human opening, a bot opening, the second shared-device human opening behind the correct handoff curtain, and an online guest opening. In double turns the starred recipient gets the right-hand opening action, then the next player gets right and left. No page errors.
 - Old unfinished saves keep their current turn and receive the visible physical marker; future rounds use the starred-card deal rule. Older replay views still load without exposing other hands.
 - Screenshots 17–19 show the simplified lobby, starred opening hand and player settings. The collection preview is refreshed.
+
+
+## Human-only friend invites and simpler pairing (2026-10-04)
+
+Friend invitations use separate online opponent preferences and default to two humans, even when legacy solo AI counts and team settings are saved. The zero-opponent choice is always available for a human duel and local setup. A solo deal with zero opponents asks for a second human or an opponent rather than adding one silently; explicit team mode requires an opponent for its shared hand.
+
+Chromium's invite audit verifies the real application/session handshake over a local test transport, including two-human tables, adding optional bots, returning to zero for a new deal, private local handoffs and explicit team play. Native WebRTC offer/reply generation, clipboard copy and paste-to-connect, acceptance of the matching reply, recovery from an invalid reply, relay values surviving dialog rerenders without entering preferences, and dialog widths of 1280, 390 and 320 pixels all passed. This environment produced zero native ICE candidates; live native data-channel and cross-network connectivity remain unverified.
+
+The existing UI audit passed 60 table layouts and 75 dialog checks plus mouse/touch drag and replay interactions, with no page errors. Flip it rule/session/replay/QR tests, shared AI tests and Midnight peer/session tests passed. No signaling service was added.
