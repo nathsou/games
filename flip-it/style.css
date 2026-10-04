@@ -988,6 +988,19 @@ body[data-table=wood] .play-space {
   opacity:1
 }
 
+.own-space-header .space-select {
+  width:auto;
+  flex:1;
+  min-width:0
+}
+
+.own-space-header .own-add {
+  font-size:18px;
+  min-height:23px;
+  padding:0 8px;
+  white-space:nowrap
+}
+
 .cash-note {
   font-size:18px;
   color:#fff4deaa;

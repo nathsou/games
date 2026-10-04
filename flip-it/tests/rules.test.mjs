@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createMatch, makeDeck, optionsFor, applyAction, playerView, legalActions, valueOf, assertState} from '../src/rules.js';
+import {createMatch, makeDeck, optionsFor, applyAction, playerView, legalActions, previewMove, reverseOf, valueOf, assertState} from '../src/rules.js';
 import {botAction} from '../src/bot.js';
 import {validateView} from '../src/session.js';
 
@@ -50,13 +50,62 @@ test('Adding a card can bounce your own set and prevent an empty-hand win', () =
   assert.equal(next.table[1][0].length, 2); assert.equal(next.table[0][1].length, 0);
   assert.equal(next.hands[0].length, 2); assert.equal(next.pending, null); assertState(next);
 });
-test('A blocked add is forbidden, and taking transfers the entire set flipped', () => {
+test('Adding to a lower-ranked set returns the entire enlarged set to its owner flipped', () => {
   const state = fixture({hands: [[3, 1], [2]], table: [[[], [5, 5]], [[3], []]]});
-  assert.throws(() => applyAction(state, 0, {kind: 'add', lane: 0, target: 0, cards: [state.hands[0][0].id]}));
+  const action = {kind:'add', lane:0, target:0, cards:[state.hands[0][0].id]};
+  assert.ok(legalActions(playerView(state,0)).some(a=>JSON.stringify(a)===JSON.stringify(action)));
+  const enlarged = [...state.table[1][0], state.hands[0][0]], before = structuredClone(state);
+  const next = applyAction(state,0,action), preview = previewMove(playerView(state,0),0,action);
+  assert.deepEqual(state,before);
+  assert.equal(next.table[1][0].length,0); assert.equal(next.table[0][1].length,2);
+  assert.equal(next.hands[0].length,1); assert.equal(next.hands[1].length,3);
+  for (const card of enlarged) assert.equal(next.hands[1].find(c=>c.id===card.id).face,1-card.face);
+  assert.deepEqual(next.log.at(-1).returned,[{seat:1,count:2,from:3,to:enlarged.map(reverseOf)}]);
+  assert.deepEqual(preview.event,next.log.at(-1)); assert.equal(preview.hands[1].length,3);
+  assertState(next); for(const seat of [0,1])validateView(playerView(next,seat),seat);
+});
+test('Taking transfers the entire set flipped', () => {
+  const state = fixture({hands: [[3, 1], [2]], table: [[[], [5, 5]], [[3], []]]});
   const card = state.table[1][0][0], next = applyAction(state, 0, {kind: 'take', lane: 0, target: 0});
   assert.equal(next.hands[0].length, 3); assert.equal(next.hands[1].length, 1);
   assert.equal(next.hands[0].find(c => c.id === card.id).face, 1 - card.face); assertState(next);
 });
+
+test('Adding to your other space can return it flipped and keep your hand from emptying', () => {
+  const state=fixture({hands:[[3],[1]],table:[[[],[3]],[[5,5],[]]]});
+  const action={kind:'add',lane:0,target:1,targetSeat:0,cards:[state.hands[0][0].id]};
+  assert.ok(legalActions(playerView(state,0)).some(a=>JSON.stringify(a)===JSON.stringify(action)));
+  const enlarged=[...state.table[0][1],state.hands[0][0]],next=applyAction(state,0,action);
+  assert.equal(next.table[0][1].length,0); assert.equal(next.table[1][0].length,2);
+  assert.equal(next.hands[0].length,2); assert.equal(next.pending,null);
+  for(const card of enlarged)assert.equal(next.hands[0].find(c=>c.id===card.id).face,1-card.face);
+  assertState(next); for(const seat of [0,1])validateView(playerView(next,seat),seat);
+});
+test('A higher add to your other space returns a lower opposing set', () => {
+  const state=fixture({hands:[[5,1],[2]],table:[[[],[5]],[[3,3],[]]]});
+  const next=applyAction(state,0,{kind:'add',lane:0,target:1,targetSeat:0,cards:[state.hands[0][0].id]});
+  assert.equal(next.table[0][1].length,2); assert.equal(next.table[1][0].length,0);
+  assert.equal(next.hands[1].length,3); assertState(next);validateView(playerView(next,1),1);
+});
+test('Add still rejects mismatched ranks, ties, multiple cards, and the cashed-out own space atomically', () => {
+  const state=fixture({hands:[[3,3,2],[1]],table:[[[6],[3,3]],[[3],[]]]});
+  const before=structuredClone(state),add={kind:'add',lane:0,target:0,cards:[state.hands[0][0].id]};
+  const invalid=[add,{...add,cards:[state.hands[0][2].id]},
+    {...add,cards:state.hands[0].slice(0,2).map(c=>c.id)},{...add,targetSeat:0}];
+  for(const action of invalid){
+    assert.throws(()=>applyAction(state,0,action));assert.deepEqual(state,before);
+    assert.ok(!legalActions(playerView(state,0)).some(a=>JSON.stringify(a)===JSON.stringify(action)));
+  }
+  assert.throws(()=>applyAction(state,0,{kind:'take',lane:0,target:1,targetSeat:0}));
+});
+test('A lower add can return cards to a pending opponent and cancel their last chance', () => {
+  const state=fixture({hands:[[3,1],[]],table:[[[],[5,5]],[[3],[]]],pending:1});
+  state.repliesRemaining=1;
+  const next=applyAction(state,0,{kind:'add',lane:0,target:0,cards:[state.hands[0][0].id]});
+  assert.equal(next.pending,null);assert.equal(next.phase,'playing');assert.equal(next.hands[1].length,2);
+  assertState(next);validateView(playerView(next,1),1);
+});
+
 test('Double turns use right then left, with only the right action for the opener', () => {
   let state = createMatch({quickTurns: false}, 123);
   const first=state.firstPlayer,other=1-first;assert.equal(state.turn,first);assert.equal(state.beat,1);

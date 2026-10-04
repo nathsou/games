@@ -23,13 +23,13 @@ Each card has two ranks, an active top rank and an inactive opposite rank. The l
 At the beginning of an action, the set in the acting player's chosen (or prescribed) play space is discarded. Then perform one action:
 
 - **Play** one or more equal active ranks into that space. The rank must be strictly greater than every other set of that size on the entire table. Those lower sets return to their owners' hands flipped, including the actor's other set.
-- **Add** exactly one matching card to an opponent's set. The new set size must beat every other set of that size; those lower sets return flipped.
+- **Add** exactly one matching card to any exposed set, including your other play space. Compare its new size with the other sets of that size: the lower-ranked set returns to its owner flipped. If the enlarged set loses, all its cards return, including the card just added. Equal ranks at the same size are blocked.
 - **Take** an opponent's complete set into your own hand, flipping each card.
 - **Flip** all cards in your hand.
 
 A last-chance reply overrides ordinary turn order, including the remainder of a double turn. If the first finisher is still empty after the reply, that player wins even if the responding player also became empty. Otherwise, if the responder became empty, they get their own last-chance window. A successful counter with cards remaining resumes normal turn scheduling from the reply action.
 
-Quick turns use a single play space. Double turns start on the right, then the left. The digital interface selects a play space without discarding immediately. Discard and action are applied together, atomically: changing your choice or attempting an illegal move cannot lose cards. Selecting a different active rank starts a new selection. Select a single card before Add; Take needs no selection. Flip preview is informational and cannot play cards.
+Quick turns use a single play space. Double turns start on the right, then the left. The digital interface selects a play space without discarding immediately. Discard and action are applied together, atomically: changing your choice or attempting an illegal move cannot lose cards. Selecting a different active rank starts a new selection. Select a single matching card before Add; use ADD 1 or drag it onto an exposed set. Your action space is cashed out first, so only your other space can receive an Add. Take needs no selection. Flip preview is informational and cannot play cards.
 
 ## Deck
 

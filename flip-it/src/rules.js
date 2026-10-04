@@ -94,7 +94,7 @@ function execute(state, seat, action) {
   }
   if (action.kind === 'take' || action.kind === 'add') {
     const targetSeat = action.targetSeat ?? (state.hands.length === 2 ? 1 - seat : -1);
-    if (!Number.isInteger(targetSeat) || targetSeat < 0 || targetSeat >= state.hands.length || targetSeat === seat || !(state.options.quickTurns ? [0] : [0, 1]).includes(action.target) || !state.table[targetSeat][action.target].length) throw new Error('Choose one of your opponent’s sets.');
+    if (!Number.isInteger(targetSeat) || targetSeat < 0 || targetSeat >= state.hands.length || action.kind === 'take' && targetSeat === seat || !(state.options.quickTurns ? [0] : [0, 1]).includes(action.target) || !state.table[targetSeat][action.target].length) throw new Error(action.kind === 'take' ? 'Choose one of your opponent’s sets.' : 'Choose an exposed set outside the space being cashed out.');
     event.target = action.target; event.targetSeat = targetSeat;
     const target = state.table[targetSeat][action.target];
     if (action.kind === 'take') { event.count = target.length; event.value = setValue(target);
@@ -108,13 +108,17 @@ function execute(state, seat, action) {
   const owner = action.kind === 'play' ? seat : event.targetSeat;
   const lane = action.kind === 'play' ? action.lane : action.target;
   const target = state.table[owner][lane];
-  if (action.kind === 'add' && setValue(target) !== rank) throw new Error('Add a card matching the opponent’s set.');
+  if (action.kind === 'add' && setValue(target) !== rank) throw new Error('Add a card matching the set’s active rank.');
   const count = target.length + cards.length;
   const clash = conflicts(state, count, owner, lane);
-  if (clash.some(other => setValue(other.set) >= rank)) throw new Error('A set of that size needs a higher rank than every other set of the same size.');
+  if (action.kind === 'add') {
+    if (clash.some(other => setValue(other.set) === rank)) throw new Error('Add cannot create an equal-rank set of the same size.');
+  } else if (clash.some(other => setValue(other.set) >= rank)) throw new Error('A set of that size needs a higher rank than every other set of the same size.');
   state.hands[seat] = state.hands[seat].filter(card => !action.cards.includes(card.id));
   state.table[owner][lane].push(...cards);
-  for (const other of clash) bounce(state, other.seat, other.lane, event);
+  // Add may deliberately enlarge the weaker set; its new card returns too.
+  if (clash.some(other => setValue(other.set) > rank)) bounce(state, owner, lane, event);
+  else for (const other of clash) bounce(state, other.seat, other.lane, event);
   event.count = count; event.value = rank;
   return event;
 }
@@ -192,13 +196,12 @@ export function legalActions(state, seat = state.turn) {
       }
     }
     for (let targetSeat = 0; targetSeat < state.hands.length; targetSeat++) {
-      if (targetSeat === seat) continue;
-      const owner = state.hands.length === 2 ? {} : {targetSeat};
+      const owner = state.hands.length === 2 && targetSeat !== seat ? {} : {targetSeat};
       for (const target of (state.options.quickTurns ? [0] : [0,1])) {
         const set = base.table[targetSeat][target]; if (!set.length) continue;
-        actions.push({kind:'take',lane,target,...owner});
+        if (targetSeat !== seat) actions.push({kind:'take',lane,target,...owner});
         const rank = setValue(set);
-        if (conflicts(base,set.length+1,targetSeat,target).every(other=>setValue(other.set)<rank)) {
+        if (conflicts(base,set.length+1,targetSeat,target).every(other=>setValue(other.set)!==rank)) {
           for (const card of groups.get(rank)||[]) actions.push({kind:'add',lane,target,...owner,cards:[card]});
         }
       }

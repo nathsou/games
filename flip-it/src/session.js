@@ -50,7 +50,7 @@ export function validateView(view, visibleSeat, {legacySpaces=false} = {}) {
     if (!event || !players.includes(event.seat) || !['play', 'add', 'take', 'flip'].includes(event.kind) || ![0, 1].includes(event.lane) || !integer(event.cashed, 8) ||
         !Array.isArray(event.returned) || event.returned.length > seats*2-1 || event.returned.some(r => !r || !players.includes(r.seat) || !integer(r.count, 8) || !integer(r.from, 10) || !Array.isArray(r.to) || r.to.length !== r.count || r.to.some(n => !integer(n, 10) || !n))) throw new Error('Invalid move update.');
     if (event.kind !== 'flip' && (!integer(event.count, 8) || !event.count || !integer(event.value, 10) || !event.value)) throw new Error('Invalid move update.');
-    if (['add', 'take'].includes(event.kind) && (![0, 1].includes(event.target) || !players.includes(event.targetSeat) || event.targetSeat === event.seat)) throw new Error('Invalid target update.');
+    if (['add', 'take'].includes(event.kind) && (![0, 1].includes(event.target) || !players.includes(event.targetSeat) || event.kind === 'take' && event.targetSeat === event.seat)) throw new Error('Invalid target update.');
   }
   return view;
 }

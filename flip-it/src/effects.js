@@ -89,6 +89,7 @@ export async function animateMove(root, before, event, ownSeat, view) {
     if (after.cards.has(id)) continue;
     if (old.lane===null) {
       if (event.kind==='play' && view.table[event.seat][event.lane].some(c=>c.id===id)) fly(old,null,destination(event.seat),index++);
+      if (event.kind==='add' && event.returned.some(r=>r.seat===event.targetSeat && r.from===old.rank)) fly(old,null,destination(event.targetSeat),index++,false,true);
       continue;
     }
     const bank=old.seat===event.seat && old.lane===event.lane;
