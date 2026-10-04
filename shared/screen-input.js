@@ -79,7 +79,7 @@ export class ScreenInput {
           target.dispatchEvent(new win.Event('input', {bubbles: true}));
         }
         if (input.kind === 'pointerup' || input.kind === 'pointercancel') {
-          this.clickTarget = input.kind === 'pointerup' && target === hit ? hit : null;
+          this.clickTarget = input.kind === 'pointerup' && this.drag === hit && this.drag?.isConnected ? hit : null;
           this.drag = null;
         }
       }

@@ -21,9 +21,9 @@ export function installGameView(canvasRenderer = null) {
 }
 export async function installFollower(game) {
   let renderer;
-  if (game === 'spacegolf' || game === 'pawn-quest') {
+  if (['cluance', 'spacegolf', 'pawn-quest'].includes(game)) {
     const module = await import(new URL('../' + game + '/src/friend-view.js', import.meta.url));
-    renderer = module.createFollower();
+    renderer = await module.createFollower();
   }
   installGameView(renderer);
 }

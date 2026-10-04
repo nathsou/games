@@ -646,7 +646,7 @@ document.addEventListener('pointermove',event=>{
   if(!drag.ghost){
     drag.ghost=dragPreview(drag);document.body.append(drag.ghost);document.body.classList.add('dragging');
     window.getSelection()?.removeAllRanges();
-    drag.source.setPointerCapture?.(event.pointerId);
+    try { drag.source.setPointerCapture?.(event.pointerId); } catch { /* Shared controls route captured drags themselves. */ }
     drag.actions=legalActions(view(),mySeat());drag.frame=requestAnimationFrame(scrollDrag);
   }
   event.preventDefault();

@@ -1,3 +1,4 @@
+import {installHostView} from './friend-view.js';
 import {friendSession, togetherURL, registerFriendGame, redirectTogetherInvitation, sharedPlayActive} from '../../shared/friend-context.js';
 import { loadTheme, THEME_KEY } from "../../shared/theme.js";
 import { loadAI, saveAI, CONFIG_KEY } from "../../shared/ai/config.js";
@@ -50,6 +51,7 @@ import {
 } from "./usage.js";
 
 const app = document.getElementById("app");
+installHostView();
 const modal = document.getElementById("modal");
 const modalContent = document.getElementById("modal-content");
 let settings = loadSettings();
@@ -720,7 +722,7 @@ function showPassScreen() {
   const ring = $("pass-ready");
   ring.onpointerdown = (event) => {
     event.preventDefault();
-    ring.setPointerCapture(event.pointerId);
+    try { ring.setPointerCapture(event.pointerId); } catch { /* Shared controls route captured drags themselves. */ }
     hold();
   };
   ring.onpointerup = release;

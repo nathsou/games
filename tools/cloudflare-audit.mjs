@@ -255,6 +255,24 @@ async function collectionRoom() {
   assert.equal(await flip.locator('#api-key').inputValue(), 'PRIVATE-CREDENTIAL');
   assert(await g.locator('.friend-bar').evaluate(el => el.scrollWidth <= el.clientWidth));
   await screenshot(g, 'shared-cursors-320.png');
+  // Exercise an actual shared card drag, including virtual pointer capture.
+  await flip.locator('[data-action=table-settings]').click();
+  await flip.locator('#table-humans').selectOption('2');
+  await flip.locator('#ai-count').selectOption('0');
+  await flip.locator('[data-action=close-modal]').click();
+  await flip.locator('[data-action=start-game]').click();
+  await flip.locator('[data-action=uncover]').click();
+  const flipState = await flip.evaluate(() => window.__flipit.state);
+  const flipSeat = await flip.evaluate(() => window.__flipit.seat), play = botAction(flipState, flipSeat);
+  assert.equal(play.kind, 'play');
+  for (const card of play.cards) await flip.locator('.hand [data-card="' + card + '"]').click();
+  const dragFrom = await sharedPoint(h, g, flip.locator('.hand [data-card="' + play.cards[0] + '"]'));
+  const dragTo = await sharedPoint(h, g, flip.locator('[data-space-seat="' + flipSeat + '"][data-space-lane="' + play.lane + '"]'));
+  await g.mouse.move(dragFrom.x, dragFrom.y); await g.mouse.down();
+  await g.mouse.move(dragTo.x, dragTo.y, {steps: 8}); await g.mouse.up();
+  await flip.waitForFunction(revision => window.__flipit.state.revision > revision, flipState.revision);
+  const flipText = await flip.locator('#app').textContent();
+  await guestFlip.waitForFunction(text => document.querySelector('#app').textContent === text, flipText);
   for (const game of ['cluance', 'midnight', 'nonocube', 'pawn-quest', 'collection']) {
     await g.locator('#next-game').selectOption(game);
     await h.waitForFunction(game => window.__together.game === game, game);
@@ -266,6 +284,24 @@ async function collectionRoom() {
     });
     const hostView = await (await h.locator('#game-frame').elementHandle()).contentFrame();
     const guestView = await (await g.locator('#game-frame').elementHandle()).contentFrame();
+    if (game === 'cluance') {
+      await hostView.locator('[data-token=partner]').click();
+      await hostView.getByRole('button', {name: 'a friend on this screen', exact: true}).click();
+      await hostView.locator('#start-game').click();
+      await guestView.locator('#pass-ready').waitFor();
+      const hold = await sharedPoint(h, g, hostView.locator('#pass-ready'));
+      await g.mouse.move(hold.x, hold.y); await g.mouse.down();
+      await hostView.locator('#board').waitFor();
+      await g.mouse.up();
+      await guestView.locator('#board .card-art canvas').first().waitFor();
+      const card = await hostView.locator('#board [data-card]').first().getAttribute('data-card');
+      await guestView.locator('#board [data-card="' + card + '"] .card-art canvas').waitFor();
+      const pixel = await hostView.locator('#board [data-card="' + card + '"] canvas').evaluate(c => [...c.getContext('2d').getImageData(150,200,1,1).data]);
+      await guestView.waitForFunction(({card,pixel}) => {
+        const canvas = document.querySelector('#board [data-card="' + card + '"] canvas');
+        return canvas && JSON.stringify([...canvas.getContext('2d').getImageData(150,200,1,1).data]) === JSON.stringify(pixel);
+      }, {card,pixel});
+    }
     if (game === 'nonocube') {
       await hostView.getByRole('button', {name: 'Skip', exact: true}).click();
       await hostView.getByRole('button', {name: 'Play', exact: true}).click();
@@ -322,7 +358,7 @@ async function collectionRoom() {
   assert.equal(await g.evaluate(() => localStorage.getItem('games.friend-panel-auto-hide')), 'off');
   assert(await g.locator('#friend-header').isVisible());
   await c.close();
-  results.push('Collection room: state-only consent, local UI/physics/voxel/chess rendering, protected credentials, scaled controls and cursors, every game, native co-op recovery and auto-hide; one RTC connection and room; zero capture calls');
+  results.push('Collection room: state-only consent, local card/UI/physics/voxel/chess rendering, shared Flip It drag and Cluance hold-to-reveal, protected credentials, scaled controls and cursors, every game, native co-op recovery and auto-hide; one RTC connection and room; zero capture calls');
 }
 
 try {
