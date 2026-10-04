@@ -1,0 +1,61 @@
+name: Game checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Spacegolf tests
+        run: npm test
+        working-directory: spacegolf
+      - name: Shared AI tests
+        run: node --test shared/ai/tests/*.test.mjs
+      - name: Flip it tests
+        run: npm test
+        working-directory: flip-it
+
+      - name: Nonocube install
+        run: npm ci
+        working-directory: nonocube
+      - name: Nonocube type-check and tests
+        run: npm run typecheck && npm test
+        working-directory: nonocube
+
+  midnight-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Midnight Table rules and protocol tests
+        run: npm test
+        working-directory: midnight
+
+  cloudflare-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run deploy:check
