@@ -55,12 +55,6 @@ export const MUSICIAN_ADDITIONS = [
     "Hawaii-born American singer, songwriter and multi-instrumentalist whose music draws on pop, funk and soul; known for 24K Magic and for Silk Sonic with Anderson .Paak."
   ],
   [
-    "Billie Eilish",
-    "American pop singer-songwriter",
-    "Born 2001",
-    "American singer-songwriter known for intimate vocals, genre-blending production with her brother Finneas, and songs including bad guy and What Was I Made For?."
-  ],
-  [
     "Fun.",
     "American indie pop band",
     "Formed 2008",
@@ -144,10 +138,17 @@ export const MUSICIAN_ADDITIONS = [
     "1947–1992",
     "French composer, singer and pianist known for La Groupie du pianiste, collaborations with France Gall, and the rock opera Starmania with lyricist Luc Plamondon."
   ]
-].map((card, index) => [...card, index >= 6 && index < 12 ? {
-  atlas: `assets/musician-${['coldplay', 'muse', 'bruno-mars', 'billie-eilish', 'fun', 'angine-de-poitrine'][index - 6]}.webp`,
-  atlasIndex: 0, columns: 1, rows: 1,
-} : {
-  atlas: `assets/musicians-${Math.floor(index / 6) + 1}.webp`,
-  atlasIndex: index % 6, columns: 3, rows: 2,
-}]);
+].map((card, index) => {
+  // Leave removed singers-39 unused: later cards keep their IDs and atlas cells.
+  const originalIndex = index < 9 ? index : index + 1;
+  const art = index >= 6 && index < 11 ? {
+    atlas: `assets/musician-${['coldplay', 'muse', 'bruno-mars', 'fun', 'angine-de-poitrine'][index - 6]}.webp`,
+    atlasIndex: 0, columns: 1, rows: 1,
+  } : {
+    atlas: `assets/musicians-${Math.floor(originalIndex / 6) + 1}.webp`,
+    atlasIndex: originalIndex % 6, columns: 3, rows: 2,
+  };
+  return [...card, {
+    ...art, id: `singers-${30 + originalIndex}`, index: 30 + originalIndex,
+  }];
+});

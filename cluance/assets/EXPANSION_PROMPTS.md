@@ -12,7 +12,7 @@ Original expansion generated with the built-in imagegen tool on 2026-10-03; the 
 | `redesigns-mixed.png/.webp` | 2 × 2 | Kenya, Cronus, Pandora and Beijing, all accepted. |
 | `optics-final.png/.webp` | 1 × 1 | Accepted final Ibn al-Haytham composition: lens and closed pinhole box, no false projection. |
 
-The Musicians expansion delivers three further 3 × 2 sheets (`musicians-1`, `musicians-3`, `musicians-4`) and six individual `musician-*` images. The attempted `musicians-2` sheet was rejected by imagegen and is not delivered or mapped. Billie Eilish uses an original symbolic underwater doorway illustration after the generator rejected her likeness; it does not depict her or claim to reproduce an album cover or her actual room. All PNGs preserve their generated pixels; WebP delivery uses quality 94.
+The Musicians expansion delivers three further 3 × 2 sheets (`musicians-1`, `musicians-3`, `musicians-4`) and five individual `musician-*` images. The attempted `musicians-2` sheet was rejected by imagegen and is not delivered or mapped. Billie Eilish was removed at the user’s request, along with both symbolic delivery/source assets. Her prompts below are historical records, not delivered artwork. The `singers-39` slot remains unused so other IDs and atlas cells stay unchanged. All PNGs preserve their generated pixels; WebP delivery uses quality 94.
 
 Row-major order is used throughout. Original generated sheets are preserved whole; unusable cells have no active artwork mapping. Logical card IDs and original atlas geometry stay unchanged. [Full per-card review](../CARD_AUDIT.md).
 
@@ -125,7 +125,7 @@ Create ONE NEW original production illustration atlas for Cluance, a retro visua
 FRENCH HISTORICAL PROVINCES, NOT ADMINISTRATIVE REGIONS OF 2015. This atlas has THREE scenes in the TOP ROW, and THREE EMPTY plain dark-teal (#15383a) unused cells in the bottom row. No portraits or main people, no maps, no flags or text. Main landmarks central with crop-safe composition. ROW 1 LEFT ANJOU: recognizable medieval Château d’Angers with alternating dark slate and pale limestone striped round defensive towers, a tranquil wide Loire river and green orchard, copper sunset and charcoal stone. ROW 1 CENTER TOURAINE: recognizable Château de Chenonceau, pale Renaissance château with rectangular two-story gallery spanning the River Cher on several distinct arches, leafy gardens and calm reflective water, rose dawn and light ivory. ROW 1 RIGHT PROVENCE: recognizable Roman Pont du Gard aqueduct with THREE tiers of arches spanning the Gardon river, lavender and olive branches as symbolic foreground montage, warm limestone and Mediterranean blue sky. BOTTOM ROW: three entirely uniform dark teal blank cells, no objects. Exactly 3 columns and 2 rows, three postcards and three empty cells. Sharp pixel art, no text anywhere.
 ```
 
-## Musicians expansion (24 additions)
+## Musicians expansion (23 retained additions; one removed)
 
 The roster appends `singers-30` through `singers-53`; the visible pack is renamed **Musicians**, while old IDs remain unchanged. Serge Gainsbourg already existed as `singers-25` and is kept once. Artist dates use birth/lifespan captions; groups use activity spans or explicitly labelled formation/activity dates. Group pictures use the lineups described in the card biographies.
 
@@ -173,7 +173,7 @@ Create one original finished Cluance MUSICIANS card illustration. Portrait 3:4 a
 Create one original finished Cluance MUSICIANS card illustration. Portrait 3:4 aspect ratio, edge-to-edge. No borders, typography, lettering, logos or watermarks. Crisp chunky 1990s pixel art, clearly stepped square pixels, rich limited palette and subtle dithering. Strong readable silhouettes and correct musical instruments, anatomy and hands. Main faces fully inside central 80% width with generous space above hair, chest-up solo performers or a compact band group. Detailed original illustration of an adult public musician or public band stage appearance, no photorealism. Bruno Mars, recognizable adult Hawaii-born American musician, medium-brown skin, short dark curly hair, small mustache and cheerful smile, burgundy silk collared stage shirt and thin gold chain, upright retro silver microphone at chest height and warm golden funk-concert lights behind. Accurate relaxed facial anatomy and warm nostalgic character.
 ```
 
-### musician-billie-eilish.png — initial version, superseded
+### musician-billie-eilish.png — initial version, removed
 
 ```text
 Create ONE original musician-themed still-life illustration for a retro deduction card game. Portrait 3:4, full bleed, no borders, no lettering, names, labels, logos or watermarks. NO PEOPLE, NO FACES, NO PORTRAITS, NO HUMAN SILHOUETTES, no depiction or imitation of any real person. Crisp chunky 1990s pixel art with stepped square pixels, rich limited palette, subtle dithering and atmospheric light. An empty intimate recording studio after midnight. One elegant matte-black vocal microphone and circular mesh pop filter occupy the central foreground, a loosely coiled green audio cable and black headphones rest on a stool below. Dark acoustic wall panels, a few luminous green LED meter bars with no numbers, and a softly glowing lime-green doorway behind. A dark oversized plain sweatshirt is draped over the back of an empty studio chair off to one side. Forest-green, acid-lime and charcoal palette, restrained cool blue reflections. Main microphone stays wholly inside central 75% width and upper 80% height so it is unmistakable at small card size. Cozy, quiet, introspective pop-production atmosphere. Strictly an original instrumental still life, no performer.
@@ -193,9 +193,9 @@ Create one original finished Cluance MUSICIANS card illustration. Portrait 3:4 a
 
 ## Individual musician redraws — 4 October 2026
 
-Both earlier compositions above are superseded. The accepted source PNGs remain unchanged apart from WebP encoding at quality 94. Both redraws were inspected in the full-bleed collection/game crop and the labelled AI renderer. Their existing `singers-39` and `singers-41` records and image mappings are unchanged.
+Both earlier compositions above are superseded. The accepted source PNGs remain unchanged apart from WebP encoding at quality 94. Both redraws were inspected in the full-bleed collection/game crop and the labelled AI renderer. Angine’s `singers-41` record and mapping remain unchanged. Billie’s `singers-39` record and both artwork assets were subsequently removed at the user’s request.
 
-### musician-billie-eilish.png — accepted underwater doorway redraw
+### musician-billie-eilish.png — underwater doorway redraw, removed
 
 The earlier studio scene was too generic. This original symbolic blue underwater doorway uses a small acid-green headphones cue and no person; it does not claim to reproduce an album cover or a personal room. Billie Eilish's likeness was blocked in the earlier generation, so this redraw remains symbolic. Original generated source: `exec-f0fcb403-95c7-4122-9713-7564a065e59d.png`.
 

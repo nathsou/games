@@ -1,6 +1,6 @@
 # Card dates and context
 
-All 354 active cards have a date caption and a short description. Original subjects are in `src/context.js`: the 27 administrative regions use `REGION_2015_CONTEXT`, and other original themes share `CARD_CONTEXT`. The append-only additions carry their dates and descriptions in `src/expansion.js` and `src/musicians.js`. The caption appears on the card; inspecting a card shows the full description. The same public context accompanies the AI's permitted board, clues and hand. Descriptions are shared background information, not hints about the dealt secret.
+All 353 active cards have a date caption and a short description. Original subjects are in `src/context.js`: the 27 administrative regions use `REGION_2015_CONTEXT`, and other original themes share `CARD_CONTEXT`. The append-only additions carry their dates and descriptions in `src/expansion.js` and `src/musicians.js`. The caption appears on the card; inspecting a card shows the full description. The same public context accompanies the AI's permitted board, clues and hand. Descriptions are shared background information, not hints about the dealt secret.
 
 ## Reading the captions
 
@@ -36,6 +36,6 @@ The 2015 region roster follows [INSEE’s 2015 Code officiel géographique](http
 
 ## Musicians expansion
 
-The pack includes both solo artists and bands. Solo artists retain birth-year or lifespan captions; groups use an explicitly labelled formation/activity year or activity span (The Beatles, Daft Punk). Portraits may depict an artist's earlier public stage style. Black Eyed Peas uses its classic 2000s lineup including Fergie, while Vampire Weekend uses its core trio. Billie Eilish's illustration is an original symbolic blue underwater doorway with acid-green headphones. It depicts no person and does not claim to reproduce an album cover or her actual room; imagegen blocked her likeness.
+The pack includes both solo artists and bands. Solo artists retain birth-year or lifespan captions; groups use an explicitly labelled formation/activity year or activity span (The Beatles, Daft Punk). Portraits may depict an artist's earlier public stage style. Black Eyed Peas uses its classic 2000s lineup including Fergie, while Vampire Weekend uses its core trio.
 
 Angine de Poitrine's [official biography](https://anginedepoitrine.com/pages/a-propos) describes Khn and Klek's microtonal guitar/bass looping and drum patterns, and dates their repertoire to 2023. The corrected illustration references a stage photograph on that page for the white inverted-trapezoid and tall rounded black masks, downward noses, small dots and ochre features. The card uses public stage characters without inferring the performers' private identities. Additional biographies and explicit image mappings are in `src/musicians.js`.
