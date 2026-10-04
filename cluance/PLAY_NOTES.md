@@ -1,5 +1,7 @@
 # Browser play notes
 
+Billie Eilish's final artwork is outstanding: the card must show her face in the same pixel-art style as the collection. Imagegen rejected her likeness, and the photographic replacement was removed after style feedback. The underwater doorway currently mapped to her card is a placeholder, not an accepted final design. The following rendering and gameplay observations do not resolve that artwork requirement.
+
 ## Musicians expansion — 4 October 2026
 
 The renamed Musicians pack has 54 cards, bringing the full collection to 354. All 25 requested subjects appear once; Serge Gainsbourg retains his existing card. All original and archived card records were compared with the base roster and are unchanged. The `singers` deck and card IDs remain compatible with existing saves and replays.
