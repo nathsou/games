@@ -3421,6 +3421,13 @@ body[data-screen="curtain"] .topbar {
   }
 }
 #app.partner-turn .giver-zone {
+  grid-template-columns: minmax(0, 1fr);
+}
+#app.partner-turn .giver-zone .hand-section {
+  grid-column: 1 / -1;
+  grid-row: auto;
+}
+#app.partner-turn .giver-zone .drop-zone {
   display: none;
 }
 @media (min-width: 761px) and (max-width: 1250px) {
