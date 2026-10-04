@@ -1,5 +1,15 @@
 # Browser play notes
 
+## Musicians expansion — 4 October 2026
+
+The renamed Musicians pack now has 53 cards, bringing the full collection to 353. It adds 23 artists and bands; Serge Gainsbourg retains his existing card once. Billie Eilish was removed at the user's request, including both symbolic artwork files. Her former `singers-39` slot is unused. Every remaining card record, ID and artwork mapping was compared with the preceding roster and is unchanged.
+
+The retained additions were individually inspected in the production full-bleed UI and labelled AI renderer, including faces, member counts, instruments, crops, captions and distinguishing visual cues. Angine de Poitrine's corrected mask shapes, nose directions and dot sizes reference a stage photograph on the band's official biography page. The second additions review sheet was refreshed after removing Billie.
+
+After removal, both Classic and Fixed five deals were checked to exclude the removed card, all remaining asset mappings resolve, and the collection loads 53 musician cards and 353 cards overall. Billie Eilish is absent from search and the card registry. The 53 musician images remain distinct. Module syntax and whitespace checks passed, with no browser or asset errors.
+
+Earlier expansion verification, before the removal, opened every addition through search/details, checked both collection sorts and layouts at 1440×900, 1024×768, 390×844 and 320×568, completed Classic and Fixed five-round UI games and exported/reopened their replays. Six engine games covered both variants and mixed musician/French board-clue packs; public views exclude the secret, hand and draw pile. No paid provider calls were needed.
+
 ## 30-card collection audit — 3 October 2026
 
 The expanded collection has 330 active cards, 30 per theme. All eleven collection galleries were opened in Chromium at 1440 × 1000 and checked at 390 × 844; every accessible label was matched to its subject and date caption. Babbage, Sartre and Camus were opened in the inspector and their biographies checked. There were no browser JavaScript errors or failed asset requests.
