@@ -7,12 +7,17 @@ const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||u
 const origin=process.env.GAMES_URL||'http://127.0.0.1:8787',errors=[],results=[];
 async function page(context){const p=await context.newPage();p.setDefaultTimeout(20000);p.on('pageerror',e=>errors.push(e.message));return p;}
 async function frame(p){return(await p.locator('#game-frame').elementHandle()).contentFrame();}
-async function game(p,name){await p.waitForFunction(name=>window.__together?.game===name,name);const f=await frame(p);await f.waitForFunction(name=>Boolean(window[name]),name==='cluance'?'__cluance':name==='midnight'?'__midnight':'__flipit');return f;}
+async function game(p,name){await p.waitForFunction(name=>window.__together?.game===name && document.querySelector('#game-frame').contentWindow.location.pathname==='/'+name+'/',name);const f=await frame(p);await f.waitForFunction(name=>Boolean(window[name]),name==='cluance'?'__cluance':name==='midnight'?'__midnight':'__flipit');return f;}
 async function invite(p,name,mode='live'){
   await p.goto(origin+'/');await showPanel(p);await p.locator('#invite-friend').click();await p.locator('#room-game').selectOption(name);
   if(mode==='async')await p.locator('#room-play-mode').selectOption('async');
   if(name==='cluance'){await p.locator('#room-setup-role').selectOption('giver');await p.locator('#room-setup-variant').selectOption('fixed');}
-  await p.locator('#room-create').click();await p.waitForFunction(()=>document.querySelector('#room-link').value);const link=await p.locator('#room-link').inputValue();assert.equal(new URL(link).pathname,'/');await p.locator('#room-close').click();return link;
+  await p.locator('#room-create').click();await p.waitForFunction(()=>document.querySelector('#room-link').value);await p.waitForFunction(()=>Boolean(document.querySelector('#room-code').value));const link=await p.locator('#room-link').inputValue();assert.equal(new URL(link).pathname,'/');await p.locator('#room-close').click();return link;
+}
+async function joinByCode(p,code){
+  await p.goto(origin+'/');await showPanel(p);await p.locator('#join-friend').click();
+  await p.locator('#room-input').fill('bad');await p.locator('#room-join').click();await p.locator('#room-status').filter({hasText:'eight-character'}).waitFor();
+  await p.locator('#room-input').fill(code.toLowerCase().replace('-',' '));await p.locator('#room-join').click();
 }
 async function showPanel(p){if(!await p.locator('#friend-header').isVisible())await p.locator('#show-friend-panel').click();}
 async function hideSocialWindows(p){if(await p.locator('#friend-header').isVisible())await p.locator('#hide-friend-panel').click();if(await p.locator('#friend-chat').isVisible())await p.locator('#chat-toggle').click();}
@@ -28,12 +33,12 @@ async function switchGame(h,g,name){await h.locator('#next-game').selectOption(n
 try{
   // No RTC substitute here: async works with two independent browsers and either offline.
   const hc=await browser.newContext(),gc=await browser.newContext(),h=await page(hc),g=await page(gc);
-  const link=await invite(h,'cluance','async');await g.goto(link);
-  const hf=await game(h,'cluance');await hf.waitForFunction(()=>window.__cluance.mode==='async');let gf=await game(g,'cluance');await gf.waitForFunction(()=>window.__cluance.mode==='async');
+  await invite(h,'cluance','async');await joinByCode(g,await h.locator('#room-code').inputValue());
+  const hf=await game(h,'cluance');await hf.waitForFunction(()=>window.__cluance?.mode==='async');let gf=await game(g,'cluance');await gf.waitForFunction(()=>window.__cluance?.mode==='async');
   const privateView=await hf.evaluate(()=>window.__cluance.state),publicView=await gf.evaluate(()=>window.__cluance.state);
   assert(privateView.secret&&privateView.hand.length===5);assert(!publicView.secret&&!publicView.hand);assert.equal(privateView.variant,'fixed');
   await sendChat(h,'A persistent conversation');await g.evaluate(()=>window.__friendSession.chat.refresh());await g.locator('#chat-toggle').click();await g.locator('#chat-log').getByText('A persistent conversation',{exact:true}).waitFor();
-  await g.locator('#chat-toggle').click();await g.reload();gf=await game(g,'cluance');await gf.waitForFunction(()=>window.__cluance.mode==='async');
+  await g.locator('#chat-toggle').click();await g.reload();gf=await game(g,'cluance');await gf.waitForFunction(()=>window.__cluance?.mode==='async');
   assert(!await g.locator('#chat-toggle .launcher-badge').isVisible(),'Read messages must remain read after reload');
   // A slow send must not erase a reply being composed or persist the sent text as a draft.
   let releasePost;
@@ -55,18 +60,18 @@ try{
   const returned=await page(hc);await returned.goto(origin+'/');const restored=await game(returned,'cluance');await restored.waitForFunction(()=>window.__cluance.state.revision===2);assert.equal((await restored.evaluate(()=>window.__cluance.state)).secret,privateView.secret);
   await showPanel(returned);await returned.locator('#new-turn-game').click(); // new Cluance game, while retaining the first
   await returned.locator('#game-setup-start').click();await returned.waitForFunction(()=>window.__friendSession.asyncGame?.record.revision===0);await returned.evaluate(()=>window.__friendSession.refreshInbox());await returned.waitForFunction(()=>document.querySelectorAll('#turn-games-list button').length===2);
-  await returned.locator('#next-game').selectOption('flip-it');await game(returned,'flip-it');await returned.locator('#new-turn-game').click();await returned.locator('#game-setup-start').click();const flip=await game(returned,'flip-it');await flip.waitForFunction(()=>window.__flipit.mode==='async');
+  await returned.locator('#next-game').selectOption('flip-it');await game(returned,'flip-it');await returned.locator('#new-turn-game').click();await returned.locator('#game-setup-start').click();const flip=await game(returned,'flip-it');await flip.waitForFunction(()=>window.__flipit?.mode==='async');
   const flipID=await returned.evaluate(()=>window.__friendSession.asyncGame.record.id);
-  await showPanel(g);await g.evaluate(()=>window.__friendSession.refreshInbox());await g.locator('#turn-games-list button').filter({hasText:'Flip It'}).click();gf=await game(g,'flip-it');await gf.waitForFunction(()=>window.__flipit.mode==='async');
+  await showPanel(g);await g.evaluate(()=>window.__friendSession.refreshInbox());await g.locator('#turn-games-list button').filter({hasText:'Flip It'}).click();gf=await game(g,'flip-it');await gf.waitForFunction(()=>window.__flipit?.mode==='async');
   const fv=await flip.evaluate(()=>window.__flipit.state);assert(fv.hands[1].every(c=>c.hidden));const asyncActor=fv.turn===0?returned:g;await hideSocialWindows(asyncActor);await flipMove(asyncActor);await flip.waitForFunction(()=>window.__flipit.state.revision===1);
   await showPanel(returned);await returned.locator('#next-game').selectOption('spacegolf');await returned.waitForFunction(()=>window.__together.game==='spacegolf');await returned.reload();await returned.waitForFunction(()=>window.__together.game==='spacegolf');
   await returned.evaluate(()=>window.__friendSession.refreshInbox());await returned.locator('#turn-games-list button').filter({hasText:'Flip It'}).click();await(await game(returned,'flip-it')).waitForFunction(()=>window.__flipit.state.revision===1);assert.equal(await returned.evaluate(()=>window.__friendSession.asyncGame.record.id),flipID);
   await returned.setViewportSize({width:320,height:844});assert(await returned.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await hideSocialWindows(returned);await returned.reload();await returned.locator('#friend-header').waitFor({state:'hidden'});await showPanel(returned);await returned.locator('#friend-header').waitFor({state:'visible'});
   assert.equal(await returned.locator('#chat-input').count(),1);assert.equal(await(await game(returned,'flip-it')).locator('#chat-input').count(),0);
-  results.push('Offline Cluance and Flip It, private views, browser close/reopen, persistent unified chat and drafts during delayed sends, concurrent saved games, background play, 320px panel and visibility preference');await hc.close();await gc.close();
+  results.push('Room-code join into selected async Cluance settings, offline Cluance and Flip It, private views, browser close/reopen, persistent unified chat and drafts during delayed sends, concurrent saved games, background play, 320px panel and visibility preference');await hc.close();await gc.close();
   // A real signaling service with a deterministic RTC substitute for native game protocols.
   const c=await browser.newContext({viewport:{width:1280,height:900}});await c.addInitScript(()=>Object.defineProperty(window,'localStorage',{get:()=>sessionStorage}));await c.addInitScript(installTestPeer);
-  const host=await page(c),guest=await page(c),liveLink=await invite(host,'flip-it');await guest.goto(liveLink);
+  const host=await page(c),guest=await page(c),liveLink=await invite(host,'flip-it');await joinByCode(guest,await host.locator('#room-code').inputValue());
   for(const p of [host,guest])await p.waitForFunction(()=>window.__together?.connected&&!window.__together.loading);
   let hostFlip=await game(host,'flip-it');await hostFlip.waitForFunction(()=>window.__flipit.connected&&window.__flipit.state);const firstLive=await hostFlip.evaluate(()=>window.__flipit.state);const firstActor=firstLive.turn===0?host:guest;await hideSocialWindows(firstActor);await flipMove(firstActor);await hostFlip.waitForFunction(()=>window.__flipit.state.revision===1);await(await game(guest,'flip-it')).waitForFunction(()=>window.__flipit.state.revision===1);if(!await guest.locator('#friend-header').isVisible())await showPanel(guest);
   await host.reload();await host.waitForFunction(()=>window.__together?.connected&&!window.__together.loading);hostFlip=await game(host,'flip-it');await hostFlip.waitForFunction(()=>window.__flipit.state?.revision===1);if(!await host.locator('#friend-header').isVisible())await showPanel(host);
@@ -82,6 +87,6 @@ try{
   await switchGame(host,guest,'collection');await host.locator('#screen-toggle').click();await host.locator('#screen-accept').click();await guest.locator('#screen-accept').click();await host.waitForFunction(()=>window.__together.screen==='sharing');await guest.waitForFunction(()=>window.__together.screen==='viewing');
   await host.locator('#next-game').selectOption('spacegolf');await host.waitForFunction(()=>window.__together.game==='spacegolf');let golf=await frame(host);await golf.waitForFunction(()=>window.spacegolf);await golf.evaluate(()=>{window.spacegolf.playCampaign(0,0);window.spacegolf.go(window.spacegolf.nextScene,true);window.spacegolf.nextScene=null;window.spacegolf.scene.fire(-1,.35);window.__gameCheckpoint.save();});
   await host.reload();await host.waitForFunction(()=>window.__together.connected&&window.__together.screen==='sharing').catch(async error=>{console.log(await Promise.all([host,guest].map(p=>p.evaluate(()=>({game:window.__together.game,connected:window.__together.connected,screen:window.__together.screen,sharedResume:window.__friendSession.sharedResume,err:document.querySelector('#friend-error').textContent,peer:window.__friendSession.peer?.pc.connectionState})) )));console.log(errors);throw error;});golf=await frame(host);await golf.waitForFunction(()=>window.spacegolf?.scene?.S?.shots===1);await guest.waitForFunction(()=>window.__friendSession.screen.remoteReady);
-  results.push('Global direct signaling, native live games, live reload without redeal, game settings, unified chat, Midnight integration, consented shared cursors and golf state recovery');await c.close();
+  results.push('Live room-code join, global direct signaling, native live games, live reload without redeal, game settings, unified chat, Midnight integration, consented shared cursors and golf state recovery');await c.close();
   assert.deepEqual(errors,[]);console.log(JSON.stringify({results,pageErrors:errors,nativeInternetRTCVerified:false},null,2));
 }finally{await browser.close();}

@@ -33,6 +33,17 @@ try {
   assert.equal((await box(p,'#friend-header')).x,resized.x+16);assert.equal((await box(p,'#friend-header')).height,resized.height+16);
   await p.locator('#friend-header .window-resize-xy').focus();await p.keyboard.press('ArrowRight');
   assert.equal((await box(p,'#friend-header')).width,resized.width+16);
+  // Moving a title bar across the launchers must not relocate either launcher.
+  const friendIcon=await box(p,'#show-friend-panel'),chatIcon=await box(p,'#chat-toggle');
+  r=await box(p,'#friends-titlebar');const originRect=await box(p,'#friend-header');
+  await p.mouse.move(r.x+100,r.y+20);await p.mouse.down();await p.mouse.move(chatIcon.x+20,chatIcon.y+20,{steps:10});
+  assert.deepEqual(await box(p,'#chat-toggle'),chatIcon);assert.deepEqual(await box(p,'#show-friend-panel'),friendIcon);
+  await p.mouse.move(r.x+130,r.y+50);await p.mouse.up();assert.equal((await box(p,'#friend-header')).x,originRect.x+30);
+  // Losing focus commits the latest placement rather than jumping to the drag start.
+  r=await box(p,'#friends-titlebar');const beforeBlur=await box(p,'#friend-header');
+  await p.mouse.move(r.x+100,r.y+20);await p.mouse.down();await p.mouse.move(r.x+140,r.y+60);
+  const afterMove=await box(p,'#friend-header');await p.evaluate(()=>dispatchEvent(new Event('blur')));await p.mouse.up();
+  assert.deepEqual(await box(p,'#friend-header'),afterMove);assert.equal(afterMove.x,beforeBlur.x+40);
   // Escape cancels a drag, then closes only the focused window on the next press.
   r=await box(p,'#friends-titlebar');const beforeCancel=await box(p,'#friend-header');
   await p.mouse.move(r.x+100,r.y+20);await p.mouse.down();await p.mouse.move(r.x+180,r.y+80);
@@ -60,15 +71,20 @@ try {
   assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await p.locator('#hide-friend-panel').click();await p.locator('#chat-toggle').click();await inside(p,'#friend-chat');
   const phoneTitle=await box(p,'#chat-titlebar');await p.mouse.move(phoneTitle.x+100,phoneTitle.y+20);await p.mouse.down();await p.mouse.move(phoneTitle.x+80,phoneTitle.y+80);
-  await p.evaluate(()=>dispatchEvent(new Event('blur')));await p.mouse.up();assert(!await p.locator('.window-drag-shield').isVisible());
+  await p.keyboard.press('Escape');await p.mouse.up();assert(!await p.locator('.window-drag-shield').isVisible());
   await p.setViewportSize({width:568,height:320});await inside(p,'#friend-chat');
   const composer=await box(p,'#chat-form');assert(composer.y+composer.height<=312);
-  await p.locator('#chat-close').click();await p.setViewportSize({width:1280,height:900});await p.locator('#chat-toggle').click();assert.deepEqual(await box(p,'#friend-chat'),chatRect,'Temporary viewport changes must preserve the preferred desktop placement');
+  await p.locator('#chat-close').click();await p.setViewportSize({width:1280,height:900});await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));await p.locator('#chat-toggle').click();assert.deepEqual(await box(p,'#friend-chat'),chatRect,'Temporary viewport changes must preserve the preferred desktop placement');
   await p.locator('#chat-titlebar').focus();await p.keyboard.press('Home');assert.equal((await box(p,'#friend-chat')).width,352);
   await p.locator('#chat-close').click();await p.reload();assert(!await p.locator('#friend-chat').isVisible());
   await p.evaluate(()=>{localStorage.setItem('games-arcade:appearance','dark');window.dispatchEvent(new Event('games-theme-change'));});
   assert.equal(await p.locator('html').getAttribute('data-color-theme'),'dark');
   results.push('Mouse and keyboard move/resize, iframe crossing, drag cancellation, close/focus, persistent geometry, independent chat, unread badges, stacking, game switches, phone/landscape clamping, reset and theme');await c.close();
+  const options=await browser.newContext({viewport:{width:1280,height:900}}),o=await page(options);
+  await o.goto(origin+'/');await o.locator('#show-friend-panel').focus();const icon=await box(o,'#show-friend-panel');await o.keyboard.press('ArrowLeft');assert.equal((await box(o,'#show-friend-panel')).x,icon.x-16);await o.keyboard.press('Home');assert.equal((await box(o,'#show-friend-panel')).x,icon.x);await o.locator('#show-friend-panel').click();await o.locator('.window-options summary').click();await o.locator('#show-chat-icon').uncheck();
+  assert(!await o.locator('#chat-toggle').isVisible());await o.locator('#open-friend-chat').click();assert(await o.locator('#friend-chat').isVisible());
+  await o.locator('#chat-close').click();assert(await o.locator('#open-friend-chat').evaluate(el=>el===document.activeElement));
+  await o.reload();assert(!await o.locator('#chat-toggle').isVisible());await o.locator('.window-options summary').click();await o.locator('#show-chat-icon').check();assert(await o.locator('#chat-toggle').isVisible());await options.close();
   const shrink=await browser.newContext({viewport:{width:1280,height:900}}),s=await page(shrink);
   await s.goto(origin+'/');await s.setViewportSize({width:320,height:844});
   await s.locator('#show-friend-panel').click();await s.locator('#hide-friend-panel').click();await s.locator('#chat-toggle').click();await s.locator('#chat-close').click();

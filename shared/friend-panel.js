@@ -17,6 +17,7 @@ export const friendPanel = `
       <div class="friend-actions">
         <button id="invite-friend" type="button" class="primary-action">Invite a friend</button>
         <button id="join-friend" type="button">Join a friend</button>
+        <button id="open-friend-chat" type="button">Chat</button>
         <button id="screen-toggle" type="button" aria-label="Virtual cursors" hidden>Cursors</button>
         <button id="reconnect-friend" type="button" hidden>Reconnect</button>
         <button id="disconnect" type="button" hidden>Go offline</button>
@@ -24,6 +25,7 @@ export const friendPanel = `
       <label class="game-picker" for="next-game">Play a game<select id="next-game" aria-label="Next game"><option value="">Choose a game…</option></select></label>
       <section id="turn-inbox" aria-label="Take turns"><h2>Take turns</h2><p class="setup-note">Play when you can. Your friend can be offline.</p><button id="new-turn-game" type="button">Start a turn game</button><div id="turn-games-list"></div><p id="turn-status" role="status"></p></section>
       <details id="saved-games"><summary>Saved games</summary><div id="saved-games-list"></div></details>
+      <details class="window-options"><summary>Window options</summary><label class="setup-check"><input id="show-chat-icon" type="checkbox" checked> Show floating chat icon</label><p class="setup-note">Chat is always available from this window.</p></details>
     </div>
   </aside>
   <section class="social-window" id="friend-chat" role="dialog" aria-modal="false" aria-labelledby="chat-title" hidden>
@@ -58,14 +60,18 @@ export const friendPanel = `
   </dialog>
   <dialog id="room-dialog" aria-labelledby="room-title">
     <h2 id="room-title">Invite a friend to your room</h2>
-    <p id="room-status" role="status">Choose a game and send one link. Your friend connects directly.</p>
+    <p id="room-status" role="status">Choose a game, then share a room code or invitation link.</p>
     <fieldset id="room-settings"><label class="setup-field" for="room-game">Play together<select id="room-game"></select></label><label class="setup-field" for="room-play-mode">Play mode<select id="room-play-mode"><option value="live">Live · play at the same time</option><option value="async">Take turns · play whenever</option></select></label><label class="setup-check" id="room-resume-row" hidden><input id="room-resume" type="checkbox"> Resume your saved table</label><div id="room-setup"></div></fieldset>
     <button id="room-create" type="button">Create invitation</button>
     <div id="room-output" hidden>
-    <label for="room-link">Invitation link</label>
-    <input id="room-link" type="text" readonly>
+    <label for="room-code">Room code</label>
+    <div class="room-code-row"><input id="room-code" type="text" readonly placeholder="Generating…" aria-describedby="room-code-status"><button id="room-code-copy" type="button" disabled>Copy code</button></div>
+    <p id="room-code-status" class="setup-note" role="status"></p>
+    <button id="room-code-refresh" type="button" hidden>Get a new code</button>
+    <p class="setup-note">Your friend can open Friends → Join and enter this code.</p>
+    <details id="room-link-details"><summary>Or send an invitation link</summary><label class="visually-hidden" for="room-link">Invitation link</label><input id="room-link" type="text" readonly></details>
     </div>
-    <form id="room-join-form" hidden><label class="setup-field" for="room-input">Invitation link<input id="room-input" type="url" placeholder="Paste your friend’s link" required></label><button id="room-join" type="submit">Connect to friend</button></form>
+    <form id="room-join-form" hidden><label class="setup-field" for="room-input">Room code or invitation link<input id="room-input" type="text" placeholder="ABCD-EFGH or invitation link" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="2048" aria-describedby="room-join-help" required></label><p id="room-join-help" class="setup-note">Codes have eight letters and numbers. Spaces, dashes and lowercase letters are fine.</p><button id="room-join" type="submit">Join room</button></form>
     <div class="dialog-actions"><button id="room-copy" type="button" disabled>Copy link</button><button id="room-close" type="button">Close</button></div>
   </dialog>
   <dialog id="game-setup-dialog" aria-labelledby="game-setup-title">

@@ -1,3 +1,4 @@
+import {normalizeRoomCode} from './room-code.js';
 import {friendSession} from './friend-context.js';
 // Hosted invitations contain a random guest capability in the URL fragment.
 // This module handles SDP/ICE signaling. Turn games and durable chat use
@@ -87,4 +88,17 @@ export async function claimRoomResume(invitation) {
   const details=await request('/api/rooms/friends/'+invitation.room+'/resume',{key:invitation.key,method:'POST'});
   if(!KEY.test(details.key)||!['host','guest'].includes(details.role))throw new Error('The room could not be restored. Create a fresh invitation.');
   return {game:'friends',room:invitation.room,key:details.key,role:details.role,expiresAt:details.expiresAt};
+}
+
+export async function createRoomCode(credential,turn=null) {
+  const data=await request('/api/rooms/friends/'+credential.room+'/code',{key:credential.key,method:'POST',body:{turn}});
+  if(!normalizeRoomCode(data.code)||!Number.isFinite(data.expiresAt))throw Error('Could not generate a room code. Try again.');
+  return data;
+}
+export async function resolveRoomCode(input) {
+  const code=normalizeRoomCode(input);
+  if(!code)throw Error('Enter the eight-character room code or a complete invitation link.');
+  const data=await request('/api/room-codes/join',{method:'POST',body:{code}});
+  if(data.game!=='friends'||!ROOM.test(data.room)||!KEY.test(data.key))throw Error('Invalid room-code response. Try again.');
+  return data;
 }

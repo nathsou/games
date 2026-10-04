@@ -14,7 +14,7 @@ export function installFloatingWindows() {
   shield.className='window-drag-shield';shield.hidden=true;document.body.append(shield);
   const viewport=()=>{const v=window.visualViewport;return {x:v?.offsetLeft||0,y:v?.offsetTop||0,width:v?.width||innerWidth,height:v?.height||innerHeight};};
   function persist() {
-    for(const c of controllers)preferences[c.id]={rect:c.rect,launcher:c.launcherRect,open:c.open};
+    for(const c of controllers)preferences[c.id]={rect:c.rect,launcher:c.launcherRect,open:c.open,launcherHidden:c.launcherHidden};
     try { localStorage.setItem(KEY,JSON.stringify(preferences)); } catch { /* Optional storage. */ }
   }
   function validRect(value) {
@@ -24,7 +24,7 @@ export function installFloatingWindows() {
     Object.assign(element.style,{left:rect.x+'px',top:rect.y+'px',width:rect.width+'px',height:rect.height+'px'});
   }
   const overlaps=(a,b)=>a.x<b.x+b.width+GAP&&a.x+a.width+GAP>b.x&&a.y<b.y+b.height+GAP&&a.y+a.height+GAP>b.y;
-  function draw() {
+  function draw(settleLaunchers=false) {
     const v=viewport(),occupied=[];
     for(const c of controllers) {
       paint(c.element,c.bounds());
@@ -35,8 +35,10 @@ export function installFloatingWindows() {
     }
     // Keep launchers separate and title bars unobstructed without overwriting preferred placement.
     for(const c of [...controllers].reverse()) {
-      let r=fitRect(c.launcherRect,v);
-      if(occupied.some(other=>overlaps(r,other))) {
+      if(c.launcherHidden)continue;
+      const moving=gesture?.launcher && gesture.c===c;
+      let r=fitRect(!settleLaunchers && !moving && c.displayLauncher ? c.displayLauncher : c.launcherRect,v);
+      if(settleLaunchers && occupied.some(other=>overlaps(r,other))) {
         const candidates=occupied.flatMap(other=>[
           {...r,x:other.x-r.width-GAP},{...r,x:other.x+other.width+GAP},
           {...r,y:other.y-r.height-GAP},{...r,y:other.y+other.height+GAP},
@@ -54,7 +56,7 @@ export function installFloatingWindows() {
   function finish(cancel=false) {
     if(!gesture)return;
     const g=gesture;gesture=undefined;
-    if(cancel)g.c[g.launcher?'launcherRect':'rect']=g.preferred;
+    if(cancel){g.c[g.launcher?'launcherRect':'rect']=g.preferred;if(g.launcher)g.c.displayLauncher=g.start;}
     g.c.draw();shield.hidden=true;
     try { g.handle.releasePointerCapture(g.pointer); } catch { /* Capture may already be gone. */ }
     if(g.moved)g.suppressClick();
@@ -65,20 +67,22 @@ export function installFloatingWindows() {
   },true);
   function pointer(handle,c,kind) {
     let suppress=false;
-    handle.addEventListener('click',e=>{if(suppress){e.preventDefault();e.stopImmediatePropagation();}},true);
+    handle.addEventListener('click',e=>{const control=e.target.closest('button');if(suppress && e.detail!==0 && (!control||control===handle)){suppress=false;e.preventDefault();e.stopImmediatePropagation();}},true);
     handle.addEventListener('pointerdown',e=>{
-      if(gesture||e.button!==0||!e.isPrimary||e.target.closest('button')&&e.target.closest('button')!==handle)return;
+      if(e.button!==0||!e.isPrimary)return;
+      suppress=false;
+      if(gesture||e.target.closest('button')&&e.target.closest('button')!==handle)return;
       if(document.querySelector('dialog[open]'))return;
       c.front();const launcher=kind==='launcher';
       gesture={c,handle,kind,launcher,pointer:e.pointerId,px:e.clientX,py:e.clientY,start:c.bounds(launcher),preferred:{...(launcher?c.launcherRect:c.rect)},moved:false,
-        suppressClick(){suppress=true;setTimeout(()=>{suppress=false;},0);}};
+        suppressClick(){suppress=true;}};
       handle.setPointerCapture(e.pointerId);
       if(!launcher){e.preventDefault();handle.focus({preventScroll:true});}
     });
     handle.addEventListener('pointermove',e=>{
       const g=gesture;if(!g||g.handle!==handle||g.pointer!==e.pointerId)return;
       const dx=e.clientX-g.px,dy=e.clientY-g.py;
-      if(!g.moved&&Math.hypot(dx,dy)<5)return;
+      if(!g.moved && Math.hypot(dx,dy)<5)return;
       g.moved=true;shield.hidden=false;
       shield.style.cursor=kind.startsWith('resize')?getComputedStyle(handle).cursor:'grabbing';
       const r={...g.start};
@@ -87,9 +91,9 @@ export function installFloatingWindows() {
       c[g.launcher?'launcherRect':'rect']=kind.startsWith('resize')?resizeRect(r,c):fitRect(r,viewport(),g.launcher?undefined:c.minimum);
       c.draw();e.preventDefault();
     });
-    handle.addEventListener('pointerup',()=>{if(gesture?.handle===handle)finish();});
-    handle.addEventListener('pointercancel',()=>{if(gesture?.handle===handle)finish(true);});
-    handle.addEventListener('lostpointercapture',()=>{if(gesture?.handle===handle)finish(true);});
+    for(const event of ['pointerup','pointercancel','lostpointercapture'])handle.addEventListener(event,e=>{
+      if(gesture?.handle===handle && gesture.pointer===e.pointerId)finish();
+    });
   }
   function keyboard(handle,c,launcher=false,resize=false) {
     handle.addEventListener('keydown',e=>{
@@ -99,23 +103,24 @@ export function installFloatingWindows() {
       if(!direction)return;e.preventDefault();
       const r=c.bounds(launcher),[dx,dy]=direction.map(n=>n*16);
       if(resize||e.shiftKey&&!launcher){r.width+=dx;r.height+=dy;}else{r.x+=dx;r.y+=dy;}
-      c[launcher?'launcherRect':'rect']=(resize||e.shiftKey&&!launcher)?resizeRect(r,c):fitRect(r,viewport(),launcher?undefined:c.minimum);c.draw();persist();
+      c[launcher?'launcherRect':'rect']=(resize||e.shiftKey&&!launcher)?resizeRect(r,c):fitRect(r,viewport(),launcher?undefined:c.minimum);if(launcher)c.displayLauncher=c.launcherRect;c.draw();persist();
     });
   }
-  function create({id,element,launcher,close,title,defaults,launcherDefaults,onVisibility}) {
+  function create({id,element,launcher,close,title,defaults,launcherDefaults,onVisibility,returnFocus}) {
     const saved=preferences[id];
     const c={id,element,launcher,minimum:{width:280,height:300},
       rect:validRect(saved?.rect)?saved.rect:defaults(viewport()),
-      launcherRect:validRect(saved?.launcher)?saved.launcher:launcherDefaults(viewport()),open:saved?.open===true,
+      launcherRect:validRect(saved?.launcher)?saved.launcher:launcherDefaults(viewport()),open:saved?.open===true,launcherHidden:saved?.launcherHidden===true,
       bounds(isLauncher=false){return isLauncher?(c.displayLauncher||fitRect(c.launcherRect,viewport())):fitRect(c.rect,viewport(),c.minimum);},
       draw,
       front(){element.style.zIndex=++layer;},
       setOpen(open,focus=true){
         c.open=open;element.hidden=!open;launcher.setAttribute('aria-expanded',String(open));
-        c.draw();if(open)c.front();if(focus)(open?title:launcher).focus({preventScroll:true});
+        c.draw(open);if(open)c.front();if(focus)(open?title:(launcher.hidden?returnFocus?.():launcher))?.focus({preventScroll:true});
         persist();onVisibility?.(open);
       },
-      reset(isLauncher=false){c[isLauncher?'launcherRect':'rect']=(isLauncher?launcherDefaults:defaults)(viewport());c.draw();persist();},
+      showLauncher(show){c.launcherHidden=!show;launcher.hidden=!show;c.draw(true);persist();},
+      reset(isLauncher=false){c[isLauncher?'launcherRect':'rect']=(isLauncher?launcherDefaults:defaults)(viewport());if(isLauncher)c.displayLauncher=c.launcherRect;c.draw();persist();},
       badge(count,description){
         const badge=launcher.querySelector('.launcher-badge');badge.textContent=count>99?'99+':String(count);badge.hidden=!count;
         launcher.setAttribute('aria-label',`Toggle ${id}${count?'. '+count+' '+description:''}`);
@@ -137,10 +142,10 @@ export function installFloatingWindows() {
       }else handle.setAttribute('aria-hidden','true');
       element.append(handle);pointer(handle,c,kind);
     }
-    element.hidden=!c.open;c.draw();launcher.setAttribute('aria-expanded',String(c.open));if(c.open)c.front();return c;
+    element.hidden=!c.open;launcher.hidden=c.launcherHidden;c.draw(true);launcher.setAttribute('aria-expanded',String(c.open));if(c.open)c.front();return c;
   }
-  const redraw=()=>{if(gesture)finish(true);draw();};
-  window.addEventListener('blur',()=>finish(true));
+  const redraw=()=>draw(!gesture);
+  window.addEventListener('blur',()=>finish());
   window.addEventListener('resize',redraw);window.visualViewport?.addEventListener('resize',redraw);window.visualViewport?.addEventListener('scroll',redraw);
   return {create};
 }

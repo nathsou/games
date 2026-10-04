@@ -5,9 +5,10 @@ import {installSharedPlay} from '../../shared/shared-play-view.js';
 import {installPanelVisibility} from '../../shared/friend-panel-visibility.js';
 import {FRIEND_PAGES, isFriendPage} from '../../shared/friend-pages.js';
 import {SETUP_GAMES, defaultGameSetup, validateGameSetup, renderGameSetup, setupSummary} from '../../shared/friend-setup.js';
-import {createHostedRoom, hostedLink, hostedInvitation, roomConfig, roomDetails, claimRoomResume} from '../../shared/signaling.js';
+import {createHostedRoom, hostedLink, hostedInvitation, roomConfig, roomDetails, claimRoomResume,createRoomCode,resolveRoomCode} from '../../shared/signaling.js';
 
 import {readFriendRoom, saveFriendRoom} from '../../shared/friend-resume.js';
+import {normalizeRoomCode} from '../../shared/room-code.js';
 import {RoomChat} from '../../shared/room-chat.js';
 import {TurnClient,roomRequest} from '../../shared/turn-client.js';
 import {readCheckpoint} from '../../shared/game-checkpoint.js';
@@ -134,7 +135,7 @@ function configureInvitation(game,metadata) {
 }
 function openInvitation(game=session.game,metadata) {
   if(session.screen?.active){session.showPanel();return;}
-  if(!session.connected&&session.resumeCredentials?.inviteLink&&!session.connecting){session.showPanel();$('room-title').textContent='Your room invitation';$('room-status').textContent='Share with one friend. Once joined, return in the same browser.';$('room-settings').hidden=$('room-create').hidden=$('room-join-form').hidden=true;$('room-output').hidden=$('room-copy').hidden=false;$('room-link').value=session.resumeCredentials.inviteLink;$('room-copy').disabled=false;$('room-dialog').showModal();return;}
+  if(!session.connected&&session.resumeCredentials?.inviteLink&&!session.connecting){session.showPanel();$('room-title').textContent='Your room invitation';$('room-status').textContent='Share the code or link with one friend. Once joined, return in the same browser.';$('room-settings').hidden=$('room-create').hidden=$('room-join-form').hidden=true;$('room-output').hidden=$('room-copy').hidden=false;$('room-link').value=session.resumeCredentials.inviteLink;$('room-copy').disabled=false;$('room-dialog').showModal();offerRoomCode();return;}
   if(session.connected||session.resumeCredentials&&!session.connecting){if(Object.hasOwn(SETUP_GAMES,game)&&game!=='collection')openGameSetup(game,metadata);else session.showPanel();return;}
   session.showPanel();
   $('room-title').textContent='Invite a friend';$('room-join-form').hidden=true;
@@ -143,10 +144,10 @@ function openInvitation(game=session.game,metadata) {
   $('room-output').hidden=!waiting;$('room-create').hidden=waiting;
   if(!waiting){
     $('room-link').value='';$('room-copy').disabled=true;$('room-settings').disabled=false;
-    $('room-status').textContent='Choose a game and send one link. Your friend connects directly.';
+    $('room-status').textContent='Choose a game, then share a room code or invitation link.';
     configureInvitation(Object.hasOwn(SETUP_GAMES,game)?game:'collection',metadata);
   }
-  $('room-dialog').showModal();
+  $('room-dialog').showModal();if(waiting)offerRoomCode();
 }
 $('room-game').onchange=()=>configureInvitation($('room-game').value);
 $('room-resume').onchange=()=>{$('room-setup').querySelectorAll('input,select').forEach(input=>input.disabled=$('room-resume').checked);};
@@ -166,22 +167,48 @@ async function createRoom() {
       await session.connectFriendRoom(credential,'host',config,{game:inviteGame,metadata,resume,restoring:true});
     }
     $('room-link').value=hostedLink({...room,key:room.guestKey})+(asyncMode?'&turn='+session.asyncGame.record.id:'');session.resumeCredentials.inviteLink=$('room-link').value;persistRoom();$('room-copy').disabled=false;$('room-output').hidden=false;$('room-create').hidden=true;
-    $('room-status').textContent=setupSummary(inviteGame,metadata)+' Send this link to one friend. Your private room and saved games stay available for 90 days after your last visit.';
+    $('room-status').textContent=setupSummary(inviteGame,metadata)+' Share the code or link with one friend. Your room and saved games stay available for 90 days after your last visit.';
+    await offerRoomCode();
   }catch(error){$('room-status').textContent=error.message;$('room-settings').disabled=false;}
   finally{session.roomBusy=false;$('room-create').disabled=false;render();}
 }
 $('room-create').onclick=()=>createRoom().catch(error=>{$('room-status').textContent=error.message;});
+async function offerRoomCode() {
+  const credential=session.resumeCredentials;
+  if(!credential || credential.role!=='host')return;
+  $('room-code').value='';$('room-code').placeholder='Generating…';$('room-code-copy').disabled=true;$('room-code-copy').textContent='Copy code';$('room-code-refresh').hidden=true;
+  $('room-code-status').textContent='Generating your room code…';
+  try {
+    const turn=credential.inviteLink?new URLSearchParams(new URL(credential.inviteLink).hash.slice(1)).get('turn'):null;
+    const code=await createRoomCode(credential,turn);
+    if(session.resumeCredentials?.room!==credential.room)return;
+    session.resumeCredentials.inviteCode=code;persistRoom();$('room-code').value=code.code;
+    $('room-code-copy').disabled=false;$('room-code-status').textContent='Valid for 24 hours · admits one friend.';
+  }catch(error){
+    $('room-code').placeholder='Code unavailable';$('room-code-status').textContent=error.message;$('room-code-refresh').hidden=false;
+  }
+}
+$('room-code-refresh').onclick=offerRoomCode;
+$('room-code-copy').onclick=async()=>{
+  try {await navigator.clipboard.writeText($('room-code').value);$('room-code-copy').textContent='Copied';}
+  catch {$('room-code').focus();$('room-code').select();$('room-code-status').textContent='Select and copy the room code.';}
+};
 function openJoin() {
   if(session.connected){session.showPanel();return;}
   session.showPanel();$('room-title').textContent='Join a friend';
-  $('room-status').textContent='Paste the global invitation link. You connect directly; no reply link is needed.';
+  $('room-status').textContent='Enter your friend’s room code or paste their invitation link.';
   $('room-settings').hidden=$('room-create').hidden=$('room-output').hidden=$('room-copy').hidden=true;
   $('room-join-form').hidden=false;$('room-dialog').showModal();$('room-input').focus();
 }
 $('join-friend').onclick=openJoin;
 async function joinRoom(input) {
-  const room=hostedInvitation(input,'friends');if(!room)throw new Error('Paste the complete global invitation link. Ask your friend for a fresh link if needed.');
-  const turn=new URLSearchParams(new URL(input,location.href).hash.slice(1)).get('turn');
+  let room,turn;
+  if(normalizeRoomCode(input)) {room=await resolveRoomCode(input);turn=room.turn;}
+  else {
+    room=hostedInvitation(input,'friends');
+    if(!room)throw new Error('Enter the eight-character room code or paste a complete invitation link.');
+    turn=new URLSearchParams(new URL(input,location.href).hash.slice(1)).get('turn');
+  }
   const existing=readFriendRoom();
   const details=existing?.room===room.room?existing:await roomDetails(room,1);
   const credential=await claimRoomResume(details);session.resumeCredentials={...credential,page:'collection',setup:{},shared:false,independent:Boolean(turn)};session.isHost=credential.role==='host';attachRoomChat();persistRoom();
@@ -195,7 +222,7 @@ $('room-join-form').onsubmit=async event=>{
 };
 $('room-copy').onclick=async()=>{
   try{await navigator.clipboard.writeText($('room-link').value);$('room-copy').textContent='Copied';}
-  catch{$('room-link').select();$('room-status').textContent='Select and copy the invitation link.';}
+  catch{$('room-link-details').open=true;$('room-link').select();$('room-status').textContent='Select and copy the invitation link.';}
 };
 $('room-close').onclick=()=>$('room-dialog').close();
 $('accept-switch').onclick=()=>{if(dialog.dataset.kind==='leave'){manualOffline=true;clearTimeout(reconnectTimer);reconnectTimer=null;frame.contentWindow?.__gameCheckpoint?.save();if(session.screen?.active){session.sharedResume=true;session.screen.suspend();}session.disconnect();persistRoom();dialog.close();}else session.accept();};

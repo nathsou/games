@@ -9,6 +9,10 @@ export function installPanelVisibility(session) {
     launcherDefaults:v=>({x:v.x+v.width-80,y:v.y+v.height*.25,width:64,height:60}),onVisibility:()=>session.onChange()});
   const chat=windows.create({id:'Chat',element:$('friend-chat'),launcher:$('chat-toggle'),close:$('chat-close'),title:$('chat-titlebar'),
     defaults:v=>({x:v.x+(v.width>820?v.width-804:16),y:v.y+Math.max(16,v.height-520),width:352,height:432}),
-    launcherDefaults:v=>({x:v.x+v.width-80,y:v.y+v.height*.25+68,width:64,height:60}),onVisibility:open=>session.onChatVisibility?.(open)});
+    launcherDefaults:v=>({x:v.x+v.width-80,y:v.y+v.height*.25+68,width:64,height:60}),onVisibility:open=>session.onChatVisibility?.(open),
+    returnFocus:()=>$('friend-header').hidden?$('show-friend-panel'):$('open-friend-chat')});
+  $('show-chat-icon').checked=!chat.launcherHidden;
+  $('show-chat-icon').onchange=()=>chat.showLauncher($('show-chat-icon').checked);
+  $('open-friend-chat').onclick=()=>chat.setOpen(true);
   session.showPanel=()=>friends.setOpen(true);session.chatWindow=chat;session.setFriendBadge=count=>friends.badge(count,'games need your turn');
 }

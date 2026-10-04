@@ -10,3 +10,10 @@ test('minimum sizes and visual viewport offsets keep controls reachable above th
 test('a launcher cannot be dragged beyond any edge',()=>{
   assert.deepEqual(fitRect({x:999,y:999,width:64,height:60},{x:0,y:0,width:320,height:844}),{x:248,y:776,width:64,height:60});
 });
+
+import {normalizeRoomCode} from '../room-code.js';
+test('room codes accept lowercase and separators, and reject ambiguous or invalid values',()=>{
+  assert.equal(normalizeRoomCode(' k7qm - 4xpn '),'K7QM4XPN');
+  assert.equal(normalizeRoomCode('ABCD EFGH'),'ABCDEFGH');
+  for(const value of ['ABCD-EFGI','01234567','too-long-code',null,12345678,'https://example.com'])assert.equal(normalizeRoomCode(value),null);
+});

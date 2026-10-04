@@ -36,7 +36,7 @@ button:disabled,select:disabled { opacity:.55; cursor:default; }
 .game-picker { display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:600; }
 #next-game { width:100%; font-weight:400; }
 #saved-games { border-top:1px solid var(--edge); padding-top:12px; }
-#saved-games summary { cursor:pointer; font-size:13px; font-weight:600; }
+#saved-games summary,.window-options summary { cursor:pointer; font-size:13px; font-weight:600; }
 #saved-games-list,#turn-games-list { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
 #saved-games-list button,#turn-games-list button { text-align:left; font-size:12px; line-height:1.5; }
 #turn-inbox { border-top:1px solid var(--edge); padding-top:12px; }
@@ -104,3 +104,12 @@ fieldset { border:0; padding:0; margin:0; min-width:0; }
   .window-resize-xy { width:28px; height:28px; }
   .window-content { padding-bottom:22px; }
 }
+
+.room-code-row { display:flex; gap:8px; margin-top:8px; }
+#room-code { min-width:0; width:100%; font:600 22px ui-monospace,monospace; letter-spacing:2px; padding:12px 10px; text-align:center; }
+#room-code:placeholder-shown { font-size:13px; letter-spacing:0; }
+#room-code-copy { flex-shrink:0; padding:8px; font-size:13px; }
+#room-link-details { margin-top:18px; }
+#room-link-details summary { cursor:pointer; font-size:13px; }
+.window-options .setup-note { margin:0; }
+.window-options .setup-check { font-size:12px; }

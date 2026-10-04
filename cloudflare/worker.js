@@ -1,10 +1,12 @@
 import {createTurnGame,turnSummary,turnView,advanceTurn,chatEntry} from './turn-games.js';
+import {normalizeRoomCode,formatRoomCode,ROOM_CODE_ALPHABET} from '../shared/room-code.js';
 import {DurableObject} from 'cloudflare:workers';
 import {GAMES,ROOM,TOKEN,ROOM_TTL,FRIEND_TTL,validMetadata,signalMessage} from './protocol.js';
 
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff'}});
 const hex=bytes=>[...crypto.getRandomValues(new Uint8Array(bytes))].map(n=>n.toString(16).padStart(2,'0')).join('');
 const digest=async value=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(n=>n.toString(16).padStart(2,'0')).join('');
+const CODE_TTL=24*60*60*1000;
 const bearer=request=>request.headers.get('Authorization')?.replace(/^Bearer /,'')||'';
 async function roomBody(request,limit=2048){
   if(!request.body)throw Error();
@@ -27,6 +29,22 @@ export default {
     const origin=request.headers.get('Origin');
     if(origin&&origin!==url.origin||request.method!=='GET'&&!origin||request.headers.get('Upgrade')&&!origin)
       return json({error:'Open this invitation on its original site.'},403);
+    if(url.pathname==='/api/room-codes/join'&&request.method==='POST') {
+      let code;
+      try {
+        if(!request.headers.get('Content-Type')?.startsWith('application/json'))throw Error();
+        code=normalizeRoomCode(JSON.parse(await roomBody(request,128)).code);if(!code)throw Error();
+      }catch{return json({error:'Enter the eight-character room code.'},400);}
+      const ip=request.headers.get('CF-Connecting-IP')||'local';
+      if(!(await env.INVITE_LIMITS.getByName('code-attempts:'+await digest(ip)).fetch('https://internal/limit')).ok)
+        return json({error:'Too many code attempts. Try again in an hour, or use an invitation link.'},429);
+      const found=await env.INVITE_LIMITS.getByName('room-code:'+await digest(code)).fetch('https://internal/find-code',{method:'POST',body:JSON.stringify({origin:url.origin})});
+      if(!found.ok)return json({error:'This code is invalid or expired. Ask your friend for a new code.'},410);
+      const invitation=await found.json();
+      const available=await env.SIGNAL_ROOMS.getByName('friends:'+invitation.room).fetch(url.origin+'/api/rooms/friends/'+invitation.room+'/info',{headers:{Origin:url.origin,Authorization:'Bearer '+invitation.key}});
+      if(!available.ok)return json({error:'This code expired or your friend has already joined. Return to your saved room, or ask for a new invitation.'},410);
+      return json({game:'friends',...invitation});
+    }
     if(url.pathname==='/api/rooms'&&request.method==='POST'){
       if(!request.headers.get('Content-Type')?.startsWith('application/json')||Number(request.headers.get('Content-Length')||0)>2048)
         return json({error:'Invalid room request.'},400);
@@ -42,14 +60,26 @@ export default {
       await env.SIGNAL_ROOMS.getByName(options.game+':'+room).fetch('https://internal/create',{method:'POST',body:JSON.stringify({game:options.game,protocol:options.protocol,metadata:options.metadata,origin:url.origin,expiresAt,hostHash:await digest(hostKey),guestHash:await digest(guestKey)})});
       return json({room,hostKey,guestKey,expiresAt},201);
     }
-    const match=url.pathname.match(/^\/api\/rooms\/([a-z-]+)\/([a-f0-9]+)\/(info|ice|socket|resume|chat|turns(?:\/[a-f0-9-]{36}(?:\/moves)?)?)$/);
+    const match=url.pathname.match(/^\/api\/rooms\/([a-z-]+)\/([a-f0-9]+)\/(info|ice|socket|resume|code|chat|turns(?:\/[a-f0-9-]{36}(?:\/moves)?)?)$/);
     if(!match||!Object.hasOwn(GAMES,match[1])||!ROOM.test(match[2]))return json({error:'Invitation not found.'},404);
     return env.SIGNAL_ROOMS.getByName(match[1]+':'+match[2]).fetch(request);
   }
 };
 
 export class InviteLimiter extends DurableObject {
-  async fetch(){
+  async fetch(request){
+    const action=new URL(request.url).pathname;
+    if(action==='/register-code'||action==='/find-code')return this.ctx.blockConcurrencyWhile(async()=>{
+      const entry=await this.ctx.storage.get('code');
+      if(action==='/register-code') {
+        if(entry?.expiresAt>Date.now())return new Response(null,{status:409});
+        const value=await request.json();await this.ctx.storage.put('code',value);await this.ctx.storage.setAlarm(value.expiresAt);
+        return new Response(null,{status:201});
+      }
+      const {origin}=await request.json();
+      if(!entry||entry.expiresAt<=Date.now()||entry.origin!==origin)return new Response(null,{status:410});
+      const {origin:_,...invitation}=entry;return json(invitation);
+    });
     return this.ctx.blockConcurrencyWhile(async()=>{
       let rate=await this.ctx.storage.get('rate');
       if(!rate||rate.until<=Date.now())rate={count:0,until:Date.now()+60*60*1000};
@@ -82,7 +112,7 @@ export class SignalRoom extends DurableObject {
     }
     if(!TOKEN.test(key))return json({error:'Invalid invitation.'},401);
     const hash=await digest(key),resume=meta.game==='friends'&&(hash===meta.hostResumeHash||hash===meta.guestResumeHash);
-    const role=hash===meta.hostHash||hash===meta.hostResumeHash?'host':hash===meta.guestHash||hash===meta.guestResumeHash?'guest':null;
+    const role=hash===meta.hostHash||hash===meta.hostResumeHash?'host':hash===meta.guestHash||hash===meta.guestResumeHash||hash===meta.codeGuestHash&&meta.codeExpiresAt>Date.now()?'guest':null;
     if(!role)return json({error:'Invalid invitation.'},401);
     if(meta.game==='friends'&&(meta.claimed||meta[role+'Claimed'])&&!resume)return json({error:'This invitation was already used. Reconnect from your saved room or ask for a fresh invitation.'},410);
     if(action==='resume'&&request.method==='POST'&&meta.game==='friends'){
@@ -90,12 +120,36 @@ export class SignalRoom extends DurableObject {
         const latest=await this.ctx.storage.get('meta');
         const privateSeat=hash===latest[role+'ResumeHash'];
         if(!privateSeat&&(latest.claimed||latest[role+'Claimed']))return json({error:'This invitation was already used.'},410);
-        if(!privateSeat&&hash!==latest[role+'Hash'])return json({error:'Invalid invitation.'},401);
+        if(!privateSeat&&hash!==latest[role+'Hash']&&!(role==='guest'&&hash===latest.codeGuestHash&&latest.codeExpiresAt>Date.now()))return json({error:'Invalid invitation.'},401);
         // Reusing a private seat is idempotent: losing a reconnect response must
         // not revoke the browser's only recovery credential.
         const resumeKey=privateSeat?key:hex(32);latest[role+'ResumeHash']=await digest(resumeKey);latest[role+'Claimed']=true;latest.expiresAt=Date.now()+FRIEND_TTL;
         await this.ctx.storage.put('meta',latest);await this.ctx.storage.setAlarm(latest.expiresAt);
         return json({key:resumeKey,role,expiresAt:latest.expiresAt});
+      });
+    }
+    if(action==='code'&&request.method==='POST'&&meta.game==='friends') {
+      if(role!=='host'||!resume)return json({error:'Only the room creator can generate a code.'},403);
+      return this.ctx.blockConcurrencyWhile(async()=>{
+        const latest=await this.ctx.storage.get('meta');
+        if(latest.guestClaimed||latest.claimed)return json({error:'Your friend already joined. They can return to their saved room.'},410);
+        let turn;
+        try {
+          const body=JSON.parse(await roomBody(request,128));turn=body.turn??null;
+          if(turn!==null&&(!(await this.ctx.storage.get('turn-index')||[]).some(entry=>entry.id===turn)))throw Error();
+        }catch{return json({error:'Choose a saved game from this room.'},400);}
+        if(latest.joinCode&&latest.codeExpiresAt>Date.now()&&latest.codeTurn===turn)
+          return json({code:formatRoomCode(latest.joinCode),expiresAt:latest.codeExpiresAt});
+        const room=url.pathname.split('/')[4],key=hex(32),expiresAt=Math.min(latest.expiresAt,Date.now()+CODE_TTL);
+        for(let attempt=0;attempt<5;attempt++) {
+          const code=[...crypto.getRandomValues(new Uint8Array(8))].map(n=>ROOM_CODE_ALPHABET[n&31]).join('');
+          const registered=await this.env.INVITE_LIMITS.getByName('room-code:'+await digest(code)).fetch('https://internal/register-code',{method:'POST',body:JSON.stringify({room,key,turn,expiresAt,origin:meta.origin})});
+          if(!registered.ok)continue;
+          Object.assign(latest,{joinCode:code,codeGuestHash:await digest(key),codeExpiresAt:expiresAt,codeTurn:turn});
+          await this.ctx.storage.put('meta',latest);
+          return json({code:formatRoomCode(code),expiresAt});
+        }
+        return json({error:'Could not generate a room code. Try again.'},503);
       });
     }
     if(meta.game==='friends'&&(action==='chat'||url.pathname.includes('/turns'))) {

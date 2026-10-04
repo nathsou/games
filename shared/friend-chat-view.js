@@ -88,6 +88,7 @@ export function installFriendChat(session) {
     if (seen()) markRead();
     const unread=current.entries.filter(entry=>entry.sequence>readSequence && entry.seat!==(session.isHost?0:1)).length;
     session.chatWindow?.badge(unread, 'unread messages');
+    $('open-friend-chat').textContent=unread ? `Chat (${unread})` : 'Chat';
     $('chat-empty').hidden = Boolean(current.entries.length);
     const available = Boolean(session.resumeCredentials || session.connected);
     $('chat-status').textContent = session.resumeCredentials ? 'Saved in your room · reply whenever.' : session.connected
