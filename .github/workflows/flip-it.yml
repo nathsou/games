@@ -4,7 +4,7 @@ on:
   push:
     branches: ['codex/flip-it', 'codex/unified-card-ai']
   pull_request:
-    paths: ['flip-it/**', 'shared/**', 'similo/**', 'index.html', '.github/workflows/**']
+    paths: ['flip-it/**', 'shared/**', 'cluance/**', 'index.html', '.github/workflows/**']
 
 permissions:
   contents: read

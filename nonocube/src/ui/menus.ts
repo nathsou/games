@@ -6,10 +6,10 @@ import { allCollections } from '../data/collections.ts';
 import { save, store } from '../game/storage.ts';
 import { BlockScene } from '../render/scene.ts';
 import { exhibit, exhibitScale, plinthScene } from './gallery.ts';
-import { THEMES, themeFor } from './theme.ts';
+
 import type { DrawList } from '../render/renderer.ts';
 import { button, h, icon, iconButton, modal, toast } from './dom.ts';
-import { COLLECTION_ICONS, I } from './icons.ts';
+import { I } from './icons.ts';
 import { openSettings } from './settings.ts';
 
 export interface Nav {
@@ -86,7 +86,7 @@ class ShowcaseScreen {
   draw(): DrawList | null {
     if (!this.model) return null;
     if (this.spinT < 2.5 && !store.settings.reducedMotion) modelScene(this.scene, this.model, this.spinT);
-    else if (this.spinT < 2.6) modelScene(this.scene, this.model);
+    else modelScene(this.scene, this.model);
     return { placed: exhibit(this.scene, this.model.dims, 0, 0, this.plinth) };
   }
 }
@@ -102,12 +102,16 @@ export class HomeScreen extends ShowcaseScreen implements Screen {
     const t = totalStars();
     const inProgress = Object.keys(store.progress).length;
     this.el = h('div', { class: 'home' },
-      h('div', { class: 'home-top' }, iconButton(I.gear, 'Settings', () => openSettings(app))),
-      h('div', { class: 'home-card glass' },
-        h('div', { class: 'logo', 'aria-label': 'Nonocube' }, logoMark(), h('span', null, 'Nono', h('em', null, 'cube'))),
-        h('p', { class: 'tagline' }, '3D nonogram puzzles. Break the block, reveal the shape.'),
+      h('div', { class: 'home-top' }, h('div', { class: 'logo', 'aria-label': 'Nonocube' }, logoMark(), h('span', null, 'Nonocube')), iconButton(I.gear, 'Settings', () => openSettings(app))),
+      h('div', { class: 'home-card' },
+        h('h1', null, 'Break the block. Reveal the shape.'),
+        h('p', { class: 'tagline' }, '3D nonogram puzzles. The numbers tell you which cubes stay.'),
         h('div', { class: 'home-actions' },
-          button(inProgress ? 'Continue playing' : 'Play', () => nav.collections(), 'primary big', I.play),
+          button(inProgress ? 'Continue' : 'Play', () => {
+            const c = allCollections.find((c) => c.puzzles.some((p) => store.progress[p.id]));
+            if (c) nav.play(c, c.puzzles.findIndex((p) => store.progress[p.id]));
+            else nav.collections();
+          }, 'primary big'),
           button('Daily sculpture', () => nav.daily(), '', I.calendar),
           button('How to play', () => nav.tutorial(), '', I.help),
           button('Level editor', () => nav.editor(), '', I.edit),
@@ -116,7 +120,7 @@ export class HomeScreen extends ShowcaseScreen implements Screen {
           icon(I.star, 'on'), h('b', null, `${t.stars}`), h('span', null, `/ ${t.max} stars`),
           h('span', { class: 'sep' }, '·'), h('b', null, `${t.solved}`), h('span', null, `/ ${t.count} solved`)),
       ),
-      h('p', { class: 'home-foot' }, 'Drag to spin · Made with WebGL 2'),
+      h('p', { class: 'home-foot' }, 'Drag to turn. A little logic reveals a lot.'),
     );
     const solved = allCollections.flatMap((c) => c.puzzles).filter((p) => store.records[p.id]);
     const pool = solved.length >= 3 ? solved : allCollections.flatMap((c) => c.puzzles).filter((p) => ['k-teapot', 'g-mushroom', 's-rocket', 'c-duck', 'a-lighthouse', 'g-tree'].includes(p.id));
@@ -156,8 +160,8 @@ export class HomeScreen extends ShowcaseScreen implements Screen {
     if (card && this.model) {
       const r = card.getBoundingClientRect();
       const wide = cam.width > 900;
-      if (wide) cam.frame(40, 40, 40, r.right + 20, dt);
-      else cam.frame(20, 20, cam.height - r.top + 10, 20, dt);
+      if (wide) cam.frame(112, 36, 60, r.right + 36, dt);
+      else cam.frame((this.el.querySelector('.home-top') as HTMLElement).getBoundingClientRect().bottom + 20, 20, cam.height - r.top + 28, 20, dt);
       this.fitCamera();
     }
     if (this.cycle > 14 && this.pool.length > 1) {
@@ -170,10 +174,7 @@ export class HomeScreen extends ShowcaseScreen implements Screen {
 }
 
 function logoMark(): HTMLElement {
-  return h('span', {
-    class: 'logo-mark',
-    html: `<svg viewBox="0 0 48 48" width="44" height="44"><path d="M24 4l17 9.5v21L24 44 7 34.5v-21z" fill="var(--accent)"/><path d="M24 24l17-10.5M24 24L7 13.5M24 24v20" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".85"/><text x="24" y="21" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" font-family="ui-rounded, system-ui">3</text></svg>`,
-  });
+  return h('span', { class: 'logo-mark', 'aria-hidden': 'true' }, '3');
 }
 
 function header(title: string, onBack: () => void, extra?: HTMLElement): HTMLElement {
@@ -186,14 +187,13 @@ export class CollectionsScreen implements Screen {
     const cards = allCollections.map((c) => {
       const s = collectionStats(c);
       const done = s.solved === s.total;
-      const t = THEMES[themeFor(c.id)];
-      return h('button', { class: `coll-card ${done ? 'done' : ''}`, style: `--t-accent:${t.accent}`, onclick: () => nav.collection(c) },
+      return h('button', { class: `coll-card ${done ? 'done' : ''}`, onclick: () => nav.collection(c) },
         (() => {
           // the collection's latest acquisition stands in for its icon
           const shown = [...c.puzzles].reverse().find((p) => store.records[p.id]);
           return shown
             ? h('div', { class: 'coll-icon exhibit' }, h('img', { src: app.thumbnail(shown, 160), alt: shown.name }))
-            : h('div', { class: 'coll-icon' }, icon(COLLECTION_ICONS[c.icon] ?? I.cube));
+            : h('div', { class: 'coll-icon' }, icon(I.cube));
         })(),
         h('div', { class: 'coll-body' },
           h('div', { class: 'coll-name' }, c.name),
@@ -206,14 +206,14 @@ export class CollectionsScreen implements Screen {
         h('div', { class: 'coll-bar' }, h('i', { style: `width:${(s.solved / s.total) * 100}%` })),
       );
     });
-    const daily = h('button', { class: 'coll-card special', style: '--t-accent:#ff6fae', onclick: () => nav.daily() },
+    const daily = h('button', { class: 'coll-card special', onclick: () => nav.daily() },
       h('div', { class: 'coll-icon' }, icon(I.calendar)),
       h('div', { class: 'coll-body' }, h('div', { class: 'coll-name' }, 'Daily Sculpture'), h('div', { class: 'coll-blurb' }, 'A fresh random puzzle every day.')));
-    const mine = h('button', { class: 'coll-card special', style: '--t-accent:#4f8cff', onclick: () => nav.myPuzzles() },
+    const mine = h('button', { class: 'coll-card special', onclick: () => nav.myPuzzles() },
       h('div', { class: 'coll-icon' }, icon(I.user)),
       h('div', { class: 'coll-body' }, h('div', { class: 'coll-name' }, 'My Puzzles'), h('div', { class: 'coll-blurb' }, `${store.user.length} made in the editor.`)));
     this.el = h('div', { class: 'menu' },
-      header('Galleries', () => nav.home(), iconButton(I.gear, 'Settings', () => openSettings(app))),
+      header('Galleries', () => nav.home(), h('div', { class: 'head-stat' }, icon(I.star, 'on'), `${totalStars().stars} / ${totalStars().max}`)),
       h('div', { class: 'menu-scroll' }, h('div', { class: 'coll-grid' }, ...cards, daily, mine)),
     );
   }

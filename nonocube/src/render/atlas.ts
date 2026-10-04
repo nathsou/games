@@ -10,7 +10,7 @@ export const ATLAS_CELL = 128;
 export const GLYPH_NONE = 127;
 export const GLYPH_HIDDEN = 63;
 
-export const FONT_STACK = 'ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+export const FONT_STACK = 'Manrope, system-ui, sans-serif';
 
 function drawGlyphs(): HTMLCanvasElement {
   const size = ATLAS_COLS * ATLAS_CELL;
