@@ -1512,6 +1512,13 @@ dialog::backdrop {
   min-width: 0;
   flex: 1;
 }
+.role-swap-dialog .pair-actions {
+  flex-wrap: wrap;
+}
+.role-swap-dialog .pair-actions .button {
+  flex: 1 1 auto;
+  white-space: normal;
+}
 input:not([type="checkbox"]):not([type="range"]),
 select,
 textarea {
@@ -3421,6 +3428,13 @@ body[data-screen="curtain"] .topbar {
   }
 }
 #app.partner-turn .giver-zone {
+  grid-template-columns: minmax(0, 1fr);
+}
+#app.partner-turn .giver-zone .hand-section {
+  grid-column: 1 / -1;
+  grid-row: auto;
+}
+#app.partner-turn .giver-zone .drop-zone {
   display: none;
 }
 @media (min-width: 761px) and (max-width: 1250px) {
@@ -3519,3 +3533,6 @@ body[data-screen="curtain"] .topbar {
     display: none;
   }
 }
+
+.pair-link { margin: 10px 0; color: var(--ink2); }
+.pair-link .link-output { width: 100%; margin-top: 8px; }

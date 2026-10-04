@@ -10,7 +10,8 @@ import {FlipSession, REACTIONS} from './session.js';
 import {ReplayStore,highlights} from './replays.js';
 import {saveTable, loadTable, forgetTable} from './resume.js';
 import {captureTable, animateMove, cancelMotion, motionEnabled} from './effects.js';
-import {PeerLink, decodePairing, makeLink, iceConfig} from './peer.js';
+import {PROTOCOL,PeerLink, decodePairing, makeLink, iceConfig} from './peer.js';
+import {signalingService,hostedInvitation,hostedLink,createHostedRoom,roomDetails,roomConfig} from '../../shared/signaling.js';
 import {pairingBody} from '../../shared/pairing.js';
 import {drawQR} from './qr.js';
 import {setSound, sound} from './sound.js';
@@ -23,6 +24,8 @@ try { prefs.options = optionsFor(prefs.options); } catch { prefs.options = {...D
 let aiController=null,aiBusy=false,aiError='',offlineControllers=[],aiHistory=new Map(),matchId='';
 let scene = 'menu', mode = 'solo', game = null, seat = 0, lane = 1, chosen = [], handoff = false, preview = false;
 let session = null, peer = null, linkStatus = 'idle', botTimer = null, generation = 0, lastViewKey = '';
+const pairNetwork = {};
+let pairHosted=false,pairAttempt=0;
 let pairKind = 'host', pairBusy = false, pairOut = '', pairError = '', pairMessage = '', pairingOpen = false, pairOffer = '';
 const replayStore=new ReplayStore();
 let replayOpen=false,replayRecord=null,replayIndex=0,replayTimer=null,replayOnlyHighlights=false,storageNotified=false,replayPosition=null;
@@ -41,19 +44,22 @@ function button(label, action, className = '', disabled = false, attributes = ''
 }
 function savePrefs() { try { localStorage.setItem('flip-it.preferences', JSON.stringify(prefs)); } catch {} }
 function name() { return typeof prefs.name === 'string' ? prefs.name.trim().slice(0, 24) || 'You' : 'You'; }
-function aiPlayers(max=3,minimum=0) {
-  const count=Math.max(minimum,Math.min(max,Number(prefs.aiCount)||0));
-  return Array.from({length:count},(_,i)=>prefs.aiKinds?.[i]==='dealer'?'dealer':(prefs.aiKinds?.[i]==='model'?'model':prefs.opponent==='model'?'model':'dealer'));
+function aiPlayers(max=3,minimum=0,online=false) {
+  const saved=online?prefs.onlineAiCount:prefs.aiCount, kinds=online?prefs.onlineAiKinds:prefs.aiKinds;
+  const fallback=online?0:localHumans()===1?1:0;
+  const count=Math.max(minimum,Math.min(max,Number.isInteger(saved)?saved:fallback));
+  return Array.from({length:count},(_,i)=>kinds?.[i]==='model'?'model':kinds?.[i]==='dealer'?'dealer':!online&&prefs.opponent==='model'?'model':'dealer');
 }
 function controllers() {return mode==='online'?session?.controllers||[]:offlineControllers;}
 function names() {return mode==='online'?session?.names||['You','Friend']:offlineControllers.map((kind,i)=>kind==='human'?(mode==='local'&&name()==='You'?'Player '+(i+1):(i===0?name():'Partner')):(kind==='model'?'AI ':'Bot ')+(i-(mode==='solo'?1:2)+1));}
 function localHumans(){return prefs.localHumans===2?2:1;}
-function aiLobby(disabled=false) {
-  const online=mode==='online'&&connected(),humans=online?(session.team?1:2):localHumans(),max=5-humans,min=humans===1?1:0;
-  const kinds=disabled&&online?session.controllers.filter(t=>t!=='human'):aiPlayers(max,min),count=kinds.length;
-  const kindAt=i=>disabled&&online?kinds[i]:(prefs.aiKinds?.[i]||prefs.opponent);
+function aiLobby(disabled=false,online=mode==='online'&&connected()) {
+  const team=online&&(session?.view?session.team:Boolean(prefs.onlineTeam));
+  const humans=online?(team?1:2):localHumans(),max=5-humans,min=team?1:0;
+  const kinds=disabled&&online?session.controllers.filter(t=>t!=='human'):aiPlayers(max,min,online),count=kinds.length;
+  const context=' data-online="'+online+'"';
   return (!online?'<label class="label" for="table-humans">PLAYERS ON THIS DEVICE</label><select id="table-humans"><option value="1" '+(humans===1?'selected':'')+'>1 · just me</option><option value="2" '+(humans===2?'selected':'')+'>2 · share this device</option></select>':'')+
-    '<label class="label" for="ai-count">BOT SEATS · UP TO FIVE PLAYERS TOTAL</label><select id="ai-count" '+(disabled?'disabled':'')+'>'+Array.from({length:max-min+1},(_,i)=>i+min).map(n=>'<option value="'+n+'" '+(n===count?'selected':'')+'>'+n+(n===0?' · humans only':' opponent'+(n===1?'':'s'))+'</option>').join('')+'</select>'+Array.from({length:count},(_,i)=>'<label class="label" for="ai-kind-'+i+'">OPPONENT '+(i+1)+'</label><select id="ai-kind-'+i+'" data-ai-seat="'+i+'" '+(disabled?'disabled':'')+'><option value="model" '+(kindAt(i)==='model'?'selected':'')+'>AI · shared provider & model</option><option value="dealer" '+(kindAt(i)!=='model'?'selected':'')+'>Bot · offline, no API calls</option></select>').join('')+'<p class="small">Choose the players here. After the deal, whoever receives the starred card starts. Sharing a device hides each hand between players.</p>'+button('AI SETTINGS ↗','ai-settings','outline compact');
+    '<label class="label" for="ai-count">BOT / AI OPPONENTS · UP TO FIVE PLAYERS TOTAL</label><select id="ai-count" '+context+' '+(disabled?'disabled':'')+'>'+Array.from({length:max-min+1},(_,i)=>i+min).map(n=>'<option value="'+n+'" '+(n===count?'selected':'')+'>'+n+(n===0?' · humans only':' opponent'+(n===1?'':'s'))+'</option>').join('')+'</select>'+Array.from({length:count},(_,i)=>'<label class="label" for="ai-kind-'+i+'">OPPONENT '+(i+1)+'</label><select id="ai-kind-'+i+'" data-ai-seat="'+i+'" '+context+' '+(disabled?'disabled':'')+'><option value="model" '+(kinds[i]==='model'?'selected':'')+'>AI · shared provider & model</option><option value="dealer" '+(kinds[i]!=='model'?'selected':'')+'>Bot · offline, no API calls</option></select>').join('')+'<p class="small">'+(online?(team?'Team play shares one hand, so it needs at least one opponent.':'You and your friend play against each other. Bots and AI are optional.'):'With zero bots, invite a friend or choose two players on this device.')+'</p>'+(count?button('AI SETTINGS ↗','ai-settings','outline compact'):'');
 }
 function stopAI(message='') {aiController?.abort();aiController=null;aiBusy=false;aiError=message;}
 function mySeat() { return mode === 'online' ? session?.team ? 0 : session?.seat || 0 : seat; }
@@ -82,7 +88,7 @@ function optionBadges(options) {
 function tableControls(){return '<div class="hud-nav">'+button('Rules','rules','coral')+button(prefs.table==='wood'?'Felt':'Wood','table-style','pink')+button(document.documentElement.dataset.colorTheme==='light'?'Night':'Day','theme-toggle','gold')+'</div>';}
 function showTableSettings(){
   modal.dataset.kind='table-settings';pairingOpen=false;stopScan();
-  modalContent.innerHTML=modalHead('Table settings','PLAYERS, BOTS & TEAMS')+aiLobby(mode==='online'&&connected()&&session.seat===1)+(!connected()?'<label class="team-choice"><input id="lobby-team" type="checkbox" '+(prefs.team?'checked':'')+'><span>Team up against the bots<small>Share a hand with your online friend.</small></span></label>':'')+button('Done','close-modal');
+  modalContent.innerHTML=modalHead('Table settings','PLAYERS, BOTS & TEAMS')+aiLobby(mode==='online'&&connected()&&session.seat===1)+button('Done','close-modal');
   if(!modal.open)modal.showModal();
 }
 function showHouseRules(){
@@ -156,7 +162,10 @@ function updateSocial(entry) {
     document.querySelector('.felt-table')?.append(bubble); setTimeout(()=>bubble.remove(),1800);
   }
 }
-document.addEventListener('input', event => { if (event.target.id==='chat-input') chatDraft=event.target.value; });
+document.addEventListener('input', event => {
+  if(event.target.id==='chat-input')chatDraft=event.target.value;
+  if(pairingOpen&&['stun','turn','turn-name','turn-password'].includes(event.target.id))pairNetwork[event.target.id]=event.target.value;
+});
 document.addEventListener('submit', event => {
   if (event.target.id!=='chat-form') return; event.preventDefault();
   try { session.sendSocial('chat',chatDraft.trim()); chatDraft=''; document.querySelector('#chat-input').value=''; }
@@ -169,7 +178,8 @@ document.addEventListener('paste', event => {
   const host=pairKind==='host';
   // An intact pasted link advances either seat automatically. Buttons remain
   // available for typed links and browsers without clipboard event data.
-  decodePairing(input,host?'answer':'offer').then(()=>host?acceptReply(input):joinInvitation(input)).catch(error=>{pairError=error.message;renderPair();});
+  const task=host?decodePairing(input,'answer').then(()=>acceptReply(input)):joinInvitation(input);
+  task.catch(error=>{pairError=error.message;renderPair();});
 });
 function actionValid(actions, action) {
   return actions.some(a => a.kind === action.kind && a.lane === action.lane && a.target === action.target && (a.targetSeat ?? (view().hands.length===2?1-mySeat():-1)) === (action.targetSeat ?? (view().hands.length===2?1-mySeat():-1)) && (!a.cards || a.cards.length === action.cards?.length && a.cards.every(id => action.cards.includes(id))));
@@ -311,10 +321,11 @@ function toggleReplay(){
 
 function resetSelection() { expandedSet=null; chosen = []; preview = false; if (view()) lane = availableLanes(view())[0]; }
 function startOffline(nextMode, options = prefs.options) {
+  if(nextMode==='solo'&&!aiPlayers(4).length){showTableSettings();notify('Choose two players on this device, invite a friend, or add an opponent.');return;}
   cancelMotion(app);clearTimeout(botTimer); generation++; stopAI(); aiHistory.clear();matchId=crypto.randomUUID();
   animating=false; animationGeneration++; renderedPosition=null;
   forgetTable(); const old=peer; peer=null; old?.close(); session=null; linkStatus='idle';
-  mode=nextMode; seat=0; scene='game'; offlineControllers=[...Array(mode==='solo'?1:2).fill('human'),...aiPlayers(mode==='solo'?4:3,mode==='solo'?1:0)];
+  mode=nextMode; seat=0; scene='game'; offlineControllers=[...Array(mode==='solo'?1:2).fill('human'),...aiPlayers(mode==='solo'?4:3)];
   game=createMatch(options,crypto.getRandomValues(new Uint32Array(1))[0],0,offlineControllers.length);
   if(mode==='local'&&offlineControllers[game.turn]==='human')seat=game.turn;
   handoff=mode==='local'; resetSelection(); sound('deal'); render(); scheduleBot();
@@ -382,11 +393,12 @@ function makePeer(role,config) {
   const preserved=role===0 && mode==='online' && session?.seat===0 && session.state;
   const old=peer; peer=null; old?.close(); clearTimeout(botTimer); generation++;stopAI();aiHistory.clear();
   mode='online'; chosen=[]; preview=false; handoff=false;
-  if (!preserved) { session=new FlipSession({seat:role,name:name(),options:prefs.options,team:role===0 && Boolean(prefs.team),aiPlayers:aiPlayers(prefs.team?4:3,prefs.team?1:0),onUpdate:updateOnline,onError:networkError,onSocial:updateSocial}); scene='menu'; }
+  if (!preserved) { session=new FlipSession({seat:role,name:name(),options:prefs.options,team:role===0 && Boolean(prefs.onlineTeam),aiPlayers:role===0?aiPlayers(prefs.onlineTeam?4:3,prefs.onlineTeam?1:0,true):[],onUpdate:updateOnline,onError:networkError,onSocial:updateSocial}); scene='menu'; }
   const link=new PeerLink({config,onMessage:message=>peer===link?session.receive(message):undefined,onStatus:status=>{
     if (peer!==link) return; linkStatus=status;
     if(!link.connected&&aiBusy){generation++;stopAI();}
     if ((status==='open'||status==='connected') && link.connected && !link.helloSent) { link.helloSent=true; session.opened(); }
+    if(status==='signaling-error'){pairError=link.signalingError;pairBusy=false;}
     if (status==='invalid-message') { notify('An invalid connection message arrived. Reconnect to continue.'); link.close(); }
     if (pairingOpen) renderPair(); render(); scheduleBot();
   }});
@@ -407,6 +419,11 @@ function modalHead(title, eyebrow = 'FLIP IT') {
   return '<div class="modal-head"><div><p class="eyebrow">' + eyebrow + '</p><h2 id="modal-title">' + title + '</h2></div><button class="close-button" data-action="close-modal" aria-label="Close dialog">×</button></div>';
 }
 function openPair(kind) {
+  pairAttempt++;
+  if(kind==='join'&&!peer?.connected){
+    const old=peer;peer=null;old?.close();pairOut='';pairMessage='';pairBusy=false;
+  }
+  pairHosted=kind==='host'&&Boolean(peer?.hosted);
   pairKind = kind; pairError = ''; pairingOpen = true;
   if (!peer || (!peer.connected && peer.pc.signalingState !== 'have-local-offer' && session?.seat === 0) || linkStatus === 'closed' || linkStatus === 'failed' || !pairOut) { pairOut = ''; pairMessage = ''; pairBusy = false; }
   if (peer?.connected) pairKind = 'connected';
@@ -418,49 +435,79 @@ function openPair(kind) {
 function renderPair() {
   if (!pairingOpen) return;
   if (scanStream) stopScan();
-  let html = modalHead(pairKind === 'return' ? 'Back to your table.' : pairKind === 'connected' ? 'Connected' : pairKind === 'host' ? 'Invite a friend' : 'Join a friend', 'PRIVATE TABLE / PEER-TO-PEER');
+  const sameRole=modal.dataset.pairRole===pairKind;
+  const input=sameRole?modal.querySelector('#pair-input')?.value||'':'';
+  const details=[...modal.querySelectorAll('details')].filter(el=>el.open).map(el=>el.className);
+  const focused=document.activeElement;
+  const focus=modal.contains(focused)&&focused.id?{id:focused.id,start:focused.selectionStart,end:focused.selectionEnd}:null;
+  const scroll=modalContent.scrollTop;
+  let html = modalHead(pairKind === 'return' ? 'Back to your table.' : pairKind === 'connected' ? 'Connected' : pairKind === 'host' ? (pairOut?'Invitation ready':pairBusy?'Creating invitation…':'Invite a friend') : (pairHosted?'Joining your friend…':pairOut?'Send your reply':'Join a friend'), 'PRIVATE TABLE / PEER-TO-PEER');
   if (pairKind === 'connected') {
     html += '<p class="modal-copy">You are connected directly to ' + esc(session.members[1 - session.seat]) + '. Keep both game tabs open while you play.</p>' + button('BACK TO THE TABLE →', 'close-modal', 'gold');
   } else if (pairKind === 'return') {
     html += '<p class="modal-copy">' + esc(pairMessage || 'Looking for your original hosting tab…') + '</p><p class="modal-copy">Return to the hosting tab. Paste the reply there, or reconnect from the saved table after a reload.</p><label class="label" for="pair-output">REPLY LINK</label><textarea id="pair-output" class="link-output" readonly>' + esc(pairOut) + '</textarea>' + button('COPY REPLY LINK', 'copy', 'gold') + button('BACK TO GAMES', 'close-modal', 'outline');
   } else {
-    html += pairingBody({host:pairKind==='host',output:pairOut,busy:pairBusy,message:pairMessage,canScan,
-      stun:Object.hasOwn(prefs,'stun')?prefs.stun:undefined,
-      setup:'<label class="team-choice"><input type="checkbox" id="team" '+(prefs.team?'checked':'')+'> <span>Play together against the bots<small>Share a hand, discuss the move, win as a team.</small></span></label>'});
+    const locked=Boolean(session?.state),team=locked?session.team:Boolean(prefs.onlineTeam);
+    const count=locked?session.aiPlayers.length:aiPlayers(3,0,true).length;
+    const setup=pairKind==='host'?'<details class="pair-options"><summary>'+(team?'Team against bots':count+' bot / AI opponents · '+(count?'optional players':'just you and your friend'))+'</summary><label class="team-choice"><input type="checkbox" id="team" '+(team?'checked':'')+' '+(locked?'disabled':'')+'> <span>Team up against bots<small>Share one hand instead of playing against each other.</small></span></label>'+aiLobby(locked,true)+'</details>':'';
+    html += pairingBody({host:pairKind==='host',output:pairOut,busy:pairBusy,message:pairMessage,canScan,compact:true,initial:input,hosted:pairHosted,
+      stun:Object.hasOwn(prefs,'stun')?prefs.stun:undefined,setup});
+    if(!session?.view)html+=button(pairKind==='host'?'Have an invite? Join instead':'Create an invitation instead','switch-pair','outline compact',pairBusy);
+    if(pairKind==='host'&&pairHosted)html+=button('Use manual pairing','manual-pair','outline compact',pairBusy);
     html += button('CANCEL SETUP', 'cancel-pair', 'outline');
   }
   if (pairError) html += '<p class="pair-error" role="alert">' + esc(pairError) + '</p>';
   modalContent.innerHTML = html;
+  modal.dataset.pairRole=pairKind;
+  for(const [id,value] of Object.entries(pairNetwork)){const field=modal.querySelector('#'+id);if(field)field.value=value;}
+  for(const el of modal.querySelectorAll('details'))if(details.includes(el.className))el.open=true;
+  modalContent.scrollTop=scroll;
+  if(focus){const field=modal.querySelector('#'+focus.id);if(field){field.focus({preventScroll:true});if(typeof focus.start==='number'&&field.setSelectionRange)field.setSelectionRange(focus.start,focus.end);}}
   if (pairOut && modal.querySelector('#pair-qr')) {
     try { drawQR(modal.querySelector('#pair-qr'), pairOut); }
     catch (error) { modal.querySelector('.qr-wrap').remove(); const p = document.createElement('p'); p.className = 'qr-note'; p.textContent = error.message; modalContent.append(p); }
   }
 }
-async function createInvitation() {
-  prefs.team = modal.querySelector('#team')?.checked ?? prefs.team; savePrefs();
-  const config = readConfig();
-  pairBusy = true; pairError = ''; pairMessage = 'Finding a direct route. This can take a few seconds.';
-  const link = makePeer(0, config);
-  renderPair();
+async function createInvitation(manual=false) {
+  const attempt=++pairAttempt;
+  prefs.onlineTeam = modal.querySelector('#team')?.checked ?? Boolean(prefs.onlineTeam); savePrefs();
+  let config=readConfig(),link;
+  pairOut='';pairBusy=true;pairError='';pairMessage='Preparing your invitation…';renderPair();
   try {
-    const token = await link.invite();
-    if (peer !== link) return;
-    pairOut = makeLink(token, 'offer');
-    pairMessage = 'Invitation ready. Share it, then accept the reply here.';
-  } catch (error) { if (peer !== link) return; pairError = error.message; }
-  pairBusy = false; renderPair(); render();
+    const service=manual?null:await signalingService();
+    if(attempt!==pairAttempt||!pairingOpen)return;
+    pairHosted=Boolean(service);
+    if(service){
+      const room=await createHostedRoom('flip-it',PROTOCOL);
+      config=await roomConfig(room,config);
+      if(attempt!==pairAttempt||!pairingOpen)return;
+      link=makePeer(0,config);await link.connectRoom(room,'host');
+      if(peer!==link||attempt!==pairAttempt)return;
+      pairOut=hostedLink({game:'flip-it',room:room.room,key:room.guestKey});
+      pairMessage='Your friend joins automatically when they open the link.';
+    }else{
+      link=makePeer(0,config);renderPair();const token=await link.invite();
+      if(peer!==link||attempt!==pairAttempt)return;
+      pairOut=makeLink(token,'offer');pairMessage='Invitation ready. Share it, then accept the reply here.';
+    }
+  }catch(error){if(attempt!==pairAttempt||link&&peer!==link)return;pairError=error.message;}
+  if(attempt===pairAttempt){pairBusy=false;renderPair();render();}
 }
 async function joinInvitation(input) {
-  const config = readConfig();
-  await decodePairing(input, 'offer'); pairOffer=input; // Validate before replacing any live connection.
-  pairBusy = true; pairError = ''; pairMessage = 'Preparing your reply. This can take a few seconds.';
-  const link = makePeer(1, config); renderPair();
+  const attempt=++pairAttempt;
+  let config=readConfig(),link;
+  pairBusy=true;pairError='';pairMessage='Connecting to your friend…';renderPair();
   try {
-    const token = await link.join(input);
-    if (peer !== link) return;
-    pairOut = makeLink(token, 'answer'); pairMessage = 'Send your reply to the host to finish connecting.';
-  } catch (error) { if (peer !== link) return; pairError = error.message; }
-  pairBusy = false; renderPair(); render();
+    let room=hostedInvitation(input,'flip-it');
+    if(room){room=await roomDetails(room,PROTOCOL);config=await roomConfig(room,config);}
+    else await decodePairing(input,'offer');
+    if(attempt!==pairAttempt||!pairingOpen)return;
+    pairOffer=input;pairHosted=Boolean(room);pairOut='';
+    link=makePeer(1,config);renderPair();
+    if(room){await link.connectRoom(room,'guest');pairMessage='Connecting automatically. No reply link needed.';}
+    else{const token=await link.join(input);if(peer!==link||attempt!==pairAttempt)return;pairOut=makeLink(token,'answer');pairMessage='Send your reply to the host to finish connecting.';}
+  }catch(error){if(attempt!==pairAttempt||link&&peer!==link)return;pairError=error.message;}
+  if(attempt===pairAttempt){pairBusy=false;renderPair();render();}
 }
 async function acceptReply(input) {
   if (!peer || session?.seat !== 0) throw new Error('Open your hosting tab first, then paste the reply there.');
@@ -474,7 +521,7 @@ async function copyOutput() {
   try { await navigator.clipboard.writeText(pairOut); }
   catch {
     const field = modal.querySelector('#pair-output');
-    if (field) { field.focus(); field.select(); if (!document.execCommand('copy')) throw new Error('Select and copy the link above.'); }
+    if (field) { const details=field.closest('details');if(details)details.open=true;field.focus(); field.select(); if (!document.execCommand('copy')) throw new Error('Select and copy the link above.'); }
     else throw new Error('Clipboard access is unavailable. Copy the reply from your address bar.');
   }
   notify(pairKind === 'host' ? 'Invitation copied. Send it to your friend.' : 'Reply copied. Send it back to the host.');
@@ -500,7 +547,7 @@ async function scanCode(target) {
     if (current !== scanGeneration || !modal.open) return;
     try {
       const codes = await detector.detect(video);
-      const code = codes.find(c => c.rawValue.includes('FI1'));
+      const code = codes.find(c => c.rawValue.includes('FI1')||c.rawValue.includes('/flip-it/#room='));
       if (code) {
         stopScan();
         if (target === 'offer') await joinInvitation(code.rawValue);
@@ -671,13 +718,25 @@ document.addEventListener('click',async event=>{
     else if (action==='rematch') {
       if (mode==='online') session.start(view().options);
       else startOffline(mode,view().options);
-    } else if (action==='deal-online') {session.aiPlayers=aiPlayers(session.team?4:3,session.team?1:0);session.controllers=[...Array(session.team?1:2).fill('human'),...session.aiPlayers];generation++;stopAI();session.start(prefs.options);}
+    } else if (action==='deal-online') {session.aiPlayers=aiPlayers(session.team?4:3,session.team?1:0,true);session.controllers=[...Array(session.team?1:2).fill('human'),...session.aiPlayers];generation++;stopAI();session.start(prefs.options);}
     else if (action==='leave-online') {
       clearTimeout(botTimer); generation++; const old=peer; peer=null; old?.close();
       forgetTable(); session=null; game=null; mode='solo'; scene='menu'; render();
     } else if (action==='host' || action==='join') { openPair(action); if (action==='host' && !peer?.connected && !pairOut) await createInvitation(); }
     else if (action==='reconnect-last') { openPair(prefs.lastPlayer?.seat ? 'join' : 'host'); if (!prefs.lastPlayer?.seat && !pairOut) await createInvitation(); }
     else if (action==='reaction') session?.sendSocial('reaction', target.dataset.reaction);
+    else if(action==='switch-pair'){
+      const next=pairKind==='host'?'join':'host',old=peer;peer=null;old?.close();pairOut='';pairBusy=false;
+      openPair(next);if(next==='host')await createInvitation();
+    }
+    else if(action==='paste-pair'){
+      let input;const role=pairKind,link=peer;
+      try{input=await navigator.clipboard.readText();}catch{modal.querySelector('#pair-input')?.focus();notify('Paste the link into the field below.');return;}
+      if(!pairingOpen||pairKind!==role||peer!==link||pairBusy||peer?.connected)return;
+      const field=modal.querySelector('#pair-input');if(field)field.value=input;
+      if(pairKind==='host')await acceptReply(input);else await joinInvitation(input);
+    }
+    else if(action==='manual-pair')await createInvitation(true);
     else if (action==='create-invite') await createInvitation();
     else if (action==='remake-reply') await joinInvitation(pairOffer);
     else if (action==='join-invite') await joinInvitation(modal.querySelector('#pair-input').value);
@@ -688,7 +747,7 @@ document.addEventListener('click',async event=>{
       else await copyOutput();
     } else if (action==='close-modal') {pauseReplay();modal.close();}
     else if (action==='cancel-pair') {
-      stopScan(); const old=peer; peer=null; old?.close(); pairOut=''; pairBusy=false; pairError=''; pairMessage=''; linkStatus='idle';
+      pairAttempt++;stopScan(); const old=peer; peer=null; old?.close(); pairOut=''; pairBusy=false; pairError=''; pairMessage=''; linkStatus='idle';
       if (!session?.view) { mode='solo'; session=null; }
       modal.close(); render();
     } else if (action==='scan-invite') await scanCode('offer');
@@ -701,9 +760,16 @@ document.addEventListener('click',async event=>{
 });
 document.addEventListener('change',event=>{
   if(event.target.id==='table-humans'){prefs.localHumans=Number(event.target.value);savePrefs();render();}
-  else if(event.target.id==='lobby-team'){prefs.team=event.target.checked;savePrefs();}
-  else if(event.target.id==='ai-count'){prefs.aiCount=Number(event.target.value);prefs.aiKinds=Array.from({length:prefs.aiCount},(_,i)=>prefs.aiKinds?.[i]||'dealer');savePrefs();render();}
-  else if(event.target.dataset.aiSeat!==undefined){prefs.aiKinds||=[];prefs.aiKinds[Number(event.target.dataset.aiSeat)]=event.target.value;savePrefs();}
+  else if(event.target.id==='team'){
+    prefs.onlineTeam=event.target.checked;
+    if(prefs.onlineTeam&&!aiPlayers(4,0,true).length)prefs.onlineAiCount=1;
+    savePrefs();
+  }
+  else if(event.target.id==='ai-count'){
+    const online=event.target.dataset.online==='true',countKey=online?'onlineAiCount':'aiCount',kindsKey=online?'onlineAiKinds':'aiKinds';
+    prefs[countKey]=Number(event.target.value);prefs[kindsKey]=Array.from({length:prefs[countKey]},(_,i)=>prefs[kindsKey]?.[i]||'dealer');savePrefs();render();
+  }
+  else if(event.target.dataset.aiSeat!==undefined){const key=event.target.dataset.online==='true'?'onlineAiKinds':'aiKinds';prefs[key]||=[];prefs[key][Number(event.target.dataset.aiSeat)]=event.target.value;savePrefs();}
   else if (event.target.dataset.option && OPTION_KEYS.includes(event.target.dataset.option)) {
     prefs.options[event.target.dataset.option]=event.target.checked; savePrefs();
   } else if (event.target.id==='player-name') {
@@ -712,6 +778,10 @@ document.addEventListener('change',event=>{
       session.members[session.seat]=name();
       if (connected()) { peer.send({type:'hello',name:name()}); if (!session.seat) session.sync(); }
     }
+  }
+  if(pairingOpen&&pairKind==='host'&&(event.target.id==='team'||event.target.id==='ai-count'||event.target.dataset.aiSeat!==undefined)){
+    if(session?.seat===0&&!session.state){session.team=Boolean(prefs.onlineTeam);session.aiPlayers=aiPlayers(session.team?4:3,session.team?1:0,true);session.controllers=[...Array(session.team?1:2).fill('human'),...session.aiPlayers];}
+    renderPair();
   }
   if(modal.open&&modal.dataset.kind==='table-settings')showTableSettings();
 });
@@ -749,11 +819,11 @@ bus?.addEventListener('message',async event=>{
   } else if (message.type==='reply-accepted' && pairKind==='return') { pairMessage='Reply delivered. Your match is connecting in the original hosting tab. You can close this tab.'; renderPair(); }
 });
 async function handleHash() {
-  const params=new URLSearchParams(location.hash.slice(1)), invite=params.get('invite'), reply=params.get('reply');
+  const params=new URLSearchParams(location.hash.slice(1)), invite=params.has('room')?location.href:params.get('invite'), reply=params.get('reply');
   if (!invite && !reply) return;
   history.replaceState(null,'',location.pathname+location.search);
   if (invite) {
-    openPair('join'); modal.querySelector('#pair-input').value=makeLink(invite,'offer');
+    openPair('join'); const field=modal.querySelector('#pair-input');if(field)field.value=params.has('room')?invite:makeLink(invite,'offer');
     try { await joinInvitation(invite); } catch(error) { pairError=error.message;pairBusy=false;renderPair(); }
   } else {
     try {

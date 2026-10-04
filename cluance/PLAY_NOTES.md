@@ -1,5 +1,41 @@
 # Browser play notes
 
+## Invitation roles and online role swaps — 4 October 2026
+
+Creating an invitation preserves the selected guesser/giver role. The invitation carries the creator’s role and public board deck, clue deck and hand variant; the recipient takes the opposite role. Native SDP offer creation remains independent of who gives clues. Legacy invitations without setup metadata retain their original creator-as-giver behavior.
+
+Either online player can choose **Swap roles & deal** from the table menu or final reveal. Their friend must accept before a fresh game replaces the current one. The existing connection stays open. The original giver coordinates the handover and retires the old private session; the new giver creates the fresh secret and hand locally and sends only the validated public table. Declines, cancellation and expired requests keep the current game. A cancellation crossing a committed handover completes the agreed swap, preventing two authorities.
+
+Chromium checked both creator roles with Classic and Fixed five, using a Musicians board and French History clues. Every case covered correct roles/settings, private-field exclusion, decline/cancel, swaps initiated by each role, clue/removal synchronization after each swap, waiting-hand inspection, end-game swaps and the phone menu. Connection object counts stayed unchanged. Additional checks covered simultaneous requests, cancellation crossing commit, disconnect during an unaccepted request and confirmation dialogs at 390×844 and 320×568 with no document or dialog horizontal overflow. No browser errors or failed assets occurred.
+
+Connected checks used a temporary BroadcastChannel transport stand-in with the real application, game engine, invitation parser and native pairing codec. Separate native WebRTC checks created/copied a guesser’s invitation, generated the giver’s reply and accepted it with matching room IDs; the environment produced zero ICE candidates, so live cross-network connectivity remains unverified. Native metadata checks also covered both roles, legacy links and rejected invalid settings. Existing shared pairing/QR checks, module syntax and whitespace checks passed. No test suite or dependencies were added.
+
+## Clue-giver hand while waiting — 4 October 2026
+
+The clue giver's current hand stays visible and inspectable while the partner guesses. The waiting layout hides only the Similar/Different drop zones, centres the hand and shows an inspection hint. Existing turn checks prevent selecting, dragging or submitting another clue until the next clue turn.
+
+Chromium restored real engine-created multiplayer-host positions after a clue in both Classic and Fixed five. At 1440×1000, 1024×768, 390×844 and 320×568, every remaining hand card was visible, with five Classic cards and four Fixed five cards. Clicks opened the matching card details; keyboard shortcuts did not change the game while waiting. After applying a legal guess through the engine, the next clue turn restored both drop zones and the submission form. No horizontal overflow, browser errors or failed assets occurred. Module syntax and whitespace checks passed.
+
+Guesser projections still omit the private hand, secret and draw pile. Both the covered one-screen handoff and the revealed guesser view contain no private hand/secret elements. These checks used saved host fixtures; they did not require a live WebRTC connection or provider calls.
+
+## Explicit invitation creation — 4 October 2026
+
+The host dialog now waits for **Create invitation**, then displays **Invitation ready** with copy/share/QR controls. A player who opened the join dialog can choose **Create an invitation instead** to become the clue giver; the host can choose **Join instead**. A cancelled or superseded invitation cannot report its late preparation error in a new dialog.
+
+Chromium followed join → create instead → create → copy a real native offer link, opened it in another browser context to generate/copy the native reply, and verified the host accepted the matching reply as its remote description. Decoded links contain only protocol/type/SDP/room, with matching room IDs and no game, secret, hand or key fields. Checked creation at 390px and 320px, host-to-join switching, invalid-reply recovery and fresh invitations. No browser or asset errors occurred. Shared pairing-codec and QR tests, module syntax and whitespace checks passed.
+
+This managed environment produced zero WebRTC ICE candidates in both descriptions, so a live data-channel connection could not be verified. The production WebRTC transport is unchanged. These checks verify creation, copy, reply generation and acceptance, not cross-network connectivity.
+
+## Musicians expansion — 4 October 2026
+
+The renamed Musicians pack now has 53 cards, bringing the full collection to 353. It adds 23 artists and bands; Serge Gainsbourg retains his existing card once. Billie Eilish was removed at the user's request, including both symbolic artwork files. Her former `singers-39` slot is unused. Every remaining card record, ID and artwork mapping was compared with the preceding roster and is unchanged.
+
+The retained additions were individually inspected in the production full-bleed UI and labelled AI renderer, including faces, member counts, instruments, crops, captions and distinguishing visual cues. Angine de Poitrine's corrected mask shapes, nose directions and dot sizes reference a stage photograph on the band's official biography page. The second additions review sheet was refreshed after removing Billie.
+
+After removal, both Classic and Fixed five deals were checked to exclude the removed card, all remaining asset mappings resolve, and the collection loads 53 musician cards and 353 cards overall. Billie Eilish is absent from search and the card registry. The 53 musician images remain distinct. Module syntax and whitespace checks passed, with no browser or asset errors.
+
+Earlier expansion verification, before the removal, opened every addition through search/details, checked both collection sorts and layouts at 1440×900, 1024×768, 390×844 and 320×568, completed Classic and Fixed five-round UI games and exported/reopened their replays. Six engine games covered both variants and mixed musician/French board-clue packs; public views exclude the secret, hand and draw pile. No paid provider calls were needed.
+
 ## 30-card collection audit — 3 October 2026
 
 The expanded collection has 330 active cards, 30 per theme. All eleven collection galleries were opened in Chromium at 1440 × 1000 and checked at 390 × 844; every accessible label was matched to its subject and date caption. Babbage, Sartre and Camus were opened in the inspector and their biographies checked. There were no browser JavaScript errors or failed asset requests.
@@ -132,3 +168,10 @@ No tests were written. Module syntax and whitespace checks passed; this verifica
 
 
 The legacy `similo/` folder and its deployment and preview redirects were subsequently removed at the user’s request. Cluance remains at `cluance/`; saved-data and replay compatibility are unchanged.
+
+
+## Cloudflare invitation checks
+
+The hosted invite now uses a short, expiring link and exchanges SDP/ICE automatically, removing the reply-link step. The manual flow remains available with explicit clipboard actions. Browser checks at 1280, 390 and 320 pixels found no horizontal dialog overflow or page errors. Typed replies, relay credentials and expanded sections survived status/error updates; relay passwords were absent from saved preferences. Switching invite/join modes closes the previous pending connection.
+
+A browser RTC substitute exercised gameplay through real Cloudflare local Worker/WebSocket signaling: inviter roles were preserved, only the giver saw the secret/hand, a clue and elimination synchronized, and an agreed role swap kept both peers on the same new game. Native Chromium independently generated and applied real offers/answers automatically. This environment produced no usable native ICE candidates, so native data-channel and remote-network connectivity need verification with the configured Cloudflare account/TURN service. The substitute is test tooling and is excluded from deployed assets.

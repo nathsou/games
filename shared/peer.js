@@ -1,3 +1,4 @@
+import {SignalConnection} from './signaling.js';
 const LIMIT = 65536;
 export function createPeerTransport({protocol, prefix, gameName, channelName, wireKey = 'v'}) {
 const PROTOCOL = protocol;
@@ -84,12 +85,15 @@ class PeerLink {
     this.onMessage = onMessage;
     this.onStatus = onStatus;
     this.pc.addEventListener('datachannel', e => this.attach(e.channel));
-    this.pc.addEventListener('connectionstatechange', () => { if (!this.closed) onStatus(this.pc.connectionState); });
+    this.pc.addEventListener('connectionstatechange', () => { if (!this.closed) {this.finishSignaling();onStatus(this.pc.connectionState);} });
+    this.pc.addEventListener('icecandidate',event=>{
+      if(this.signal)this.signal.send({type:'candidate',candidate:event.candidate?.toJSON()||null});
+    });
   }
   attach(channel) {
     if (this.channel) { channel.close(); return; }
     this.channel = channel;
-    channel.addEventListener('open', () => { if (!this.closed) this.onStatus('open'); });
+    channel.addEventListener('open', () => { if (!this.closed) {this.finishSignaling();this.onStatus('open');} });
     channel.addEventListener('close', () => { if (!this.closed) this.onStatus('closed'); });
     channel.addEventListener('error', () => { if (!this.closed) this.onStatus('failed'); });
     channel.addEventListener('message', e => {
@@ -125,6 +129,37 @@ class PeerLink {
     if (this.pc.signalingState !== 'have-local-offer') throw new Error('This invitation has already been answered. Create a fresh invitation to reconnect.');
     await this.pc.setRemoteDescription({type: reply.type, sdp: reply.sdp});
   }
+  async connectRoom(invitation,role){
+    this.hosted=true;this.room=invitation.room;this.pendingCandidates=[];this.signalQueue=Promise.resolve();
+    const fail=error=>{if(!this.closed&&!this.connected){this.signalingError=error.message;this.onStatus('signaling-error');}};
+    this.signal=new SignalConnection(invitation,{onError:fail,onMessage:message=>{
+      this.signalQueue=this.signalQueue.then(async()=>{
+        if(this.closed)return;
+        if(message.type==='candidate'){
+          if(this.pc.remoteDescription)await this.pc.addIceCandidate(message.candidate);
+          else this.pendingCandidates.push(message.candidate);
+        }else if(message.type===(role==='host'?'answer':'offer')){
+          await this.pc.setRemoteDescription({type:message.type,sdp:message.sdp});
+          this.connectionTimer=setTimeout(()=>fail(new Error('The browsers could not connect. Try another network or create a fresh invitation with a relay.')),30000);
+          for(const candidate of this.pendingCandidates)await this.pc.addIceCandidate(candidate);
+          this.pendingCandidates=[];
+          if(role==='guest'){
+            await this.pc.setLocalDescription(await this.pc.createAnswer());
+            this.signal.send({type:'answer',sdp:this.pc.localDescription.sdp});
+          }
+        }else throw new Error('Invalid invitation connection message.');
+      });
+      return this.signalQueue;
+    }});
+    await this.signal.connect();
+    if(this.closed)throw new Error('The invitation was cancelled.');
+    if(role==='host'){
+      this.attach(this.pc.createDataChannel(channelName,{ordered:true}));
+      await this.pc.setLocalDescription(await this.pc.createOffer());
+      this.signal.send({type:'offer',sdp:this.pc.localDescription.sdp});
+    }
+  }
+  finishSignaling(){if(this.connected&&!this.signalFinished){clearTimeout(this.connectionTimer);this.signalFinished=true;this.signal?.send({type:'connected'});}}
   send(message) {
     if (!this.connected) throw new Error('Your partner is disconnected. Reconnect to continue.');
     const data = JSON.stringify({...message, [wireKey]: PROTOCOL});
@@ -132,7 +167,7 @@ class PeerLink {
     this.channel.send(data);
   }
   get connected() { return this.channel?.readyState === 'open' && this.pc.connectionState === 'connected'; }
-  close() { if (this.closed) return; this.closed = true; this.channel?.close(); this.pc.close(); this.onStatus('closed'); }
+  close() { if (this.closed) return; this.closed = true;clearTimeout(this.connectionTimer); this.signal?.close();this.channel?.close(); this.pc.close(); this.onStatus('closed'); }
 }
 
 return {PeerLink, encodePairing, decodePairing, makeLink, randomHex, iceConfig};

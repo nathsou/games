@@ -1,5 +1,7 @@
 # Artwork provenance
 
+PNG names below identify the original generated artwork. Only the WebP runtime versions are retained in Git.
+
 This file documents the original atlases. The [30-card expansion and redraw prompts](EXPANSION_PROMPTS.md) document the additional assets, rejected candidates and final artwork mappings; [CARD_AUDIT.md](../CARD_AUDIT.md) records every individual review.
 
 These eleven original illustration atlases were generated with the built-in ImageGen tool on 3 October 2026. The tool exposes no model selector, so a specific image model version cannot be verified. No commercial Similo or Balatro artwork was used.

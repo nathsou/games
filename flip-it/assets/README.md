@@ -1,6 +1,6 @@
 # Flip it card art
 
-`cards.png` is the original generated six-face prototype atlas, retained with its prompt for provenance. The current cards use code-native HTML numerals over original printed borders, rank-specific ornaments and reversible colored ink. The upright active number and upside-down alternate number remain accessible HTML, with no external fonts or images required. The runtime no longer loads the atlas. Rank 10 uses adjusted spacing so both digits remain readable at phone sizes.
+The original generated six-face prototype atlas (`cards.png`) is excluded from Git; its prompt is retained below for provenance. The current cards use code-native HTML numerals over original printed borders, rank-specific ornaments and reversible colored ink. The upright active number and upside-down alternate number remain accessible HTML, with no external fonts or images required. The runtime no longer loads the atlas. Rank 10 uses adjusted spacing so both digits remain readable at phone sizes.
 
 Balatro supplied the requested broad visual inspiration. No existing game sprites, logos, fonts or card artwork were imported.
 

@@ -3007,3 +3007,8 @@ input[type=range] { user-select:none; -webkit-user-select:none; }
   .table-size-4 .table-instruction,.table-size-5 .table-instruction { margin:0; font-size:28px; }
   .table-size-4 .table-instruction small,.table-size-5 .table-instruction small { font-size:17px; }
 }
+
+/* Keep optional seats and long connection links out of the main invite steps. */
+.pair-options, .pair-link { margin: 12px 0; color: var(--soft); font-size: 19px; }
+.pair-options[open] { padding-bottom: 8px; }
+.pair-link .link-output { width: 100%; margin-top: 8px; }
