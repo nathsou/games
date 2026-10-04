@@ -622,3 +622,6 @@ export const FORTY_ADDITIONS = {
     ]
   ]
 };
+
+// Only reviewed, delivered atlases are registered. Cells are row-major in a 5 × 2 grid.
+export const FORTY_ARTWORK = {scientists: 'assets/scientists-forty.webp', philosophers: 'assets/philosophers-forty.webp'};

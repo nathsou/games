@@ -8,10 +8,10 @@ Each new subject receives original imagegen artwork, an individual review of bot
 
 | Theme | Before | Target | Artwork / integration |
 | --- | ---: | ---: | --- |
-| scientists | 30 | 40 | Pending generation and review |
+| scientists | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
 | french | 30 | 40 | Pending generation and review |
 | global | 30 | 40 | Pending generation and review |
-| philosophers | 30 | 40 | Pending generation and review |
+| philosophers | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
 | writers | 30 | 40 | Pending generation and review |
 | actors | 30 | 40 | Pending generation and review |
 | cities | 30 | 40 | Pending generation and review |
@@ -171,3 +171,37 @@ Each new subject receives original imagegen artwork, an individual review of bot
 | Asclepius | Ancient Greek myth |
 | Sisyphus | Ancient Greek myth |
 | Chimera | Ancient Greek myth |
+
+## scientists — individual accepted-card review
+
+| ID | Subject | Finding |
+| --- | --- | --- |
+| scientists-30 | Johannes Kepler | Ruff, pointed beard and armillary sphere distinguish the early-modern astronomer; face and sphere survive both crops. |
+| scientists-31 | Antoine Lavoisier | Powdered hair, brass balance with two pans and ordinary flask fit eighteenth-century quantitative chemistry. |
+| scientists-32 | Dmitri Mendeleev | Shaggy gray hair, large beard and separated sample bottles distinguish the chemist without baking table text into the image. |
+| scientists-33 | Gregor Mendel | Augustinian clothing, spectacles and readable pea pods/flowers match the inheritance biography. |
+| scientists-34 | Mary Anning | Bonnet, ammonite spiral and Jurassic coastal cliffs clearly distinguish the fossil collector; fossil stays visible in both crops. |
+| scientists-35 | Cecilia Payne-Gaposchkin | Spectacles and a colored stellar-spectrum plate support the astronomy biography; the name fits the labelled crop. |
+| scientists-36 | Vera Rubin | Curly hair, galaxy photograph and telescope dome distinguish galaxy-rotation research from Payne’s spectrum. |
+| scientists-37 | Barbara McClintock | Mixed-color maize kernels and microscope identify genetics; hands and maize remain clear in both crops. |
+| scientists-38 | Dorothy Hodgkin | Ball-and-stick model and radial diffraction spots distinguish crystallography; no fantasy radioactive effects. |
+| scientists-39 | Rachel Carson | Closed book, small songbird and coastal reeds support environmental writing; face and bird remain legible. |
+
+[Generated atlas](assets/scientists-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
+
+## philosophers — individual accepted-card review
+
+| ID | Subject | Finding |
+| --- | --- | --- |
+| philosophers-30 | Augustine of Hippo | Late-Roman tunic, codex and mosaic basilica avoid a later medieval bishop’s mitre; imaginative ancient likeness is explicit. |
+| philosophers-31 | Hildegard of Bingen | Veil, wimple, botanical codex and abbey support the medieval abbess context; no modern music notation. |
+| philosophers-32 | Francis Bacon | Black cap, white ruff, quill and simple glassware fit the early-modern philosopher. |
+| philosophers-33 | Thomas Hobbes | Balding head, seventeenth-century collar, closed volume and stormy sea distinguish the political thinker. |
+| philosophers-34 | Gottfried Wilhelm Leibniz | Long curled wig and brass calculator match the polymath’s era; calculator stays readable in both crops. |
+| philosophers-35 | John Stuart Mill | Pronounced sideburns, book and balance distinguish the Victorian thinker; chin is clean-shaven. |
+| philosophers-36 | Arthur Schopenhauer | Wide white side hair and separate poodle provide a strong silhouette; neither is confused with the face. |
+| philosophers-37 | W. E. B. Du Bois | Bald head, trimmed goatee, glasses, books and Atlantic globe fit the scholar; no extraneous lettering. |
+| philosophers-38 | bell hooks | Natural short hair, spectacles, scarf and warm reading-room setting remain distinct; lowercase pen name preserved. |
+| philosophers-39 | Judith Butler | Short wavy hair, angular face and mirrored frames distinguish the modern philosopher; complete name/date fit. |
+
+[Generated atlas](assets/philosophers-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
