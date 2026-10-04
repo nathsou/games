@@ -13,7 +13,7 @@ The supplied **Cluance redesign from ground up** handoff is the visual reference
 - Details: right drawer with arrow browsing, marking, latest-clue comparison and up to two pinned candidates; optional hover/long-press Peek. Closed drawers and covered handoffs remove their contents.
 - Collection: searchable full page, deck chips, date/order sorting, biography inspection and Play this deck.
 - Settings: Game, AI partner, Spending and Network tabs; self-hosted typography, appearance and size segments, details previews, music volume, sound and reduced-motion controls. Existing provider, key, reasoning, token-budget, pricing and usage controls remain functional.
-- One screen: full-page privacy curtain, 800-ms hold with pointer/Space/Enter, early-release reset, seat swap and accessible confirmation fallback.
+- One screen: the guesser's public view opens immediately; entering the clue giver's private view uses a full-page privacy curtain, 800-ms hold with pointer/Space/Enter, early-release reset, seat swap and accessible confirmation fallback.
 
 The eleven original music cues, outcome canvas, game engine, AI observation/privacy projection, storage migration and replay/network formats are retained. Reduced-motion preferences suppress decorative animations. Art crops respect supplemental atlas geometry and subject redraw overrides. Different clues remain sideways in the rail, drop zone, comparison and replay.
 
@@ -24,6 +24,7 @@ Verification uses temporary Playwright scripts with system Chromium; no test dep
 - Inspected all nine surfaces, Light/Dark appearance, the expanded collection and the Babbage/Sartre/Camus searches.
 - Completed a real five-round fixed-hand local game with Scientists/Philosophers, the new subjects, alternating directions, pointer drag, sealed notes, final comparison and a win.
 - Checked early-release and completed holds, keyboard controls, settings persistence, drawer navigation/marking and removal of private DOM during every handoff. Guesser views contain neither the private hand nor secret marker.
+- Public handoff follow-up: completed five-round local games at 1440×900 and 390×844 with immediate giver-to-guesser transitions, protected guesser-to-giver transitions, sealed notes, and no private hand or secret marker in the guesser view. Resuming and swapping into the guesser view also bypass the hold; resuming the giver view and releasing an incomplete hold keep private artwork covered.
 - Exported/imported the resulting replay, stepped with arrow keys and autoplay, inspected expected-removal chips, completed a loss, and opened the archived-region replay.
 - Checked home, giver and guesser layouts at 1440×900, 1366×768, 1024×768, 820×1180, 390×844, 375×667 and 320×568 without horizontal overflow. The reference 1440×900 table and 390×844 phone table fit vertically; shorter screens allow vertical scrolling.
 - Intercepted provider requests to verify thinking, cancellation, retry, provider-error display, AI settings shortcuts and role-filtered UI without paid API calls.

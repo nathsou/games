@@ -26,7 +26,7 @@ AI mode makes browser requests directly to the selected provider. Multiplayer ga
 - **Guess the AI's card:** the AI knows the secret and chooses one clue card and its direction each round.
 - **Give clues to AI:** you know the secret and play clues; the AI chooses cards to eliminate.
 - **Swap online roles:** open the table’s **…** menu and choose **Swap roles & deal**, or use that button after a game. Your friend must accept. The same connection stays open, with a fresh secret and hand, the same decks and the same hand variant. The new clue giver creates the private deal locally.
-- **Play on one screen:** pass the device between roles using a privacy curtain. No provider key is required.
+- **Play on one screen:** the guesser's public view opens immediately after a clue. Hold to reveal the clue giver's secret and hand when switching back. No provider key is required.
 
 The board has twelve illustrated people or places. The clue giver starts with five cards and plays one as **Similar** (upright) or **Different** (sideways). The guesser eliminates **1, 2, 3, 4, 1** cards across five rounds. Removing the secret loses immediately; leaving it alone wins. Clues accumulate and remain relevant.
 
