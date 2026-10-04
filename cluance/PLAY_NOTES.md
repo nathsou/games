@@ -1,5 +1,13 @@
 # Browser play notes
 
+## Explicit invitation creation — 4 October 2026
+
+The host dialog now waits for **Create invitation**, then displays **Invitation ready** with copy/share/QR controls. A player who opened the join dialog can choose **Create an invitation instead** to become the clue giver; the host can choose **Join instead**. A cancelled or superseded invitation cannot report its late preparation error in a new dialog.
+
+Chromium followed join → create instead → create → copy a real native offer link, opened it in another browser context to generate/copy the native reply, and verified the host accepted the matching reply as its remote description. Decoded links contain only protocol/type/SDP/room, with matching room IDs and no game, secret, hand or key fields. Checked creation at 390px and 320px, host-to-join switching, invalid-reply recovery and fresh invitations. No browser or asset errors occurred. Shared pairing-codec and QR tests, module syntax and whitespace checks passed.
+
+This managed environment produced zero WebRTC ICE candidates in both descriptions, so a live data-channel connection could not be verified. The production WebRTC transport is unchanged. These checks verify creation, copy, reply generation and acceptance, not cross-network connectivity.
+
 ## Musicians expansion — 4 October 2026
 
 The renamed Musicians pack now has 53 cards, bringing the full collection to 353. It adds 23 artists and bands; Serge Gainsbourg retains his existing card once. Billie Eilish was removed at the user's request, including both symbolic artwork files. Her former `singers-39` slot is unused. Every remaining card record, ID and artwork mapping was compared with the preceding roster and is unchanged.
