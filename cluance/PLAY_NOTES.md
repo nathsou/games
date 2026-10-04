@@ -1,5 +1,11 @@
 # Browser play notes
 
+## Forty-card theme expansion — 4 October 2026
+
+Added 100 original illustrated subjects to reach 453 active cards: 40 per theme, with Musicians retaining 53. Each addition was inspected in both production crops, searched and opened with matching details; all expanded galleries have 40 distinct images and fit desktop/phone widths. All 377 existing active and archived records remain unchanged.
+
+968 complete engine games covered every board/clue theme pairing in Classic and Fixed five, with every addition dealt onto a board and into a hand. Two complete Chromium UI games used the new Greek board and Writers hand, including private guesser projection, reload/resume, replay export/import and all five replay steps. A legacy archived-region replay also opened. No browser or HTTP asset errors occurred. Static-site assembly, module syntax and whitespace checks passed. These card checks did not require paid AI calls or live cross-network multiplayer. [Individual card findings and provenance](FORTY_CARD_EXPANSION.md) document all replacements.
+
 ## Invitation roles and online role swaps — 4 October 2026
 
 Creating an invitation preserves the selected guesser/giver role. The invitation carries the creator’s role and public board deck, clue deck and hand variant; the recipient takes the opposite role. Native SDP offer creation remains independent of who gives clues. Legacy invitations without setup metadata retain their original creator-as-giver behavior.

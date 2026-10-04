@@ -33,7 +33,7 @@ The board has twelve illustrated people or places. The clue giver starts with fi
 
 **Classic hand:** draw one replacement after each clue. **Fixed five:** no replacements; use the initial five cards in a considered order.
 
-Eleven decks with **353 active illustrated cards: 53 Musicians and 30 in each of the other ten themes**, meeting or exceeding the publisher's [30-card Similo deck size](https://horribleguild.com/eu/product/similo-history/). Scientists includes Charles Babbage, Philosophers includes Jean-Paul Sartre, and Writers includes Albert Camus. Every existing and new card has an [individual audit record](CARD_AUDIT.md); inconsistent artwork was redrawn from scratch with imagegen.
+Eleven decks with **453 active illustrated cards: 53 Musicians and 40 in each of the other ten themes**, meeting or exceeding the publisher's [30-card Similo deck size](https://horribleguild.com/eu/product/similo-history/). Scientists includes Charles Babbage, Philosophers includes Jean-Paul Sartre, and Writers includes Albert Camus. Every existing and new card has an individual audit record in the [original audit](CARD_AUDIT.md) or [40-card expansion review](FORTY_CARD_EXPANSION.md); inconsistent artwork was redrawn from scratch with imagegen.
 
 1. French History
 2. Global History
@@ -47,11 +47,11 @@ Eleven decks with **353 active illustrated cards: 53 Musicians and 30 in each of
 10. Countries
 11. French Regions
 
-Cities include Paris, Rome, London, Berlin, Tokyo and New York City, with 24 more cities worldwide. French Regions contains the complete division as it stood on 31 December 2015: [22 metropolitan regions](https://www.insee.fr/fr/statistiques/1906658), including Corsica, and five overseas regions. Three additional cards depict **historical provinces: Anjou, Touraine and Provence**, explicitly labelled in their captions and descriptions; they are not extra administrative regions of 2015. Every card has one original illustration, dates and public context. Centre-Val de Loire uses its [name adopted in January 2015](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000030110734). New deals exclude the merged post-2016 regions. Old region IDs and their artwork are preserved only for compatible saved games and replays.
+Cities include Paris, Rome, London, Berlin, Tokyo and New York City, with 34 more cities worldwide. French Regions contains the complete division as it stood on 31 December 2015: [22 metropolitan regions](https://www.insee.fr/fr/statistiques/1906658), including Corsica, and five overseas regions. Thirteen additional cards depict **historical territories**: Anjou, Touraine, Provence, Berry, Bourbonnais, Saintonge, Aunis, Angoumois, Maine, Nivernais, Foix, Comtat Venaissin and Roussillon, explicitly labelled in their captions and descriptions; they are not extra administrative regions of 2015. Every card has one original illustration, dates and public context. Centre-Val de Loire uses its [name adopted in January 2015](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000030110734). New deals exclude the merged post-2016 regions. Old region IDs and their artwork are preserved only for compatible saved games and replays.
 
 Every card displays a date caption and has a short description available in card inspection. People have lifespans or labelled birth years; bands have formation/activity dates; places have labelled landmarks or milestones. Approximate and traditional dates are marked, and mythological figures are identified as myths. The [card context notes](CARD_CONTEXT.md) explain these conventions and link selected references.
 
-Choose board and clue decks independently, including people/place combinations. When themes overlap, clue cards depicting the same subject as a board card are excluded. The opening sentence chooses your role, partner, board deck, clue deck and hand variant. Collection is a searchable full page with all 353 cards. Musicians includes solo artists and bands; Serge Gainsbourg is retained once, and the deck keeps its original `singers` identifier so old saves and replays remain compatible. All decks use smaller WebP delivery images; the original generated PNGs are retained with their prompts.
+Choose board and clue decks independently, including people/place combinations. When themes overlap, clue cards depicting the same subject as a board card are excluded. The opening sentence chooses your role, partner, board deck, clue deck and hand variant. Collection is a searchable full page with all 453 cards. Musicians includes solo artists and bands; Serge Gainsbourg is retained once, and the deck keeps its original `singers` identifier so old saves and replays remain compatible. All decks use smaller WebP delivery images; generation prompts and original output identifiers are recorded in the artwork provenance documents; only WebP runtime assets are retained in Git.
 
 Select cards with a mouse, touch, or keyboard. The table keeps the board and clue trail together, with the giver’s hand between Similar and Different drop zones. Tap a hand card then a zone, or drag it there. While the partner guesses, the clue giver can still see and inspect their private hand; the clue controls return on the next clue turn. Arrow keys browse the hand; **S**/**D** choose a direction and **Enter** plays the selected clue. Different clues stay sideways throughout the table and replay.
 
@@ -106,7 +106,7 @@ These are cooperative games between trusted players. A local browser that runs a
 - `src/music.js`, `src/outcome.js`: eleven original scores, WebAudio playback and finite result animations.
 - `assets/PROMPTS.md`: the complete image-generation prompts and provenance.
 - `assets/EXPANSION_PROMPTS.md`: expansion/redesign prompts and accepted or rejected dispositions.
-- `CARD_AUDIT.md`: individual findings for all 353 active cards and 24 archived region cards.
+- `CARD_AUDIT.md`: original individual findings, with the [100-card expansion review](FORTY_CARD_EXPANSION.md) covering the new cards (453 active cards and 24 archived region cards overall).
 
 No tests or test suites are included, as requested. Verification is performed directly in the browser. [Play notes](PLAY_NOTES.md) record the live GPT-6 Luna games, prompt refinements, interface checks and remaining limitations.
 

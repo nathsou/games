@@ -341,3 +341,13 @@ Each new subject receives original imagegen artwork, an individual review of bot
 | greek-39 | Chimera | One lion body, goat head on its back and serpent-headed tail identify the Chimera; coherent three-head anatomy survives both crops. |
 
 [Generated atlas](assets/greek-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
+
+## Verification — 4 October 2026
+
+- 453 active cards: 40 in each of ten themes, plus 53 Musicians. All 377 prior active/archived records are deeply unchanged; 100 unique additions have complete metadata and valid artwork mappings.
+- Every addition was individually inspected in full-bleed UI and labelled AI crops. All 40 images within each expanded deck are distinct. Every new subject was searched and opened in the inspector with matching biography and dates; galleries fit 1440, 390 and 320px widths without horizontal overflow or browser/asset errors.
+- 968 complete five-round engine games cover all 121 board/clue theme pairings, both Classic and Fixed variants and four deterministic seed passes. Every new card appeared on both a board and in a hand; overlapping subjects stay out of the clue pool, refills follow the variant, and guesser views omit private fields. JSON save/replay projections and an archived-region replay validate.
+- Actual Chromium UI games with the new Greek board and Writers hand completed all five rounds in both variants. Checks include hidden guesser hand/secret, reload/resume after the first clue, exported/reopened replays and all five replay steps. The legacy archived-region replay also opens in the UI.
+- Static-site assembly (`node tools/build-site.mjs`), runtime module syntax, delivered artwork presence and whitespace checks pass. These checks require no paid provider calls; live AI responses and cross-network multiplayer were not exercised for this artwork-only expansion.
+
+All generated originals are identified in the prompt log. Rejected first Writers and Regions sheets are not delivered. The final correction atlases replace eleven rejected cells (two Global History, two Writers, six Regions and one Sisyphus) in both renderers.

@@ -1,5 +1,7 @@
 # Artwork provenance
 
+The later [forty-card theme expansion](FORTY_CARD_PROMPTS.md) records all 100 additional illustrations and accepted correction mappings.
+
 PNG names below identify the original generated artwork. Only the WebP runtime versions are retained in Git.
 
 This file documents the original atlases. The [30-card expansion and redraw prompts](EXPANSION_PROMPTS.md) document the additional assets, rejected candidates and final artwork mappings; [CARD_AUDIT.md](../CARD_AUDIT.md) records every individual review.

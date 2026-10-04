@@ -1,6 +1,6 @@
 # Cluance UX/UI redesign
 
-The supplied **Cluance redesign from ground up** handoff is the visual reference. The high-fidelity screens and tokens were implemented in the existing vanilla ES-module app; the Current and Wireframes prototypes were comparison material. The attachment's runtime, old atlas copies, remote font loading and static game data were not imported. Live collection counts use the expanded roster: **353 cards, 11 decks: 53 Musicians and 30 in each other deck**.
+The supplied **Cluance redesign from ground up** handoff is the visual reference. The high-fidelity screens and tokens were implemented in the existing vanilla ES-module app; the Current and Wireframes prototypes were comparison material. The attachment's runtime, old atlas copies, remote font loading and static game data were not imported. Live collection counts use the expanded roster: **453 cards, 11 decks: 53 Musicians and 40 in each other deck**.
 
 ## Implemented surfaces
 
@@ -46,3 +46,5 @@ Clue-giver hand during the partner’s guess: desktop and phone. Both hand varia
 Role-preserving invitation: guessing creator. Agreed role swap: phone. Both creator roles, both hand variants, swaps in both directions and cancellation races were checked with the transport stand-in; native invitation/reply acceptance was verified separately.
 
 Generated browser captures are excluded from Git; the verification descriptions above are retained.
+
+- Forty-card expansion (2026-10-04): 100 additions individually reviewed in full-bleed and labelled AI crops, searched and opened in the inspector. Each expanded theme has 40 distinct rendered images and fits desktop and 390/320px galleries. Existing card records are unchanged. See [individual findings and validation](FORTY_CARD_EXPANSION.md).

@@ -1,6 +1,8 @@
 # Individual card audit
 
-Original audit completed on 2026-10-03; the Musicians expansion was reviewed on 2026-10-04. **353 active cards: 53 Musicians and 30 in each of the other ten themes.** All decks meet or exceed the publisher's [Similo: History deck description](https://horribleguild.com/eu/product/similo-history/): “Each version of Similo comes with a deck of 30 big cards”. Cluance's subjects and illustrations are original; these are expanded original rosters, not copies of commercial rosters.
+The subsequent 2026-10-04 forty-card expansion adds 100 individually reviewed original illustrations. Its complete per-card findings and redraw decisions are in [FORTY_CARD_EXPANSION.md](FORTY_CARD_EXPANSION.md); generation provenance is in [FORTY_CARD_PROMPTS.md](assets/FORTY_CARD_PROMPTS.md). The earlier review tables below retain their original scope. All 377 prior active and archived card records remain unchanged.
+
+Original audit completed on 2026-10-03; the Musicians expansion was reviewed on 2026-10-04. **453 active cards: 53 Musicians and 40 in each of the other ten themes.** All decks meet or exceed the publisher's [Similo: History deck description](https://horribleguild.com/eu/product/similo-history/): “Each version of Similo comes with a deck of 30 big cards”. Cluance's subjects and illustrations are original; these are expanded original rosters, not copies of commercial rosters.
 
 Added 63 cards, including Charles Babbage, Jean-Paul Sartre and Albert Camus. French Regions retains all 27 administrative regions of 2015 and adds three explicitly labelled historical provinces: Anjou, Touraine and Provence. They are identified in their subtitles, date captions, biographies and deck description, rather than presented as extra regions in the 2015 division.
 
