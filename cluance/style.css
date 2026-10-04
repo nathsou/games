@@ -1512,6 +1512,13 @@ dialog::backdrop {
   min-width: 0;
   flex: 1;
 }
+.role-swap-dialog .pair-actions {
+  flex-wrap: wrap;
+}
+.role-swap-dialog .pair-actions .button {
+  flex: 1 1 auto;
+  white-space: normal;
+}
 input:not([type="checkbox"]):not([type="range"]),
 select,
 textarea {

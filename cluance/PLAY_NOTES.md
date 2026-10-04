@@ -1,5 +1,15 @@
 # Browser play notes
 
+## Invitation roles and online role swaps — 4 October 2026
+
+Creating an invitation preserves the selected guesser/giver role. The invitation carries the creator’s role and public board deck, clue deck and hand variant; the recipient takes the opposite role. Native SDP offer creation remains independent of who gives clues. Legacy invitations without setup metadata retain their original creator-as-giver behavior.
+
+Either online player can choose **Swap roles & deal** from the table menu or final reveal. Their friend must accept before a fresh game replaces the current one. The existing connection stays open. The original giver coordinates the handover and retires the old private session; the new giver creates the fresh secret and hand locally and sends only the validated public table. Declines, cancellation and expired requests keep the current game. A cancellation crossing a committed handover completes the agreed swap, preventing two authorities.
+
+Chromium checked both creator roles with Classic and Fixed five, using a Musicians board and French History clues. Every case covered correct roles/settings, private-field exclusion, decline/cancel, swaps initiated by each role, clue/removal synchronization after each swap, waiting-hand inspection, end-game swaps and the phone menu. Connection object counts stayed unchanged. Additional checks covered simultaneous requests, cancellation crossing commit, disconnect during an unaccepted request and confirmation dialogs at 390×844 and 320×568 with no document or dialog horizontal overflow. No browser errors or failed assets occurred.
+
+Connected checks used a temporary BroadcastChannel transport stand-in with the real application, game engine, invitation parser and native pairing codec. Separate native WebRTC checks created/copied a guesser’s invitation, generated the giver’s reply and accepted it with matching room IDs; the environment produced zero ICE candidates, so live cross-network connectivity remains unverified. Native metadata checks also covered both roles, legacy links and rejected invalid settings. Existing shared pairing/QR checks, module syntax and whitespace checks passed. No test suite or dependencies were added.
+
 ## Clue-giver hand while waiting — 4 October 2026
 
 The clue giver's current hand stays visible and inspectable while the partner guesses. The waiting layout hides only the Similar/Different drop zones, centres the hand and shows an inspection hint. Existing turn checks prevent selecting, dragging or submitting another clue until the next clue turn.

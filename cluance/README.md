@@ -22,9 +22,10 @@ There is no hosted room registry. AI mode makes browser requests directly to the
 
 ## Play
 
-- **Play with a friend:** choose **Invite a friend →**, then **Create invitation**. Once the dialog says **Invitation ready**, copy or share the link with your friend. If you opened **Join a friend** first, choose **Create an invitation instead** to become the host. The creator gives the clues. The friend opens the invitation, receives a reply link automatically, and sends it back. The creator opens **Paste a reply manually** and pastes the reply, or opens the reply link in the same browser as the hosting tab; both browsers open the shared table. Keep both tabs open. This exchange contains connection metadata, not the secret, hand, notes, or API keys.
+- **Play with a friend:** choose **Invite a friend →**, then **Create invitation**. Once the dialog says **Invitation ready**, copy or share the link with your friend. If you opened **Join a friend** first, choose **Create an invitation instead** to create the invitation. Your chosen **guess** or **give the clues** role is preserved; your friend takes the opposite role. The friend opens the invitation, receives a reply link automatically, and sends it back. The creator opens **Paste a reply manually** and pastes the reply, or opens the reply link in the same browser as the hosting tab; both browsers open the shared table. Keep both tabs open. The invitation carries connection metadata and public table settings, but no secret, hand, notes or API keys.
 - **Guess the AI's card:** the AI knows the secret and chooses one clue card and its direction each round.
 - **Give clues to AI:** you know the secret and play clues; the AI chooses cards to eliminate.
+- **Swap online roles:** open the table’s **…** menu and choose **Swap roles & deal**, or use that button after a game. Your friend must accept. The same connection stays open, with a fresh secret and hand, the same decks and the same hand variant. The new clue giver creates the private deal locally.
 - **Play on one screen:** pass the device between roles using a privacy curtain. No provider key is required.
 
 The board has twelve illustrated people or places. The clue giver starts with five cards and plays one as **Similar** (upright) or **Different** (sideways). The guesser eliminates **1, 2, 3, 4, 1** cards across five rounds. Removing the secret loses immediately; leaving it alone wins. Clues accumulate and remain relevant.
@@ -85,7 +86,7 @@ Every response is accounted for before its move is parsed, so paid correction at
 
 AI and one-screen games are saved after each move. The clue giver also saves multiplayer state and can resume it with a fresh invitation after a reload. The guest's browser receives only public state and must re-pair with the giver. An interrupted guest move can be retried after reconnecting; revisions prevent duplicate actions. A rematch keeps the current connection and deals a new secret and board.
 
-These are cooperative games between trusted players. A local browser that runs a solo game necessarily holds the game engine's secret; the AI's actual request is filtered by role. In multiplayer, the guest is not sent the secret until the game ends. Replay data and network input are validated before use, and user notes are rendered as text.
+These are cooperative games between trusted players. A local browser that runs a solo game necessarily holds the game engine's secret; the AI's actual request is filtered by role. In multiplayer, the guesser is not sent the secret until the game ends. Replay data and network input are validated before use, and user notes are rendered as text.
 
 ## Source
 
