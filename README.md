@@ -7,6 +7,7 @@ Small browser games in vanilla JavaScript. The index page lists them as cards. C
 | **Flip it**: configurable two-to-five-player card game, WebRTC, local play and team play, no dependencies | [`flip-it/`](flip-it/) |
 | **Midnight Table**: three card games, solo/local/WebRTC duel and co-op, no dependencies | [midnight/](midnight/) |
 | **Cluance**: cooperative deduction, eleven decks, vision AI and WebRTC | [cluance/](cluance/) |
+| **Mosslight**: woodland squad adventure, Canvas 2D, no dependencies | [`mosslight/`](mosslight/) |
 | **Spacegolf**: golf in space, WebGL2, no dependencies | [`spacegolf/`](spacegolf/) |
 | **Pawn Quest**: learn chess from scratch with puzzles, boss battles and an algorithmic coach, no dependencies | [`pawn-quest/`](pawn-quest/) |
 | **Nonocube**: 3D nonograms, WebGL2, TypeScript + Vite (built in CI) | [`nonocube/`](nonocube/) |
