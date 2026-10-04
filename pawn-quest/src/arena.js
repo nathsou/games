@@ -15,6 +15,7 @@ import { pixelText } from './font.js';
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
 export function arenaScreen(app, nav) {
+  if(nav.resume?.hash==='#/arena'&&nav.resume.arena){const s=nav.resume.arena;nav.resume=null;startGame(app,nav,s.botId,s.color,s.moves);return ()=>app.__arenaCleanup?.();}
   playMusic('map');
   const o = save.arena.options;
   if (save.arena.saved) {
@@ -97,6 +98,7 @@ function startGame(app, nav, botId, color, moves) {
     advice: o.advice, warnings: o.warnings, threats: o.threats,
     onEvent: (t, d) => onEvent(t, d),
   });
+  window.pawnQuest.active={capture:()=>!game.over?{hash:'#/arena',arena:{botId,color,moves:game.moves}}:null};
   // Replay saved moves.
   for (const u of moves) { const m = game.pos.moveFromUci(u); if (!m) break; const san = game.pos.san(m); const fenBefore = game.pos.toFEN(); game.pos.make(m); game.history.push({ uci: u, san, by: friend || (game.pos.turn ^ 1) === user ? 'user' : 'bot', fenBefore, from: mFrom(m), to: mTo(m), color: game.pos.turn ^ 1 }); }
   game.refresh();

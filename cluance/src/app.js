@@ -1,5 +1,7 @@
+let asyncClient=null;
+import {registerCheckpoint,readCheckpoint} from '../../shared/game-checkpoint.js';
 import {installHostView} from './friend-view.js';
-import {friendSession, togetherURL, registerFriendGame, redirectTogetherInvitation, sharedPlayActive} from '../../shared/friend-context.js';
+import {friendSession, togetherURL, registerFriendGame, redirectTogetherInvitation, sharedPlayActive, inviteFriendGame, joinFriendRoom} from '../../shared/friend-context.js';
 import { loadTheme, THEME_KEY } from "../../shared/theme.js";
 import { loadAI, saveAI, CONFIG_KEY } from "../../shared/ai/config.js";
 import { DECKS, CARDS } from "./decks.js";
@@ -173,6 +175,7 @@ function mountCard(parent, id, opts = {}) {
   return element;
 }
 function humanRole() {
+  if(mode==="async")return asyncClient.record.role;
   return mode === "ai-giver" || mode === "peer-guest"
     ? "guesser"
     : mode === "local"
@@ -180,13 +183,14 @@ function humanRole() {
       : "giver";
 }
 function currentView() {
-  return mode === "peer-guest" ? game : viewFor(game, humanRole());
+  return mode === "async" || mode === "peer-guest" ? game : viewFor(game, humanRole());
 }
 function isHumanTurn() {
   return (
     game &&
     game.phase !== "over" &&
     !roleSwap &&
+    !(mode==="async"&&asyncClient.busy) &&
     (game.phase === "clue") === (humanRole() === "giver")
   );
 }
@@ -422,6 +426,7 @@ function updatePartner() {
     mode === "local" ||
     mode === "replay";
   if (chip.hidden) return;
+  if(mode==="async"){chip.textContent=asyncClient.busy?"Saving move…":asyncClient.record.myTurn?"Your turn · saved room":"Friend can play later";chip.onclick=()=>friendSession()?.showPanel();return;}
   if (isPeer()) {
     chip.innerHTML = `<span class="connection-dot ${peer?.connected ? "connected" : ""}"></span> ${peer?.connected ? "Friend connected" : "Reconnect"}`;
     chip.onclick = () => {
@@ -496,27 +501,14 @@ function renderHome() {
   if ($("join-friend")) $("join-friend").onclick = () => {
     if (sharedPlayActive()) { toast('Stop cursors in the friend panel before starting a separate multiplayer table.'); return; }
     if (friendSession()?.connected) friendSession().requestGame('cluance');
-    else openPairing("guest");
+    else joinFriendRoom('cluance');
   };
   $("open-replay").onclick = () => $("replay-file").click();
   $("replay-file").onchange = (event) => importReplay(event.target.files[0]);
 }
 function inviteFriend() {
-  if (sharedPlayActive()) { toast('Stop cursors in the friend panel before starting a separate multiplayer table.'); return; }
-  if (friendSession()?.connected) {
-    friendSession().requestGame('cluance');
-    return;
-  }
-  homePartner = "friend";
-  setup.mode = homeRole === "giver" ? "peer-host" : "peer-guest";
-  openToken = null;
-  saveSetup();
-  renderHome();
-  if (!friendSession()) {
-    location.href = togetherURL('cluance', 'invite');
-    return;
-  }
-  start(setup.mode);
+  homePartner='friend';setup.mode=homeRole==='giver'?'peer-host':'peer-guest';saveSetup();
+  inviteFriendGame('cluance',{role:homeRole,options:gameOptions()});
 }
 function renderTokenPicker() {
   const picker = $("token-picker");
@@ -1073,6 +1065,7 @@ function submitMove() {
       role === "giver"
         ? { card: clueCard, relation, rationale: draftNote, source: "Human" }
         : { cards: [...selected], rationale: draftNote, source: "Human" };
+    if(mode==="async"){asyncClient.move(action).catch(error=>toast(error.message));return;}
     if (mode === "peer-guest") {
       peer.send({
         type: "guess",
@@ -1496,6 +1489,7 @@ async function importReplay(file) {
   }
 }
 function updateConnection() {
+  if(mode==="async"){const badge=$("connection-badge");badge.hidden=false;badge.textContent=asyncClient.busy?"SAVING MOVE…":asyncClient.record.myTurn?"TAKE TURNS · YOUR TURN":"TAKE TURNS · WAITING FOR FRIEND";badge.classList.remove("offline");return;}
   const badge = $("connection-badge");
   badge.hidden = !peer;
   badge.textContent = peer?.connected
@@ -1888,29 +1882,9 @@ function readPairConfig() {
   persistPreferences();
   return config;
 }
-function openPairing(kind, reconnect = false, initial = "") {
-  cancelAI();
-  pairingAttempt++;pairingHosted=false;
-  const old=peer;peer=null;old?.close();updateConnection();
-  pairingKind = kind;
-  pairingCode = "";
-  pairingError = "";
-  pairingBusy = false;
-  pairingInput = initial;
-  if (!reconnect) {
-    game = null;
-    resetTurn();
-  }
-  pairingGameOptions = null;
-  if (kind === "host") {
-    if (!reconnect) mode = homeRole === "giver" ? "peer-host" : "peer-guest";
-    pairingGameOptions = game
-      ? { theme: game.theme, clueTheme: game.clueTheme, variant: game.variant }
-      : gameOptions();
-  } else mode = "peer-guest";
-  if (kind === "guest" && reconnect) game = null;
-  renderPairing();
-  if (kind === "guest" && initial) preparePair("answer", initial);
+function openPairing(kind) {
+  if (kind==='guest') joinFriendRoom('cluance');
+  else inviteFriendGame('cluance', friendSetup());
 }
 async function preparePair(type,input='',manual=false) {
   if (type === 'answer' && redirectTogetherInvitation('cluance', input)) return;
@@ -2110,39 +2084,7 @@ pairingBus?.addEventListener("message", (event) => {
     })
     .catch(() => {});
 });
-async function openPairHash() {
-  const params = new URLSearchParams(location.hash.slice(1)),
-    invite = params.has("room")?location.href:params.get("invite") || params.get("pair"),
-    reply = params.get("reply");
-  if (!invite && !reply) return;
-  if (redirectTogetherInvitation('cluance', location.href)) return;
-  const invitation = params.has("invite")||params.has("room") ? location.href : invite;
-  history.replaceState(null, "", location.pathname + location.search);
-  if (invite) {
-    openPairing("guest", false, invitation);
-    return;
-  }
-  try {
-    const decoded = await decodePairing(reply, "answer");
-    if (peer?.isInviter && peer.room === decoded.room) {
-      pairingKind = "host";
-      renderPairing();
-      await acceptPair(reply);
-    } else {
-      const link = makeLink(reply, "answer");
-      pairingBus?.postMessage({ type: "reply", link });
-      showModal(
-        "Back to your table.",
-        "Reply ready",
-        '<p class="pair-copy">Return to your original hosting tab. The reply was sent there. If it is on another browser, paste this link in that tab.</p><textarea id="return-reply" class="code-box" readonly>' +
-          esc(link) +
-          "</textarea>",
-      );
-    }
-  } catch (error) {
-    toast(error.message);
-  }
-}
+async function openPairHash() {}
 window.addEventListener("hashchange", openPairHash);
 function showRules() {
   showModal(
@@ -2914,26 +2856,43 @@ matchMedia("(max-width:760px)").addEventListener("change", () => {
   if (screen === "game") renderGame();
 });
 
-registerFriendGame('cluance', {
-  setup: () => ({role: homeRole, options: gameOptions()}),
-  async invite() {
-    openPairing('host', Boolean(game));
-    await preparePair('offer');
-  },
-  start({host, metadata}) {
-    const details = validateInvitationDetails(metadata);
-    cancelAI();
-    resetTurn();
-    game = null;
-    const role = host ? details.role : (details.role === 'giver' ? 'guesser' : 'giver');
-    mode = role === 'giver' ? 'peer-host' : 'peer-guest';
-    pairingGameOptions = details.options;
-    pairingKind = null;
-    pairingBusy = false;
-    pairingCode = '';
-    pairingInput = '';
-    modal.close();
-    const link = newPeer();
-    link.isInviter = host;
+function friendSetup() {
+  if(mode==="async")return {...asyncClient.record.setup,role:humanRole()};
+  return {role:game&&isPeer()?humanRole():homeRole, options:game&&isPeer()?{theme:game.theme,clueTheme:game.clueTheme,variant:game.variant}:gameOptions()};
+}
+registerCheckpoint('cluance',{
+  capture:()=>game&&mode!=="async"?{game,mode,localRole,screen,setup:friendSetup()}:null,
+  restore(value){
+    if(!value||!['local','ai-giver','ai-guesser','peer-host','peer-guest','replay'].includes(value.mode))throw new Error('Invalid saved game.');
+    validatePublicView(value.mode==='peer-guest'?value.game:viewFor(value.game,'guesser'));
+    if(value.mode!=='peer-guest'&&(!value.game.board.includes(value.game.secret)||!Array.isArray(value.game.hand)||value.game.hand.some(id=>!CARDS[id])||!Array.isArray(value.game.draw)||value.game.draw.some(id=>!CARDS[id])))throw new Error('Invalid saved cards.');
+    cancelAI();game=value.game;mode=value.mode;localRole=value.localRole;resetTurn();
+    if(game.phase==='over')renderReveal();else if(mode==='local')showPassScreen();else renderGame();
   },
 });
+registerFriendGame('cluance', {
+  setup: friendSetup,
+  startAsync(client){
+    cancelAI();peer?.close();peer=null;asyncClient=client;mode='async';modal.close();
+    const unsubscribe=client.subscribe(record=>{if(mode!=='async')return;const changed=game?.revision!==record.view.revision;game=record.view;if(changed)resetTurn();if(game.phase==='over')renderReveal();else renderGame();updateConnection();});
+    window.addEventListener('pagehide',unsubscribe,{once:true});
+  },
+  canResume: () => Boolean(game&&isPeer() || readCheckpoint('cluance')?.data?.mode?.startsWith('peer-')),
+  start({host, metadata, resume}) {
+    const details=validateInvitationDetails(metadata);
+    cancelAI();resetTurn();
+    const role=host?details.role:(details.role==='giver'?'guesser':'giver');
+    if (resume && role==='giver' && !game) {
+      const saved=readCheckpoint('cluance')?.data||read('session',null);
+      if (saved?.mode==='peer-host') {validatePublicView(viewFor(saved.game,'guesser'));game=saved.game;}
+      if(!game)throw new Error('The clue giver’s saved game is unavailable. Start a fresh game together.');
+    }
+    if (!resume || role!=='giver') game=null;
+    mode=role==='giver'?'peer-host':'peer-guest';
+    setup.theme=details.options.theme;setup.clueTheme=details.options.clueTheme;setup.variant=details.options.variant;
+    homeRole=role;pairingGameOptions=details.options;pairingKind=null;pairingBusy=false;pairingCode='';pairingInput='';
+    modal.close();const link=newPeer();link.isInviter=host;
+  },
+});
+
+document.addEventListener('click',event=>{if(mode==='async'&&event.target.closest('#rematch,#swap-deal')){event.preventDefault();event.stopImmediatePropagation();friendSession().openGameSetup('cluance',friendSetup());}},true);

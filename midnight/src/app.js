@@ -1,4 +1,5 @@
-import {sharedPlayActive} from '../../shared/friend-context.js';
+import {registerCheckpoint} from '../../shared/game-checkpoint.js';
+import {sharedPlayActive, registerFriendGame, inviteFriendGame, joinFriendRoom, showFriendPanel} from '../../shared/friend-context.js';
 import {trackArcadeGame} from '../../shared/ai/usage.js';
 import {installThemeControls} from '../../shared/theme.js';
 import {loadAI} from '../../shared/ai/config.js';
@@ -8,7 +9,7 @@ import {describeTurn} from './ai.js';
 import {GAMES, createGame, applyAction, playerView, reserve, winner} from './rules.js';
 import {botAction} from './bot.js';
 import {PeerLink, decodePairing, makeLink, iceConfig} from './peer.js';
-import {TableSession} from './session.js';
+import {TableSession,validateView} from './session.js';
 import {drawQR} from './qr.js';
 import {setSound, sound} from './sound.js';
 
@@ -327,15 +328,7 @@ function modalHead(title, eyebrow = 'MIDNIGHT TABLE') {
 function settingsHtml() {
   return '<details class="connection-settings"><summary>Connection settings</summary><p>For different networks, STUN helps the browsers find each other. Some networks need a TURN relay. Leave STUN blank for a local-network connection. These settings add no scripts or libraries.</p><label class="label" for="stun">STUN ADDRESS</label><input id="stun" spellcheck="false" value="' + esc(Object.hasOwn(prefs, 'stun') ? prefs.stun : 'stun:stun.l.google.com:19302') + '"><label class="label" for="turn">OPTIONAL TURN RELAY</label><input id="turn" placeholder="turn:your-relay.example:3478" spellcheck="false"><label class="label" for="turn-name">RELAY USERNAME</label><input id="turn-name" autocomplete="off"><label class="label" for="turn-password">RELAY PASSWORD (THIS SESSION ONLY)</label><input id="turn-password" type="password" autocomplete="off"></details>';
 }
-function openPair(kind) {
-  if (sharedPlayActive()) return;
-  pairKind = kind; pairError = ''; pairingOpen = true;
-  if (!peer || (!peer.connected && peer.pc.signalingState !== 'have-local-offer' && session?.seat === 0) || linkStatus === 'closed' || linkStatus === 'failed' || !pairOut) { pairOut = ''; pairMessage = ''; pairBusy = false; }
-  if (peer?.connected) pairKind = 'connected';
-  else if (kind === 'join' && session?.seat === 0 && pairOut) pairOut = '';
-  renderPair();
-  if (!modal.open) modal.showModal();
-}
+function openPair(kind) {if(kind==='join')joinFriendRoom('midnight');else inviteFriendGame('midnight',friendSetup());}
 function renderPair() {
   if (!pairingOpen) return;
   let html = modalHead(pairKind === 'return' ? 'Back to your table.' : pairKind === 'connected' ? 'Two seats, connected.' : pairKind === 'host' ? 'Invite your favorite rival.' : 'Pull up a chair.', 'PRIVATE TABLE / PEER-TO-PEER');
@@ -511,7 +504,7 @@ document.addEventListener('click', async event => {
     } else if (action === 'deal-online') session.start(selectedGame);
     else if (action === 'leave-online') {
       const old = peer; peer = null; old?.close(); session = null; mode = 'solo'; scene = 'menu'; game = null; render();
-    } else if (action === 'host' || action === 'join') openPair(action);
+    } else if (action === 'host' || action === 'join') {if(action==='join')joinFriendRoom('midnight');else if(friendSessionConnected())showFriendPanel();else inviteFriendGame('midnight',friendSetup());}
     else if (action === 'create-invite') await createInvitation();
     else if (action === 'join-invite') await joinInvitation(modal.querySelector('#pair-input').value);
     else if (action === 'accept-reply') await acceptReply(modal.querySelector('#pair-input').value);
@@ -595,33 +588,7 @@ bus?.addEventListener('message', async event => {
     pairMessage = 'Reply delivered. Your game is connecting in the original hosting tab. You can close this tab.'; renderPair();
   }
 });
-async function handleHash() {
-  const params = new URLSearchParams(location.hash.slice(1));
-  const invite = params.get('invite'), reply = params.get('reply');
-  if (!invite && !reply) return;
-  history.replaceState(null, '', location.pathname + location.search);
-  if (invite) {
-    openPair('join');
-    modal.querySelector('#pair-input').value = makeLink(invite, 'offer');
-    try { await joinInvitation(invite); } catch (error) { pairError = error.message; pairBusy = false; renderPair(); }
-  } else {
-    try {
-      const decoded = await decodePairing(reply, 'answer');
-      if (session?.seat === 0 && peer?.room === decoded.room) { openPair('host'); await acceptReply(reply); }
-      else {
-        pairKind = 'return'; pairOut = makeLink(reply, 'answer'); pairMessage = bus ? 'Looking for your original hosting tab…' : 'Paste this reply into your original hosting tab.';
-        pairingOpen = true; renderPair(); if (!modal.open) modal.showModal();
-        bus?.postMessage({type: 'reply', room: decoded.room, token: reply});
-        setTimeout(() => {
-          if (pairKind === 'return' && pairMessage.startsWith('Looking')) {
-            pairMessage = 'Your hosting tab was not found here. Copy the reply and paste it into the original hosting tab. If that tab was closed, create a fresh invitation.';
-            renderPair();
-          }
-        }, 2500);
-      }
-    } catch (error) { notify(error.message); }
-  }
-}
+async function handleHash() {}
 window.addEventListener('hashchange', () => handleHash());
 window.addEventListener('pagehide', () => {stopAI(); stopScan(); clearTimeout(botTimer); peer?.close(); bus?.close(); });
 if (typeof BarcodeDetector !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
@@ -638,3 +605,30 @@ Object.defineProperty(window, '__midnight', {value: {
 }});
 
 installThemeControls(document.querySelector('.top-actions'));
+
+function friendSessionConnected(){return connected();}
+function friendSetup(){return {type:view()?.type||selectedGame,team:session?.team??false,opponent:prefs.opponent==='model'?'model':'dealer'};}
+registerCheckpoint('midnight',{
+  capture:()=>view()?{mode,seat:mySeat(),state:mode==='online'?session.state:game,view:view(),team:session?.team||false,members:session?.members||[],series:session?.series||offlineSeries,setup:friendSetup()}:null,
+  restore(data){
+    if(!data||!['solo','local','online'].includes(data.mode)||![0,1].includes(data.seat))throw new Error('Invalid saved table.');
+    validateView(data.view);
+    if(data.state){validateView(playerView(data.state,0));validateView(playerView(data.state,1));}
+    mode=data.mode;seat=data.seat;selectedGame=data.setup.type;
+    if(mode==='online'){
+      session=new TableSession({seat,name:name(),team:data.team,chooseBot:decideBot,onUpdate:updateOnline,onError:networkError});
+      Object.assign(session,{state:data.state,view:data.view,members:data.members,series:data.series});
+    }else{game=data.state;offlineSeries=data.series;}
+    scene='game';chosen=null;source=null;handoff=mode==='local';render();
+  },
+});
+registerFriendGame('midnight',{
+  setup:friendSetup,
+  canResume:()=>Boolean(session?.seat===0&&session.state),
+  start({host,metadata,resume}){
+    clearTimeout(botTimer);generation++;stopAI();
+    selectedGame=metadata.type;prefs.team=metadata.team;prefs.opponent=metadata.opponent;savePrefs();
+    if(!(resume&&host&&session?.state)){session=null;game=null;}
+    pairingOpen=false;modal.close();makePeer(host?0:1);
+  },
+});

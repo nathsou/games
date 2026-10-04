@@ -1,59 +1,70 @@
-:root { color-scheme: dark; font-family: system-ui, sans-serif; color: #f3f1d8; background: #123c3a; }
-* { box-sizing: border-box; }
-body { margin: 0; height: 100dvh; display: flex; flex-direction: column; }
-.friend-bar { display: flex; align-items: center; gap: 12px; padding: 8px 14px; min-height: 52px; border-bottom: 1px solid #52706a; }
-a { color: inherit; }
-#collection-link { font-weight: 700; text-decoration: none; }
-#friend-status { flex: 1; font-size: 13px; }
-.friend-bar label { font-size: 12px; }
-button, select, input { font: inherit; font-size: 13px; color: inherit; border: 1px solid #789188; border-radius: 6px; background: #214c46; padding: 7px 10px; }
-button, select { cursor: pointer; }
-button:hover, select:hover { background: #315f52; }
-button:disabled, select:disabled { opacity: .6; cursor: wait; }
-button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid #f1d66e; outline-offset: 3px; }
-.friend-actions { display: flex; gap: 6px; }
-#friend-settings { position: relative; }
-#friend-settings summary { padding: 5px 7px; cursor: pointer; list-style: none; border: 1px solid #789188; border-radius: 6px; }
-#friend-settings summary::-webkit-details-marker { display: none; }
-#friend-settings label { position: absolute; z-index: 4; right: 0; top: 36px; width: 220px; padding: 14px; background: #183e37; border: 1px solid #789188; border-radius: 8px; box-shadow: 0 8px 24px #0008; font-size: 13px; }
-#header-auto-hide { accent-color: #f1d66e; }
-#show-friend-panel { position: fixed; z-index: 3; top: 4px; right: 8px; opacity: .85; font-size: 11px; padding: 5px 8px; }
-main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
-iframe { width: 100%; height: 100%; display: block; border: 0; background: #123c3a; }
-#shared-view { position: absolute; inset: 0; background: transparent; }
-#screen-surface { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); overflow: hidden; touch-action: none; }
-#screen-typing { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: min(360px, calc(100% - 24px)); opacity: .85; }
-#friend-cursor { position: absolute; pointer-events: none; z-index: 1; font-size: 20px; color: #ffdf70; text-shadow: 0 1px 3px #000; }
-#friend-cursor small { display: inline-block; font: 11px system-ui; background: #183e37; padding: 2px 5px; border-radius: 4px; }
-#screen-wait { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
-dialog { color: inherit; background: #183e37; border: 1px solid #789188; border-radius: 12px; padding: 24px; max-width: min(420px, calc(100vw - 32px)); }
-dialog::backdrop { background: #081b19b3; }
-h2 { font-size: 21px; margin-top: 0; }
-dialog p { line-height: 1.6; }
-.dialog-actions { display: flex; flex-wrap: wrap; gap: 12px; }
-#friend-error { position: fixed; bottom: 16px; left: 16px; right: 16px; margin: 0; padding: 12px; border: 1px solid #f1d66e; background: #183e37; border-radius: 6px; }
-#room-link { width: 100%; margin: 8px 0 16px; }
-#friend-chat { position: fixed; z-index: 2; right: 12px; bottom: 12px; width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 112px); display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #183e37; border: 1px solid #789188; border-radius: 12px; box-shadow: 0 8px 32px #0008; }
-.chat-heading { display: flex; justify-content: space-between; align-items: center; }
-.chat-heading h2 { margin: 0; font-size: 16px; }
-#chat-status, #chat-error { font-size: 12px; margin: 0; }
-#chat-log { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 80px; max-height: 240px; }
-#chat-log li { display: flex; flex-direction: column; gap: 3px; margin: 8px 0; padding: 8px; background: #214c46; border-radius: 6px; overflow-wrap: anywhere; white-space: pre-wrap; }
-#chat-log strong { font-size: 11px; color: #bed0bb; }
-#chat-log .own-message { margin-left: 24px; }
-#chat-log .friend-message { margin-right: 24px; }
-#chat-reactions { display: flex; gap: 8px; }
-#chat-form { display: flex; gap: 8px; }
-#chat-input { min-width: 0; width: 100%; }
-.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-[hidden] { display: none !important; }
-@media (max-width: 600px) {
-  .friend-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; padding: 8px; }
-  #collection-link { grid-column: 1; grid-row: 1; }
-  #friend-status { grid-column: 2; grid-row: 1; min-width: 0; text-align: right; font-size: 11px; }
-  .friend-bar > label { display: none; }
-  #next-game { grid-column: 1; grid-row: 2; max-width: 150px; }
-  .friend-actions { grid-column: 2; grid-row: 2; justify-self: end; }
-  #next-game { max-width: 130px; width: 100%; }
-  .friend-actions button { padding: 7px; font-size: 12px; }
+:root { color-scheme:dark; font-family:system-ui,sans-serif; color:#f3f1d8; background:#123c3a; }
+* { box-sizing:border-box; }
+body { margin:0; height:100dvh; }
+a { color:inherit; }
+button,select,input { font:inherit; font-size:14px; color:inherit; border:1px solid #789188; border-radius:8px; background:#214c46; padding:9px 12px; }
+button,select { cursor:pointer; }
+button:hover,select:hover { background:#315f52; }
+button:disabled,select:disabled { opacity:.6; cursor:default; }
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible { outline:2px solid #f1d66e; outline-offset:3px; }
+#show-friend-panel { position:fixed; z-index:5; top:12px; right:12px; padding:8px 12px; box-shadow:0 4px 20px #0005; }
+.friend-panel { position:fixed; z-index:4; top:56px; right:12px; bottom:12px; width:min(320px,calc(100vw - 24px)); display:flex; flex-direction:column; gap:14px; padding:18px; background:#143a34f7; border:1px solid #789188; border-radius:16px; box-shadow:0 12px 48px #0007; overflow-y:auto; overscroll-behavior:contain; }
+.panel-heading,.chat-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.panel-heading h1 { margin:0; font-size:22px; }
+#hide-friend-panel,#chat-close { padding:3px 9px; font-size:22px; }
+#collection-link { font-weight:700; text-decoration:none; }
+#friend-status { font-size:13px; line-height:1.5; color:#cbd9cc; }
+.friend-panel>label { font-size:12px; font-weight:600; margin-bottom:-8px; }
+#next-game { width:100%; }
+.friend-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+#disconnect { grid-column:1 / -1; background:transparent; }
+#game-stage { position:absolute; inset:0; overflow:hidden; }
+iframe { width:100%; height:100%; display:block; border:0; background:#123c3a; }
+#shared-view { position:absolute; inset:0; background:transparent; }
+#screen-surface { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); overflow:hidden; touch-action:none; }
+#screen-typing { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); width:min(360px,calc(100% - 24px)); opacity:.85; }
+#friend-cursor { position:absolute; pointer-events:none; z-index:1; font-size:20px; color:#ffdf70; text-shadow:0 1px 3px #000; }
+#friend-cursor small { display:inline-block; font:11px system-ui; background:#183e37; padding:2px 5px; border-radius:4px; }
+#screen-wait { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; }
+dialog { color:inherit; background:#183e37; border:1px solid #789188; border-radius:16px; padding:24px; width:440px; max-width:calc(100vw - 24px); max-height:calc(100dvh - 32px); overflow-y:auto; }
+dialog::backdrop { background:#081b19b3; }
+h2 { font-size:21px; margin-top:0; }
+dialog p { line-height:1.6; }
+.dialog-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:18px; }
+fieldset { border:0; padding:0; margin:0; min-width:0; }
+.setup-field { display:flex; flex-direction:column; gap:7px; margin:14px 0; font-size:13px; font-weight:600; }
+.setup-field select,.setup-field input { width:100%; min-width:0; font-weight:400; }
+.setup-check { display:flex; align-items:center; gap:10px; margin:14px 0; font-size:14px; line-height:1.4; }
+.setup-check input { accent-color:#f1d66e; }
+.setup-note { font-size:12px; color:#cbd9cc; }
+#room-create,#game-setup-start { background:#f1d66e; color:#153c34; font-weight:700; border-color:#f1d66e; }
+#room-link { width:100%; margin:8px 0 0; }
+#friend-error { position:fixed; z-index:6; bottom:16px; left:16px; right:16px; margin:0; padding:12px; border:1px solid #f1d66e; background:#183e37; border-radius:8px; }
+#friend-chat { display:flex; flex:1; flex-direction:column; gap:10px; min-height:260px; border-top:1px solid #52706a; padding-top:14px; }
+.chat-heading h2 { margin:0; font-size:16px; }
+#chat-status,#chat-error { font-size:12px; margin:0; line-height:1.5; }
+#chat-log { list-style:none; margin:0; padding:0; overflow-y:auto; flex:1; min-height:100px; max-height:320px; }
+#chat-log li { display:flex; flex-direction:column; gap:3px; margin:8px 0; padding:8px; background:#214c46; border-radius:8px; overflow-wrap:anywhere; white-space:pre-wrap; }
+#chat-log strong { font-size:11px; color:#bed0bb; }
+#chat-log .own-message { margin-left:24px; }
+#chat-log .friend-message { margin-right:24px; }
+#chat-reactions { display:flex; justify-content:space-between; gap:4px; }
+#chat-reactions button { padding:6px 9px; }
+#chat-form { display:flex; gap:8px; }
+#chat-input { min-width:0; width:100%; }
+.visually-hidden { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+[hidden] { display:none !important; }
+@media(max-width:600px) {
+  .friend-panel { padding:14px; }
+  dialog { padding:18px; }
+  .friend-actions button { font-size:13px; padding:9px 8px; }
 }
+#saved-games summary { cursor:pointer; font-size:13px; color:#cbd9cc; }
+#saved-games-list { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+#saved-games-list button { text-align:left; }
+#turn-inbox { border-top:1px solid #52706a; padding-top:14px; }
+#turn-inbox h2 { font-size:16px; margin-bottom:6px; }
+#turn-games-list { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+#turn-games-list button { text-align:left; line-height:1.4; }
+#turn-games-list .your-turn { border-color:#f1d66e; background:#3a5946; }
+#turn-status { font-size:12px; color:#cbd9cc; line-height:1.5; }

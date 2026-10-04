@@ -1,3 +1,4 @@
+import {registerCheckpoint} from '../../shared/game-checkpoint.js';
 import { startSky } from './sky.js';
 import { save, persist, totalStars, resetProgress } from './save.js';
 import { h, button, modal, toast, confetti, richEl } from './ui.js';
@@ -45,7 +46,7 @@ const nav = {
 window.pawnQuest = { nav, save };
 
 async function route() {
-  cleanup?.(); cleanup = null;
+  cleanup?.(); cleanup = null;window.pawnQuest.active=null;
   document.querySelectorAll('.overlay').forEach(o => o.remove());
   const [, page, arg] = (location.hash || '#/').split('/');
   try {
@@ -149,3 +150,13 @@ function endingScreen(app) {
   return null;
 }
 
+
+registerCheckpoint('pawn-quest',{
+  capture:()=>window.pawnQuest.active?.capture?.()||((location.hash.startsWith('#/level/'))?{hash:location.hash}:null),
+  restore(data){
+    if(!data||typeof data.hash!=='string'||!/^#\/(arena|level\/[a-zA-Z0-9-]+)$/.test(data.hash))throw Error('Invalid saved chess game.');
+    nav.resume=data;
+    if(data.hash==='#/arena'&&data.arena){save.arena.saved=data.arena;persist();}
+    go(data.hash);
+  },
+});

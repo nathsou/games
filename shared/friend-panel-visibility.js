@@ -1,55 +1,25 @@
-const KEY = 'games.friend-panel-auto-hide';
+const KEY = 'games.friend-panel-open';
 
 export function installPanelVisibility(session) {
-  const header = document.getElementById('friend-header'), reveal = document.getElementById('show-friend-panel');
-  const checkbox = document.getElementById('header-auto-hide');
-  let enabled = true, timer, dragging = false;
-  try { enabled = localStorage.getItem(KEY) !== 'off'; } catch { /* In-memory preference still works. */ }
-  checkbox.checked = enabled;
-  function show() {
-    header.hidden = false;
-    reveal.hidden = true;
-    schedule();
+  const panel=document.getElementById('friend-header'),toggle=document.getElementById('show-friend-panel');
+  let open=true;
+  try { open=localStorage.getItem(KEY)!=='closed'; } catch { /* Storage is optional. */ }
+  function setOpen(value,focus=false) {
+    open=value;panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open));
+    toggle.setAttribute('aria-label',open?'Hide friend panel':'Show friend panel');
+    try { localStorage.setItem(KEY,open?'open':'closed'); } catch { /* Storage is optional. */ }
+    if(focus)(open?panel.querySelector('button'):toggle).focus();
+    session.onChange();
   }
-  function schedule() {
-    clearTimeout(timer);
-    if (!enabled) return;
-    timer = setTimeout(() => {
-      if (dragging || header.contains(document.activeElement) || document.querySelector('dialog[open]') || document.getElementById('friend-settings').open) {
-        schedule(); return;
-      }
-      header.hidden = true;
-      reveal.hidden = false;
-    }, 3000);
-  }
-  function attach(doc) {
-    doc.addEventListener('pointermove', event => {
-      if (!event.isTrusted) return;
-      if (event.clientY <= 12 && !dragging) show();
-      else schedule();
-    });
-    doc.addEventListener('pointerdown', () => { dragging = true; clearTimeout(timer); });
-    doc.addEventListener('pointerup', () => { dragging = false; schedule(); });
-    doc.addEventListener('pointercancel', () => { dragging = false; schedule(); });
-    doc.addEventListener('keydown', schedule);
-  }
-  attach(document);
-  document.getElementById('game-frame').addEventListener('load', () => {
-    const doc = document.getElementById('game-frame').contentDocument;
-    if (doc) attach(doc);
-    dragging = false;
-    schedule();
+  toggle.onclick=()=>setOpen(!open,true);
+  document.getElementById('hide-friend-panel').onclick=()=>setOpen(false,true);
+  panel.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&!document.querySelector('dialog[open]')){event.preventDefault();setOpen(false,true);}
   });
-  header.addEventListener('focusin', show);
-  reveal.onclick = () => { show(); header.querySelector('a').focus(); };
-  checkbox.onchange = () => {
-    enabled = checkbox.checked;
-    try { localStorage.setItem(KEY, enabled ? 'on' : 'off'); } catch { /* No storage requirement. */ }
-    show();
-  };
-  return () => {
-    reveal.textContent = document.getElementById('chat-toggle').textContent.replace('Chat', 'Friends');
-    if (!enabled || document.querySelector('dialog[open]')) show();
-    else schedule();
+  session.showPanel=()=>setOpen(true);
+  panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open));
+  return ()=>{
+    toggle.textContent=document.getElementById('chat-toggle').textContent.replace('Chat','Friends');
+    toggle.setAttribute('aria-label',open?'Hide friend panel':'Show friend panel');
   };
 }

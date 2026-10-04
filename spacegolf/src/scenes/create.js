@@ -4,7 +4,7 @@ import { GameScene } from './game.js';
 import { EditorScene } from './editor.js';
 import { decodeLevel, encodeLevel, cloneLevel, playable } from '../level.js';
 
-function playCustom(app, entry, fromList = true) {
+export function playCustom(app, entry, fromList = true) {
   const level = cloneLevel(entry.level);
   level.name = entry.name || level.name;
   const cfg = {

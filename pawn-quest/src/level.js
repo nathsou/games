@@ -1,5 +1,5 @@
 // The level screen: intro dialogue, then one of the four level kinds.
-import { WHITE, BLACK, QUEEN, typeOf, colorOf, mFrom, mTo, mFlags, F_CAPTURE, F_PROMO, sqParse, sqName, uci, START_FEN } from './chess.js';
+import { Position, WHITE, BLACK, QUEEN, typeOf, colorOf, mFrom, mTo, mFlags, F_CAPTURE, F_PROMO, sqParse, sqName, uci, START_FEN } from './chess.js';
 import { BoardView } from './board.js';
 import { h, Speech, button, starsRow, modal, toast, banner, confetti, richEl, linkSquares, portrait, CHAR_NAMES, materialStrip } from './ui.js';
 import { pixelText } from './font.js';
@@ -73,6 +73,8 @@ export function levelScreen(app, L, nav) {
     },
   });
   ctx.L = L; ctx.nav = nav;
+  if(nav.resume?.hash===location.hash){ctx.resume=nav.resume;nav.resume=null;}
+  window.pawnQuest.active={capture:()=>({hash:location.hash,battle:ctx.captureBattle?.()||null,lesson:ctx.captureLesson?.()||null})};
 
   playMusic(L.kind === 'battle' ? 'battle' : 'calm');
   run(ctx).catch(e => { if (ctx.alive) { console.error(e); ctx.speech.show('Hoo... something went wrong: ' + e.message); } });
@@ -137,12 +139,12 @@ function preview(ctx, L) {
 async function run(ctx) {
   const { L } = ctx;
   preview(ctx, L);
-  await intro(ctx);
+  if(!ctx.resume?.battle&&!ctx.resume?.lesson)await intro(ctx);
   if (!ctx.alive) return;
   if (L.boss) { banner('FIGHT!', { color: '#ff8aa0', shadow: '#5a1428', ms: 800 }); sfx.check(); }
   const kind = KINDS[L.kind];
   while (ctx.alive) {
-    ctx.mistakes = 0; ctx.hints = 0;
+    ctx.mistakes = ctx.resume?.lesson?.mistakes||0; ctx.hints = ctx.resume?.lesson?.hints||0;
     const res = await kind(ctx, L);
     if (!ctx.alive || !res) return;
     if (res.retry) continue;
@@ -243,6 +245,13 @@ async function playCollect(ctx, L) {
   ctx.setControls([hintBtn, restartBtn]);
   speech.show(L.tip || (L.showDanger ? 'Red stripes = guarded squares. Don\'t stop on them!' : 'Tap a piece, then tap where it should go. Or drag it!'));
 
+  if(ctx.resume?.lesson?.kind==='collect'){
+    const data=ctx.resume.lesson;ctx.resume=null;
+    Object.assign(pos,Position.fromFEN(data.fen,pos.rules));starsLeft.clear();targetsLeft.clear();for(const sq of data.starsLeft)starsLeft.add(sq);for(const sq of data.targetsLeft)targetsLeft.add(sq);
+    moves=data.moves;sMask=data.sMask;tMask=data.tMask;hintUsed=data.hintUsed;
+    for(const sq of stars)if(!starsLeft.has(sq))board.marks.delete(sq);for(const sq of targets)if(!targetsLeft.has(sq))board.marks.delete(sq);refreshDanger();ctx.setProgress(`${goalText()} · Moves: ${moves} (par ${par})`);
+  }
+  ctx.captureLesson=()=>({kind:'collect',fen:pos.toFEN(),starsLeft:[...starsLeft],targetsLeft:[...targetsLeft],moves,sMask,tMask,hintUsed});
   while (ctx.alive) {
     const ms = await ctx.waitMove();
     if (!ctx.alive || !ms) return null;
@@ -292,8 +301,10 @@ async function playCollect(ctx, L) {
 
 async function playQuiz(ctx, L) {
   const { board, speech, choices } = ctx;
-  let qi = 0;
-  for (const q of L.questions) {
+  const resumed=ctx.resume?.lesson?.kind==='quiz'?ctx.resume.lesson:null;ctx.resume=null;
+  let qi = resumed?.question||0;
+  ctx.captureLesson=()=>({kind:'quiz',question:qi-1,mistakes:ctx.mistakes,hints:ctx.hints});
+  for (const q of L.questions.slice(qi)) {
     qi++;
     if (!ctx.alive) return null;
     const pos = quizPosition(q);
@@ -324,7 +335,9 @@ async function playQuiz(ctx, L) {
       for (const b of choices.children) b.disabled = true;
     } else {
       const want = new Set(ans.squares.map(sqParse));
-      const found = new Set();
+      const found = new Set(qi-1===resumed?.question?resumed.found||[]:[]);
+      ctx.captureLesson=()=>({kind:'quiz',question:qi-1,found:[...found],mistakes:ctx.mistakes,hints:ctx.hints});
+      for(const sq of found)board.marks.set(sq,'check');
       board.interactive = 'tap';
       ctx.setGoal(want.size > 1 ? 'Tap every correct square.' : 'Tap the right square.', `${found.size}/${want.size} found`);
       const hintBtn = button('💡 Hint', () => {
@@ -512,10 +525,12 @@ export async function solvePuzzle(ctx, p, { index = 0, total = 1, mistakesBefore
 }
 
 async function playPuzzles(ctx, L) {
-  const puzzles = await buildPuzzles(ctx, L);
+  const resumed=ctx.resume?.lesson?.kind==='puzzles'?ctx.resume.lesson:null;ctx.resume=null;
+  const puzzles = resumed?.puzzles||await buildPuzzles(ctx, L);
   if (!puzzles.length) return { success: false, text: 'Could not generate puzzles. Try again!' };
-  let solved = 0, combo = 0;
-  for (let i = 0; i < puzzles.length; i++) {
+  let solved = resumed?.solved||0, combo = resumed?.combo||0;
+  for (let i = solved; i < puzzles.length; i++) {
+    ctx.captureLesson=()=>({kind:'puzzles',puzzles,solved,combo,mistakes:ctx.mistakes,hints:ctx.hints});
     const hintsBefore = ctx.hints;
     const r = await solvePuzzle(ctx, puzzles[i], { index: i, total: puzzles.length });
     if (!r) return null;
@@ -613,6 +628,13 @@ async function playBattle(ctx, L) {
   }
 
   if (lines.start) { taunt(lines.start); say(L.goal); }
+  ctx.captureBattle=()=>!game.over?{history:game.history,hints:game.hints,takebacks:game.takebacks,warningsShown:game.warningsShown,castled,lostQueen}:null;
+  if(ctx.resume?.battle){
+    const saved=ctx.resume.battle;ctx.resume=null;
+    if(!Array.isArray(saved.history)||saved.history.length>1000)throw Error('Invalid saved battle.');
+    for(const entry of saved.history){const move=game.pos.moveFromUci(entry.uci);if(!move)throw Error('Invalid saved chess move.');game.pos.make(move);game.history.push(entry);}
+    game.hints=saved.hints||0;game.takebacks=saved.takebacks||0;game.warningsShown=saved.warningsShown||0;castled=Boolean(saved.castled);lostQueen=Boolean(saved.lostQueen);game.refresh();paintMat();
+  }
   game.start();
   const end = await finished;
   game.destroy();

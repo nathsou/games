@@ -42,48 +42,13 @@ moves before your choice is revealed. Points and game wins stay distinct.
 Keyboard: Tab and Enter/Space operate buttons; 1–6 selects a card and Enter locks
 it. Touch and mouse work throughout. Sound is synthesized locally with Web Audio
 and starts off. Visual effects can be disabled; reduced-motion preferences are
-respected. Only your name, sound/effect preferences and STUN setting are saved.
+respected. Your preferences and game checkpoint are saved in the browser.
 
 ## Direct two-screen play
 
-1. Host selects a game and opens **Invite a Friend**. For cooperative play,
-   enable **Play together against the dealer** before creating the invitation.
-2. Share the invitation link or display its QR code. The guest opens it and gets
-   a reply link/QR.
-3. The guest sends their reply back. The host pastes it into the invitation
-   dialog, scans its QR, or opens the reply link in another tab of the same
-   browser profile. A BroadcastChannel delivers that reply to the original
-   hosting tab.
-4. Keep both game tabs open. The host deals rematches or chooses another game.
+Invite and Join open the global Friends side panel. Choose the game and team/opponent settings, then share one direct-connection link. There is no reply-link step. Live games use WebRTC, with a private browser resume credential and local table checkpoints for reconnecting after reload. One chat and connection continue across Midnight Table, Cluance and Flip It. HTTPS or localhost is required; restrictive networks may need the site's managed TURN relay. See [friend room behavior and limits](../docs/FRIEND_SESSIONS.md).
 
-Head-to-head mode gives each player their own hand. In cooperative mode both
-peers see the same hand and either teammate can make the next move against the
-dealer. Discuss a move together; the first accepted move is shared by both
-screens. Revision checks prevent a second stale click from applying twice.
-
-QR codes are generated in this repository without a QR dependency. Camera
-scanning uses the browser's native BarcodeDetector when it supports QR codes.
-Otherwise use your phone's normal camera to open an invitation, or copy/paste
-links. Large uncompressed links fall back to sharing text if they exceed QR
-capacity. Clipboard and system sharing have text-selection fallbacks.
-
-WebRTC and commitment hashing require HTTPS or localhost. The hosted Pages site
-provides HTTPS. A localhost invitation works between tabs on the same machine;
-for another device use a reachable HTTPS URL, not a localhost URL.
-
-A default public STUN address helps peers discover direct routes; it exchanges
-connection metadata, not game messages. It is a network service, not a code
-dependency. Clear it for local connections, or enter your own STUN address.
-Some NATs/firewalls cannot form a direct route and require a user-supplied TURN
-relay. Configure its address and credentials in Connection Settings on both
-peers. TURN passwords remain only in memory. There is no hosted relay or
-single-click signaling service hidden in this project.
-
-A disconnected table pauses. Re-pair from the original host tab to resume the
-last game state, including an auction's unfinished turn. Pending simultaneous
-commitments are cleared during re-pairing. Reloading or closing the host tab
-loses the in-memory table; create a fresh invitation. Invite/reply codes are
-one-use descriptions tied to a room; replies from another room are rejected.
+Head-to-head gives each player a private hand. Cooperative play shares a hand against the dealer/AI. The host owns the state and stale revisions cannot apply twice. Pending simultaneous commitments are cleared during reconnect, allowing both players to choose again from the saved phase. Midnight remains a live game; Take turns is available for Cluance and Flip It.
 
 ## Implementation and checks
 

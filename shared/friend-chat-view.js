@@ -4,6 +4,7 @@ export function installFriendChat(session) {
   const $ = id => document.getElementById(id);
   let current, rendered = 0, unread = 0;
   function toggle(open) {
+    if (open) session.showPanel?.();
     $('friend-chat').hidden = !open;
     if (open) {
       unread = 0;
@@ -12,9 +13,9 @@ export function installFriendChat(session) {
     } else $('chat-toggle').focus();
     render();
   }
-  function send(kind, value) {
+  async function send(kind, value) {
     try {
-      session.chat.send(kind, value);
+      await session.chat.send(kind, value);
       $('chat-error').hidden = true;
       return true;
     } catch (error) {
@@ -36,9 +37,9 @@ export function installFriendChat(session) {
   $('friend-chat').addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); toggle(false); }
   });
-  $('chat-form').onsubmit = event => {
+  $('chat-form').onsubmit = async event => {
     event.preventDefault();
-    if (send('text', $('chat-input').value)) $('chat-input').value = '';
+    if (await send('text', $('chat-input').value)) $('chat-input').value = '';
   };
   function render() {
     if (current !== session.chat) {
@@ -60,16 +61,18 @@ export function installFriendChat(session) {
       row.append(author, content);
       log.append(row);
       if (log.children.length > 60) log.firstElementChild.remove();
-      if (!own && $('friend-chat').hidden) unread++;
+      if (!own && ($('friend-chat').hidden || $('friend-header').hidden)) unread++;
       rendered = entry.sequence;
     }
     if (nearBottom) log.scrollTop = log.scrollHeight;
-    $('chat-toggle').hidden = !session.connected && !current.entries.length;
+    if (!$('friend-header').hidden && !$('friend-chat').hidden) unread = 0;
+    $('chat-toggle').hidden = !session.resumeCredentials && !session.connected && !current.entries.length;
     $('chat-toggle').textContent = unread ? 'Chat (' + unread + ')' : 'Chat';
     $('chat-toggle').setAttribute('aria-expanded', String(!$('friend-chat').hidden));
-    $('chat-status').textContent = session.connected
+    $('chat-status').textContent = session.resumeCredentials ? 'Saved in your room. Your friend can read and reply later.' : session.connected
       ? 'Messages stay in this room while you change games.' : 'Friend disconnected. Invite again to chat.';
-    for (const input of $('friend-chat').querySelectorAll('input, #chat-send, #chat-reactions button')) input.disabled = !session.connected;
+    for (const input of $('friend-chat').querySelectorAll('input, #chat-send, #chat-reactions button')) input.disabled = !session.resumeCredentials && !session.connected;
   }
+  session.openChat = () => toggle(true);
   return render;
 }

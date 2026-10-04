@@ -13,7 +13,7 @@ Small browser games in vanilla JavaScript. The index page lists them as cards. C
 
 To add a game: put it in its own folder with an `index.html`, add a card to the root `index.html`, and include its runtime files in `tools/build-site.mjs`.
 
-Cluance and Flip It can share one persistent friend connection: [Play together](together/) and [session behavior](docs/FRIEND_SESSIONS.md). Either player can propose the next game without inviting again.
+Cluance, Flip It and Midnight Table share one persistent friend room: [Play together](together/) and [session behavior](docs/FRIEND_SESSIONS.md). Choose settings before inviting, use one chat across games, and resume saved progress. Cluance and Flip It also support offline take-turn games while you play other games.
 
 All card games share AI settings and Light/Dark/System appearance. [AI implementation and verification](shared/ai/README.md).
 

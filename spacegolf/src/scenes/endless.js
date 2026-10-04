@@ -10,7 +10,7 @@ import { header } from './common.js';
 
 // ---- run state + background generation ---------------------------------------------------
 
-class EndlessRun {
+export class EndlessRun {
   constructor(app, base, ramp) {
     this.app = app;
     this.base = base;
@@ -69,13 +69,14 @@ function openGenerating(app, run, entry) {
   app.go(new GeneratingScene(app, run, entry));
 }
 
-function playHole(app, run, entry) {
+export function playHole(app, run, entry) {
   const level = entry.level;
   const code = prettyCode(seedToCode(entry.seed));
   const d = entry.d;
   const cfg = {
     level,
     kind: 'endless',
+    resumeRun:run,resumeEntry:entry,
     title: `Hole ${run.holes + 1}`,
     subtitle: `${DIFFICULTIES[d].name} · seed ${code}`,
     paletteSalt: 0,

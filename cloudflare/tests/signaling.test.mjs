@@ -1,14 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {Miniflare,convertV4MiniflareOptions} from 'miniflare';
 import {signalMessage} from '../protocol.js';
 import {hostedInvitation,hostedLink} from '../../shared/signaling.js';
 
 const origin='https://games.example';
-function runtime(options={}){return new Miniflare(convertV4MiniflareOptions({modules:['worker.js','protocol.js'].map(file=>({type:'ESModule',path:fileURLToPath(new URL('../'+file,import.meta.url))})),modulesRoot:fileURLToPath(new URL('..',import.meta.url)),compatibilityDate:'2026-10-04',durableObjects:{SIGNAL_ROOMS:{className:'SignalRoom',useSQLite:true},INVITE_LIMITS:{className:'InviteLimiter',useSQLite:true}},...options}));}
+const modules=[];
+function addModule(url){const path=fileURLToPath(url);if(modules.some(m=>m.path===path))return;modules.push({type:'ESModule',path});for(const match of readFileSync(path,'utf8').matchAll(/from ['"](\.[^'"]+)['"]/g))addModule(new URL(match[1],url));}
+addModule(new URL('../worker.js',import.meta.url));
+function runtime(options={}){return new Miniflare(convertV4MiniflareOptions({modules,modulesRoot:fileURLToPath(new URL('../..',import.meta.url)),compatibilityDate:'2026-10-04',durableObjects:{SIGNAL_ROOMS:{className:'SignalRoom',useSQLite:true},INVITE_LIMITS:{className:'InviteLimiter',useSQLite:true}},...options}));}
+
 async function create(mf,game='flip-it',metadata){
-  const response=await mf.dispatchFetch(origin+'/api/rooms',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({game,protocol:game==='flip-it'?5:1,metadata})});
+  const response=await mf.dispatchFetch(origin+'/api/rooms',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({game,protocol:game==='flip-it'?6:1,metadata})});
   assert.equal(response.status,201);return response.json();
 }
 async function connect(mf,room,key,game='flip-it'){
@@ -60,14 +65,14 @@ test('room creation is limited, scoped to an origin and validates public Cluance
   const mf=runtime();try{
     assert.equal((await mf.dispatchFetch(origin+'/api/rooms',{method:'POST',headers:{Origin:'https://other.example'}})).status,403);
     assert.equal((await mf.dispatchFetch(origin+'/api/rooms',{method:'POST'})).status,403);
-    const tooLarge=JSON.stringify({game:'flip-it',protocol:5,padding:'🙂'.repeat(600)});
+    const tooLarge=JSON.stringify({game:'flip-it',protocol:6,padding:'🙂'.repeat(600)});
     assert.equal((await mf.dispatchFetch(origin+'/api/rooms',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:tooLarge})).status,400);
     const metadata={role:'guesser',options:{theme:'french',clueTheme:'global',variant:'fixed'},secret:'must be stripped'};
     const room=await create(mf,'cluance',metadata);
     const info=await mf.dispatchFetch(origin+'/api/rooms/cluance/'+room.room+'/info',{headers:{Authorization:'Bearer '+room.guestKey}});
     assert.deepEqual((await info.json()).metadata,{role:'guesser',options:metadata.options});
     for(let i=1;i<30;i++)await create(mf);
-    assert.equal((await mf.dispatchFetch(origin+'/api/rooms',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({game:'flip-it',protocol:5})})).status,429);
+    assert.equal((await mf.dispatchFetch(origin+'/api/rooms',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({game:'flip-it',protocol:6})})).status,429);
   }finally{await mf.dispose();}
 });
 test('short invitations keep capabilities in fragments and reject other games and sites',()=>{
@@ -99,9 +104,37 @@ test('TURN credentials are short-lived, limited per seat, and never expose the l
 test('expired room capabilities cannot read metadata, mint credentials or open a socket',async()=>{
   const mf=runtime();try{
     const room=await create(mf),ns=await mf.getDurableObjectNamespace('SIGNAL_ROOMS');
-    await ns.getByName('flip-it:'+room.room).fetch('https://internal/create',{method:'POST',body:JSON.stringify({game:'flip-it',protocol:5,origin,expiresAt:Date.now()-1000})});
+    await ns.getByName('flip-it:'+room.room).fetch('https://internal/create',{method:'POST',body:JSON.stringify({game:'flip-it',protocol:6,origin,expiresAt:Date.now()-1000})});
     const path=origin+'/api/rooms/flip-it/'+room.room;
     for(const action of ['info','ice'])assert.equal((await mf.dispatchFetch(path+'/'+action,{method:action==='ice'?'POST':'GET',headers:{Origin:origin,Authorization:'Bearer '+room.guestKey}})).status,410);
     assert.equal((await connect(mf,room.room,room.guestKey)).status,410);
+  }finally{await mf.dispose();}
+});
+
+test('private seats resume, turn games survive offline, and stale moves never apply twice',async()=>{
+  const mf=runtime();try{
+    const room=await create(mf,'friends'),base=origin+'/api/rooms/friends/'+room.room;
+    const call=async(key,path,body)=>{const response=await mf.dispatchFetch(base+'/'+path,{method:body===undefined?'GET':'POST',headers:{Origin:origin,Authorization:'Bearer '+key,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});return {status:response.status,data:await response.json()};};
+    const host=(await call(room.hostKey,'resume',{})).data,guest=(await call(room.guestKey,'resume',{})).data;
+    assert.equal((await call(room.guestKey,'resume',{})).status,410);
+    assert.equal((await call(room.hostKey,'info')).status,410);
+    const settings={role:'giver',options:{theme:'french',clueTheme:'global',variant:'fixed'}};
+    const created=await call(host.key,'turns',{game:'cluance',setup:settings});assert.equal(created.status,201);
+    const id=created.data.id,giver=created.data.view;assert(giver.secret&&giver.hand.length===5);assert(!giver.draw);
+    const waiting=(await call(guest.key,'turns/'+id)).data;assert(!waiting.myTurn);assert(!waiting.view.secret&&!waiting.view.hand&&!waiting.view.draw);
+    assert.equal((await call(guest.key,'turns/'+id+'/moves',{revision:0,action:{cards:[waiting.view.board[0]]}})).status,400);
+    const action={card:giver.hand[0],relation:'similar',rationale:'sealed private meaning'+'é'.repeat(1100)};
+    const moves=await Promise.all([call(host.key,'turns/'+id+'/moves',{revision:0,action}),call(host.key,'turns/'+id+'/moves',{revision:0,action})]);assert.deepEqual(moves.map(m=>m.status).sort(),[200,409]);
+    const updated=(await call(guest.key,'turns/'+id)).data;assert(updated.myTurn);assert(!JSON.stringify(updated).includes('sealed private meaning'));
+    const safe=giver.board.find(card=>card!==giver.secret);
+    assert.equal((await call(guest.key,'turns/'+id+'/moves',{revision:1,action:{cards:[safe],rationale:'also sealed'}})).status,200);
+    const rotated=(await call(host.key,'resume',{})).data;assert.equal(rotated.key,host.key);assert.equal((await call(host.key,'turns')).status,200);
+    const resumed=(await call(rotated.key,'turns/'+id)).data;assert.equal(resumed.view.revision,2);assert.equal(resumed.view.secret,giver.secret);assert(resumed.myTurn);
+    const flip=await call(guest.key,'turns',{game:'flip-it',setup:{}});assert.equal(flip.status,201);assert(flip.data.view.hands[0].every(c=>c.hidden));assert(flip.data.view.hands[1].every(c=>!c.hidden));
+    assert.equal((await call(rotated.key,'turns')).data.games.length,2);
+    const message=await call(rotated.key,'chat',{kind:'text',value:'Come back whenever you can.'});assert.equal(message.status,200);
+    assert.equal((await call(guest.key,'chat')).data.entries[0].value,'Come back whenever you can.');
+    assert.equal((await call(guest.key,'chat',{kind:'reaction',value:'<script>'})).status,400);
+    assert.equal((await call(rotated.key,'chat',{kind:'text',value:'too fast'})).status,429);
   }finally{await mf.dispose();}
 });

@@ -49,3 +49,19 @@ export function redirectTogetherInvitation(game, input) {
   location.replace(url);
   return true;
 }
+
+function controls() {
+  try { return parent !== window ? parent.__friendSession : null; } catch { return null; }
+}
+export function inviteFriendGame(game, metadata) {
+  const room=controls();
+  if(room){room.openInvitation(game,metadata);return;}
+  location.href=togetherURL(game,'invite');
+}
+export function joinFriendRoom(game) {
+  const room=controls();
+  if(room){room.openJoin();return;}
+  location.href=togetherURL(game,'join');
+}
+export function openFriendChat() { const room=controls();if(room)room.openChat(); }
+export function showFriendPanel() { controls()?.showPanel(); }
