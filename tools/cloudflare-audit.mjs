@@ -43,7 +43,8 @@ async function page(c, game) {
   p.setDefaultTimeout(15000);
   p.on('pageerror', error => errors.push(error.message));
   await p.goto(origin + '/' + game + '/');
-  await p.waitForFunction(name => Boolean(window[name]), game === 'flip-it' ? '__flipit' : '__cluance');
+  await p.waitForURL('**/together/**');
+  await gameView(p, game);
   return p;
 }
 async function gameView(p, game) {
@@ -69,7 +70,7 @@ async function invite(p, game) {
   else if (await view.locator('#invite-friend').count()) await view.locator('#invite-friend').click();
   else await view.locator('#start-game').click();
   if (outside) await p.waitForURL('**/together/**');
-  else if (game === 'cluance') await view.locator('[data-action=create-invite]').click();
+  else if (game === 'cluance' && !await view.locator('#invite-friend').count()) await view.locator('[data-action=create-invite]').click();
   const current = await gameView(p, game);
   await current.waitForFunction(() => document.querySelector('#pair-output')?.value);
   const link = await current.locator('#pair-output').inputValue();
@@ -144,6 +145,17 @@ try {
     await connected(h, initial);
     const ids = await Promise.all([h, g].map(p => p.evaluate(() => window.__testPeers.map(peer => peer.id))));
     assert(ids.every(list => list.length === 1));
+    await h.locator('#chat-toggle').click();
+    await h.locator('#chat-input').fill('<b>Good luck!</b>');
+    await h.locator('#chat-send').click();
+    await g.waitForFunction(() => window.__friendSession.chat.entries.length === 1);
+    assert.equal(await g.locator('#chat-toggle').textContent(), 'Chat (1)');
+    await g.locator('#chat-toggle').click();
+    assert.equal(await g.locator('#chat-log li span').textContent(), '<b>Good luck!</b>');
+    assert.equal(await g.locator('#chat-log b').count(), 0);
+    await g.locator('#chat-reactions button').last().click();
+    await h.waitForFunction(() => window.__friendSession.chat.entries.length === 2);
+    await h.locator('#chat-input').fill('Draft for the next game');
     const other = initial === 'flip-it' ? 'cluance' : 'flip-it';
     await h.locator('#next-game').selectOption(other);
     await g.locator('#decline-switch').click();
@@ -154,6 +166,9 @@ try {
     await g.locator('#friend-dialog').waitFor({state: 'hidden'});
     await h.locator('#friend-dialog').waitFor({state: 'hidden'});
     await switchGame(g, h, other);
+    assert.equal(await h.locator('#chat-input').inputValue(), 'Draft for the next game');
+    assert.equal(await g.locator('#chat-log li').count(), 2);
+    for (const p of [h, g]) await p.locator('#chat-close').click();
     const before = await state(g, other);
     // A retired game's packet travels through the live encrypted transport.
     // It must not reach the new game, even if it names the active game.

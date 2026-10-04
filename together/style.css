@@ -6,10 +6,12 @@ a { color: inherit; }
 #collection-link { font-weight: 700; text-decoration: none; }
 #friend-status { flex: 1; font-size: 13px; }
 .friend-bar label { font-size: 12px; }
-button, select { font: inherit; font-size: 13px; color: inherit; border: 1px solid #789188; border-radius: 6px; background: #214c46; padding: 7px 10px; cursor: pointer; }
+button, select, input { font: inherit; font-size: 13px; color: inherit; border: 1px solid #789188; border-radius: 6px; background: #214c46; padding: 7px 10px; }
+button, select { cursor: pointer; }
 button:hover, select:hover { background: #315f52; }
 button:disabled, select:disabled { opacity: .6; cursor: wait; }
-button:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid #f1d66e; outline-offset: 3px; }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid #f1d66e; outline-offset: 3px; }
+.friend-actions { display: flex; gap: 6px; }
 main { flex: 1; min-height: 0; }
 iframe { width: 100%; height: 100%; display: block; border: 0; background: #123c3a; }
 dialog { color: inherit; background: #183e37; border: 1px solid #789188; border-radius: 12px; padding: 24px; max-width: min(420px, calc(100vw - 32px)); }
@@ -18,6 +20,20 @@ h2 { font-size: 21px; margin-top: 0; }
 dialog p { line-height: 1.6; }
 .dialog-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 #friend-error { position: fixed; bottom: 16px; left: 16px; right: 16px; margin: 0; padding: 12px; border: 1px solid #f1d66e; background: #183e37; border-radius: 6px; }
+#room-link { width: 100%; margin: 8px 0 16px; }
+#friend-chat { position: fixed; z-index: 2; right: 12px; bottom: 12px; width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 112px); display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #183e37; border: 1px solid #789188; border-radius: 12px; box-shadow: 0 8px 32px #0008; }
+.chat-heading { display: flex; justify-content: space-between; align-items: center; }
+.chat-heading h2 { margin: 0; font-size: 16px; }
+#chat-status, #chat-error { font-size: 12px; margin: 0; }
+#chat-log { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 80px; max-height: 240px; }
+#chat-log li { display: flex; flex-direction: column; gap: 3px; margin: 8px 0; padding: 8px; background: #214c46; border-radius: 6px; overflow-wrap: anywhere; white-space: pre-wrap; }
+#chat-log strong { font-size: 11px; color: #bed0bb; }
+#chat-log .own-message { margin-left: 24px; }
+#chat-log .friend-message { margin-right: 24px; }
+#chat-reactions { display: flex; gap: 8px; }
+#chat-form { display: flex; gap: 8px; }
+#chat-input { min-width: 0; width: 100%; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 [hidden] { display: none !important; }
 @media (max-width: 600px) {
   .friend-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; padding: 8px; }
@@ -25,5 +41,7 @@ dialog p { line-height: 1.6; }
   #friend-status { grid-column: 2; grid-row: 1; min-width: 0; text-align: right; font-size: 11px; }
   .friend-bar label { display: none; }
   #next-game { grid-column: 1; grid-row: 2; max-width: 150px; }
-  #invite-friend, #disconnect { grid-column: 2; grid-row: 2; justify-self: end; }
+  .friend-actions { grid-column: 2; grid-row: 2; justify-self: end; }
+  #next-game { max-width: 130px; width: 100%; }
+  .friend-actions button { padding: 7px; font-size: 12px; }
 }

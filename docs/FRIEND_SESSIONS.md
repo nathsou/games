@@ -23,3 +23,11 @@ The asset build includes `together/`. Same-origin embedding uses `X-Frame-Option
 The existing optional `npm run test:cloudflare:ui` browser audit now checks sessions beginning in either game, requests from both players, decline/cancellation, repeated switches and fresh deals, private views, Cluance role swaps, old-generation rejection, and saved-game reconnection. It asserts that both peers retain their original RTC object and that switching creates no new invitation rooms. It also checks native offer/answer exchange, manual dialog recovery and 1280/390/320-pixel layouts.
 
 Run the audit against Wrangler (`npm run build`, `npm run dev`) using the existing optional Playwright tooling documented in [Cloudflare setup](CLOUDFLARE.md). Gameplay uses a browser test RTC substitute with real Worker/WebSocket signaling. Native cross-network connectivity still needs the deployed site and a working direct/managed TURN route; the managed test environment supplies no usable native ICE candidates. No test dependencies have been added.
+
+## Collection rooms and chat
+
+The collection now opens beneath the same friend panel as Cluance and Flip It. **Invite a friend** creates a game-independent room: share its short link, then choose a supported multiplayer game together. **Games** returns both players to the collection after an agreed switch, retaining their connection.
+
+**Chat** opens a compact message and reaction panel. Messages, unread counts and drafts survive game switches. The original inviter orders messages so simultaneous sends produce the same history for both players. Text is limited to 280 characters, reactions use a fixed list, sends are throttled, and the last 60 entries remain in memory. Chat never enters Cloudflare signaling or persistent storage. A fresh connection clears the previous room's history. Disconnection disables sending but leaves the current history readable.
+
+Game-independent rooms use the `friends` signaling namespace with protocol 1 and no public game metadata. They use the existing room authorization, expiration, replay protection and relay configuration; no new Cloudflare bindings or dependencies are required.

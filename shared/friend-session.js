@@ -1,9 +1,12 @@
 import {createPeerTransport} from './peer.js';
+import {FriendChat} from './friend-chat.js';
 
 export const FRIEND_GAMES = Object.freeze({
+  collection: {title: 'Games', protocol: 1, wireKey: 'v'},
   'flip-it': {title: 'Flip It', protocol: 5, wireKey: 'v'},
   cluance: {title: 'Cluance', protocol: 1, wireKey: 'version'},
 });
+const ROOM_TRANSPORT = {protocol: 1, prefix: 'fr1', gameName: 'Friend room', channelName: 'friends'};
 const supported = game => Object.hasOwn(FRIEND_GAMES, game);
 const randomID = () => [...crypto.getRandomValues(new Uint8Array(16))]
   .map(byte => byte.toString(16).padStart(2, '0')).join('');
@@ -20,6 +23,7 @@ export class FriendSession {
     this.openPicker = onPicker;
     this.paused = false;
     this.loading = false;
+    this.chat = new FriendChat(this);
   }
 
   get connected() { return Boolean(this.peer?.connected); }
@@ -37,33 +41,46 @@ export class FriendSession {
     }
     this.link?.close(true);
     if (!this.connected) {
-      const old = this.peer;
-      this.peer = null;
-      old?.close();
-      this.epoch = 'initial';
-      this.paused = false;
-      const {PeerLink} = createPeerTransport(transport);
-      const peer = new PeerLink({
-        ...options,
-        onMessage: message => { if (this.peer === peer) this.receive(message); },
-        onStatus: status => {
-          if (this.peer !== peer) return;
-          if (['closed', 'failed', 'disconnected'].includes(status)) {
-            this.clearProposal();
-            clearTimeout(this.loadTimer);
-            this.loading = false;
-          }
-          this.link?.notify(status);
-          this.onChange();
-        },
-      });
-      this.peer = peer;
+      this.replacePeer(transport, options);
     }
     const link = new GamePeer(this, game, options);
     this.link = link;
     if (this.connected) queueMicrotask(() => link.notify('open'));
     this.onChange();
     return link;
+  }
+
+  replacePeer(transport, options = {}) {
+    const old = this.peer;
+    this.peer = null;
+    old?.close();
+    this.epoch = 'initial';
+    this.paused = false;
+    this.chat = new FriendChat(this);
+    const {PeerLink} = createPeerTransport(transport);
+    const peer = new PeerLink({
+      ...options,
+      onMessage: message => { if (this.peer === peer) this.receive(message); },
+      onStatus: status => {
+        if (this.peer !== peer) return;
+        if (['closed', 'failed', 'disconnected'].includes(status)) {
+          this.clearProposal();
+          clearTimeout(this.loadTimer);
+          this.loading = false;
+        }
+        this.link?.notify(status);
+        this.onChange();
+      },
+    });
+    this.peer = peer;
+  }
+
+  async connectFriendRoom(invitation, role, config) {
+    this.disconnect();
+    this.isHost = role === 'host';
+    this.replacePeer(ROOM_TRANSPORT, {config});
+    this.onChange();
+    await this.peer.connectRoom(invitation, role);
   }
 
   registerGame(game, adapter) {
@@ -80,6 +97,7 @@ export class FriendSession {
   send(message) { this.peer.send(message); }
 
   receive(message) {
+    if (this.chat.receive(message)) return;
     if (message.type === 'friend-game') {
       if (message.game !== this.game || message.epoch !== this.epoch || this.paused) return;
       const payload = message.message, game = FRIEND_GAMES[this.game];
@@ -105,7 +123,7 @@ export class FriendSession {
       if (message.type === 'friend-cancel') this.send({type: 'friend-decline', id: message.id});
       this.clearProposal();
     } else if (message.type === 'friend-switch') {
-      if (this.isHost || message.id !== this.proposal?.id || message.game !== this.proposal.game ||
+      if (this.isHost || !this.proposal || message.id !== this.proposal.id || message.game !== this.proposal.game ||
           !this.proposal.outgoing && !this.proposal.accepted ||
           !/^[a-f0-9]{32}$/.test(message.epoch)) return;
       this.loadGame(message.game, message.epoch);

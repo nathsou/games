@@ -24,17 +24,18 @@ export function hostedInvitation(input,game,base=location.href){
   const params=new URLSearchParams(url.hash.slice(1));
   if(!params.has('room'))return null;
   if(url.origin!==new URL(base).origin)throw new Error('Open this invitation link on its original site.');
-  if(url.pathname!==new URL('./',base).pathname||!url.pathname.endsWith('/'+game+'/')||!ROOM.test(params.get('room')||'')||!KEY.test(params.get('key')||''))
+  const roomPath = game === 'friends' ? '/' : new URL('./',base).pathname;
+  if(url.pathname!==roomPath||game!=='friends'&&!url.pathname.endsWith('/'+game+'/')||!ROOM.test(params.get('room')||'')||!KEY.test(params.get('key')||''))
     throw new Error('Paste a complete '+game+' invitation link.');
   return {game,room:params.get('room'),key:params.get('key')};
 }
 export function hostedLink({game,room,key},base=location.href){
   if(!ROOM.test(room)||!KEY.test(key))throw new Error('Invalid invitation.');
-  const url=new URL('./',base);url.search='';
+  const url=new URL(game === 'friends' ? '/' : './',base);url.search='';
   const params=new URLSearchParams({room,key});
   if(friendSession())params.set('together','1');
   url.hash=params;
-  if(!url.pathname.endsWith('/'+game+'/'))throw new Error('Invalid game invitation.');
+  if(game!=='friends'&&!url.pathname.endsWith('/'+game+'/'))throw new Error('Invalid game invitation.');
   return url.href;
 }
 export async function createHostedRoom(game,protocol,metadata={}){
