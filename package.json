@@ -11,7 +11,9 @@
     "test:cloudflare": "node --test cloudflare/tests/*.test.mjs",
     "test:cloudflare:ui": "node tools/cloudflare-audit.mjs",
     "preview": "wrangler preview",
-    "test:checkpoints:ui": "node tools/checkpoint-audit.mjs"
+    "test:checkpoints:ui": "node tools/checkpoint-audit.mjs",
+    "test:windows": "node --test shared/tests/floating-windows.test.mjs",
+    "test:windows:ui": "node tools/floating-windows-audit.mjs"
   },
   "devDependencies": {
     "miniflare": "^5.20261001.0-alpha",

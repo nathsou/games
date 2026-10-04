@@ -138,3 +138,53 @@ test('private seats resume, turn games survive offline, and stale moves never ap
     assert.equal((await call(rotated.key,'chat',{kind:'text',value:'too fast'})).status,429);
   }finally{await mf.dispose();}
 });
+
+test('room codes use the existing guest seat, retain links, and cannot claim host authority',async()=>{
+  const mf=runtime();try {
+    const room=await create(mf,'friends'),base=origin+'/api/rooms/friends/'+room.room;
+    const post=async(path,key,body={})=>{const response=await mf.dispatchFetch(path,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',...(key?{Authorization:'Bearer '+key}:{})},body:JSON.stringify(body)});return {status:response.status,data:await response.json()};};
+    const host=(await post(base+'/resume',room.hostKey)).data;
+    assert.equal((await post(base+'/code',room.guestKey)).status,403);
+    assert.equal((await post(base+'/code',host.key,{turn:'not-in-this-room'})).status,400);
+    const issued=await post(base+'/code',host.key);assert.equal(issued.status,200);assert.match(issued.data.code,/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/);
+    assert(issued.data.expiresAt>Date.now()+23*60*60*1000);assert.deepEqual((await post(base+'/code',host.key)).data,issued.data);
+    const limiters=await mf.getDurableObjectNamespace('INVITE_LIMITS');
+    for(let i=0;i<29;i++)assert.equal((await limiters.getByName('code-create:'+room.room).fetch('https://internal/limit')).status,204);
+    assert.equal((await post(base+'/code',host.key)).status,200,'Reopening an existing code must not use the generation quota');
+    const otherGame=(await post(base+'/turns',host.key,{game:'flip-it',setup:{}})).data;
+    assert.equal((await post(base+'/code',host.key,{turn:otherGame.id})).status,429);
+    const resolved=await post(origin+'/api/room-codes/join',null,{code:issued.data.code.toLowerCase().replace('-',' ')});assert.equal(resolved.status,200);assert.equal(resolved.data.room,room.room);assert.equal(resolved.data.game,'friends');assert.equal(resolved.data.turn,null);
+    const info=await mf.dispatchFetch(base+'/info',{headers:{Authorization:'Bearer '+resolved.data.key}});assert.equal((await info.json()).role,'guest');
+    assert.equal((await mf.dispatchFetch(base+'/info',{headers:{Authorization:'Bearer '+room.guestKey}})).status,200,'A code must not revoke the original link');
+    assert.equal((await post(base+'/code',resolved.data.key)).status,403);
+    const claims=await Promise.all([post(base+'/resume',resolved.data.key),post(base+'/resume',room.guestKey)]);assert.deepEqual(claims.map(r=>r.status).sort(),[200,410]);
+    const guest=claims.find(r=>r.status===200).data;assert.equal(guest.role,'guest');assert.equal((await post(base+'/resume',guest.key)).data.key,guest.key);
+    assert.equal((await post(origin+'/api/room-codes/join',null,{code:issued.data.code})).status,410);
+    assert.equal((await post(base+'/code',host.key)).status,410);
+    assert.equal((await post(base+'/code',guest.key)).status,403);
+  }finally{await mf.dispose();}
+});
+test('room codes are scoped to the origin and selected turn, expire, and rate-limit guesses',async()=>{
+  const mf=runtime();try {
+    const room=await create(mf,'friends'),base=origin+'/api/rooms/friends/'+room.room;
+    const post=async(path,key,body={},site=origin)=>{const response=await mf.dispatchFetch(path,{method:'POST',headers:{Origin:site,'Content-Type':'application/json',...(key?{Authorization:'Bearer '+key}:{})},body:JSON.stringify(body)});return {status:response.status,data:await response.json()};};
+    const host=(await post(base+'/resume',room.hostKey)).data;
+    const game=(await post(base+'/turns',host.key,{game:'cluance',setup:{role:'giver',options:{theme:'french',clueTheme:'global',variant:'fixed'}}})).data;
+    const issued=(await post(base+'/code',host.key,{turn:game.id})).data;
+    const alias=(await post(origin+'/api/room-codes/join',null,{code:issued.code})).data;assert.equal(alias.turn,game.id);
+    assert.equal((await post(origin+'/api/room-codes/join',null,{code:issued.code},'https://other.example')).status,403);
+    assert.equal((await post('https://other.example/api/room-codes/join',null,{code:issued.code},'https://other.example')).status,410);
+    const hash=async key=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key)))].map(n=>n.toString(16).padStart(2,'0')).join('');
+    const ns=await mf.getDurableObjectNamespace('SIGNAL_ROOMS');
+    await ns.getByName('friends:'+room.room).fetch('https://internal/create',{method:'POST',body:JSON.stringify({game:'friends',protocol:1,origin,expiresAt:Date.now()+86400000,hostResumeHash:await hash(host.key),hostClaimed:true,guestHash:await hash(room.guestKey),codeGuestHash:await hash(alias.key),codeExpiresAt:Date.now()-1})});
+    assert.equal((await post(base+'/resume',alias.key)).status,401);
+    assert.equal((await post(origin+'/api/room-codes/join',null,{code:issued.code})).status,410);
+    const registry=await mf.getDurableObjectNamespace('INVITE_LIMITS');
+    const id='room-code:'+await hash('YYYYYYYY');
+    assert.equal((await registry.getByName(id).fetch('https://internal/register-code',{method:'POST',body:JSON.stringify({origin,room:room.room,key:alias.key,expiresAt:Date.now()-1})})).status,201);
+    assert.equal((await post(origin+'/api/room-codes/join',null,{code:'YYYYYYYY'})).status,410);
+    for(let i=0;i<26;i++)assert.equal((await post(origin+'/api/room-codes/join',null,{code:'ZZZZZZZZ'})).status,410);
+    assert.equal((await post(origin+'/api/room-codes/join',null,{code:'ZZZZZZZZ'})).status,429);
+    assert.equal((await post(origin+'/api/room-codes/join',null,{code:'bad'})).status,400);
+  }finally{await mf.dispose();}
+});

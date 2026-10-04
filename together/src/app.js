@@ -5,9 +5,10 @@ import {installSharedPlay} from '../../shared/shared-play-view.js';
 import {installPanelVisibility} from '../../shared/friend-panel-visibility.js';
 import {FRIEND_PAGES, isFriendPage} from '../../shared/friend-pages.js';
 import {SETUP_GAMES, defaultGameSetup, validateGameSetup, renderGameSetup, setupSummary} from '../../shared/friend-setup.js';
-import {createHostedRoom, hostedLink, hostedInvitation, roomConfig, roomDetails, claimRoomResume} from '../../shared/signaling.js';
+import {createHostedRoom, hostedLink, hostedInvitation, roomConfig, roomDetails, claimRoomResume,createRoomCode,resolveRoomCode} from '../../shared/signaling.js';
 
 import {readFriendRoom, saveFriendRoom} from '../../shared/friend-resume.js';
+import {normalizeRoomCode} from '../../shared/room-code.js';
 import {RoomChat} from '../../shared/room-chat.js';
 import {TurnClient,roomRequest} from '../../shared/turn-client.js';
 import {readCheckpoint} from '../../shared/game-checkpoint.js';
@@ -23,7 +24,7 @@ const url=new URL(location.href);
 const initialGame=!url.hash&&savedRoom&&isFriendPage(savedRoom.page)?savedRoom.page:isFriendPage(url.searchParams.get('game'))?url.searchParams.get('game'):'collection';
 let autoInvite=url.searchParams.get('action')==='invite', autoJoin=url.searchParams.get('action')==='join';
 const invitation=url.hash;url.hash='';url.searchParams.delete('action');history.replaceState(null,'',url);
-let renderChat,renderScreen,updateVisibility,readInviteSetup,readNextSetup;
+let renderChat,renderScreen,readInviteSetup,readNextSetup;
 let inviteGame='collection',nextGame,inviteDefaults;
 function showError(message){$('friend-error').textContent=message;$('friend-error').hidden=false;}
 function loadGame(game) {
@@ -87,13 +88,12 @@ function render() {
     const join=autoJoin;autoInvite=autoJoin=false;
     queueMicrotask(()=>join?openJoin():openInvitation(session.game));
   }
-  updateVisibility?.();
   persistRoom();renderSavedGames();renderInbox();
 }
 const session=new FriendSession({game:initialGame,onChange:render,onSwitch:loadGame,onError:showError,onPicker:()=>navigate('collection')});
 session.resumeGame=Boolean(savedRoom&&!invitation);session.resumeSharedPage=Boolean(savedRoom?.shared&&!invitation);session.sharedResume=session.resumeSharedPage;
 if(savedRoom&&!invitation){session.chat=new RoomChat(session);session.chat.restore(savedRoom.chat);session.resumeCredentials=savedRoom;session.isHost=savedRoom.role==='host';session.independent=Boolean(savedRoom.independent);}
-renderChat=installFriendChat(session);renderScreen=installSharedPlay(session,render);updateVisibility=installPanelVisibility(session);
+renderChat=installFriendChat(session);renderScreen=installSharedPlay(session,render);installPanelVisibility(session);
 window.__friendSession=session;
 session.openInvitation=openInvitation;session.openJoin=openJoin;session.openGameSetup=openGameSetup;
 Object.defineProperty(window,'__together',{value:{
@@ -135,19 +135,20 @@ function configureInvitation(game,metadata) {
 }
 function openInvitation(game=session.game,metadata) {
   if(session.screen?.active){session.showPanel();return;}
-  if(!session.connected&&session.resumeCredentials?.inviteLink&&!session.connecting){session.showPanel();$('room-title').textContent='Your room invitation';$('room-status').textContent='Share with one friend. Once joined, return in the same browser.';$('room-settings').hidden=$('room-create').hidden=$('room-join-form').hidden=true;$('room-output').hidden=$('room-copy').hidden=false;$('room-link').value=session.resumeCredentials.inviteLink;$('room-copy').disabled=false;$('room-dialog').showModal();return;}
+  if(!session.connected&&session.resumeCredentials?.inviteLink&&!session.connecting){session.showPanel();$('room-title').textContent='Your room invitation';$('room-status').textContent='Share the code or link with one friend. Once joined, return in the same browser.';$('room-settings').hidden=$('room-create').hidden=$('room-join-form').hidden=true;$('room-output').hidden=$('room-copy').hidden=false;$('room-link').value=session.resumeCredentials.inviteLink;$('room-copy').disabled=false;$('room-dialog').showModal();offerRoomCode();return;}
   if(session.connected||session.resumeCredentials&&!session.connecting){if(Object.hasOwn(SETUP_GAMES,game)&&game!=='collection')openGameSetup(game,metadata);else session.showPanel();return;}
   session.showPanel();
   $('room-title').textContent='Invite a friend';$('room-join-form').hidden=true;
-  $('room-settings').hidden=false;$('room-copy').hidden=false;
+  $('room-copy').hidden=false;
   const waiting=session.connecting&&session.friendInvitation;
+  $('room-settings').hidden=Boolean(waiting);
   $('room-output').hidden=!waiting;$('room-create').hidden=waiting;
   if(!waiting){
     $('room-link').value='';$('room-copy').disabled=true;$('room-settings').disabled=false;
-    $('room-status').textContent='Choose a game and send one link. Your friend connects directly.';
+    $('room-status').textContent='Choose a game, then share a room code or invitation link.';
     configureInvitation(Object.hasOwn(SETUP_GAMES,game)?game:'collection',metadata);
   }
-  $('room-dialog').showModal();
+  $('room-dialog').showModal();if(waiting)offerRoomCode();
 }
 $('room-game').onchange=()=>configureInvitation($('room-game').value);
 $('room-resume').onchange=()=>{$('room-setup').querySelectorAll('input,select').forEach(input=>input.disabled=$('room-resume').checked);};
@@ -166,23 +167,50 @@ async function createRoom() {
       const config=await roomConfig(credential,{iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
       await session.connectFriendRoom(credential,'host',config,{game:inviteGame,metadata,resume,restoring:true});
     }
-    $('room-link').value=hostedLink({...room,key:room.guestKey})+(asyncMode?'&turn='+session.asyncGame.record.id:'');session.resumeCredentials.inviteLink=$('room-link').value;persistRoom();$('room-copy').disabled=false;$('room-output').hidden=false;$('room-create').hidden=true;
-    $('room-status').textContent=setupSummary(inviteGame,metadata)+' Send this link to one friend. Your private room and saved games stay available for 90 days after your last visit.';
+    $('room-link').value=hostedLink({...room,key:room.guestKey})+(asyncMode?'&turn='+session.asyncGame.record.id:'');session.resumeCredentials.inviteLink=$('room-link').value;persistRoom();$('room-copy').disabled=false;$('room-output').hidden=false;$('room-create').hidden=true;$('room-settings').hidden=true;
+    $('room-title').textContent=FRIEND_PAGES[inviteGame]+' · '+(asyncMode?'Take turns':'Play live');
+    $('room-status').textContent=setupSummary(inviteGame,metadata).replace(/\.$/,'')+'. Share the code or link with one friend. Your room and saved games stay available for 90 days after your last visit.';
+    await offerRoomCode();
   }catch(error){$('room-status').textContent=error.message;$('room-settings').disabled=false;}
   finally{session.roomBusy=false;$('room-create').disabled=false;render();}
 }
 $('room-create').onclick=()=>createRoom().catch(error=>{$('room-status').textContent=error.message;});
+async function offerRoomCode() {
+  const credential=session.resumeCredentials;
+  if(!credential || credential.role!=='host')return;
+  $('room-code').value='';$('room-code').placeholder='Generating…';$('room-code-copy').disabled=true;$('room-code-copy').textContent='Copy code';$('room-code-refresh').hidden=true;
+  $('room-code-status').textContent='Generating your room code…';
+  try {
+    const turn=credential.inviteLink?new URLSearchParams(new URL(credential.inviteLink).hash.slice(1)).get('turn'):null;
+    const code=await createRoomCode(credential,turn);
+    if(session.resumeCredentials?.room!==credential.room)return;
+    session.resumeCredentials.inviteCode=code;persistRoom();$('room-code').value=code.code;
+    $('room-code-copy').disabled=false;$('room-code-status').textContent='Expires '+new Date(code.expiresAt).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})+' · admits one friend.';
+  }catch(error){
+    $('room-code').placeholder='Code unavailable';$('room-code-status').textContent=error.message;$('room-code-refresh').hidden=error.status===410;
+  }
+}
+$('room-code-refresh').onclick=offerRoomCode;
+$('room-code-copy').onclick=async()=>{
+  try {await navigator.clipboard.writeText($('room-code').value);$('room-code-copy').textContent='Copied';}
+  catch {$('room-code').focus();$('room-code').select();$('room-code-status').textContent='Select and copy the room code.';}
+};
 function openJoin() {
   if(session.connected){session.showPanel();return;}
   session.showPanel();$('room-title').textContent='Join a friend';
-  $('room-status').textContent='Paste the global invitation link. You connect directly; no reply link is needed.';
+  $('room-status').textContent='Enter your friend’s room code or paste their invitation link.';
   $('room-settings').hidden=$('room-create').hidden=$('room-output').hidden=$('room-copy').hidden=true;
   $('room-join-form').hidden=false;$('room-dialog').showModal();$('room-input').focus();
 }
 $('join-friend').onclick=openJoin;
 async function joinRoom(input) {
-  const room=hostedInvitation(input,'friends');if(!room)throw new Error('Paste the complete global invitation link. Ask your friend for a fresh link if needed.');
-  const turn=new URLSearchParams(new URL(input,location.href).hash.slice(1)).get('turn');
+  let room,turn;
+  if(normalizeRoomCode(input)) {room=await resolveRoomCode(input);turn=room.turn;}
+  else {
+    room=hostedInvitation(input,'friends');
+    if(!room)throw new Error('Enter the eight-character room code or paste a complete invitation link.');
+    turn=new URLSearchParams(new URL(input,location.href).hash.slice(1)).get('turn');
+  }
   const existing=readFriendRoom();
   const details=existing?.room===room.room?existing:await roomDetails(room,1);
   const credential=await claimRoomResume(details);session.resumeCredentials={...credential,page:'collection',setup:{},shared:false,independent:Boolean(turn)};session.isHost=credential.role==='host';attachRoomChat();persistRoom();
@@ -196,7 +224,7 @@ $('room-join-form').onsubmit=async event=>{
 };
 $('room-copy').onclick=async()=>{
   try{await navigator.clipboard.writeText($('room-link').value);$('room-copy').textContent='Copied';}
-  catch{$('room-link').select();$('room-status').textContent='Select and copy the invitation link.';}
+  catch{$('room-link-details').open=true;$('room-link').select();$('room-status').textContent='Select and copy the invitation link.';}
 };
 $('room-close').onclick=()=>$('room-dialog').close();
 $('accept-switch').onclick=()=>{if(dialog.dataset.kind==='leave'){manualOffline=true;clearTimeout(reconnectTimer);reconnectTimer=null;frame.contentWindow?.__gameCheckpoint?.save();if(session.screen?.active){session.sharedResume=true;session.screen.suspend();}session.disconnect();persistRoom();dialog.close();}else session.accept();};
@@ -303,7 +331,7 @@ function renderInbox(){
   }
   $('turn-status').textContent=inboxError||(!inbox.length?'Choose Cluance or Flip It and invite your friend to take turns.':'Moves save automatically. You can leave anytime.');
   const pending=inbox.filter(item=>item.myTurn).length;
-  if(pending)$('show-friend-panel').textContent='Friends · '+pending+' turn'+(pending===1?'':'s');
+  session.setFriendBadge?.(pending);
 }
 session.refreshInbox=refreshInbox;
 setInterval(()=>{if(!document.hidden&&session.resumeCredentials){refreshInbox();session.chat.refresh?.().catch(error=>{$('chat-status').textContent=error.message;});}},10000);
