@@ -1,6 +1,6 @@
 # Expansion to at least 40 cards per theme
 
-Target: **453 active cards** — 40 in each of ten themes and the existing 53 Musicians. Existing IDs, saved games, archived regions and artwork mappings remain unchanged.
+Result: **453 active cards** — 40 in each of ten themes and the existing 53 Musicians. Existing IDs, saved games, archived regions and artwork mappings remain unchanged.
 
 Each new subject receives original imagegen artwork, an individual review of both card crops, a date caption and a biography. French Regions keeps the 27 administrative regions of 2015 and expands its explicitly labelled historical territories from three to thirteen.
 
@@ -12,15 +12,15 @@ Each new subject receives original imagegen artwork, an individual review of bot
 | french | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
 | global | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
 | philosophers | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
-| writers | 30 | 40 | Integrated; refining two props for the labelled crop |
+| writers | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
 | actors | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
 | cities | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
 | countries | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
-| regions | 30 | 40 | Pending generation and review |
-| greek | 30 | 40 | Pending generation and review |
+| regions | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
+| greek | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
 | Musicians | 53 | 53 | Already above target |
 
-## Planned append-only roster
+## Accepted append-only roster
 
 ### scientists
 
@@ -153,8 +153,8 @@ Each new subject receives original imagegen artwork, an individual review of bot
 | Angoumois | Historical province |
 | Maine | Historical province |
 | Nivernais | Historical province |
-| Foix | Historical province |
-| Comtat Venaissin | Historical province |
+| Foix | Historical county |
+| Comtat Venaissin | Historical territory |
 | Roussillon | Historical province |
 
 ### greek
@@ -290,3 +290,54 @@ Each new subject receives original imagegen artwork, an individual review of bot
 | countries-39 | Cuba | Rounded Viñales mogotes, red-tiled farmhouse and tobacco leaves distinguish Cuba from the Vietnamese karst bay. |
 
 [Generated atlas](assets/countries-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
+
+## writers — individual accepted-card review
+
+| ID | Subject | Finding |
+| --- | --- | --- |
+| writers-30 | Edgar Allan Poe | Raven, quill and moonlit gothic study distinguish Poe; both crops retain his face and raven. |
+| writers-31 | Jules Verne | Redrawn with the complete brass submarine model held at chest height; face, porthole and submarine remain visible in both crops. |
+| writers-32 | J. R. R. Tolkien | Tweed, grey hair, book and imagined pastoral fantasy landscape distinguish Tolkien; no literal portrait claim for fictional scenery. |
+| writers-33 | George Orwell | Redrawn with a complete typewriter above the caption area; thin moustache and surveillance motif distinguish Orwell in both crops. |
+| writers-34 | Chinua Achebe | Spectacles, patterned cap, book and Nigerian landscape distinguish Achebe; no invented readable book title. |
+| writers-35 | Natsume Sōseki | Moustache, formal jacket, Japanese room and cat connect Sōseki with his writing; the cat stays visible in both crops. |
+| writers-36 | Octavia E. Butler | Short textured hair, glasses, red sweater and speculative planets distinguish Butler from the other authors. |
+| writers-37 | Marguerite Duras | Oversized glasses, cream cardigan and Parisian writing setting distinguish Duras; cigarette is deliberate adult portrait context. |
+| writers-38 | Clarice Lispector | Wavy hair, gold earrings, manuscript and Rio backdrop distinguish Lispector; clear face in both crops. |
+| writers-39 | Maya Angelou | Grey swept hair, purple clothing, bird and open cage reference Angelou without generated title lettering. |
+
+[Generated atlas](assets/writers-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
+
+## regions — individual accepted-card review
+
+| ID | Subject | Finding |
+| --- | --- | --- |
+| regions-2015-30 | Berry | Redrawn Bourges cathedral with unequal square towers and grain fields; historical province explicitly labelled. |
+| regions-2015-31 | Bourbonnais | Redrawn Bourbonnais with exactly three ruined round towers representing Hérisson; no fourth invented tower. |
+| regions-2015-32 | Saintonge | Roman double arch, river and Saintes setting distinguish Saintonge; historical province caption prevents 2015-region confusion. |
+| regions-2015-33 | Aunis | La Rochelle harbour towers, boats and salt pans distinguish Aunis; historical province explicitly labelled. |
+| regions-2015-34 | Angoumois | Redrawn Angoulême cathedral with Romanesque rounded arcades and small circular windows; no Gothic rose window. |
+| regions-2015-35 | Maine | Redrawn Le Mans late-Roman walls with brick bands and geometric decoration; Maine is the French province, not the US state. |
+| regions-2015-36 | Nivernais | Nevers palace, Loire river and blue-white faience distinguish Nivernais in both crops. |
+| regions-2015-37 | Foix | Three-towered hilltop castle and Pyrenees identify Foix; date and subtitle correctly call it a historical county. |
+| regions-2015-38 | Comtat Venaissin | Redrawn Carpentras Porte d’Orange with vineyards and Mont Ventoux; caption correctly calls Comtat a historical territory. |
+| regions-2015-39 | Roussillon | Redrawn Collioure coastal church tower and Mediterranean waterfront; biography connects this provincial scene with Perpignan. |
+
+[Generated atlas](assets/regions-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
+
+## greek — individual accepted-card review
+
+| ID | Subject | Finding |
+| --- | --- | --- |
+| greek-30 | Hecate | Two torches, keys and nighttime crossroads identify Hecate; single coherent figure and face survive both crops. |
+| greek-31 | Eros | Clothed adult winged archer with bow and quiver identifies Eros; anatomy and bow remain legible. |
+| greek-32 | Nike | Winged figure holding a victory wreath identifies Nike; wreath stays complete in labelled crop. |
+| greek-33 | Iris | Rainbow, wings and held vessel identify the divine messenger Iris; no obscured face. |
+| greek-34 | Selene | Crescent crown, night sky and horse chariot identify Selene and distinguish her from Helios. |
+| greek-35 | Helios | Radiant sun crown, daylight and horse chariot identify Helios; reins and both hands remain readable. |
+| greek-36 | Pan | Curled horns, pointed ears, rustic clothing and panpipes distinguish Pan; no extra horn. |
+| greek-37 | Asclepius | One serpent coils around a wingless staff, preserving the Rod of Asclepius rather than a two-snake caduceus. |
+| greek-38 | Sisyphus | Redrawn with an entire round boulder and clear uphill pushing stance; clothed figure remains visible in both crops. |
+| greek-39 | Chimera | One lion body, goat head on its back and serpent-headed tail identify the Chimera; coherent three-head anatomy survives both crops. |
+
+[Generated atlas](assets/greek-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.

@@ -134,9 +134,9 @@ const definitions = {
     ],
   },
   regions: {
-    name: 'French Regions', subtitle: '27 regions of 2015 & 3 historical provinces', color: '#d1bb83', symbol: '◒', preview: 3, kind: 'places',
+    name: 'French Regions', subtitle: '27 regions of 2015 & 13 historical territories', color: '#d1bb83', symbol: '◒', preview: 3, kind: 'places',
     atlas:'assets/regions-2015.webp', columns:6, rows:5, cardPrefix:'regions-2015',
-    description:'All 27 regions as they stood on 31 December 2015: 22 metropolitan regions, including Corsica, and five overseas regions. Three additional cards depict explicitly labelled historical provinces: Anjou, Touraine and Provence. These are not administrative regions of 2015. No post-2016 mergers.',
+    description:'All 27 regions as they stood on 31 December 2015: 22 metropolitan regions, including Corsica, and five overseas regions. Thirteen additional cards depict explicitly labelled historical provinces, a county and a papal territory, including Anjou, Touraine, Provence, Berry, Bourbonnais, Saintonge, Aunis, Angoumois, Maine, Nivernais, Foix, Comtat Venaissin and Roussillon. These are not administrative regions of 2015. No post-2016 mergers.',
     cards: [
       ['Alsace', 'Storks, timbered houses and canals'], ['Aquitaine', 'Atlantic dunes and Bordeaux vineyards'], ['Auvergne', 'Volcanic peaks and lava-stone churches'],
       ['Basse-Normandie', 'Mont Saint-Michel and tidal bays'], ['Bourgogne', 'Vineyards and stone châteaux'], ['Bretagne', 'Atlantic coast and lighthouses'],
