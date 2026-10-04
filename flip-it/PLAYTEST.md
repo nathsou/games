@@ -74,7 +74,7 @@ Focused browser checks exercised visible Play, Take, bank deposits, returned/fli
 
 The active table fits without page scrolling at **1280 × 720**, **1366 × 768** and **1440 × 900**, including a five-seat full-deck table at 1280 × 720. Light and dark appearances were checked, including light-theme body ink. A DOM-only 40-card hand stress check stayed inside widths 768, 1280 and 1440. Widths **320, 390, 768, 1280, 1366 and 1440** had no horizontal page overflow. Phones retain vertical scrolling, with cards wrapping and the chat below the table. Last chance replaces the normal turn prompt to preserve the compact table height.
 
-Fresh screenshots of the lobby, solo table, multiplayer chat, five-player layout, phone layout, card motion, live reactions and light appearance are in [screenshots](screenshots/). The PR description embeds these images from the branch. Browser automation tools and the loopback test relay were kept outside the shipped game. Physical MacBook hardware, Safari, Firefox, phone cameras and external NAT/relay connectivity were not available for this verification.
+Screenshots of the lobby, solo table, multiplayer chat, five-player layout, phone layout, card motion, live reactions and light appearance were captured during verification. Generated captures are excluded from Git. Browser automation tools and the loopback test relay were kept outside the shipped game. Physical MacBook hardware, Safari, Firefox, phone cameras and external NAT/relay connectivity were not available for this verification.
 
 ## Single-space quick turns, browser replay and shared invites (2026-10-03)
 

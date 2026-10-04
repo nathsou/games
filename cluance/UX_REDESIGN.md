@@ -34,12 +34,14 @@ Verification uses temporary Playwright scripts with system Chromium; no test dep
 
 ## Review screenshots
 
-[Home](screenshots/redesign-home.png), [guesser table](screenshots/redesign-table.png), [phone table](screenshots/redesign-phone.png), [giver table](screenshots/redesign-giver.png), [dark giver table](screenshots/redesign-giver-dark.png), and [reveal](screenshots/redesign-reveal.png). The French table examples use a reproducible demonstration position; the replay capture is from the completed expanded-card browser game.
+Home, guesser table, phone table, giver table, dark giver table, and reveal. The French table examples use a reproducible demonstration position; the replay capture is from the completed expanded-card browser game.
 
-Invitation follow-up: [Cities home](screenshots/redesign-cities-home.png) and [invitation link](screenshots/redesign-invitation.png).
+Invitation follow-up: Cities home and invitation link.
 
-Explicit invitation creation: [desktop](screenshots/invitation-create-desktop.png) and [phone](screenshots/invitation-create-phone.png). Native offer/reply generation, clipboard copying, matching-room acceptance, role switching and invalid-reply recovery were checked; live connectivity remains unverified in this environment, which produced zero ICE candidates.
+Explicit invitation creation: desktop and phone. Native offer/reply generation, clipboard copying, matching-room acceptance, role switching and invalid-reply recovery were checked; live connectivity remains unverified in this environment, which produced zero ICE candidates.
 
-Clue-giver hand during the partner’s guess: [desktop](screenshots/giver-waiting-hand-desktop.png) and [phone](screenshots/giver-waiting-hand-phone.png). Both hand variants were checked for visible cards, inspection, turn restrictions and private-hand exclusion from the guesser view.
+Clue-giver hand during the partner’s guess: desktop and phone. Both hand variants were checked for visible cards, inspection, turn restrictions and private-hand exclusion from the guesser view.
 
-Role-preserving invitation: [guessing creator](screenshots/guesser-invitation-desktop.png). Agreed role swap: [phone](screenshots/online-role-swap-phone.png). Both creator roles, both hand variants, swaps in both directions and cancellation races were checked with the transport stand-in; native invitation/reply acceptance was verified separately.
+Role-preserving invitation: guessing creator. Agreed role swap: phone. Both creator roles, both hand variants, swaps in both directions and cancellation races were checked with the transport stand-in; native invitation/reply acceptance was verified separately.
+
+Generated browser captures are excluded from Git; the verification descriptions above are retained.

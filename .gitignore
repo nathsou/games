@@ -5,3 +5,18 @@ _site/
 .wrangler/
 .dev.vars
 .dev.vars.*
+
+# Local dependencies and build output
+dist/
+.test-build/
+
+# Regenerable captures and unused artwork originals
+**/screenshots/*
+**/mono-screenshots/*
+!**/screenshots/*.md
+!**/mono-screenshots/*.md
+**/design/*.png
+**/design/**/*.png
+/cluance/assets/*.png
+/similo/assets/*.png
+/flip-it/assets/cards.png
