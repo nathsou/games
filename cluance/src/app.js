@@ -1,3 +1,4 @@
+import {friendSession, togetherURL, registerFriendGame, redirectTogetherInvitation} from '../../shared/friend-context.js';
 import { loadTheme, THEME_KEY } from "../../shared/theme.js";
 import { loadAI, saveAI, CONFIG_KEY } from "../../shared/ai/config.js";
 import { DECKS, CARDS } from "./decks.js";
@@ -495,11 +496,19 @@ function renderHome() {
   $("replay-file").onchange = (event) => importReplay(event.target.files[0]);
 }
 function inviteFriend() {
+  if (friendSession()?.connected) {
+    friendSession().requestGame('cluance');
+    return;
+  }
   homePartner = "friend";
   setup.mode = homeRole === "giver" ? "peer-host" : "peer-guest";
   openToken = null;
   saveSetup();
   renderHome();
+  if (!friendSession()) {
+    location.href = togetherURL('cluance', 'invite');
+    return;
+  }
   start(setup.mode);
 }
 function renderTokenPicker() {
@@ -1167,7 +1176,7 @@ function confirmLeave() {
   showModal(
     "Leave this table?",
     "Game in progress",
-    `<p class="pair-copy">${isPeer() ? "Your friend will be disconnected. The clue giver can resume this game and create a fresh invitation." : "Your game is saved on this browser. You can resume it from the opening screen."}</p><div class="pair-actions"><button class="button secondary" id="stay">Keep playing</button><button class="button danger" id="leave-confirm">Leave table</button></div>`,
+    `<p class="pair-copy">${isPeer() ? friendSession()?.connected ? "This table will pause. Your friend stays connected; choose Next game to start another table together." : "Your friend will be disconnected. The clue giver can resume this game and create a fresh invitation." : "Your game is saved on this browser. You can resume it from the opening screen."}</p><div class="pair-actions"><button class="button secondary" id="stay">Keep playing</button><button class="button danger" id="leave-confirm">Leave table</button></div>`,
   );
   $("stay").onclick = () => modal.close();
   $("leave-confirm").onclick = () => {
@@ -1886,6 +1895,7 @@ function openPairing(kind, reconnect = false, initial = "") {
   if (kind === "guest" && initial) preparePair("answer", initial);
 }
 async function preparePair(type,input='',manual=false) {
+  if (type === 'answer' && redirectTogetherInvitation('cluance', input)) return;
   const attempt=++pairingAttempt;
   let link;
   pairingBusy=true;pairingError='';pairingInput=input;pairingCode='';renderPairing();
@@ -2087,6 +2097,7 @@ async function openPairHash() {
     invite = params.has("room")?location.href:params.get("invite") || params.get("pair"),
     reply = params.get("reply");
   if (!invite && !reply) return;
+  if (redirectTogetherInvitation('cluance', location.href)) return;
   const invitation = params.has("invite")||params.has("room") ? location.href : invite;
   history.replaceState(null, "", location.pathname + location.search);
   if (invite) {
@@ -2731,6 +2742,11 @@ $("home-link").onclick = (event) => {
   }
 };
 window.addEventListener("beforeunload", () => saveSession());
+window.addEventListener("pagehide", () => {
+  cancelAI();
+  peer?.close();
+  pairingBus?.close();
+});
 applyPreferences();
 app.innerHTML = `<section class="hero"><div><p class="eyebrow">Setting the table</p><h1>${Object.keys(DECKS).length} worlds.<br>One <em>connection.</em></h1><p>Shuffling the illustrated decks…</p></div></section>`;
 try {
@@ -2878,4 +2894,24 @@ document.addEventListener("keydown", (event) => {
 
 matchMedia("(max-width:760px)").addEventListener("change", () => {
   if (screen === "game") renderGame();
+});
+
+registerFriendGame('cluance', {
+  setup: () => ({role: homeRole, options: gameOptions()}),
+  async invite() {
+    openPairing('host', Boolean(game));
+    await preparePair('offer');
+  },
+  start({host, metadata}) {
+    const details = validateInvitationDetails(metadata);
+    cancelAI(); resetTurn();
+    game = null;
+    mode = (host ? details.role === 'giver' : details.role !== 'giver')
+      ? 'peer-host' : 'peer-guest';
+    pairingGameOptions = details.options;
+    pairingKind = null; pairingBusy = false; pairingCode = ''; pairingInput = '';
+    modal.close();
+    const link = newPeer();
+    link.isInviter = host;
+  },
 });

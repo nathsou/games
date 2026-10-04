@@ -45,7 +45,14 @@ async function context(prefs,transport=false,size={width:1280,height:720}){
   if(transport)await c.addInitScript(testTransport);
   return c;
 }
-async function page(c){const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));p.setDefaultTimeout(15000);await p.goto(origin);return p;}
+async function page(c){
+  const p=await c.newPage();
+  p.on('pageerror',e=>errors.push(e.message));p.setDefaultTimeout(15000);
+  await p.goto(new URL('../together/?game=flip-it',origin).href);
+  const frame=await (await p.locator('#game-frame').elementHandle()).contentFrame();
+  await frame.waitForFunction(()=>Boolean(window.__flipit));
+  return frame;
+}
 async function ready(p){await p.waitForFunction(()=>document.querySelector('#pair-output')?.value);return p.locator('#pair-output').inputValue();}
 async function invite(p){await p.locator('[data-action=host]').first().click();return ready(p);}
 async function options(p){await p.locator('.pair-options > summary').click();}

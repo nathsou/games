@@ -13,6 +13,8 @@ Small browser games in vanilla JavaScript. The index page lists them as cards. C
 
 To add a game: put it in its own folder with an `index.html`, add a card to the root `index.html`, and include its runtime files in `tools/build-site.mjs`.
 
+Cluance and Flip It can share one persistent friend connection: [Play together](together/) and [session behavior](docs/FRIEND_SESSIONS.md). Either player can propose the next game without inviting again.
+
 All card games share AI settings and Light/Dark/System appearance. [AI implementation and verification](shared/ai/README.md).
 
 Repository history keeps source, tests, workflows, documentation, and runtime assets. Cluance ships WebP artwork; redundant PNG originals, unused card prototypes, design mockups, and generated screenshots are excluded. Generation prompts and capture instructions remain available in each game's documentation.

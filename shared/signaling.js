@@ -1,3 +1,4 @@
+import {friendSession} from './friend-context.js';
 // Hosted invitations contain a random guest capability in the URL fragment.
 // Only SDP and ICE travel through this service; game traffic uses PeerLink.
 const ROOM=/^[a-f0-9]{32}$/,KEY=/^[a-f0-9]{64}$/;
@@ -29,7 +30,10 @@ export function hostedInvitation(input,game,base=location.href){
 }
 export function hostedLink({game,room,key},base=location.href){
   if(!ROOM.test(room)||!KEY.test(key))throw new Error('Invalid invitation.');
-  const url=new URL('./',base);url.search='';url.hash=new URLSearchParams({room,key});
+  const url=new URL('./',base);url.search='';
+  const params=new URLSearchParams({room,key});
+  if(friendSession())params.set('together','1');
+  url.hash=params;
   if(!url.pathname.endsWith('/'+game+'/'))throw new Error('Invalid game invitation.');
   return url.href;
 }

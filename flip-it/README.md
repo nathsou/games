@@ -52,6 +52,8 @@ Online play requires HTTPS or localhost. The default configurable STUN address i
 
 The host owns the authoritative state and sees the dealt hands internally. This design keeps normal opponent UI and network views private; it does not defend against a malicious host editing code. Invalid/stale actions cannot mutate state. Disconnects pause online actions and the team dealer. The last opponent and the host’s authoritative match are saved locally, with a redacted view on the guest. Reloading opens the saved table paused; Reconnect makes a fresh invite and resumes the same match when the friend connects. The lobby also remembers the last opponent. Explicitly leaving the online table or starting an offline game clears the saved match. Storage denial falls back to keeping the match in the open tab. TURN passwords and pairing links are never persisted. Both players must use the current protocol (v5) for starred-card starts and configurable match goals.
 
+New friend invitations open the shared page. Use **Next game** to propose Cluance or another Flip It table; your friend accepts or declines, and the existing connection stays open. See [friend sessions](../docs/FRIEND_SESSIONS.md).
+
 ## Table talk and motion
 
 Exposed opponent cards sit side by side with both numbers visible. Click or tap their cards to inspect the whole set at a larger size, with upright Top and Flips to labels for each physical card. Crowded strips scroll horizontally; the inspection view follows changes to the public set and never displays hidden hands.

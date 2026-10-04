@@ -1,3 +1,4 @@
+import {friendSession, togetherURL, registerFriendGame, redirectTogetherInvitation} from '../../shared/friend-context.js';
 import {trackArcadeGame} from '../../shared/ai/usage.js';
 import {installThemeControls,saveTheme,THEME_KEY} from '../../shared/theme.js';
 import {loadAI} from '../../shared/ai/config.js';
@@ -494,6 +495,7 @@ async function createInvitation(manual=false) {
   if(attempt===pairAttempt){pairBusy=false;renderPair();render();}
 }
 async function joinInvitation(input) {
+  if (redirectTogetherInvitation('flip-it', input)) return;
   const attempt=++pairAttempt;
   let config=readConfig(),link;
   pairBusy=true;pairError='';pairMessage='Connecting to your friend…';renderPair();
@@ -722,7 +724,9 @@ document.addEventListener('click',async event=>{
     else if (action==='leave-online') {
       clearTimeout(botTimer); generation++; const old=peer; peer=null; old?.close();
       forgetTable(); session=null; game=null; mode='solo'; scene='menu'; render();
-    } else if (action==='host' || action==='join') { openPair(action); if (action==='host' && !peer?.connected && !pairOut) await createInvitation(); }
+    } else if (action==='host' || action==='join') {
+      if (!friendSession() && !peer && action==='host') {location.href=togetherURL('flip-it','invite');return;}
+      openPair(action); if (action==='host' && !peer?.connected && !pairOut) await createInvitation(); }
     else if (action==='reconnect-last') { openPair(prefs.lastPlayer?.seat ? 'join' : 'host'); if (!prefs.lastPlayer?.seat && !pairOut) await createInvitation(); }
     else if (action==='reaction') session?.sendSocial('reaction', target.dataset.reaction);
     else if(action==='switch-pair'){
@@ -821,6 +825,7 @@ bus?.addEventListener('message',async event=>{
 async function handleHash() {
   const params=new URLSearchParams(location.hash.slice(1)), invite=params.has('room')?location.href:params.get('invite'), reply=params.get('reply');
   if (!invite && !reply) return;
+  if (redirectTogetherInvitation('flip-it', location.href)) return;
   history.replaceState(null,'',location.pathname+location.search);
   if (invite) {
     openPair('join'); const field=modal.querySelector('#pair-input');if(field)field.value=params.has('room')?invite:makeLink(invite,'offer');
@@ -852,3 +857,17 @@ Object.defineProperty(window,'__flipit',{value:{
   get state(){return view()?structuredClone(view()):null;},
   get mode(){return mode;},get seat(){return mySeat();},get connected(){return connected();},get handoff(){return handoff;}
 }});
+
+registerFriendGame('flip-it', {
+  setup: () => ({}),
+  async invite() {
+    openPair('host');
+    await createInvitation();
+  },
+  start({host}) {
+    generation++; stopAI(); clearTimeout(botTimer);
+    session = null; game = null; forgetTable();
+    pairOut = ''; pairingOpen = false; modal.close();
+    makePeer(host ? 0 : 1);
+  },
+});

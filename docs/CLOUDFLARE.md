@@ -56,6 +56,10 @@ The `SignalRoom` and `InviteLimiter` Durable Object bindings are created automat
 - Cluance keeps the inviter's chosen giver/guesser role and public table options. Flip It defaults to a duel with zero bots/AI.
 - **Use manual pairing** provides the original invite/reply flow if needed. Manual pairing and local games remain available on the games' original development servers.
 
+## Playing multiple games together
+
+New Cluance and Flip It invitations open the shared friend page. Either player can choose the next game; their friend accepts or declines. An accepted switch starts a new table while retaining WebRTC and its relay credentials, with no new signaling room. No account settings or extra bindings are needed. See [friend session behavior and implementation](FRIEND_SESSIONS.md).
+
 ## Branch previews
 
 After the first production deployment creates the Durable Object migrations, Cloudflare's non-production deploy command can be set to `npx wrangler versions upload` to create preview URLs. Those versions share the production Durable Object namespaces. Rooms are bound to their exact origin, preventing an invitation from being used on another preview or production host. Use a separate Worker/account environment if you need fully isolated preview quotas and storage.
