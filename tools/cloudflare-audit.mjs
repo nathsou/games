@@ -88,6 +88,9 @@ async function join(c, link, game) {
 }
 async function switchGame(requester, friend, game) {
   await requester.locator('#next-game').selectOption(game);
+  await acceptSwitch(requester, friend, game);
+}
+async function acceptSwitch(requester, friend, game) {
   await friend.locator('#accept-switch').click();
   for (const p of [requester, friend]) {
     await p.waitForFunction(game => window.__together.game === game && !window.__together.loading, game);
@@ -154,11 +157,23 @@ try {
     const before = await state(g, other);
     // A retired game's packet travels through the live encrypted transport.
     // It must not reach the new game, even if it names the active game.
+    await g.evaluate(() => {
+      window.__staleDelivered = false;
+      const link = window.__friendSession.link, receive = link.onMessage;
+      link.onMessage = message => {
+        if (message.type === 'stale-probe') window.__staleDelivered = true;
+        return receive(message);
+      };
+    });
     await h.evaluate(game => window.__friendSession.peer.send({
-      type: 'friend-game', game, epoch: 'initial', message: {type: 'hello', v: 5, version: 1, name: 'Stale player'},
+      type: 'friend-game', game, epoch: 'initial', message: {type: 'stale-probe', v: 5, version: 1},
     }), other);
+    // This later request is an ordered-channel barrier for the stale packet.
+    await h.locator('#next-game').selectOption('cluance');
+    await g.locator('#accept-switch').waitFor({state: 'visible'});
+    assert.equal(await g.evaluate(() => window.__staleDelivered), false);
     assert.deepEqual(await state(g, other), before);
-    await switchGame(h, g, 'cluance');
+    await acceptSwitch(h, g, 'cluance');
     await cluanceRound(h, g);
     const ch = await gameView(h, 'cluance'), cg = await gameView(g, 'cluance');
     const oldId = (await state(h, 'cluance')).id, oldRole = (await state(h, 'cluance')).role;
@@ -195,6 +210,10 @@ try {
     assert.equal((await state(g, 'flip-it')).id, saved.id);
     assert.equal((await state(g, 'flip-it')).revision, saved.revision);
     assert(restored);
+    await h.locator('#disconnect').click();
+    await h.locator('#accept-switch').click();
+    await g.waitForFunction(() => !window.__together.connected);
+    assert.equal(await h.evaluate(() => window.__testPeers.at(-1).signalingState), 'closed');
     results.push(initial + ': consent, cancellation, switches, private views, role swaps and saved-game reconnect; one RTC connection throughout switches');
     await c.close();
   }
@@ -206,6 +225,7 @@ try {
     const bounds = await view.locator('#modal-content').evaluate(el => ({w: el.clientWidth, sw: el.scrollWidth}));
     assert(bounds.sw <= bounds.w + 1, JSON.stringify({game, width, ...bounds}));
     assert(await h.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    if (width < 600) assert(await h.locator('.friend-bar').evaluate(el => el.clientHeight <= 96));
     await screenshot(h, game + '-together-' + width + '.png');
     const g = await page(c, game);
     await g.goto(link);

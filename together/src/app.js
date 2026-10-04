@@ -31,11 +31,13 @@ function loadGame(game, hash = '') {
 }
 function render() {
   const title = FRIEND_GAMES[session.game].title;
-  $('friend-status').textContent = session.loading ? 'Loading ' + title + ' together…'
-    : session.connected ? session.paused ? 'Friend connected · Table paused' : 'Friend connected · ' + title
-      : 'Invite a friend · ' + title;
+  let status = 'Invite a friend · ' + title;
+  if (session.loading) status = 'Loading ' + title + ' together…';
+  else if (session.connected) status = session.paused ? 'Friend connected · Table paused' : 'Friend connected · ' + title;
+  else if (session.connecting) status = (session.isHost ? 'Waiting for your friend · ' : 'Joining your friend · ') + title;
+  $('friend-status').textContent = status;
   $('next-game').disabled = session.loading || Boolean(session.proposal);
-  $('invite-friend').hidden = session.connected;
+  $('invite-friend').hidden = session.connected || session.connecting;
   $('invite-friend').disabled = !session.adapter;
   $('disconnect').hidden = !session.connected;
   const proposal = session.proposal;

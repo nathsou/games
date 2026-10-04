@@ -4,7 +4,7 @@ Invite a friend from Flip It or Cluance, or open **Play with a friend** from the
 
 An accepted switch ends the current table and starts a fresh game for both players. The existing WebRTC connection, data channel and relay credentials remain open. Switching does not create another Cloudflare room or require another invitation. Choosing the current game starts an agreed fresh table. Each game's normal rematch and Cluance's agreed role swap remain available.
 
-Leaving a table pauses it while keeping the friend connection. Choose the next game to continue together. **Disconnect**, leaving the shared page, or reloading it closes the connection. A fresh invitation reconnects using the games' existing saved-game recovery; game switching itself does not promise recovery after a browser/network interruption. Both players should keep the shared page open.
+Leaving a table pauses it while keeping the friend connection. Choose the next game to continue together. **Disconnect**, leaving the shared page, or reloading it closes the connection. A fresh invitation reconnects using the games' existing saved-game recovery; game switching itself does not promise recovery after a browser/network interruption. Both players should keep the shared page open. The existing managed TURN credential lifetime still applies; switching does not refresh credentials.
 
 Only Cluance and Flip It currently support this session. Older invitation links without the `together=1` fragment marker retain their original single-game flow. New links work when opened, pasted or scanned, with automatic Cloudflare signaling or manual invite/reply pairing. Both players need the updated site for a shared session.
 

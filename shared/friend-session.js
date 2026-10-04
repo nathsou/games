@@ -23,6 +23,10 @@ export class FriendSession {
   }
 
   get connected() { return Boolean(this.peer?.connected); }
+  get connecting() {
+    return Boolean(this.peer && !this.peer.closed && !this.connected &&
+      !['closed', 'failed', 'disconnected'].includes(this.peer.pc.connectionState));
+  }
   supports(game) { return supported(game); }
 
   createPeer(game, transport, options) {
@@ -58,6 +62,7 @@ export class FriendSession {
     const link = new GamePeer(this, game, options);
     this.link = link;
     if (this.connected) queueMicrotask(() => link.notify('open'));
+    this.onChange();
     return link;
   }
 
@@ -137,6 +142,7 @@ export class FriendSession {
 
   accept() {
     if (!this.proposal || this.proposal.outgoing || this.proposal.accepted) return;
+    clearTimeout(this.proposalTimer);
     this.proposal.accepted = true;
     if (this.isHost) this.commit();
     else this.send({type: 'friend-accept', id: this.proposal.id});
@@ -248,10 +254,19 @@ class GamePeer {
   connectRoom(invitation, role) {
     if (this.session.connected) throw new Error('You are already connected. Use Next game, or disconnect to invite someone else.');
     this.session.isHost = role === 'host';
+    this.session.onChange();
     return this.session.peer.connectRoom(invitation, role);
   }
-  invite() { this.session.isHost = true; return this.session.peer.invite(); }
-  join(input) { this.session.isHost = false; return this.session.peer.join(input); }
+  invite() {
+    this.session.isHost = true;
+    this.session.onChange();
+    return this.session.peer.invite();
+  }
+  join(input) {
+    this.session.isHost = false;
+    this.session.onChange();
+    return this.session.peer.join(input);
+  }
   accept(input) { return this.session.peer.accept(input); }
   send(message) {
     if (!this.connected || this.epoch !== this.session.epoch) throw new Error('Wait for your friend before playing.');

@@ -1173,10 +1173,16 @@ async function runAI() {
   }
 }
 function confirmLeave() {
+  let description = "Your game is saved on this browser. You can resume it from the opening screen.";
+  if (isPeer()) {
+    description = friendSession()?.connected
+      ? "This table will pause. Your friend stays connected; choose Next game to start another table together."
+      : "Your friend will be disconnected. The clue giver can resume this game and create a fresh invitation.";
+  }
   showModal(
     "Leave this table?",
     "Game in progress",
-    `<p class="pair-copy">${isPeer() ? friendSession()?.connected ? "This table will pause. Your friend stays connected; choose Next game to start another table together." : "Your friend will be disconnected. The clue giver can resume this game and create a fresh invitation." : "Your game is saved on this browser. You can resume it from the opening screen."}</p><div class="pair-actions"><button class="button secondary" id="stay">Keep playing</button><button class="button danger" id="leave-confirm">Leave table</button></div>`,
+    `<p class="pair-copy">${description}</p><div class="pair-actions"><button class="button secondary" id="stay">Keep playing</button><button class="button danger" id="leave-confirm">Leave table</button></div>`,
   );
   $("stay").onclick = () => modal.close();
   $("leave-confirm").onclick = () => {
@@ -2904,12 +2910,16 @@ registerFriendGame('cluance', {
   },
   start({host, metadata}) {
     const details = validateInvitationDetails(metadata);
-    cancelAI(); resetTurn();
+    cancelAI();
+    resetTurn();
     game = null;
-    mode = (host ? details.role === 'giver' : details.role !== 'giver')
-      ? 'peer-host' : 'peer-guest';
+    const role = host ? details.role : (details.role === 'giver' ? 'guesser' : 'giver');
+    mode = role === 'giver' ? 'peer-host' : 'peer-guest';
     pairingGameOptions = details.options;
-    pairingKind = null; pairingBusy = false; pairingCode = ''; pairingInput = '';
+    pairingKind = null;
+    pairingBusy = false;
+    pairingCode = '';
+    pairingInput = '';
     modal.close();
     const link = newPeer();
     link.isInviter = host;

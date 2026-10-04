@@ -20,8 +20,10 @@ dialog p { line-height: 1.6; }
 #friend-error { position: fixed; bottom: 16px; left: 16px; right: 16px; margin: 0; padding: 12px; border: 1px solid #f1d66e; background: #183e37; border-radius: 6px; }
 [hidden] { display: none !important; }
 @media (max-width: 600px) {
-  .friend-bar { gap: 8px; padding: 8px; flex-wrap: wrap; }
-  #friend-status { min-width: calc(100% - 60px); }
-  .friend-bar label { margin-left: auto; }
-  #next-game { max-width: 150px; }
+  .friend-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; padding: 8px; }
+  #collection-link { grid-column: 1; grid-row: 1; }
+  #friend-status { grid-column: 2; grid-row: 1; min-width: 0; text-align: right; font-size: 11px; }
+  .friend-bar label { display: none; }
+  #next-game { grid-column: 1; grid-row: 2; max-width: 150px; }
+  #invite-friend, #disconnect { grid-column: 2; grid-row: 2; justify-self: end; }
 }

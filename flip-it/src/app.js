@@ -865,9 +865,15 @@ registerFriendGame('flip-it', {
     await createInvitation();
   },
   start({host}) {
-    generation++; stopAI(); clearTimeout(botTimer);
-    session = null; game = null; forgetTable();
-    pairOut = ''; pairingOpen = false; modal.close();
+    generation++;
+    stopAI();
+    clearTimeout(botTimer);
+    session = null;
+    game = null;
+    forgetTable();
+    pairOut = '';
+    pairingOpen = false;
+    modal.close();
     makePeer(host ? 0 : 1);
   },
 });
