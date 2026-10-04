@@ -1,10 +1,11 @@
 # Card dates and context
 
-All 330 active cards have a date caption and a short description. Original subjects are in `src/context.js`: the 27 administrative regions use `REGION_2015_CONTEXT`, and other original themes share `CARD_CONTEXT`. The 63 append-only additions carry their dates and descriptions in `src/expansion.js`. The caption appears on the card; inspecting a card shows the full description. The same public context accompanies the AI's permitted board, clues and hand. Descriptions are shared background information, not hints about the dealt secret.
+All 354 active cards have a date caption and a short description. Original subjects are in `src/context.js`: the 27 administrative regions use `REGION_2015_CONTEXT`, and other original themes share `CARD_CONTEXT`. The append-only additions carry their dates and descriptions in `src/expansion.js` and `src/musicians.js`. The caption appears on the card; inspecting a card shows the full description. The same public context accompanies the AI's permitted board, clues and hand. Descriptions are shared background information, not hints about the dealt secret.
 
 ## Reading the captions
 
 - A person's unlabelled date range is a lifespan. Contemporary performers use **Born** and a birth year; this does not assert their present status.
+- Bands use explicitly labelled **Formed** or **Active** captions, describing the group rather than its members’ lifespans.
 - **c.** means approximate. **Trad.** identifies a traditional attribution rather than a securely documented date. BCE and CE distinguish dates around the beginning of the Common Era; unmarked later dates are CE.
 - A caption beginning with **Reign** describes a ruler's reign, not their lifespan. Hypatia's `c. 350/370–415 CE` reflects disputed birth dates around 350–370, explained in her description. Newton's birth year uses the Gregorian calendar (1643 rather than the Julian 1642).
 - City, country and region captions name a particular landmark, event or administrative milestone. They do not claim that the place, its inhabitants or its culture began that year. Modern political boundaries can also differ from earlier ones.
@@ -32,3 +33,9 @@ When correcting context, preserve card IDs and logical indices in `src/decks.js`
 The expansion includes [Charles Babbage's Difference Engines](https://www.sciencemuseum.org.uk/objects-and-stories/charles-babbages-difference-engines), [Jean-Paul Sartre's 1964 Nobel biography](https://www.nobelprize.org/prizes/literature/1964/sartre/biographical/) and [Albert Camus's 1957 Nobel biography](https://www.nobelprize.org/prizes/literature/1957/camus/biographical/). Cronus is distinguished from Chronos; Pandora's vessel follows the ancient jar tradition. Place imagery uses regional/national landmark montages rather than asserting literal shared viewpoints.
 
 The 2015 region roster follows [INSEE’s 2015 Code officiel géographique](https://www.insee.fr/fr/information/2560698), with Centre’s subsequent 2015 rename documented in [Article 2 of the 16 January 2015 law](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000030110734). The [2016 INSEE regional summary](https://www.insee.fr/fr/statistiques/1906658) records the change from 22 to 13 metropolitan regions.
+
+## Musicians expansion
+
+The pack includes both solo artists and bands. Solo artists retain birth-year or lifespan captions; groups use an explicitly labelled formation/activity year or activity span (The Beatles, Daft Punk). Portraits may depict an artist's earlier public stage style. Black Eyed Peas uses its classic 2000s lineup including Fergie, while Vampire Weekend uses its core trio. Billie Eilish's illustration is an original symbolic recording-studio still life, not a portrait or her actual studio.
+
+Angine de Poitrine's [official biography](https://anginedepoitrine.com/pages/a-propos) describes Khn and Klek's microtonal guitar/bass looping and drum patterns, and dates their repertoire to 2023. The card uses public stage characters without inferring the performers' private identities. Additional biographies and explicit image mappings are in `src/musicians.js`.

@@ -1,6 +1,6 @@
 # Individual card audit
 
-Completed on 2026-10-03. **330 active cards: 30 in each of eleven themes.** This matches the publisher's [Similo: History deck description](https://horribleguild.com/eu/product/similo-history/): “Each version of Similo comes with a deck of 30 big cards”. Cluance's subjects and illustrations are original; this is deck-size parity, not a copy of a commercial roster.
+Original audit completed on 2026-10-03; the Musicians expansion was reviewed on 2026-10-04. **354 active cards: 54 Musicians and 30 in each of the other ten themes.** All decks meet or exceed the publisher's [Similo: History deck description](https://horribleguild.com/eu/product/similo-history/): “Each version of Similo comes with a deck of 30 big cards”. Cluance's subjects and illustrations are original; these are expanded original rosters, not copies of commercial rosters.
 
 Added 63 cards, including Charles Babbage, Jean-Paul Sartre and Albert Camus. French Regions retains all 27 administrative regions of 2015 and adds three explicitly labelled historical provinces: Anjou, Touraine and Provence. They are identified in their subtitles, date captions, biographies and deck description, rather than presented as extra regions in the 2015 division.
 
@@ -30,8 +30,9 @@ Prompts and accepted/rejected dispositions are in [EXPANSION_PROMPTS.md](assets/
 
 ## Verification
 
-- Every one of the eleven browser collection galleries contains 30 cards. All 330 accessible labels and metadata records were checked; Babbage, Sartre and Camus were opened in the card inspector.
-- All 330 final cards and 24 archived cards were rendered using the production Canvas renderer and individually inspected on contact sheets with full card captions.
+- Musicians expansion (2026-10-04): all 24 additions individually inspected in full-bleed UI and labelled AI crops; all 54 pack images are distinct. All requested subjects appear once, including the retained Gainsbourg card. Search/details, both collection sorts, four viewport widths, complete classic/fixed UI games, replay export/import and six engine games passed. Every original and archived card record is unchanged.
+- Original 2026-10-03 review: each collection gallery contained 30 cards. All 330 accessible labels and metadata records were checked; Babbage, Sartre and Camus were opened in the card inspector.
+- Original 2026-10-03 review: all 330 active cards and 24 archived cards were rendered using the production Canvas renderer and individually inspected on contact sheets with full card captions.
 - Desktop at 1440 × 1000 and mobile at 390 × 844: collection selection and inspection work, with no browser JavaScript errors or failed HTTP asset requests.
 - Completed 242 temporary five-round game checks: every board/clue theme combination in both Classic and Fixed five. Checked legal hands, cross-theme subject exclusion and successful final state. No tests or test framework were added to the repository.
 - Original IDs, names and indices were compared against the pre-expansion roster. All atlas mappings stay within their declared grid and every asset exists.
@@ -216,7 +217,7 @@ The date column reproduces the actual card caption. For a historical province it
 | writers-28 | James Baldwin | 1924–1987 | New | Expressive face, notebook and Harlem backdrop fit the essayist and novelist. |
 | writers-29 | Emily Dickinson | 1830–1886 | New | Plain black dress, folded paper and Amherst window support the poet. |
 
-### Singers
+### Musicians
 
 | ID | Subject | Date caption | Decision | Individual finding |
 | --- | --- | --- | --- | --- |
@@ -250,6 +251,33 @@ The date column reproduces the actual card caption. For a historical province it
 | singers-27 | Tina Turner | 1939–2023 | New | Spiked hair, red sequins and singing pose distinguish Turner. |
 | singers-28 | Bob Dylan | Born 1941 | New | Harmonica holder and acoustic guitar support Dylan. |
 | singers-29 | Luciano Pavarotti | 1935–2007 | New | White handkerchief, beard and opera-house setting distinguish the tenor. |
+
+| singers-30 | Chappell Roan | Born 1998 | New | Red curls, theatrical makeup, magenta stars and microphone distinguish Roan; both crops retain face and performance cues. |
+| singers-31 | Lady Gaga | Born 1986 | New | Platinum bob, angular silver outfit and blue stage lighting distinguish Gaga; face and microphone remain readable. |
+| singers-32 | The Beatles | Active 1960–1970 | New | Four distinct members, mop-top silhouettes, matching suits and guitars identify the classic quartet; all four faces survive both crops. |
+| singers-33 | The Strokes | Formed 1998 | New | Five separated faces, Casablancas at the microphone and contrasting indie-rock clothing fit the band; no duplicated members. |
+| singers-34 | Daft Punk | Active 1993–2021 | New | Two distinct silver/gold robot helmets and synthesizer distinguish the French duo; both complete helmets survive the crop. |
+| singers-35 | Justice | Formed 2003 | New | Two distinct performers, analog synthesizer and illuminated cross identify Justice; black/amber palette differs from Daft Punk. |
+| singers-36 | Coldplay | Formed 1997 | New | Four members, Martin at a painted piano, guitarist with cap, bassist and drummer remain visible against rainbow stadium lighting. |
+| singers-37 | Muse | Formed 1994 | New | Bellamy with silver guitar, Wolstenholme with bass and blond Howard at drums form a clear trio; cobalt stage palette fits Muse. |
+| singers-38 | Bruno Mars | Born 1985 | New | Curly hair, burgundy shirt, retro microphone and warm funk-stage lighting fit Mars; subdued backing players support the main portrait. |
+| singers-39 | Billie Eilish | Born 2001 | New | Original symbolic green-lit studio, microphone, headphones and empty chair; no likeness or claim of a literal personal studio. Portrait generation was blocked. |
+| singers-40 | Fun. | Formed 2008 | New | Three separated performers: Ruess at microphone, Antonoff with glasses/guitar and Dost at keys; theater backdrop is coherent. |
+| singers-41 | Angine de Poitrine | Active since 2023 | New | Two public polka-dot masks, long noses, double-neck guitar/bass and drums match the duo; no private human identities are depicted. |
+| singers-42 | Vampire Weekend | Formed 2006 | New | Koenig in patterned shirt with guitar, Baio with bass and Tomson near cymbal form a distinct trio; ivy/New York context fits. |
+| singers-43 | Lana Del Rey | Born 1985 | New | Auburn vintage waves, cream dress, roses and silver microphone support the cinematic pop identity; face stays clear. |
+| singers-44 | Kanye West | Born 1977 | New | Close-cropped hair, short beard and music sampler identify the rapper/producer; fingers and pad controller remain readable. |
+| singers-45 | Imagine Dragons | Formed 2008 | New | Four-member classic lineup with Reynolds foreground, guitarists/bassist and drummer; warm orange lights distinguish the band. |
+| singers-46 | Black Eyed Peas | Formed 1995 | New | Classic 2000s will.i.am/apl.de.ap/Taboo/Fergie quartet, distinct faces and cyan-magenta staging; biography explicitly identifies this lineup. |
+| singers-47 | Lorde | Born 1996 | New | Dark curls, berry lipstick and moonlit indigo stage distinguish Lorde; face, microphone and night atmosphere fit both crops. |
+| singers-48 | Sufjan Stevens | Born 1975 | New | Plaid shirt, acoustic guitar, banjo and wooded setting distinguish the folk/composer identity; standard name spelling verified. |
+| singers-49 | Katy Perry | Born 1984 | New | Dark wavy hair, candy-patterned outfit and pink/turquoise lights distinguish Perry; visible hands and microphone are coherent. |
+| singers-50 | Rihanna | Born 1988 | New | Asymmetric dark bob, emerald outfit and closed umbrella support Rihanna; face and key prop stay visible without covering her. |
+| singers-51 | Françoise Hardy | 1944–2024 | New | Long brown fringe, restrained cream/brown clothing and acoustic guitar fit the 1960s portrait; lifespan and accented name are correct. |
+| singers-52 | France Gall | 1947–2018 | New | Rounded blond bob, sunny blue/yellow set and vintage microphone fit the yé-yé era; lifespan and Eurovision context are explicit. |
+| singers-53 | Michel Berger | 1947–1992 | New | Dark curls, open-collar shirt and grand piano distinguish Berger; keyboard and face remain visible in both production crops. |
+
+Serge Gainsbourg (`singers-25`) is retained once. The additions preserve all original card records. Band compositions may depict historical lineups as stated in their biographies; formation/activity captions are distinguished from people's birth dates.
 
 ### Actors
 

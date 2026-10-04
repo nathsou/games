@@ -1,6 +1,6 @@
 # Cluance UX/UI redesign
 
-The supplied **Cluance redesign from ground up** handoff is the visual reference. The high-fidelity screens and tokens were implemented in the existing vanilla ES-module app; the Current and Wireframes prototypes were comparison material. The attachment's runtime, old atlas copies, remote font loading and static game data were not imported. Live collection counts use the expanded roster: **330 cards, 11 decks, 30 per deck**.
+The supplied **Cluance redesign from ground up** handoff is the visual reference. The high-fidelity screens and tokens were implemented in the existing vanilla ES-module app; the Current and Wireframes prototypes were comparison material. The attachment's runtime, old atlas copies, remote font loading and static game data were not imported. Live collection counts use the expanded roster: **354 cards, 11 decks: 54 Musicians and 30 in each other deck**.
 
 ## Implemented surfaces
 
@@ -29,6 +29,7 @@ Verification uses temporary Playwright scripts with system Chromium; no test dep
 - Native pairing generated/accepted real validated invitation/reply links and rendered QR codes. This managed environment produced no WebRTC ICE candidates, so a live data channel could not be established here. A temporary BroadcastChannel transport stand-in, retaining the real invitation parser and game flow, verified connected host/guest rendering, synchronized clue/removal moves and guest privacy. The production WebRTC transport is unchanged.
 - Invitation follow-up: checked invite/join discovery in all five stored setup modes at four desktop/phone widths, generated and copied a native invitation from the guessing setup, and opened it in a second tab to generate a matching reply. Checked distinct card IDs and rendered images in all eleven home fans and no identical rendered card images within any of the eleven active decks (330 cards).
 - Module syntax and whitespace checks passed with no browser JavaScript errors in completed checks.
+- Musicians expansion: all 24 new cards were reviewed in both renderers and opened through collection search and details, with 54 distinct images in the pack and 354 active cards overall. Both collection sorts and four desktop/phone widths pass. Five-round classic and fixed-hand games using the new cards completed through the actual UI and their exported replays reopened. The original card records and `singers` IDs are unchanged.
 
 ## Review screenshots
 
