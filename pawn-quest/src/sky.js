@@ -2,6 +2,7 @@
 const PX = 4; // CSS pixels per sky pixel
 
 export function startSky(canvas) {
+  canvas.__friendDraw = {type: 'sky'};
   const ctx = canvas.getContext('2d');
   let w = 0, h = 0, stars = [], clouds = [], hills = [];
   const light = () => document.documentElement.dataset.colorTheme === 'light';

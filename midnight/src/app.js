@@ -1,3 +1,4 @@
+import {sharedPlayActive} from '../../shared/friend-context.js';
 import {trackArcadeGame} from '../../shared/ai/usage.js';
 import {installThemeControls} from '../../shared/theme.js';
 import {loadAI} from '../../shared/ai/config.js';
@@ -327,6 +328,7 @@ function settingsHtml() {
   return '<details class="connection-settings"><summary>Connection settings</summary><p>For different networks, STUN helps the browsers find each other. Some networks need a TURN relay. Leave STUN blank for a local-network connection. These settings add no scripts or libraries.</p><label class="label" for="stun">STUN ADDRESS</label><input id="stun" spellcheck="false" value="' + esc(Object.hasOwn(prefs, 'stun') ? prefs.stun : 'stun:stun.l.google.com:19302') + '"><label class="label" for="turn">OPTIONAL TURN RELAY</label><input id="turn" placeholder="turn:your-relay.example:3478" spellcheck="false"><label class="label" for="turn-name">RELAY USERNAME</label><input id="turn-name" autocomplete="off"><label class="label" for="turn-password">RELAY PASSWORD (THIS SESSION ONLY)</label><input id="turn-password" type="password" autocomplete="off"></details>';
 }
 function openPair(kind) {
+  if (sharedPlayActive()) return;
   pairKind = kind; pairError = ''; pairingOpen = true;
   if (!peer || (!peer.connected && peer.pc.signalingState !== 'have-local-offer' && session?.seat === 0) || linkStatus === 'closed' || linkStatus === 'failed' || !pairOut) { pairOut = ''; pairMessage = ''; pairBusy = false; }
   if (peer?.connected) pairKind = 'connected';

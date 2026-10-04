@@ -41,11 +41,18 @@ function testTransport(){
 }
 async function context(prefs,transport=false,size={width:1280,height:720}){
   const c=await browser.newContext({viewport:size,permissions:['clipboard-read','clipboard-write']});
-  await c.addInitScript(p=>{if(!localStorage.getItem('flip-it.preferences'))localStorage.setItem('flip-it.preferences',JSON.stringify(p));}, {stun:'',fx:false,...prefs});
+  await c.addInitScript(p=>{localStorage.setItem('games.friend-panel-auto-hide','off');if(!localStorage.getItem('flip-it.preferences'))localStorage.setItem('flip-it.preferences',JSON.stringify(p));}, {stun:'',fx:false,...prefs});
   if(transport)await c.addInitScript(testTransport);
   return c;
 }
-async function page(c){const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));p.setDefaultTimeout(15000);await p.goto(origin);return p;}
+async function page(c){
+  const p=await c.newPage();
+  p.on('pageerror',e=>errors.push(e.message));p.setDefaultTimeout(15000);
+  await p.goto(new URL('../together/?game=flip-it',origin).href);
+  const frame=await (await p.locator('#game-frame').elementHandle()).contentFrame();
+  await frame.waitForFunction(()=>Boolean(window.__flipit));
+  return frame;
+}
 async function ready(p){await p.waitForFunction(()=>document.querySelector('#pair-output')?.value);return p.locator('#pair-output').inputValue();}
 async function invite(p){await p.locator('[data-action=host]').first().click();return ready(p);}
 async function options(p){await p.locator('.pair-options > summary').click();}

@@ -186,6 +186,7 @@ export function pieceSprite(type, color, set = 'classic') {
     const pal = (PIECE_PALETTES[set] || PIECE_PALETTES.classic)[color];
     cache.set(key, shadeMask(PIECE_MASKS[type], pal));
   }
+  cache.get(key).__friendSprite = {type: 'pieceSprite', args: [type, color, set]};
   return cache.get(key);
 }
 
@@ -251,12 +252,14 @@ export const OWL_BLINK = OWL.map((row, y) => (y === 8 || y === 9) ? row.replace(
 export function owlSprite(blink = false) {
   const key = 'owl' + blink;
   if (!cache.has(key)) cache.set(key, paintSprite(blink ? OWL_BLINK : OWL, OWL_PAL));
+  cache.get(key).__friendSprite = {type: 'owlSprite', args: [blink]};
   return cache.get(key);
 }
 
 export function starSprite(filled = true) {
   const key = 'star' + filled;
   if (!cache.has(key)) cache.set(key, paintSprite(STAR, filled ? STAR_PAL : STAR_EMPTY_PAL));
+  cache.get(key).__friendSprite = {type: 'starSprite', args: [filled]};
   return cache.get(key);
 }
 
@@ -337,6 +340,7 @@ export function characterSprite(id) {
   if (hat === 'shell') { ctx.fillStyle = '#2a6a3a'; ctx.fillRect(4, 11, 8, 2); ctx.fillStyle = '#ffcc4d'; ctx.fillRect(6, 11, 1, 1); ctx.fillRect(9, 12, 1, 1); }
   if (hat === 'bow') { ctx.fillStyle = '#ffe066'; ctx.fillRect(10, 2, 3, 2); ctx.fillRect(9, 3, 1, 1); ctx.fillStyle = '#c09020'; ctx.fillRect(11, 3, 1, 1); }
   if (hat === 'cap') { ctx.fillStyle = '#ff5e5e'; ctx.fillRect(5, 3, 6, 2); ctx.fillRect(9, 4, 4, 1); ctx.fillStyle = '#ffffff'; ctx.fillRect(7, 3, 1, 1); }
+  c.__friendSprite = {type: 'characterSprite', args: [id]};
   cache.set(key, c);
   return c;
 }
@@ -346,6 +350,7 @@ export function spriteCanvas(sprite, scale = 4, className = '') {
   const c = document.createElement('canvas');
   c.width = sprite.width * scale; c.height = sprite.height * scale;
   c.className = 'sprite ' + className;
+  c.__friendDraw = {type: 'sprite', sprite: sprite.__friendSprite, scale, className};
   const ctx = c.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(sprite, 0, 0, c.width, c.height);

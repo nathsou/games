@@ -20,6 +20,7 @@ export function installTestPeer(){
       };
     }
     createDataChannel(){return this.channel=new Channel(this);}
+    getConfiguration(){return this.config;}
     async createOffer(){return {type:'offer',sdp:'v=0\r\n'+this.id};}
     async createAnswer(){return {type:'answer',sdp:'v=0\r\n'+this.id};}
     async setLocalDescription(d){
@@ -28,11 +29,14 @@ export function installTestPeer(){
     }
     async setRemoteDescription(d){
       this.remoteDescription=d;this.remote=d.sdp.trim().split('\n').at(-1);
-      if(d.type==='offer'){this.signalingState='have-remote-offer';const e=new Event('datachannel');e.channel=this.createDataChannel();this.dispatchEvent(e);}
+      if(d.type==='offer'){
+        this.signalingState='have-remote-offer';
+        const e=new Event('datachannel');e.channel=this.createDataChannel();this.dispatchEvent(e);
+      }
       else {this.signalingState='stable';this.bus.postMessage({type:'connect',to:this.remote});this.open();}
     }
     async addIceCandidate(){}
-    open(){this.connectionState='connected';this.dispatchEvent(new Event('connectionstatechange'));this.channel.open();}
+    open(){this.connectionState='connected';this.dispatchEvent(new Event('connectionstatechange'));this.channel?.open();}
     close(){if(this.signalingState==='closed')return;this.bus.postMessage({type:'close',to:this.remote});this.signalingState='closed';this.connectionState='closed';this.channel?.close();this.bus.close();}
   }
   window.RTCPeerConnection=Connection;

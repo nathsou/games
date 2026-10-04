@@ -1,4 +1,5 @@
 import {SignalConnection} from './signaling.js';
+import {friendSession} from './friend-context.js';
 const LIMIT = 65536;
 export function createPeerTransport({protocol, prefix, gameName, channelName, wireKey = 'v'}) {
 const PROTOCOL = protocol;
@@ -48,7 +49,9 @@ async function decodePairing(input, expected) {
 function makeLink(token, type, base = location.href) {
   const url = new URL(base);
   url.search = '';
-  url.hash = new URLSearchParams({[type === 'offer' ? 'invite' : 'reply']: token}).toString();
+  const params = new URLSearchParams({[type === 'offer' ? 'invite' : 'reply']: token});
+  if (friendSession()) params.set('together', '1');
+  url.hash = params.toString();
   return url.href;
 }
 function randomHex(bytes = 16) {
@@ -79,6 +82,10 @@ function iceConfig(stun = 'stun:stun.l.google.com:19302', turn = '', username = 
 }
 class PeerLink {
   constructor({onMessage, onStatus, config = iceConfig(), room = randomHex(8)}) {
+    const session = friendSession();
+    if (session?.supports(channelName)) {
+      return session.createPeer(channelName, {protocol, prefix, gameName, channelName, wireKey}, {onMessage, onStatus, config, room});
+    }
     if (typeof RTCPeerConnection === 'undefined') throw new Error('This browser cannot connect peer-to-peer. Try current Chrome, Firefox or Safari.');
     this.pc = new RTCPeerConnection(config);
     this.room = room;

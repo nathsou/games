@@ -56,6 +56,12 @@ The `SignalRoom` and `InviteLimiter` Durable Object bindings are created automat
 - Cluance keeps the inviter's chosen giver/guesser role and public table options. Flip It defaults to a duel with zero bots/AI.
 - **Use manual pairing** provides the original invite/reply flow if needed. Manual pairing and local games remain available on the games' original development servers.
 
+## Playing multiple games together
+
+The index and shared game page have the same friend panel, including chat, reactions and a configurable auto-hide setting. Its **Invite a friend** button creates a game-independent room; existing Cluance and Flip It game invites also remain available. Either player can choose the next multiplayer game, and their friend accepts or declines. An accepted switch starts a new table while retaining WebRTC and its relay credentials, with no new signaling room.
+
+**Cursors** starts a separate shared-state mode for every game in the collection. The room creator runs the authoritative game, and both browsers render its view locally. Game UI, board/camera state, cursors and controls use the existing authenticated friend data channel. There is no screen capture, video stream or additional RTC connection; phones can host if they support the selected game. Deploy the updated assets with the existing Worker configuration; no additional account settings, secrets or bindings are needed. See [friend room behavior and implementation](FRIEND_SESSIONS.md).
+
 ## Branch previews
 
 Cloudflare automatically builds non-production branches, including pull requests, with isolated [Worker Previews](https://developers.cloudflare.com/workers/previews/). In **Workers & Pages → games → Settings → Builds → Previews Base**, enable **Builds for Preview branches**, set build command to **`npm run build`**, preview command to **`npx wrangler preview`**, and root to **`/`**. Keep production builds on `main` with `npx wrangler deploy`. Enable Preview URLs under **Domains & Routes** if the dashboard prompts for it.

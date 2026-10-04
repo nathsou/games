@@ -92,6 +92,7 @@ export function pixelText(text, { scale = 3, color = '#ffd23f', shadow = '#8a3a1
   c.width = w * scale * dpr; c.height = h * scale * dpr;
   c.style.width = w * scale + 'px'; c.style.height = h * scale + 'px';
   c.className = 'pixel-text ' + className;
+  c.__friendDraw = {type: 'text', text, options: {scale, color, shadow, outline, spacing, className}};
   c.setAttribute('role', 'img');
   c.setAttribute('aria-label', text);
   const ctx = c.getContext('2d');

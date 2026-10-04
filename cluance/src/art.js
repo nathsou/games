@@ -105,7 +105,8 @@ export function drawCard(canvas, id, { label = "", secret = false } = {}) {
   }
 }
 // The UI uses unframed art; observationImage keeps its explicit, labelled AI view.
-function drawArt(canvas, id) {
+export function drawArt(canvas, id) {
+  canvas.__friendCard = id;
   const card = CARDS[id],
     deck = DECKS[card.deck],
     atlas = atlases.get(card.atlas || deck.atlas);
