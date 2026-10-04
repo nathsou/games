@@ -13,7 +13,7 @@ export function installPanelVisibility(session) {
   }
   function schedule() {
     clearTimeout(timer);
-    if (!enabled || session.game === 'collection' && !session.connected) return;
+    if (!enabled) return;
     timer = setTimeout(() => {
       if (dragging || header.contains(document.activeElement) || document.querySelector('dialog[open]') || document.getElementById('friend-settings').open) {
         schedule(); return;
@@ -49,7 +49,7 @@ export function installPanelVisibility(session) {
   };
   return () => {
     reveal.textContent = document.getElementById('chat-toggle').textContent.replace('Chat', 'Friends');
-    if (!enabled || session.game === 'collection' && !session.connected || document.querySelector('dialog[open]')) show();
+    if (!enabled || document.querySelector('dialog[open]')) show();
     else schedule();
   };
 }

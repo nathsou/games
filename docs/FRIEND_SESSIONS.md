@@ -8,7 +8,7 @@ Once connected, choose **Next game** to start Cluance or Flip It together. Eithe
 
 **Chat** opens a small message and reaction panel. Its history, unread count and draft survive game switches and shared-screen mode. The original inviter orders messages so simultaneous sends produce the same history on both screens. Text is limited to 280 characters, reactions use a fixed list, and sending is throttled. The last 60 entries remain in memory; chat is not stored in Cloudflare or browser storage. A fresh connection clears the previous room's history. Disconnection disables sending while leaving the current history readable.
 
-The header auto-hides after three idle seconds while playing or connected. Move to the top edge or use the **Friends** button to reveal it; that button also shows unread messages. The header stays open for invitation/confirmation dialogs and focused header controls. Open **⚙ → Auto-hide friend header** to keep it visible. This preference is saved in the current browser. The collection keeps its header visible before a friend connects.
+The header auto-hides after three idle seconds, including on the collection page. Move to the top edge or use the **Friends** button to reveal it; that button also shows unread messages. The header stays open for invitation/confirmation dialogs and focused header controls. Open **⚙ → Auto-hide friend header** to keep it visible. This preference is saved in the current browser.
 
 ## Virtual cursors: one shared game
 
