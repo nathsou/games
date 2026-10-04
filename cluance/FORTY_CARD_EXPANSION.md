@@ -1,8 +1,8 @@
 # Expansion to at least 40 cards per theme
 
-Result: **453 active cards** — 40 in each of ten themes and the existing 53 Musicians. Existing IDs, saved games, archived regions and artwork mappings remain unchanged.
+Result: **440 active cards** — 40 in each of nine expandable themes, 53 Musicians and the 27 administrative French Regions of 2015. Existing IDs, saved games, archived regions and artwork mappings remain unchanged.
 
-Each new subject receives original imagegen artwork, an individual review of both card crops, a date caption and a biography. French Regions keeps the 27 administrative regions of 2015 and expands its explicitly labelled historical territories from three to thirteen.
+Each new subject receives original imagegen artwork, an individual review of both card crops, a date caption and a biography. French Regions keeps only its 27 administrative regions of 2015. The ten proposed historical territories were withdrawn; the three earlier provinces are archived for prior saves and replays. This pack is intentionally exempt from the minimum-card target.
 
 ## Pack progress
 
@@ -16,7 +16,7 @@ Each new subject receives original imagegen artwork, an individual review of bot
 | actors | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
 | cities | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
 | countries | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
-| regions | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
+| regions | 30 | 27 | Corrected to administrative regions only; no expansion |
 | greek | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
 | Musicians | 53 | 53 | Already above target |
 
@@ -141,21 +141,6 @@ Each new subject receives original imagegen artwork, an individual review of bot
 | Ethiopia | Adwa victory: 1896 |
 | Chile | Independence proclaimed: 1818 |
 | Cuba | Republic inaugurated: 1902 |
-
-### regions
-
-| Subject | Date caption |
-| --- | --- |
-| Berry | Historical province |
-| Bourbonnais | Historical province |
-| Saintonge | Historical province |
-| Aunis | Historical province |
-| Angoumois | Historical province |
-| Maine | Historical province |
-| Nivernais | Historical province |
-| Foix | Historical county |
-| Comtat Venaissin | Historical territory |
-| Roussillon | Historical province |
 
 ### greek
 
@@ -308,23 +293,6 @@ Each new subject receives original imagegen artwork, an individual review of bot
 
 [Generated atlas](assets/writers-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
 
-## regions — individual accepted-card review
-
-| ID | Subject | Finding |
-| --- | --- | --- |
-| regions-2015-30 | Berry | Redrawn Bourges cathedral with unequal square towers and grain fields; historical province explicitly labelled. |
-| regions-2015-31 | Bourbonnais | Redrawn Bourbonnais with exactly three ruined round towers representing Hérisson; no fourth invented tower. |
-| regions-2015-32 | Saintonge | Roman double arch, river and Saintes setting distinguish Saintonge; historical province caption prevents 2015-region confusion. |
-| regions-2015-33 | Aunis | La Rochelle harbour towers, boats and salt pans distinguish Aunis; historical province explicitly labelled. |
-| regions-2015-34 | Angoumois | Redrawn Angoulême cathedral with Romanesque rounded arcades and small circular windows; no Gothic rose window. |
-| regions-2015-35 | Maine | Redrawn Le Mans late-Roman walls with brick bands and geometric decoration; Maine is the French province, not the US state. |
-| regions-2015-36 | Nivernais | Nevers palace, Loire river and blue-white faience distinguish Nivernais in both crops. |
-| regions-2015-37 | Foix | Three-towered hilltop castle and Pyrenees identify Foix; date and subtitle correctly call it a historical county. |
-| regions-2015-38 | Comtat Venaissin | Redrawn Carpentras Porte d’Orange with vineyards and Mont Ventoux; caption correctly calls Comtat a historical territory. |
-| regions-2015-39 | Roussillon | Redrawn Collioure coastal church tower and Mediterranean waterfront; biography connects this provincial scene with Perpignan. |
-
-[Generated atlas](assets/regions-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
-
 ## greek — individual accepted-card review
 
 | ID | Subject | Finding |
@@ -342,7 +310,7 @@ Each new subject receives original imagegen artwork, an individual review of bot
 
 [Generated atlas](assets/greek-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
 
-## Verification — 4 October 2026
+## Verification before the Regions correction — 4 October 2026
 
 - 453 active cards: 40 in each of ten themes, plus 53 Musicians. All 377 prior active/archived records are deeply unchanged; 100 unique additions have complete metadata and valid artwork mappings.
 - Every addition was individually inspected in full-bleed UI and labelled AI crops. All 40 images within each expanded deck are distinct. Every new subject was searched and opened in the inspector with matching biography and dates; galleries fit 1440, 390 and 320px widths without horizontal overflow or browser/asset errors.
@@ -354,3 +322,7 @@ Each new subject receives original imagegen artwork, an individual review of bot
 All generated originals are identified in the prompt log. Rejected first Writers and Regions sheets are not delivered. The final correction atlases replace eleven rejected cells (two Global History, two Writers, six Regions and one Sisyphus) in both renderers.
 
 Compression follow-up: the fourteen new WebP assets now total **5,680,790 bytes**, down **44.6%** from 10,253,098. Encoded directly from original PNGs at quality 80/method 6 with unchanged dimensions. All 200 new-card artwork crops were compared, and representative and largest-difference crops visually inspected. All 453 active and 24 archived cards render successfully in the production browser; both layouts retain unique images per theme, with no browser or failed asset errors. Static-site assembly and whitespace checks pass. See [compression provenance](assets/FORTY_CARD_PROMPTS.md#compression-review).
+
+## Corrected French Regions scope
+
+The pack contains exactly the 27 administrative regions of 2015 (22 metropolitan and five overseas). Historical provinces, counties and territories are excluded from collection and new deals. The ten proposed new territories and both new Regions atlases were removed; the three previously released provinces retain replay-only compatibility. Current totals are 440 active cards and 27 archived cards. The retained twelve compressed expansion assets total 4,607,350 bytes (4.4 MiB).

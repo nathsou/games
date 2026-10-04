@@ -22,8 +22,8 @@ Original PNGs are in `/workspace/generated_images/` in this execution workspace.
 | greek-forty.webp | exec-00eaefb7-f804-49bd-bff6-64b21844ed4f.png | 5 × 2 |
 | greek-forty-sisyphus.webp | exec-6258b723-edb7-44db-80df-7ba61112b12e.png | 1 × 1 |
 | Rejected first Regions sheet; not delivered | exec-69ae87a3-bcf0-4e78-a79d-47115ceb0a0d.png | 5 × 2 |
-| regions-forty.webp | exec-e0d25e6c-9eb0-464d-bb86-576f714cf40e.png | 5 × 2 |
-| regions-forty-corrections.webp | exec-f45c52a5-a0cf-4da6-9f22-2af3db7e4e6d.png | 3 × 2 |
+| Withdrawn regions-forty.webp; not delivered | exec-e0d25e6c-9eb0-464d-bb86-576f714cf40e.png | 5 × 2 |
+| Withdrawn regions-forty-corrections.webp; not delivered | exec-f45c52a5-a0cf-4da6-9f22-2af3db7e4e6d.png | 3 × 2 |
 
 ## scientists-forty.webp
 
@@ -113,14 +113,14 @@ Generate ONE completely NEW original Cluance pixel-art card illustration, portra
 
 ```
 
-## regions-forty.webp
+## regions-forty.webp — withdrawn
 
 ```text
 Create ONE bare PIXEL-ART BACKGROUND TEXTURE ATLAS for a video game. It is NOT a printed poster, travel postcard, trading-card layout or heraldic chart. NO HEADINGS, NO TITLES, NO NAMES, NO LABELS, NO LETTERING, NO COATS OF ARMS, NO SHIELDS, NO FLAGS, NO BANNERS, NO HEADER STRIPS, NO BORDERS. The software will add captions separately. If any writing or shield appears, the artwork is wrong. Fill all ten cells completely edge to edge with landscape alone. Overall LANDSCAPE exactly FIVE TO THREE aspect, EXACTLY FIVE equal columns and TWO equal rows, perfectly regular grid with no gutters or margins. Actual SIXTEEN-BIT 1990s pixel art made of visibly crisp SQUARE pixel clusters, stepped outlines and deliberate checkerboard dithering, limited rich color ramps. Absolutely NO photographic textures, realistic camera surfaces, smooth digital painting or blurred edges. Detailed but clearly PIXEL-ILLUSTRATED architecture, like classic 1990s adventure-game scenery. Main landmark large and center-upper, entire critical silhouette within central 80% width and upper 75% height for square and portrait crops. Ten different palettes. Buildings may form symbolic geographic montages. Exact row-major order: FRENCH HISTORICAL PROVINCES AND TERRITORIES, not extra modern administrative regions. TOP ROW left to right: 1 Berry, recognizable Bourges Cathedral with two unequal west facade towers, long steep Gothic nave roof and five-entry Gothic west facade behind golden central-France wheat fields, cool blue sky and warm harvest gold, no Eiffel Tower; 2 Bourbonnais, ruins of Château de Bourbon-l’Archambault with THREE massive cylindrical stone towers and broken connecting curtain walls on modest hill above small old village, green Allier countryside and violet dawn; 3 Saintonge, recognizable Arch of Germanicus in Saintes, Roman rectangular pale-stone monument with exactly TWO equal round arches side by side beneath one straight horizontal attic block, standing near blue Charente river with small Romanesque church and limestone town beyond, ochre and turquoise, no third arch; 4 Aunis, recognizable La Rochelle harbor entrance with TWO DIFFERENT fortified towers: tall massive irregular round Tour Saint-Nicolas on one side and shorter round Tour de la Chaîne on the other, little sailboats and Atlantic salt marsh crystals as foreground symbolic montage, coral sunset and cobalt water; 5 Angoumois, recognizable hilltop Angoulême Romanesque cathedral with elaborately carved pale-stone arched facade and tall rectangular Romanesque bell tower, old town ramparts and Charente valley below, warm peach and forest green, no pointed Gothic cathedral spires. BOTTOM ROW left to right: 6 Maine FRANCE, medieval Le Mans old-town lane lined with timber-and-plaster houses, Saint-Julien Cathedral's great Gothic apse and flying buttresses beyond with gently rolling Sarthe landscape, rainy amber and blue-gray, absolutely no US moose or pine wilderness; 7 Nivernais, recognizable Nevers Ducal Palace with long pale-stone Renaissance facade and steep gray roofs, Loire river beyond and a large blue-and-white faience plate in lower foreground, cobalt, ivory and russet sunset; 8 Foix, recognizable Château de Foix on a rugged central rock with EXACTLY THREE main towers: TWO SQUARE stone towers and ONE taller ROUND tower with crenellations, Ariège town roofs below and distant wooded Pyrenean foothills, moss green and lavender dusk; 9 Comtat Venaissin, historical territory centered on Carpentras, recognizable Saint-Siffrein Cathedral's southern Gothic church facade and pale limestone old-town rooftops, distant bare-topped Mount Ventoux, foreground grapes and cypress, sunlit ivory and violet, NO Avignon Papal Palace; 10 Roussillon, recognizable red-brick Palace of the Kings of Majorca in Perpignan with square crenellated gate towers and arcaded courtyard, Mediterranean Collioure-style ochre seafront bell tower and little fishing boat as foreground symbolic montage, vivid terracotta and azure, no Barcelona Sagrada Familia. Exactly ten individual landscapes in FIVE BY TWO grid. THE REGION NAMES ABOVE ARE INSTRUCTIONS ONLY: do NOT put a single name, letter, label, coat of arms or title on the output. Nothing except pixel landscape fills the entire regular FIVE BY TWO grid.
 
 ```
 
-## regions-forty-corrections.webp
+## regions-forty-corrections.webp — withdrawn
 
 Row-major order: Berry, Bourbonnais, Angoumois, Maine, Comtat Venaissin, Roussillon. These compositions replace rejected base-sheet cells; every other card retains its accepted mapping.
 
@@ -150,3 +150,7 @@ undefined FRENCH HISTORICAL PROVINCES AND TERRITORIES, not extra modern administ
 The fourteen expansion assets were re-encoded directly from their original imagegen PNGs using Pillow/libwebp, quality 80, method 6. Total delivered bytes decreased from 10,253,098 to 5,680,790 (**44.6% smaller**, 9.8 MiB → 5.4 MiB). Quality 85 was also compared (6,792,390 bytes); quality 80 retained clear faces, props and pixel texture at the actual card sizes. Dimensions, crops, grid coordinates and artwork mappings are unchanged. This is lossy delivery compression; generated originals remain in the execution workspace.
 
 Compared all 100 new subjects in both UI and AI artwork crop sizes against the previous quality-94 delivery assets. Mean absolute channel difference averaged 3.76/255, with a worst crop of 4.71/255; minimum PSNR was 32.28 dB. These metrics guide review rather than guarantee perceptual equivalence. Side-by-side samples and the ten crops with the largest differences were visually inspected, including faces, fine patterns and landmarks.
+
+## Regions withdrawal
+
+Both new Regions atlases and all ten proposed territory cards were withdrawn after correcting the pack to its 27 administrative regions. Their attempted prompts and output identifiers above are historical provenance, not delivered assets. Twelve expansion assets remain, totalling 4,607,350 bytes (4.4 MiB), encoded with the reviewed quality-80 settings.

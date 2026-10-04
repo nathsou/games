@@ -1,5 +1,4 @@
-// Append-only 40-card expansion; rows are name, subtitle, dates and biography.
-// Artwork and registry integration are committed pack by pack after visual review.
+// Append-only additions for expandable themes; French Regions stays at its 27 administrative regions.
 export const FORTY_ADDITIONS = {
   "scientists": [
     [
@@ -497,68 +496,6 @@ export const FORTY_ADDITIONS = {
       "Caribbean island country associated with Havana, limestone hills in Viñales and Cuban musical traditions; the republic was inaugurated in 1902."
     ]
   ],
-  "regions": [
-    [
-      "Berry",
-      "Historical province · Bourges and fields",
-      "Historical province",
-      "Historical province in central France centered on Bourges and Châteauroux, associated with Bourges Cathedral and agricultural landscapes. This is not an additional administrative region of 2015."
-    ],
-    [
-      "Bourbonnais",
-      "Historical province · Moulins and castles",
-      "Historical province",
-      "Historical province around Moulins and the Allier valley, associated with the origins of the House of Bourbon and castles such as Bourbon-l’Archambault. This is not an additional administrative region of 2015."
-    ],
-    [
-      "Saintonge",
-      "Historical province · Saintes and the Charente",
-      "Historical province",
-      "Historical province centered on Saintes, associated with the Charente River, Roman monuments and Romanesque churches. This is not an additional administrative region of 2015."
-    ],
-    [
-      "Aunis",
-      "Historical province · La Rochelle and salt marshes",
-      "Historical province",
-      "Small historical Atlantic province centered on La Rochelle, associated with fortified harbor towers and coastal salt marshes. This is not an additional administrative region of 2015."
-    ],
-    [
-      "Angoumois",
-      "Historical province · Angoulême and the Charente",
-      "Historical province",
-      "Historical province centered on Angoulême, associated with its hilltop old town, Romanesque cathedral and the Charente valley. This is not an additional administrative region of 2015."
-    ],
-    [
-      "Maine",
-      "Historical province · Le Mans and medieval streets",
-      "Historical province",
-      "Historical province centered on Le Mans and Laval, associated with the Sarthe and Mayenne valleys, Le Mans’s late-Roman walls and medieval urban heritage. This is not the United States state and not an additional administrative region of 2015."
-    ],
-    [
-      "Nivernais",
-      "Historical province · Nevers and the Loire",
-      "Historical province",
-      "Historical province centered on Nevers, associated with the Loire, the ducal palace and decorative faience. This is not an additional administrative region of 2015."
-    ],
-    [
-      "Foix",
-      "Historical county · Pyrenean castle",
-      "Historical county",
-      "Historical County of Foix in the Pyrenean foothills, associated with the three-towered castle above the town and the Ariège valley. This is not an additional administrative region of 2015."
-    ],
-    [
-      "Comtat Venaissin",
-      "Historical territory · Avignon hinterland",
-      "Historical territory",
-      "Historical papal territory centered on Carpentras, neighboring but historically distinct from the city of Avignon; associated with the Porte d’Orange, vineyards and Mont Ventoux. This is not an additional administrative region of 2015."
-    ],
-    [
-      "Roussillon",
-      "Historical province · Perpignan and the coast",
-      "Historical province",
-      "Historical Catalan-speaking province around Perpignan, associated with the Palace of the Kings of Majorca and coastal towns such as Collioure. Its boundaries differ from the former administrative region of Languedoc-Roussillon; it is not an additional region of 2015."
-    ]
-  ],
   "greek": [
     [
       "Hecate",
@@ -623,7 +560,6 @@ export const FORTY_ADDITIONS = {
   ]
 };
 
-// Only reviewed, delivered atlases are registered. Cells are row-major in a 5 × 2 grid.
 export const FORTY_ARTWORK = {
   "scientists": "assets/scientists-forty.webp",
   "philosophers": "assets/philosophers-forty.webp",
@@ -633,11 +569,9 @@ export const FORTY_ARTWORK = {
   "cities": "assets/cities-forty.webp",
   "countries": "assets/countries-forty.webp",
   "writers": "assets/writers-forty.webp",
-  "greek": "assets/greek-forty.webp",
-  "regions": "assets/regions-forty.webp"
+  "greek": "assets/greek-forty.webp"
 };
 
-// Rejected atlas cells are never mapped to an active card.
 export const FORTY_ART_CORRECTIONS = {
   "Toussaint Louverture": {
     "atlas": "assets/global-forty-corrections.webp",
@@ -656,42 +590,6 @@ export const FORTY_ART_CORRECTIONS = {
     "atlasIndex": 0,
     "columns": 1,
     "rows": 1
-  },
-  "Berry": {
-    "atlas": "assets/regions-forty-corrections.webp",
-    "atlasIndex": 0,
-    "columns": 3,
-    "rows": 2
-  },
-  "Bourbonnais": {
-    "atlas": "assets/regions-forty-corrections.webp",
-    "atlasIndex": 1,
-    "columns": 3,
-    "rows": 2
-  },
-  "Angoumois": {
-    "atlas": "assets/regions-forty-corrections.webp",
-    "atlasIndex": 2,
-    "columns": 3,
-    "rows": 2
-  },
-  "Maine": {
-    "atlas": "assets/regions-forty-corrections.webp",
-    "atlasIndex": 3,
-    "columns": 3,
-    "rows": 2
-  },
-  "Comtat Venaissin": {
-    "atlas": "assets/regions-forty-corrections.webp",
-    "atlasIndex": 4,
-    "columns": 3,
-    "rows": 2
-  },
-  "Roussillon": {
-    "atlas": "assets/regions-forty-corrections.webp",
-    "atlasIndex": 5,
-    "columns": 3,
-    "rows": 2
   },
   "Jules Verne": {
     "atlas": "assets/writers-forty-corrections.webp",
