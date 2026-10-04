@@ -58,6 +58,8 @@ test('room creation is limited, scoped to an origin and validates public Cluance
   const mf=runtime();try{
     assert.equal((await mf.dispatchFetch(origin+'/api/rooms',{method:'POST',headers:{Origin:'https://other.example'}})).status,403);
     assert.equal((await mf.dispatchFetch(origin+'/api/rooms',{method:'POST'})).status,403);
+    const tooLarge=JSON.stringify({game:'flip-it',protocol:5,padding:'🙂'.repeat(600)});
+    assert.equal((await mf.dispatchFetch(origin+'/api/rooms',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:tooLarge})).status,400);
     const metadata={role:'guesser',options:{theme:'french',clueTheme:'global',variant:'fixed'},secret:'must be stripped'};
     const room=await create(mf,'cluance',metadata);
     const info=await mf.dispatchFetch(origin+'/api/rooms/cluance/'+room.room+'/info',{headers:{Authorization:'Bearer '+room.guestKey}});

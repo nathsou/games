@@ -5,6 +5,17 @@ const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control
 const hex=bytes=>[...crypto.getRandomValues(new Uint8Array(bytes))].map(n=>n.toString(16).padStart(2,'0')).join('');
 const digest=async value=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(n=>n.toString(16).padStart(2,'0')).join('');
 const bearer=request=>request.headers.get('Authorization')?.replace(/^Bearer /,'')||'';
+async function roomBody(request){
+  if(!request.body)throw Error();
+  const reader=request.body.getReader(),chunks=[];let length=0;
+  while(true){
+    const {done,value}=await reader.read();if(done)break;length+=value.byteLength;
+    if(length>2048){await reader.cancel();throw Error();}chunks.push(value);
+  }
+  const bytes=new Uint8Array(length);let offset=0;
+  for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+  return new TextDecoder().decode(bytes);
+}
 
 export default {
   async fetch(request, env) {
@@ -18,7 +29,7 @@ export default {
     if(url.pathname==='/api/rooms'&&request.method==='POST'){
       if(!request.headers.get('Content-Type')?.startsWith('application/json')||Number(request.headers.get('Content-Length')||0)>2048)
         return json({error:'Invalid room request.'},400);
-      const body=await request.text();if(body.length>2048)return json({error:'Invalid room request.'},400);
+      let body;try{body=await roomBody(request);}catch{return json({error:'Invalid room request.'},400);}
       let options;try{options=JSON.parse(body);if(!Object.hasOwn(GAMES,options.game)||options.protocol!==GAMES[options.game])throw Error();options.metadata=validMetadata(options.game,options.metadata);}
       catch{return json({error:'Update the game page before inviting a friend.'},400);}
       const ip=request.headers.get('CF-Connecting-IP')||'local';
