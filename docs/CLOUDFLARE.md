@@ -58,7 +58,20 @@ The `SignalRoom` and `InviteLimiter` Durable Object bindings are created automat
 
 ## Branch previews
 
-After the first production deployment creates the Durable Object migrations, Cloudflare's non-production deploy command can be set to `npx wrangler versions upload` to create preview URLs. Those versions share the production Durable Object namespaces. Rooms are bound to their exact origin, preventing an invitation from being used on another preview or production host. Use a separate Worker/account environment if you need fully isolated preview quotas and storage.
+Cloudflare automatically builds non-production branches, including pull requests, with isolated [Worker Previews](https://developers.cloudflare.com/workers/previews/). In **Workers & Pages → games → Settings → Builds → Previews Base**, enable **Builds for Preview branches**, set build command to **`npm run build`**, preview command to **`npx wrangler preview`**, and root to **`/`**. Keep production builds on `main` with `npx wrangler deploy`. Enable Preview URLs under **Domains & Routes** if the dashboard prompts for it.
+
+Each push updates the branch's preview URL. Cloudflare's GitHub check and PR comment provide the URL so reviewers can play the branch before merging. Existing PR branches must include the current hosting files and `previews` configuration (merge `main` into older branches), then receive a new push to start a build. A PR created from a fork may require additional access or a branch in this repository.
+
+The checked-in `previews.durable_objects.bindings` config gives each preview its own `SignalRoom` and `InviteLimiter` namespaces and storage. Static assets are built from that branch. Preview invitations and quotas are isolated from production and other previews; invitation links must be opened on the same preview origin. Production secrets are not inherited. If managed TURN is needed in previews, configure separate preview credentials in **Previews Base**.
+
+To deploy the current branch's preview manually after logging into Cloudflare:
+
+```sh
+npm run build
+npm run preview
+```
+
+Use Wrangler 4.135.0 or newer; the repository pins a compatible release.
 
 ## Verification
 
