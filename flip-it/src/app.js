@@ -419,7 +419,11 @@ function modalHead(title, eyebrow = 'FLIP IT') {
   return '<div class="modal-head"><div><p class="eyebrow">' + eyebrow + '</p><h2 id="modal-title">' + title + '</h2></div><button class="close-button" data-action="close-modal" aria-label="Close dialog">×</button></div>';
 }
 function openPair(kind) {
-  pairAttempt++;pairHosted=Boolean(peer?.hosted);
+  pairAttempt++;
+  if(kind==='join'&&!peer?.connected){
+    const old=peer;peer=null;old?.close();pairOut='';pairMessage='';pairBusy=false;
+  }
+  pairHosted=kind==='host'&&Boolean(peer?.hosted);
   pairKind = kind; pairError = ''; pairingOpen = true;
   if (!peer || (!peer.connected && peer.pc.signalingState !== 'have-local-offer' && session?.seat === 0) || linkStatus === 'closed' || linkStatus === 'failed' || !pairOut) { pairOut = ''; pairMessage = ''; pairBusy = false; }
   if (peer?.connected) pairKind = 'connected';
@@ -819,7 +823,7 @@ async function handleHash() {
   if (!invite && !reply) return;
   history.replaceState(null,'',location.pathname+location.search);
   if (invite) {
-    openPair('join'); modal.querySelector('#pair-input').value=params.has('room')?invite:makeLink(invite,'offer');
+    openPair('join'); const field=modal.querySelector('#pair-input');if(field)field.value=params.has('room')?invite:makeLink(invite,'offer');
     try { await joinInvitation(invite); } catch(error) { pairError=error.message;pairBusy=false;renderPair(); }
   } else {
     try {

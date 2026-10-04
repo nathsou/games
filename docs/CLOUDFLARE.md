@@ -4,7 +4,7 @@ The collection runs on a Cloudflare Worker with Static Assets. Flip It and Cluan
 
 ## Account setup
 
-1. Create or choose a Cloudflare account, and copy its **Account ID** from the dashboard.
+1. Create or choose a Cloudflare account.
 2. In **Workers & Pages**, create or use the Worker named **games** and connect the GitHub repository. The checked-in `wrangler.jsonc` must match this name.
 3. Set repository root to `/`, production branch to `main`, build command to **`npm run build`**, and deploy command to **`npx wrangler deploy`**. Cloudflare installs the root dependencies from `package-lock.json`; the build installs and compiles Nonocube and assembles `_site`. Leave non-production branch builds disabled until the first production deployment has created the Durable Object bindings.
 4. After this PR is merged, Cloudflare builds and deploys `games` on a push to `main`. Its address is `https://games.<your-workers-subdomain>.workers.dev`. A custom domain can be added in **Workers & Pages → games → Settings → Domains & Routes**.
@@ -63,3 +63,6 @@ After the first production deployment creates the Durable Object migrations, Clo
 ## Verification
 
 `npm run test:cloudflare` uses Cloudflare's local runtime to check room permissions, origin/game isolation, expiry, replay/duplicate-seat rejection, signaling limits and TURN credential minting. `npm run build` and `npm run deploy:check` validate the complete collection and Worker bindings. Browser audits cover automatic invite exchange in both games; credentials and remote-network connectivity still require account configuration.
+
+
+With Wrangler running locally, `npm run test:cloudflare:ui` checks short-link creation, automatic exchange, Flip It zero-bot games and saved-game reconnection, Cluance private views and agreed role swaps, manual fallback and dialog retention at desktop/phone sizes. Install Playwright separately or set `PLAYWRIGHT_MODULE` to its module path; `CHROMIUM_PATH` chooses a system browser. `GAMES_URL` overrides `http://127.0.0.1:8787`, and `GAMES_ARTIFACTS` saves screenshots. Browser gameplay checks use a test-only RTC substitute with real Worker/WebSocket signaling; separate native Chromium checks verify real offer/answer exchange. This test environment produced no usable native ICE candidates, so it does not verify native data-channel or cross-network connectivity. Verify those after configuring TURN on the deployed Worker.

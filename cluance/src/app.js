@@ -123,7 +123,6 @@ let openToken = null,
   renderedRevision = null,
   noteOpen = false,
   settingsTab = "game",
-  clipboardReply = "",
   dragCleanup = null;
 const colorPreference = matchMedia("(prefers-color-scheme: dark)");
 const CARD_SIZES = [
@@ -1751,7 +1750,7 @@ function newPeer() {
         if (roleSwap) clearRoleSwap();
         cancelledRoleSwap = null;
         pendingGuess = false;
-        if (!game && isPeer()) {
+        if (!game && isPeer() && !pairingKind) {
           showModal(
             "Connection lost during the swap.",
             "Reconnect to the table",
@@ -1865,12 +1864,12 @@ function readPairConfig() {
 function openPairing(kind, reconnect = false, initial = "") {
   cancelAI();
   pairingAttempt++;pairingHosted=false;
+  const old=peer;peer=null;old?.close();updateConnection();
   pairingKind = kind;
   pairingCode = "";
   pairingError = "";
   pairingBusy = false;
   pairingInput = initial;
-  clipboardReply = "";
   if (!reconnect) {
     game = null;
     resetTurn();
@@ -1888,7 +1887,6 @@ function openPairing(kind, reconnect = false, initial = "") {
 }
 async function preparePair(type,input='',manual=false) {
   const attempt=++pairingAttempt;
-  if(type==='offer')clipboardReply='';
   let link;
   pairingBusy=true;pairingError='';pairingInput=input;pairingCode='';renderPairing();
   try {
@@ -2063,39 +2061,6 @@ function enhancePairing(host) {
     input.previousElementSibling.before(details);
     details.append(input.previousElementSibling, input, button);
     const paste=modalContent.querySelector('[data-action="paste-pair"]');if(paste)details.before(paste);
-    if (clipboardReply) {
-      const banner = document.createElement("div");
-      banner.className = "clipboard-banner";
-      banner.innerHTML =
-        '<p>Found a reply link on your clipboard.</p><button id="clipboard-accept" class="button small">Accept reply →</button>';
-      details.before(banner);
-      $("clipboard-accept").onclick = () => {
-        const link = clipboardReply;
-        clipboardReply = "";
-        acceptPair(link);
-      };
-    }
-  }
-}
-async function checkClipboardReply() {
-  if (
-    pairingKind !== "host" ||
-    !pairingCode ||
-    pairingBusy ||
-    !modal.open ||
-    document.hidden ||
-    !navigator.clipboard?.readText
-  )
-    return;
-  try {
-    const value = await navigator.clipboard.readText();
-    const reply = await decodePairing(value, "answer");
-    if (reply.room === peer?.room && value !== clipboardReply) {
-      clipboardReply = value;
-      renderPairing();
-    }
-  } catch {
-    /* Clipboard permission is optional. Manual paste remains available. */
   }
 }
 // Read the clipboard only after an explicit Paste action.

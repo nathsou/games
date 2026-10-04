@@ -1,6 +1,6 @@
 # Cluance
 
-A cooperative visual deduction game with original retro pixel art. Play with a friend through link-based WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. **No runtime or development packages, CDNs, frameworks, build step, or backend. Martian Mono and DM Mono are self-hosted with their SIL OFL licences.**
+A cooperative visual deduction game with original retro pixel art. Play with a friend through link-based WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. The browser game needs no packages, CDNs, frameworks or compilation. Martian Mono and DM Mono are self-hosted with their SIL OFL licences. The collection’s Cloudflare Worker provides automatic friend-invite signaling.
 
 The interface follows the supplied [UX/UI redesign](UX_REDESIGN.md), with paper tones, full-bleed artwork and self-hosted mono typography.
 
@@ -14,15 +14,15 @@ node tools/serve.mjs
 
 Open <http://127.0.0.1:4173>. Optionally set `PORT` to use another port. The preview server uses only Node's standard library. Any static HTTP server also works; ES modules require serving over HTTP rather than opening `index.html` as a local file.
 
-## GitHub Pages
+## Cloudflare hosting
 
-Publish `cluance/` together with the repository's `shared/` directory. The Pages workflow assembles both alongside the other games when changes reach `main`. The game URL is `https://nathsou.github.io/games/cluance/`; relative imports also support another static host with the same directory layout. The local preview server serves the shared files automatically.
+The collection builds a clean `_site` directory for Cloudflare Workers Static Assets, with the game's files and the shared runtime. See [Cloudflare setup](../docs/CLOUDFLARE.md) for Git build settings and optional managed TURN credentials. From the repository root, run `npm run build` and `npm run dev` for automatic invitations locally.
 
-There is no hosted room registry. AI mode makes browser requests directly to the user's selected provider. Multiplayer uses browser-to-browser WebRTC and, by default, a public STUN service for route discovery. No TURN service is provided; optional relay credentials and STUN addresses can be supplied in the shared invitation controls.
+AI mode makes browser requests directly to the selected provider. Multiplayer gameplay and private cards use browser-to-browser WebRTC. The Worker exchanges only connection metadata and public table settings. The game also supports manual pairing on an ordinary static host and the original preview server.
 
 ## Play
 
-- **Play with a friend:** choose **Invite a friend →**, then **Create invitation**. Once the dialog says **Invitation ready**, copy or share the link with your friend. If you opened **Join a friend** first, choose **Create an invitation instead** to create the invitation. Your chosen **guess** or **give the clues** role is preserved; your friend takes the opposite role. The friend opens the invitation, receives a reply link automatically, and sends it back. The creator opens **Paste a reply manually** and pastes the reply, or opens the reply link in the same browser as the hosting tab; both browsers open the shared table. Keep both tabs open. The invitation carries connection metadata and public table settings, but no secret, hand, notes or API keys.
+- **Play with a friend:** choose **Invite a friend →**, then **Create invitation**. Copy, share or scan the short link; your friend connects automatically when they open it, with no reply link needed. Your chosen **guess** or **give the clues** role is preserved; your friend takes the opposite role. Links expire after 15 minutes and are single-use once connected. Keep both tabs open. For the original two-link flow, choose **Use manual pairing**; **Paste reply & connect** reads the clipboard only when clicked. Typed input, connection fields and expanded sections survive status changes; TURN passwords remain in memory. Switch between joining and inviting inside the dialog. Invitations contain connection metadata and public table settings, with no secret card, hand, notes or API keys.
 - **Guess the AI's card:** the AI knows the secret and chooses one clue card and its direction each round.
 - **Give clues to AI:** you know the secret and play clues; the AI chooses cards to eliminate.
 - **Swap online roles:** open the table’s **…** menu and choose **Swap roles & deal**, or use that button after a game. Your friend must accept. The same connection stays open, with a fresh secret and hand, the same decks and the same hand variant. The new clue giver creates the private deal locally.
