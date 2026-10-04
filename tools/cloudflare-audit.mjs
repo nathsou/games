@@ -9,7 +9,7 @@ async function page(context){const p=await context.newPage();p.setDefaultTimeout
 async function frame(p){return(await p.locator('#game-frame').elementHandle()).contentFrame();}
 async function game(p,name){await p.waitForFunction(name=>window.__together?.game===name,name);const f=await frame(p);await f.waitForFunction(name=>Boolean(window[name]),name==='cluance'?'__cluance':name==='midnight'?'__midnight':'__flipit');return f;}
 async function invite(p,name,mode='live'){
-  await p.goto(origin+'/');await p.locator('#invite-friend').click();await p.locator('#room-game').selectOption(name);
+  await p.goto(origin+'/');await showPanel(p);await p.locator('#invite-friend').click();await p.locator('#room-game').selectOption(name);
   if(mode==='async')await p.locator('#room-play-mode').selectOption('async');
   if(name==='cluance'){await p.locator('#room-setup-role').selectOption('giver');await p.locator('#room-setup-variant').selectOption('fixed');}
   await p.locator('#room-create').click();await p.waitForFunction(()=>document.querySelector('#room-link').value);const link=await p.locator('#room-link').inputValue();assert.equal(new URL(link).pathname,'/');await p.locator('#room-close').click();return link;

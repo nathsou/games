@@ -23,6 +23,28 @@ export function installFloatingWindows() {
   function paint(element,rect) {
     Object.assign(element.style,{left:rect.x+'px',top:rect.y+'px',width:rect.width+'px',height:rect.height+'px'});
   }
+  const overlaps=(a,b)=>a.x<b.x+b.width+GAP&&a.x+a.width+GAP>b.x&&a.y<b.y+b.height+GAP&&a.y+a.height+GAP>b.y;
+  function draw() {
+    const v=viewport(),occupied=[];
+    for(const c of controllers)paint(c.element,c.bounds());
+    // Preserve preferred placement, but separate launchers when a smaller screen clamps them together.
+    for(const c of [...controllers].reverse()) {
+      let r=fitRect(c.launcherRect,v);
+      if(occupied.some(other=>overlaps(r,other))) {
+        const candidates=occupied.flatMap(other=>[
+          {...r,x:other.x-r.width-GAP},{...r,x:other.x+other.width+GAP},
+          {...r,y:other.y-r.height-GAP},{...r,y:other.y+other.height+GAP},
+        ]).map(candidate=>fitRect(candidate,v)).filter(candidate=>!occupied.some(other=>overlaps(candidate,other)));
+        candidates.sort((a,b)=>Math.hypot(a.x-r.x,a.y-r.y)-Math.hypot(b.x-r.x,b.y-r.y));
+        if(candidates.length)r=candidates[0];
+      }
+      c.displayLauncher=r;occupied.push(r);paint(c.launcher,r);
+    }
+  }
+  function resizeRect(r,c) {
+    const v=viewport();
+    return fitRect({...r,width:Math.min(r.width,v.x+v.width-GAP-r.x),height:Math.min(r.height,v.y+v.height-GAP-r.y)},v,c.minimum);
+  }
   function finish(cancel=false) {
     if(!gesture)return;
     const g=gesture;gesture=undefined;
@@ -56,7 +78,7 @@ export function installFloatingWindows() {
       const r={...g.start};
       if(kind.startsWith('resize')){if(kind!=='resize-y')r.width+=dx;if(kind!=='resize-x')r.height+=dy;}
       else{r.x+=dx;r.y+=dy;}
-      c[ g.launcher?'launcherRect':'rect' ]=fitRect(r,viewport(),g.launcher?undefined:c.minimum);
+      c[g.launcher?'launcherRect':'rect']=kind.startsWith('resize')?resizeRect(r,c):fitRect(r,viewport(),g.launcher?undefined:c.minimum);
       c.draw();e.preventDefault();
     });
     handle.addEventListener('pointerup',()=>{if(gesture?.handle===handle)finish();});
@@ -71,7 +93,7 @@ export function installFloatingWindows() {
       if(!direction)return;e.preventDefault();
       const r=c.bounds(launcher),[dx,dy]=direction.map(n=>n*16);
       if(resize||e.shiftKey&&!launcher){r.width+=dx;r.height+=dy;}else{r.x+=dx;r.y+=dy;}
-      c[launcher?'launcherRect':'rect']=fitRect(r,viewport(),launcher?undefined:c.minimum);c.draw();persist();
+      c[launcher?'launcherRect':'rect']=(resize||e.shiftKey&&!launcher)?resizeRect(r,c):fitRect(r,viewport(),launcher?undefined:c.minimum);c.draw();persist();
     });
   }
   function create({id,element,launcher,close,title,defaults,launcherDefaults,onVisibility}) {
@@ -79,8 +101,8 @@ export function installFloatingWindows() {
     const c={id,element,launcher,minimum:{width:280,height:300},
       rect:validRect(saved?.rect)?saved.rect:defaults(viewport()),
       launcherRect:validRect(saved?.launcher)?saved.launcher:launcherDefaults(viewport()),open:saved?.open===true,
-      bounds(isLauncher=false){return fitRect(isLauncher?c.launcherRect:c.rect,viewport(),isLauncher?undefined:c.minimum);},
-      draw(){paint(element,c.bounds());paint(launcher,c.bounds(true));},
+      bounds(isLauncher=false){return isLauncher?(c.displayLauncher||fitRect(c.launcherRect,viewport())):fitRect(c.rect,viewport(),c.minimum);},
+      draw,
       front(){element.style.zIndex=++layer;},
       setOpen(open,focus=true){
         c.open=open;element.hidden=!open;launcher.setAttribute('aria-expanded',String(open));
@@ -111,7 +133,7 @@ export function installFloatingWindows() {
     }
     c.draw();element.hidden=!c.open;launcher.setAttribute('aria-expanded',String(c.open));if(c.open)c.front();return c;
   }
-  const redraw=()=>{if(gesture)finish(true);for(const c of controllers)c.draw();};
+  const redraw=()=>{if(gesture)finish(true);draw();};
   window.addEventListener('resize',redraw);window.visualViewport?.addEventListener('resize',redraw);window.visualViewport?.addEventListener('scroll',redraw);
   return {create};
 }

@@ -1,17 +1,18 @@
 import {isFriendPage} from './friend-pages.js';
 const PREFIX='games.checkpoint.';
 const MAX=2*1024*1024;
-export function readCheckpoint(game,storage=globalThis.localStorage) {
+export function readCheckpoint(game,storage) {
   if(!isFriendPage(game)||game==='collection')return null;
   try {
+    storage ??= globalThis.localStorage;
     const raw=storage.getItem(PREFIX+game);if(!raw||raw.length>MAX)return null;
     const value=JSON.parse(raw);
     return value?.version===1&&value.game===game&&Number.isFinite(value.updatedAt)&&value.data&&typeof value.data==='object'?value:null;
   }catch{return null;}
 }
-export function writeCheckpoint(game,data,storage=globalThis.localStorage) {
+export function writeCheckpoint(game,data,storage) {
   if(!isFriendPage(game)||game==='collection'||!data)return false;
-  try{const raw=JSON.stringify({version:1,game,updatedAt:Date.now(),data});if(raw.length>MAX)return false;storage.setItem(PREFIX+game,raw);return true;}catch{return false;}
+  try{storage ??= globalThis.localStorage;const raw=JSON.stringify({version:1,game,updatedAt:Date.now(),data});if(raw.length>MAX)return false;storage.setItem(PREFIX+game,raw);return true;}catch{return false;}
 }
 export function registerCheckpoint(game,{capture,restore}) {
   const save=()=>writeCheckpoint(game,capture());

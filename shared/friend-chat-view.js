@@ -2,7 +2,7 @@ import {REACTIONS} from './friend-chat.js';
 
 export function installFriendChat(session) {
   const $ = id => document.getElementById(id);
-  let current, rendered = 0, unread = 0;
+  let current, rendered = 0, unread = 0, sending = false;
   function seen() {
     return !$('friend-chat').hidden && !document.hidden;
   }
@@ -35,8 +35,20 @@ export function installFriendChat(session) {
   }
   $('chat-form').onsubmit = async event => {
     event.preventDefault();
-    if (await send('text', $('chat-input').value)) $('chat-input').value = '';
+    const text=$('chat-input').value;
+    if(sending || !text.trim())return;
+    sending=true;render();
+    try {
+      if(await send('text',text) && $('chat-input').value===text) {
+        $('chat-input').value='';
+        $('chat-input').dispatchEvent(new Event('input'));
+      }
+    } finally {
+      sending=false;render();
+      if(!$('friend-chat').hidden && $('friend-chat').contains(document.activeElement))$('chat-input').focus({preventScroll:true});
+    }
   };
+  $('chat-input').addEventListener('input',render);
   function render() {
     if (current !== session.chat) {
       current = session.chat;
@@ -68,7 +80,8 @@ export function installFriendChat(session) {
     $('chat-status').textContent = session.resumeCredentials ? 'Saved in your room · reply whenever.' : session.connected
       ? 'One conversation, across every game.' : 'Invite or join a friend to chat.';
     $('chat-empty').textContent = available ? 'Say hello! Your conversation stays with you as you switch games.' : 'Connect with a friend from the Friends window. Your messages will appear here.';
-    for (const input of $('friend-chat').querySelectorAll('input, #chat-send, #chat-reactions button')) input.disabled = !session.resumeCredentials && !session.connected;
+    for (const input of $('friend-chat').querySelectorAll('input, #chat-reactions button')) input.disabled = !available;
+    $('chat-send').disabled = !available || sending || !$('chat-input').value.trim();
   }
   session.openChat = () => session.chatWindow?.setOpen(true);
   document.addEventListener('visibilitychange', render);

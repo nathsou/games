@@ -1,6 +1,8 @@
 # Persistent friend rooms
 
-The Friends button opens a side panel over the game. Close it for the full playing area; visibility is remembered in this browser. Invitations, connection controls, chat, settings and saved games live here. Game invite and chat buttons open this same panel.
+Friends and Chat have separate floating launchers and modeless windows above the game. Both start closed. Drag either launcher or a window title bar to move it; resize from the right/bottom edges or corner, and close with × or Escape. Placement, size and visibility are remembered in this browser across games and reloads. Reset a window with ↺. On a focused launcher/title bar, arrow keys move and Home resets; Shift + arrows on a title bar resize. The focused resize corner also accepts arrow keys. Windows stay within the visible screen, including when the phone keyboard opens.
+
+Invitations, connection controls, settings and saved games live in Friends. Chat opens independently, and its launcher shows unread messages. The Friends launcher shows games awaiting your turn. Game invite and chat buttons open the corresponding window without changing the other window. Window placement follows the shared light/dark appearance and stays local to this browser; it is never sent to a friend.
 
 ## One invitation, two ways to play
 
@@ -30,4 +32,4 @@ Shared play resumes the original creator's engine. The other player remains a fo
 
 The outer collection/together page owns `FriendSession`, one physical `PeerLink`, `RoomChat`, the turn inbox and iframe navigation. Game adapters declare setup, resume and async entry points. `game-checkpoint.js` owns browser checkpoints. `turn-games.js` applies the existing pure rule engines on the server; role-filtered views are the only game state sent to turn clients.
 
-Run `npm run test:cloudflare` for authorization, signaling, private views, idempotent seat recovery, stale/concurrent moves and durable chat. With Wrangler running, `npm run test:cloudflare:ui` exercises separate offline browsers, closed-tab recovery, multiple saved games, background play, native live reloads, shared recovery and phone layout. The native gameplay tests use a deterministic RTC substitute and real Worker signaling; cross-network native WebRTC still requires deployed relay/network verification.
+Run `npm run test:windows` for viewport bounds and `npm run test:windows:ui` (with Wrangler running) for mouse/touch/keyboard gestures, window persistence, focus, independent chat, phone/landscape layouts, theme and optional storage. Run `npm run test:cloudflare` for authorization, signaling, private views, idempotent seat recovery, stale/concurrent moves and durable chat. With Wrangler running, `npm run test:cloudflare:ui` exercises separate offline browsers, closed-tab recovery, multiple saved games, background play, native live reloads, shared recovery and phone layout. The native gameplay tests use a deterministic RTC substitute and real Worker signaling; cross-network native WebRTC still requires deployed relay/network verification.
