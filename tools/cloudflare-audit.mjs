@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {botAction} from '../flip-it/src/bot.js';
-import {installTestPeer, installTestDisplay} from './test-peer.mjs';
+import {installTestPeer} from './test-peer.mjs';
 
 const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({
@@ -146,7 +146,10 @@ async function sharedPoint(host, guest, locator) {
 async function collectionRoom() {
   console.log('Checking collection rooms, shared cursors and auto-hide');
   const c = await context();
-  await c.addInitScript(installTestDisplay);
+  await c.addInitScript(() => {
+    window.__captureCalls = 0;
+    navigator.mediaDevices.getDisplayMedia = async () => { window.__captureCalls++; throw new Error('Capture must never be requested.'); };
+  });
   const h = await c.newPage(), g = await c.newPage();
   for (const p of [h, g]) { p.setDefaultTimeout(15000); p.on('pageerror', e => errors.push(e.message)); }
   let rooms = 0;
@@ -163,19 +166,21 @@ async function collectionRoom() {
   await g.goto(link);
   for (const p of [h, g]) await p.waitForFunction(() => window.__together?.connected);
   const peerIDs = await Promise.all([h, g].map(p => p.evaluate(() => window.__testPeers[0].id)));
-  // Declining stops capture, while the room and native game choices survive.
+  // Declining preserves the room without asking for browser capture.
   await h.locator('#screen-toggle').click();
   await h.locator('#screen-accept').click();
   await g.locator('#screen-decline').click();
   await h.waitForFunction(() => window.__together.screen === 'off');
-  assert.equal(await h.evaluate(() => window.__testCaptureStreams[0].getVideoTracks()[0].readyState), 'ended');
+  assert.equal(await h.evaluate(() => window.__captureCalls), 0);
   await g.locator('#screen-toggle').click();
   await h.locator('#screen-accept').click();
   await g.locator('#screen-accept').click();
   await h.waitForFunction(() => window.__together.screen === 'sharing');
   await g.waitForFunction(() => window.__together.screen === 'viewing');
-  assert.equal(await g.locator('#game-frame').getAttribute('src'), 'about:blank');
-  assert.equal(await g.locator('#screen-video').evaluate(el => Boolean(el.srcObject)), true);
+  assert(await g.locator('#game-frame').isVisible());
+  assert.equal(await g.locator('video').count(), 0);
+  const guestCollection = await (await g.locator('#game-frame').elementHandle()).contentFrame();
+  await guestCollection.locator('a.card').first().waitFor();
   assert.equal(await h.locator('#screen-toggle').textContent(), 'Stop');
   const hostCollection = await (await h.locator('#game-frame').elementHandle()).contentFrame();
   const point = await sharedPoint(h, g, hostCollection.locator('a.card[href="spacegolf/"]'));
@@ -184,6 +189,8 @@ async function collectionRoom() {
   const golf = await (await h.locator('#game-frame').elementHandle()).contentFrame();
   await golf.locator('canvas').waitFor();
   await g.waitForFunction(() => window.__friendSession.screen.remoteReady);
+  const guestGolf = await (await g.locator('#game-frame').elementHandle()).contentFrame();
+  await guestGolf.waitForFunction(() => window.__sharedView?.canvas?.scene === 'TitleScene');
   await golf.evaluate(() => {
     window.__remoteEvents = [];
     for (const type of ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup']) {
@@ -198,6 +205,18 @@ async function collectionRoom() {
   await g.mouse.wheel(0, 100);
   await g.keyboard.press('ArrowRight');
   await golf.waitForFunction(() => ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup'].every(type => window.__remoteEvents.some(e => e.type === type)));
+  // The host alone simulates physics; the guest receives matching ball state.
+  await golf.evaluate(async () => {
+    const {GameScene} = await import('/spacegolf/src/scenes/game.js');
+    const {WORLDS} = await import('/spacegolf/src/campaign.js');
+    const app = window.spacegolf;
+    app.go(new GameScene(app, {level: WORLDS[0].levels[0], title: 'Shared physics'}), true);
+    app.scene.fire(-1, .35);
+  });
+  await guestGolf.waitForFunction(() => window.__sharedView?.canvas?.state?.S?.shots === 1);
+  await golf.evaluate(() => { window.spacegolf.scene.update = () => {}; });
+  const ball = await golf.evaluate(() => window.spacegolf.scene.S.ball);
+  await guestGolf.waitForFunction(ball => JSON.stringify(window.__sharedView.canvas.state.S.ball) === JSON.stringify(ball), ball);
   const retiredEpoch = await g.evaluate(() => window.__friendSession.screen.remoteEpoch);
   await h.mouse.move(400, 300);
   await g.locator('#friend-cursor').waitFor({state: 'visible'});
@@ -218,21 +237,55 @@ async function collectionRoom() {
   await g.locator('#screen-typing').fill('!');
   await flip.waitForFunction(() => document.querySelector('#player-name').value === 'Alex!');
   assert.equal(await flip.evaluate(() => JSON.parse(localStorage.getItem('flip-it.preferences')).name), 'Alex!');
+  const guestFlip = await (await g.locator('#game-frame').elementHandle()).contentFrame();
+  await guestFlip.waitForFunction(() => document.querySelector('#player-name')?.value === 'Alex!');
+  assert.equal(await guestFlip.evaluate(() => Boolean(window.__flipit)), false, 'Guest must not start a second game engine');
+  await flip.evaluate(() => {
+    const secret = document.createElement('input'); secret.type = 'password'; secret.id = 'api-key'; secret.value = 'PRIVATE-CREDENTIAL'; document.body.append(secret);
+  });
+  await guestFlip.locator('#api-key').waitFor();
+  assert.equal(await guestFlip.locator('#api-key').inputValue(), '');
   assert(await g.locator('.friend-bar').evaluate(el => el.scrollWidth <= el.clientWidth));
   await screenshot(g, 'shared-cursors-320.png');
   for (const game of ['cluance', 'midnight', 'nonocube', 'pawn-quest', 'collection']) {
     await g.locator('#next-game').selectOption(game);
     await h.waitForFunction(game => window.__together.game === game, game);
     await g.waitForFunction(game => window.__together.game === game, game);
-    await h.locator('#game-frame').evaluate(frame => new Promise(resolve => {
-      if (frame.contentDocument?.readyState === 'complete') resolve();
-      else frame.addEventListener('load', resolve, {once: true});
-    }));
+    console.log('Checking local shared view: ' + game);
+    await g.waitForFunction(() => window.__friendSession.screen.remoteReady).catch(async error => {
+      console.error(await Promise.all([h,g].map(p => p.evaluate(() => ({game: window.__together.game, phase: window.__together.screen, error: document.querySelector('#friend-error').textContent, ready: Boolean(document.querySelector('#game-frame').contentWindow.__sharedView)})))));
+      console.error(errors); throw error;
+    });
+    const hostView = await (await h.locator('#game-frame').elementHandle()).contentFrame();
+    const guestView = await (await g.locator('#game-frame').elementHandle()).contentFrame();
+    if (game === 'nonocube') {
+      await hostView.getByRole('button', {name: 'Play', exact: true}).click();
+      await hostView.locator('.gallery').waitFor();
+      await hostView.getByRole('button', {name: 'Play', exact: true}).click();
+      await guestView.locator('.play').waitFor();
+      await guestView.waitForFunction(() => window.__sharedView?.canvas?.list?.block?.count > 0);
+      const count = await hostView.evaluate(() => window.__sharedCanvas.snapshot().list.block.count);
+      assert.equal(await guestView.evaluate(() => window.__sharedView.canvas.list.block.count), count);
+      await hostView.getByRole('button', {name: 'Turn right', exact: true}).first().click();
+      const before = await guestView.evaluate(() => [...window.__sharedView.canvas.matrix]);
+      await guestView.waitForFunction(old => JSON.stringify([...window.__sharedView.canvas.matrix]) !== JSON.stringify(old), before);
+    }
+    if (game === 'pawn-quest') {
+      await hostView.evaluate(() => window.pawnQuest.nav.arena());
+      await hostView.locator('.board-canvas').waitFor();
+      await guestView.locator('.board-canvas').waitFor();
+      const fen = await hostView.evaluate(() => window.__board.pos.toFEN());
+      await guestView.waitForFunction(fen => window.__sharedView?.canvas?.boards[0]?.fen === fen, fen);
+    }
   }
   await g.locator('#screen-toggle').click();
   for (const p of [h, g]) await p.waitForFunction(() => window.__together.screen === 'off' && window.__together.connected);
   for (let i = 0; i < 2; i++) assert.equal(await [h, g][i].evaluate(() => window.__testPeers[0].id), peerIDs[i]);
   assert.equal(rooms, 1);
+  for (const p of [h, g]) {
+    assert.equal(await p.evaluate(() => window.__testPeers.length), 1, 'Shared play uses no additional RTC connection');
+    assert.equal(await p.evaluate(() => window.__captureCalls), 0);
+  }
   await switchGame(h, g, 'flip-it');
   assert.equal((await state(h, 'flip-it')).hands.length, 2);
   // The preference survives game switches; the reveal button remains accessible.
@@ -249,7 +302,7 @@ async function collectionRoom() {
   assert.equal(await g.evaluate(() => localStorage.getItem('games.friend-panel-auto-hide')), 'off');
   assert(await g.locator('#friend-header').isVisible());
   await c.close();
-  results.push('Collection room: capture consent, scaled remote navigation/drag/wheel/typing, bidirectional cursors, every game, stop and native co-op recovery, configurable auto-hide; one signaling room');
+  results.push('Collection room: state-only consent, local UI/physics/voxel/chess rendering, protected credentials, scaled controls and cursors, every game, native co-op recovery and auto-hide; one RTC connection and room; zero capture calls');
 }
 
 try {

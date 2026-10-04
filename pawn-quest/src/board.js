@@ -1,3 +1,5 @@
+import {viewNodeID} from '../../shared/view-state.js';
+import {boardSnapshot} from './friend-view.js';
 // Canvas board: crisp pixel art at an integer scale, smooth animation,
 // danger overlays, arrows, particles and pointer input (click or drag).
 import { KNIGHT, typeOf, colorOf, mFrom, mTo, mFlags, F_CASTLE, F_EP, F_CAPTURE, F_PROMO, sqParse, WHITE } from './chess.js';
@@ -21,6 +23,10 @@ const HL_COLORS = { last: 'rgba(255,214,64,0.38)', select: 'rgba(255,255,255,0.3
 
 // ---------------------------------------------------------------- ticker
 const boards = new Set();
+globalThis.__sharedCanvas = {snapshot: () => ({
+  boards: [...boards].filter(b => b.canvas.isConnected && b.pos).map(boardSnapshot),
+  decorations: [...document.querySelectorAll('canvas')].filter(c => c.__friendDraw).map(c => ({id: viewNodeID(c), draw: c.__friendDraw})),
+})};
 let ticking = false;
 function tick(t) {
   for (const b of boards) { if (!b.canvas.isConnected) { boards.delete(b); continue; } b.frame(t); }

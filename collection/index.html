@@ -127,6 +127,7 @@
 
   <footer>Source on <a href="https://github.com/nathsou/games">GitHub</a>.</footer>
 </main>
-<script type="module">import {installThemeControls} from "./shared/theme.js";installThemeControls(document.querySelector("header"));</script>
+<script type="module">import {isSharedFollower,installGameView} from "./shared/game-view.js";if(isSharedFollower())installGameView();
+import {installThemeControls} from "./shared/theme.js";installThemeControls(document.querySelector("header"));</script>
 </body>
 </html>

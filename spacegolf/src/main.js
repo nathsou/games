@@ -1,3 +1,4 @@
+import {installHostView} from './friend-view.js';
 import { App } from './app.js';
 import { TitleScene } from './scenes/title.js';
 import { installNavigation } from './nav.js';
@@ -24,6 +25,7 @@ function fail(message) {
 try {
   const app = new App(canvas);
   window.spacegolf = app;
+  installHostView(app);
   installNavigation(app);
   app.go(new TitleScene(app), true);
   app.routeFromHash();

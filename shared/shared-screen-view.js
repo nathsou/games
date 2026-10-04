@@ -2,19 +2,16 @@ import {SharedScreen} from './shared-screen.js';
 
 export function installSharedScreen(session, render) {
   const $ = id => document.getElementById(id);
-  const frame = $('game-frame'), stage = $('game-stage'), surface = $('screen-surface'), video = $('screen-video'), cursor = $('friend-cursor');
+  const frame = $('game-frame'), stage = $('game-stage'), surface = $('screen-surface'), cursor = $('friend-cursor');
   let cursorTimer, moveAt = 0;
   function layout() {
     const g = screen.remoteGeometry;
     if (!g) return;
-    const aspect = g.frame.width / g.frame.height;
-    const width = Math.min(stage.clientWidth, stage.clientHeight * aspect);
-    surface.style.width = width + 'px';
-    surface.style.height = width / aspect + 'px';
-    Object.assign(video.style, {
-      width: g.width / g.frame.width * 100 + '%', height: g.height / g.frame.height * 100 + '%',
-      left: -g.frame.left / g.frame.width * 100 + '%', top: -g.frame.top / g.frame.height * 100 + '%',
-    });
+    const scale = Math.min(stage.clientWidth / g.width, stage.clientHeight / g.height);
+    surface.style.width = g.width * scale + 'px';
+    surface.style.height = g.height * scale + 'px';
+    Object.assign(frame.style, {position: 'absolute', left: '50%', top: '50%', width: g.width + 'px', height: g.height + 'px',
+      transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: 'center'});
   }
   function showCursor(x, y) {
     clearTimeout(cursorTimer);
@@ -29,7 +26,6 @@ export function installSharedScreen(session, render) {
   }
   const screen = session.screen = new SharedScreen(session, {
     frame, onChange: render, onGeometry: layout, onCursor: showCursor,
-    onStream(stream) { video.srcObject = stream; if (stream) video.play().catch(() => {}); },
   });
   function sendInput(input) {
     if (!screen.active || session.isHost || !screen.remoteEpoch || !screen.remoteReady) return;
@@ -92,7 +88,7 @@ export function installSharedScreen(session, render) {
       last = performance.now();
       try { screen.send('cursor', {x: event.clientX / frame.contentWindow.innerWidth, y: event.clientY / frame.contentWindow.innerHeight, epoch: screen.pageEpoch}); } catch { /* Drop stale moves. */ }
     });
-    if (screen.active && session.isHost) { screen.pageReady = true; screen.geometry(); }
+    screen.loaded();
   });
   new ResizeObserver(() => {
     layout();
@@ -111,21 +107,22 @@ export function installSharedScreen(session, render) {
     $('screen-toggle').textContent = screen.active ? 'Stop' : screen.busy ? 'Cancel' : 'Cursors';
     $('screen-toggle').setAttribute('aria-label', screen.busy ? 'Stop virtual cursors' : 'Virtual cursors');
     const viewing = screen.active && !session.isHost;
-    frame.hidden = viewing;
+    frame.hidden = false;
+    if (!viewing) frame.removeAttribute('style');
     $('shared-view').hidden = !viewing;
-    $('screen-wait').hidden = !viewing || Boolean(video.srcObject && screen.remoteReady);
+    $('screen-wait').hidden = !viewing || screen.remoteReady;
     const dialog = $('screen-dialog');
     const show = ['confirm', 'asked', 'requested', 'offering', 'waiting'].includes(screen.phase);
     if (show) {
       const incoming = screen.phase === 'requested', host = session.isHost;
-      $('screen-title').textContent = incoming ? 'Play on one screen?' : host && screen.phase !== 'offering' ? 'Share this game screen?' : 'Waiting for your friend';
+      $('screen-title').textContent = incoming ? 'Play together with cursors?' : host && screen.phase !== 'offering' ? 'Share this game state?' : 'Waiting for your friend';
       $('screen-copy').textContent = incoming
-        ? 'Both of you can control your friend’s game with virtual cursors. You see the same screen, including visible cards and notes. This ends the current multiplayer table. Chat stays open.'
+        ? 'Both of you can control the shared game with virtual cursors. You see the same screen, including visible cards and notes. This ends the current multiplayer table. Chat stays open.'
         : host && screen.phase !== 'offering'
-          ? 'Both of you will control the game in this tab and see its full state, including visible cards and notes. This ends the current multiplayer table. Choose this Games tab in the browser’s share picker. Stop cursors at any time to return to your room.'
+          ? 'Both of you will control the game in this tab and see its full state, including visible cards and notes. This ends the current multiplayer table. Each browser renders the game locally. No screen recording or permission is needed. Stop cursors at any time to return to your room.'
           : 'Your friend can accept or decline. Your friend room stays connected.';
       $('screen-accept').hidden = !['confirm', 'asked', 'requested'].includes(screen.phase);
-      $('screen-accept').textContent = host ? 'Share this tab' : 'Play on shared screen';
+      $('screen-accept').textContent = host ? 'Share game state' : 'Play together';
       $('screen-decline').textContent = incoming || screen.phase === 'asked' ? 'Keep playing' : 'Cancel';
       if (!dialog.open) dialog.showModal();
     } else if (dialog.open) dialog.close();

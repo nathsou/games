@@ -56,6 +56,7 @@ export class App {
   readonly renderer: Renderer;
   readonly camera = new OrbitCamera();
   screen: Screen | null = null;
+  sharedView: DrawList = {};
   /** Puzzle id solved in the last play session (the gallery reveals it on its plinth). */
   freshSolve: string | null = null;
   private last = performance.now();
@@ -125,6 +126,7 @@ export class App {
       s.update(dt, now / 1000);
       this.camera.update(dt);
       const list = s.draw(now / 1000);
+      this.sharedView = list || {};
       if (list) this.renderer.render(this.camera, list);
       else this.renderer.render(this.camera, {});
     }

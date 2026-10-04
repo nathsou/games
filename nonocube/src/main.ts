@@ -1,3 +1,5 @@
+import {isSharedFollower} from '../../shared/game-view.js';
+import {installFollower, installHostView} from './friend-view.ts';
 import './styles.css';
 import { App } from './app.ts';
 import { decodePuzzle } from './core/codec.ts';
@@ -15,6 +17,7 @@ import { setTutorialLauncher } from './ui/settings.ts';
 import { applyTheme } from './ui/theme.ts';
 import { Tutorial } from './ui/tutorial.ts';
 
+async function start(): Promise<void> {
 const systemAppearance = matchMedia('(prefers-color-scheme: dark)');
 function syncAppearance(): void {
   document.documentElement.dataset.theme = store.settings.theme === 'auto' ? (systemAppearance.matches ? 'dark' : 'light') : store.settings.theme;
@@ -40,6 +43,7 @@ document.body.append(canvas, root);
 let app: App;
 try {
   app = new App(canvas, root);
+  installHostView(app);
 } catch (e) {
   root.append(h('div', { class: 'fatal glass' }, h('h2', null, 'WebGL 2 unavailable'), h('p', null, 'Nonocube needs a browser with WebGL 2 support. ' + String((e as Error).message))));
   throw e;
@@ -114,3 +118,7 @@ if (!openFromHash()) nav.home();
 
 // Debug handle for development builds.
 if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__nono = { app, nav, store };
+
+}
+if (isSharedFollower()) await installFollower();
+else await start();

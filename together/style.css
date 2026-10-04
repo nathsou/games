@@ -20,9 +20,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 #show-friend-panel { position: fixed; z-index: 3; top: 4px; right: 8px; opacity: .85; font-size: 11px; padding: 5px 8px; }
 main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
 iframe { width: 100%; height: 100%; display: block; border: 0; background: #123c3a; }
-#shared-view { position: absolute; inset: 0; background: #081b19; }
+#shared-view { position: absolute; inset: 0; background: transparent; }
 #screen-surface { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); overflow: hidden; touch-action: none; }
-#screen-video { position: absolute; pointer-events: none; max-width: none; object-fit: fill; }
 #screen-typing { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: min(360px, calc(100% - 24px)); opacity: .85; }
 #friend-cursor { position: absolute; pointer-events: none; z-index: 1; font-size: 20px; color: #ffdf70; text-shadow: 0 1px 3px #000; }
 #friend-cursor small { display: inline-block; font: 11px system-ui; background: #183e37; padding: 2px 5px; border-radius: 4px; }

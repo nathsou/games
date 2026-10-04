@@ -125,7 +125,7 @@ async function shareSeed(app, seed, d) {
 
 // ---- generating screen -------------------------------------------------------------------
 
-class GeneratingScene {
+export class GeneratingScene {
   constructor(app, run, entry) {
     this.app = app;
     this.run = run;

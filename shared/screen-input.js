@@ -1,3 +1,4 @@
+const privateControl = node => node?.closest('input[type=file], input[type=password]') || node?.matches('input,textarea') && /password|secret|token|api.?key|invite|join|pair|credential/i.test(node.id + ' ' + node.name);
 const point = value => Number.isFinite(value) && value >= 0 && value <= 1;
 const pointerTypes = ['pointermove', 'pointerdown', 'pointerup', 'pointercancel'];
 
@@ -6,7 +7,7 @@ const pointerTypes = ['pointermove', 'pointerdown', 'pointerup', 'pointercancel'
 export class ScreenInput {
   constructor(frame) { this.frame = frame; this.reset(); }
   edit(target, insert, from = target.selectionStart, to = target.selectionEnd) {
-    if (!target.matches('input:not([type=file]):not([type=password]), textarea') || from === null || to === null || target.disabled || target.readOnly) return;
+    if (!target.matches('input:not([type=file]):not([type=password]), textarea') || from === null || to === null || target.disabled || target.readOnly || privateControl(target)) return;
     const win = target.ownerDocument.defaultView;
     const value = target.value.slice(0, from) + insert + target.value.slice(to);
     if (target.maxLength >= 0 && value.length > target.maxLength) return;
@@ -32,7 +33,7 @@ export class ScreenInput {
       if (!point(input.x) || !point(input.y)) return;
       const clientX = input.x * win.innerWidth, clientY = input.y * win.innerHeight;
       const hit = doc.elementFromPoint(clientX, clientY);
-      if (!hit || hit.closest('input[type=file]')) return;
+      if (!hit || privateControl(hit)) return;
       const init = {bubbles: true, cancelable: true, clientX, clientY,
         button: [0, 1, 2].includes(input.button) ? input.button : 0,
         buttons: Number.isInteger(input.buttons) && input.buttons >= 0 && input.buttons <= 7 ? input.buttons : 0,
@@ -78,7 +79,7 @@ export class ScreenInput {
       if (typeof input.key !== 'string' || input.key.length > 40 || typeof input.code !== 'string' || input.code.length > 40) return;
       if (input.ctrl || input.alt || input.meta) return;
       const target = doc.activeElement || doc.body;
-      if (target.closest('input[type=file]')) return;
+      if (privateControl(target)) return;
       const event = new win.KeyboardEvent(input.kind, {key: input.key, code: input.code, shiftKey: input.shift === true, bubbles: true, cancelable: true});
       if (!target.dispatchEvent(event) || input.kind !== 'keydown') return;
       if (target.matches('input:not([type=file]):not([type=password]), textarea') && target.selectionStart !== null) {

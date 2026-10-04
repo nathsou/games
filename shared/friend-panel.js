@@ -17,12 +17,12 @@ export const friendPanel = `
   <main id="game-stage">
     <iframe id="game-frame" title="Current game" allow="clipboard-read; clipboard-write; camera; autoplay"></iframe>
     <div id="shared-view" hidden>
-      <div id="screen-surface" tabindex="0" aria-label="Shared game. Click, drag or use the keyboard to play."><video id="screen-video" autoplay muted playsinline></video></div>
+      <div id="screen-surface" tabindex="0" aria-label="Shared game. Click, drag or use the keyboard to play."></div>
       <label class="visually-hidden" for="screen-typing">Type in the selected game field</label>
       <input id="screen-typing" type="text" maxlength="280" placeholder="Type in the selected game field…" autocomplete="off" autocapitalize="off">
     </div>
     <span id="friend-cursor" aria-hidden="true" hidden>➤ <small>Friend</small></span>
-    <span id="screen-wait" role="status" hidden>Connecting the shared screen…</span>
+    <span id="screen-wait" role="status" hidden>Synchronizing the game…</span>
   </main>
   <section id="friend-chat" aria-label="Friend chat" hidden>
     <div class="chat-heading"><h2>Friend chat</h2><button id="chat-close" type="button" aria-label="Close chat">×</button></div>
@@ -49,6 +49,6 @@ export const friendPanel = `
   </dialog>
   <dialog id="screen-dialog" aria-labelledby="screen-title">
     <h2 id="screen-title"></h2><p id="screen-copy"></p>
-    <div class="dialog-actions"><button id="screen-accept" type="button">Share this tab</button><button id="screen-decline" type="button">Cancel</button></div>
+    <div class="dialog-actions"><button id="screen-accept" type="button">Share game state</button><button id="screen-decline" type="button">Cancel</button></div>
   </dialog>
   <p id="friend-error" role="alert" hidden></p>`;
