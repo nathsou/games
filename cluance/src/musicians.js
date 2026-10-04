@@ -144,17 +144,7 @@ export const MUSICIAN_ADDITIONS = [
     "1947–1992",
     "French composer, singer and pianist known for La Groupie du pianiste, collaborations with France Gall, and the rock opera Starmania with lyricist Luc Plamondon."
   ]
-].map((card, index) => [...card, index === 9 ? {
-  atlas: 'assets/musician-billie-eilish-photo.webp',
-  atlasIndex: 0, columns: 1, rows: 1,
-  artCredit: {
-    title: 'Billie Eilish — The O2, 14 July 2025',
-    artist: 'Raph_PH',
-    source: 'https://commons.wikimedia.org/wiki/File:BillieEilishO2140725-39_-_54665577407_(cropped).jpg',
-    license: 'CC BY 4.0',
-    licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
-  },
-} : index >= 6 && index < 12 ? {
+].map((card, index) => [...card, index >= 6 && index < 12 ? {
   atlas: `assets/musician-${['coldplay', 'muse', 'bruno-mars', 'billie-eilish', 'fun', 'angine-de-poitrine'][index - 6]}.webp`,
   atlasIndex: 0, columns: 1, rows: 1,
 } : {
