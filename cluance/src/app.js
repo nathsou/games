@@ -468,20 +468,21 @@ function renderHome() {
     else start(setup.mode);
   };
   if ($("invite-friend"))
-    $("invite-friend").onclick = () => {
-      // In direct pairing the inviter gives clues and their friend guesses.
-      homeRole = "giver";
-      homePartner = "friend";
-      setup.mode = "peer-host";
-      openToken = null;
-      saveSetup();
-      renderHome();
-      start("peer-host");
-    };
+    $("invite-friend").onclick = inviteFriend;
   if ($("join-friend"))
     $("join-friend").onclick = () => openPairing("guest");
   $("open-replay").onclick = () => $("replay-file").click();
   $("replay-file").onchange = (event) => importReplay(event.target.files[0]);
+}
+function inviteFriend() {
+  // In direct pairing the inviter gives clues and their friend guesses.
+  homeRole = "giver";
+  homePartner = "friend";
+  setup.mode = "peer-host";
+  openToken = null;
+  saveSetup();
+  renderHome();
+  start("peer-host");
 }
 function renderTokenPicker() {
   const picker = $("token-picker");
@@ -1601,11 +1602,11 @@ function openPairing(kind, reconnect = false, initial = "") {
   mode = kind === "host" ? "peer-host" : "peer-guest";
   if (kind === "guest" && reconnect) game = null;
   renderPairing();
-  if (kind === "host" || initial)
-    preparePair(kind === "host" ? "offer" : "answer", initial);
+  if (kind === "guest" && initial) preparePair("answer", initial);
 }
 async function preparePair(type, input = "") {
   if (type === "offer") clipboardReply = "";
+  let link;
   try {
     const config = readPairConfig();
     if (type === "answer") {
@@ -1617,7 +1618,7 @@ async function preparePair(type, input = "") {
     pairingError = "";
     pairingInput = input;
     pairingCode = "";
-    const link = newPeer();
+    link = newPeer();
     renderPairing();
     const code =
       type === "offer" ? await link.invite() : await link.join(input);
@@ -1627,6 +1628,7 @@ async function preparePair(type, input = "") {
     pairingInput = "";
     renderPairing();
   } catch (error) {
+    if (link && (peer !== link || !pairingKind)) return;
     pairingBusy = false;
     pairingError = error.message;
     renderPairing();
@@ -1658,8 +1660,14 @@ function renderPairing() {
   if (!pairingKind) return;
   const host = pairingKind === "host";
   showModal(
-    host ? "Invite your guesser." : "Join your clue giver.",
-    "Private table / peer-to-peer",
+    host
+      ? pairingCode
+        ? "Invitation ready."
+        : pairingBusy
+          ? "Creating invitation…"
+          : "Create an invitation."
+      : "Join your clue giver.",
+    host ? "You give the clues · Your friend guesses" : "Your friend gives the clues",
     pairingBody({
       host,
       output: pairingCode,
@@ -1667,7 +1675,7 @@ function renderPairing() {
       error: pairingError,
       initial: pairingInput,
       stun: settings.stun,
-    }),
+    }) + `<p class="help-text"><button type="button" class="text-button" data-action="${host ? "join-instead" : "invite-instead"}">${host ? "Have an invite? Join instead" : "No invitation yet? Create an invitation instead"}</button></p>`,
   );
   for (const [id, value] of [
     ["turn", relay.url],
@@ -1681,7 +1689,14 @@ function renderPairing() {
       (button.onclick = async () => {
         const action = button.dataset.action;
         try {
-          if (action === "create-invite") await preparePair("offer");
+          if (action === "invite-instead") inviteFriend();
+          else if (action === "join-instead") {
+            const old = peer;
+            peer = null;
+            old?.close();
+            updateConnection();
+            openPairing("guest");
+          } else if (action === "create-invite") await preparePair("offer");
           else if (action === "join-invite")
             await preparePair("answer", $("pair-input").value);
           else if (action === "remake-reply")

@@ -8,7 +8,7 @@ The supplied **Cluance redesign from ground up** handoff is the visual reference
 - Guesser: proportional round progress, six-by-two desktop/four-by-three phone board, upright/sideways clue trail, sealed-note control, removal count, clear and named confirmation.
 - Giver: secret thumbnail and gold ring, compact board, private hand fan, pointer dragging and tap/keyboard direction selection, clue/note controls inside the desktop drop zone and a phone action bar. Waiting/error states use the action bar.
 - Reveal: outcome moment, board as it stood in each round, round removal tags, expected-removal match/mismatch chips when recorded, both interpretations and per-card reasons, arrow-key scrubber, autoplay, rematch/swap and replay export.
-- Pairing: existing shared invitation/reply/QR/share flow, collapsed manual reply and connection settings, optional matching clipboard reply banner. TURN credentials remain in memory for the current visit.
+- Pairing: explicit **Create invitation** action followed by **Invitation ready**, plus **Create an invitation instead** from the join dialog and **Join instead** from the host dialog. Existing shared invitation/reply/QR/share flow, collapsed manual reply and connection settings, optional matching clipboard reply banner. TURN credentials remain in memory for the current visit.
 - Details: right drawer with arrow browsing, marking, latest-clue comparison and up to two pinned candidates; optional hover/long-press Peek. Closed drawers and covered handoffs remove their contents.
 - Collection: searchable full page, deck chips, date/order sorting, biography inspection and Play this deck.
 - Settings: Game, AI partner, Spending and Network tabs; self-hosted typography, appearance and size segments, details previews, music volume, sound and reduced-motion controls. Existing provider, key, reasoning, token-budget, pricing and usage controls remain functional.
@@ -36,3 +36,5 @@ Verification uses temporary Playwright scripts with system Chromium; no test dep
 [Home](screenshots/redesign-home.png), [guesser table](screenshots/redesign-table.png), [phone table](screenshots/redesign-phone.png), [giver table](screenshots/redesign-giver.png), [dark giver table](screenshots/redesign-giver-dark.png), and [reveal](screenshots/redesign-reveal.png). The French table examples use a reproducible demonstration position; the replay capture is from the completed expanded-card browser game.
 
 Invitation follow-up: [Cities home](screenshots/redesign-cities-home.png) and [invitation link](screenshots/redesign-invitation.png).
+
+Explicit invitation creation: [desktop](screenshots/invitation-create-desktop.png) and [phone](screenshots/invitation-create-phone.png). Native offer/reply generation, clipboard copying, matching-room acceptance, role switching and invalid-reply recovery were checked; live connectivity remains unverified in this environment, which produced zero ICE candidates.
