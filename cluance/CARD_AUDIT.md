@@ -352,7 +352,7 @@ Serge Gainsbourg (`singers-25`) is retained once. The additions preserve all ori
 
 | ID | Subject | Date caption | Decision | Individual finding |
 | --- | --- | --- | --- | --- |
-| countries-0 | France | First Republic: 1792 | Retained | Mont Saint-Michel and lavender are an explicitly symbolic national montage. |
+| countries-0 | France | First Republic: 1792 | Redrawn | User-selected Chenonceau variant: Renaissance château and arched gallery over the Cher, slate roofs, river reflections and foreground roses. Coherent Loire landscape; main architecture fits the card crop. |
 | countries-1 | Italy | Unification: 1861 | Retained | Leaning Tower, cypress and classical ruins support Italy. |
 | countries-2 | United Kingdom | Act of Union: 1801 | Retained | Stonehenge and telephone box support the United Kingdom. |
 | countries-3 | Germany | Reunification: 1990 | Retained | Alpine castle and autumn forest fit Germany. |
