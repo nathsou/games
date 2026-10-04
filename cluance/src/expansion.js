@@ -1,6 +1,6 @@
 // Append-only additions: existing card IDs and original atlas cells stay unchanged.
 import {MUSICIAN_ADDITIONS} from './musicians.js';
-import {FORTY_ADDITIONS, FORTY_ARTWORK} from './forty.js';
+import {FORTY_ADDITIONS, FORTY_ARTWORK, FORTY_ART_CORRECTIONS} from './forty.js';
 export const EXPANSION = {
   "french": [
     [
@@ -408,6 +408,6 @@ export const EXPANSION = {
 // Keep existing expansion indices and IDs intact; new sheets have their own cells.
 for (const [theme, atlas] of Object.entries(FORTY_ARTWORK)) {
   EXPANSION[theme].push(...FORTY_ADDITIONS[theme].map((row, atlasIndex) => [
-    ...row, {atlas, atlasIndex, columns: 5, rows: 2},
+    ...row, {atlas, atlasIndex, columns: 5, rows: 2, ...FORTY_ART_CORRECTIONS[row[0]]},
   ]));
 }

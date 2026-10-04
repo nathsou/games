@@ -624,4 +624,29 @@ export const FORTY_ADDITIONS = {
 };
 
 // Only reviewed, delivered atlases are registered. Cells are row-major in a 5 × 2 grid.
-export const FORTY_ARTWORK = {scientists: 'assets/scientists-forty.webp', philosophers: 'assets/philosophers-forty.webp'};
+export const FORTY_ARTWORK = {
+  "scientists": "assets/scientists-forty.webp",
+  "philosophers": "assets/philosophers-forty.webp",
+  "french": "assets/french-forty.webp",
+  "actors": "assets/actors-forty.webp",
+  "global": "assets/global-forty.webp",
+  "cities": "assets/cities-forty.webp",
+  "countries": "assets/countries-forty.webp",
+  "writers": "assets/writers-forty.webp"
+};
+
+// Rejected atlas cells are never mapped to an active card.
+export const FORTY_ART_CORRECTIONS = {
+  "Toussaint Louverture": {
+    "atlas": "assets/global-forty-corrections.webp",
+    "atlasIndex": 0,
+    "columns": 2,
+    "rows": 1
+  },
+  "Boudica": {
+    "atlas": "assets/global-forty-corrections.webp",
+    "atlasIndex": 1,
+    "columns": 2,
+    "rows": 1
+  }
+};

@@ -9,13 +9,13 @@ Each new subject receives original imagegen artwork, an individual review of bot
 | Theme | Before | Target | Artwork / integration |
 | --- | ---: | ---: | --- |
 | scientists | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
-| french | 30 | 40 | Pending generation and review |
-| global | 30 | 40 | Pending generation and review |
+| french | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
+| global | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
 | philosophers | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
-| writers | 30 | 40 | Pending generation and review |
-| actors | 30 | 40 | Pending generation and review |
-| cities | 30 | 40 | Pending generation and review |
-| countries | 30 | 40 | Pending generation and review |
+| writers | 30 | 40 | Integrated; refining two props for the labelled crop |
+| actors | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
+| cities | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
+| countries | 30 | 40 | Integrated; ten cards individually reviewed in both crops |
 | regions | 30 | 40 | Pending generation and review |
 | greek | 30 | 40 | Pending generation and review |
 | Musicians | 53 | 53 | Already above target |
@@ -205,3 +205,88 @@ Each new subject receives original imagegen artwork, an individual review of bot
 | philosophers-39 | Judith Butler | Short wavy hair, angular face and mirrored frames distinguish the modern philosopher; complete name/date fit. |
 
 [Generated atlas](assets/philosophers-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
+
+## french — individual accepted-card review
+
+| ID | Subject | Finding |
+| --- | --- | --- |
+| french-30 | Christine de Pizan | Horned cloth headdress, blue gown and manuscript fit the early-fifteenth-century writer; approximate lifespan is explicit. |
+| french-31 | Blaise Pascal | Long hair, falling collar and separate mechanical calculator distinguish Pascal; calculator survives both crops. |
+| french-32 | René Laennec | Single straight early stethoscope replaces the modern rubber-tube form; coat and cravat fit the physician’s era. |
+| french-33 | Hubertine Auclert | Formal high collar, folded ballot and wooden voting box distinguish the suffrage campaigner; no baked-in slogan. |
+| french-34 | Jean Jaurès | Large beard, orator’s gesture and parliamentary setting distinguish the politician; visible hand anatomy is coherent. |
+| french-35 | Léon Blum | Gray moustache, spectacles and leisure-park backdrop support the Popular Front context without adding explanatory text. |
+| french-36 | Jean Moulin | Fedora, scarf, coat and nighttime street recall the Resistance organizer; no military uniform. |
+| french-37 | Lucie Aubrac | Glasses, modest coat and schoolbook distinguish the teacher and Resistance activist from Moulin. |
+| french-38 | Pierre de Coubertin | Large curled moustache, separate laurel wreath and marble stadium support Olympic organizing; no five-ring logo. |
+| french-39 | Aimé Césaire | Dark spectacles, gray moustache, poetry volume and Martinican coast distinguish the poet and politician. |
+
+[Generated atlas](assets/french-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
+
+## global — individual accepted-card review
+
+| ID | Subject | Finding |
+| --- | --- | --- |
+| global-30 | Akbar | Mughal turban, patterned robe, flower and red sandstone architecture make the court setting specific. |
+| global-31 | Suleiman the Magnificent | Large Ottoman turban, kaftan and mosque backdrop distinguish the sultan from Akbar; face remains centered. |
+| global-32 | Nzinga | Woven robe, jewelry and carved staff provide an imaginative Central African ruler; no European crown. |
+| global-33 | Toussaint Louverture | Redrawn from scratch: cane fields and a simple timber building replace a potentially post-lifetime fortress; military coat and tricorn remain clear. |
+| global-34 | Boudica | Redrawn from scratch: timber roundhouses and chariot wheel replace later-looking masonry; torc, woven tunic and spear fit the ancient setting. |
+| global-35 | Sejong the Great | Joseon winged cap, red court robe and scroll distinguish the Korean king; no modern Korean lettering. |
+| global-36 | Sacagawea | Modest deerskin clothing, plain braids, plants and river pass avoid a generic feather headdress; commonly accepted lifespan is explained. |
+| global-37 | Emmeline Pankhurst | Edwardian clothing and ballot box fit the British suffrage context; background differs from Auclert’s French civic room. |
+| global-38 | Mary Seacole | Victorian dress, ceramic cup and medical bag support the Crimean caregiver biography; hands and bag remain separate. |
+| global-39 | George Washington | Powdered swept hair, blue/buff clothing and folded map match the eighteenth-century figure without a modern flag. |
+
+[Generated atlas](assets/global-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
+
+## actors — individual accepted-card review
+
+| ID | Subject | Finding |
+| --- | --- | --- |
+| actors-30 | Bette Davis | Heavy-lidded eyes, arched brows, 1940s waves and vintage microphone distinguish Davis; face stays large in both crops. |
+| actors-31 | Katharine Hepburn | Angular cheekbones, swept auburn hair and collared blouse distinguish Hepburn; vintage camera remains legible. |
+| actors-32 | Sidney Poitier | Close-cropped hair, dignified face and unlettered clapperboard identify the actor without a fictional character costume. |
+| actors-33 | Laurence Olivier | Sleek hair, neat moustache and separate theater mask fit the stage and screen biography; no royal costume. |
+| actors-34 | Maggie Smith | Lined narrow face, light eyes, silver-blonde waves and script distinguish the older actor; 2024 death date retained. |
+| actors-35 | Isabelle Huppert | Red hair, freckles, dark blouse and circular film reel remain distinct from Stone; the face survives the narrower crop. |
+| actors-36 | Gong Li | Long straight dark hair, red modern dress and studio spotlight show the actor rather than an imperial character. |
+| actors-37 | Song Kang-ho | Broad face, short wavy hair and scene script fit the South Korean actor; no lettering is baked into the artwork. |
+| actors-38 | Pedro Pascal | Moustache, short beard, leather jacket and warm desert light remain recognizable; no helmet or armor hides the face. |
+| actors-39 | Emma Stone | Red waves, green eyes and blue dress distinguish Stone from Huppert; film reel remains recognizable in both crops. |
+
+[Generated atlas](assets/actors-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
+
+## cities — individual accepted-card review
+
+| ID | Subject | Finding |
+| --- | --- | --- |
+| cities-30 | Edinburgh | Rocky castle skyline, slate roofs and warm Old Town windows distinguish the Scottish city; both crops retain the fortress. |
+| cities-31 | Stockholm | Red-brick waterfront City Hall and square crowned tower remain distinct from other European capitals. |
+| cities-32 | Budapest | Central red Parliament dome and white Gothic facade stay legible above the Danube; bridge is a symbolic foreground motif. |
+| cities-33 | Dubrovnik | Stone seawalls, round fortifications and dense terracotta roofs identify the Adriatic setting without snow or unrelated landmarks. |
+| cities-34 | Kyoto | Three-level pavilion has wood/cream lower floor and gold upper floors; pond reflection and autumn foliage survive both crops. |
+| cities-35 | Hanoi | Turtle Tower stands on its small lake island with arcades and leafy urban backdrop; red bridge is a symbolic nearby motif. |
+| cities-36 | Kathmandu | White stupa dome, eye-painted square block and golden spire distinguish Nepalese Buddhist architecture from Thai temples. |
+| cities-37 | Havana | Pastel colonial facades, seawall and turquoise vintage car give a distinct Caribbean city; car remains readable in the labelled crop. |
+| cities-38 | Cusco | Large fitted stonework, colonial bell towers and Andean backdrop support Cusco rather than duplicating Machu Picchu. |
+| cities-39 | Québec City | Red-brick hotel, steep green roofs, fortified streets and broad river identify Québec; winter palette differs from European castles. |
+
+[Generated atlas](assets/cities-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
+
+## countries — individual accepted-card review
+
+| ID | Subject | Finding |
+| --- | --- | --- |
+| countries-30 | Iceland | Basalt waterfall, moss, snow and restrained aurora create a distinct North Atlantic landscape; no tropical plants. |
+| countries-31 | Sweden | Falu-red timber cottage with white trim, rocky archipelago shore and birches support the Swedish setting. |
+| countries-32 | Netherlands | Exactly four windmill sails, canal and tulip rows remain legible in both crops; low polder landscape avoids mountains. |
+| countries-33 | Austria | Alpine lake village and narrow church spire differ from Switzerland’s Matterhorn composition; state-treaty caption is explicit. |
+| countries-34 | Vietnam | Limestone karst bay and wooden sailing boat support Hạ Long scenery; no Thai temple is substituted. |
+| countries-35 | Nepal | Snowy Himalayan pyramid and Nepalese-style wooden architecture distinguish the country from European Alpine cards. |
+| countries-36 | Senegal | Baobab silhouette, Atlantic beach and painted pirogue distinguish West Africa; boat and tree remain readable. |
+| countries-37 | Ethiopia | Sunken cross-shaped rock-hewn church sits inside its excavation, with coffee plant motif; no ordinary domed cathedral. |
+| countries-38 | Chile | Atacama lagoon, flamingos and Andean volcanic cones support the geography; no Rapa Nui statue is moved onto the mainland. |
+| countries-39 | Cuba | Rounded Viñales mogotes, red-tiled farmhouse and tobacco leaves distinguish Cuba from the Vietnamese karst bay. |
+
+[Generated atlas](assets/countries-forty.webp). Full-bleed and labelled AI contact sheets were individually inspected in the execution workspace. All ten additions were searched and opened in the inspector; the complete 40-card gallery is distinct and fits 1440, 390 and 320px widths.
