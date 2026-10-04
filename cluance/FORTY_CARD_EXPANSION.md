@@ -326,3 +326,5 @@ Compression follow-up: the fourteen new WebP assets now total **5,680,790 bytes*
 ## Corrected French Regions scope
 
 The pack contains exactly the 27 administrative regions of 2015 (22 metropolitan and five overseas). Historical provinces, counties and territories are excluded from collection and new deals. The ten proposed new territories and both new Regions atlases were removed; the three previously released provinces retain replay-only compatibility. Current totals are 440 active cards and 27 archived cards. The retained twelve compressed expansion assets total 4,607,350 bytes (4.4 MiB).
+
+Corrected Regions verification: 27-card gallery, sorting, province exclusion in search, 1440/390/320px layouts, complete Classic/Fixed UI games and a replay containing the three previously released provinces all passed, with no browser or HTTP asset errors.
