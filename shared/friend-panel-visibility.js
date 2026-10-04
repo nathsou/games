@@ -1,25 +1,14 @@
-const KEY = 'games.friend-panel-open';
-
+import {installFloatingWindows} from './floating-windows.js';
+import {loadTheme,THEME_KEY} from './theme.js';
 export function installPanelVisibility(session) {
-  const panel=document.getElementById('friend-header'),toggle=document.getElementById('show-friend-panel');
-  let open=true;
-  try { open=localStorage.getItem(KEY)!=='closed'; } catch { /* Storage is optional. */ }
-  function setOpen(value,focus=false) {
-    open=value;panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open));
-    toggle.setAttribute('aria-label',open?'Hide friend panel':'Show friend panel');
-    try { localStorage.setItem(KEY,open?'open':'closed'); } catch { /* Storage is optional. */ }
-    if(focus)(open?panel.querySelector('button'):toggle).focus();
-    session.onChange();
-  }
-  toggle.onclick=()=>setOpen(!open,true);
-  document.getElementById('hide-friend-panel').onclick=()=>setOpen(false,true);
-  panel.addEventListener('keydown',event=>{
-    if(event.key==='Escape'&&!document.querySelector('dialog[open]')){event.preventDefault();setOpen(false,true);}
-  });
-  session.showPanel=()=>setOpen(true);
-  panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open));
-  return ()=>{
-    toggle.textContent=document.getElementById('chat-toggle').textContent.replace('Chat','Friends');
-    toggle.setAttribute('aria-label',open?'Hide friend panel':'Show friend panel');
-  };
+  const $=id=>document.getElementById(id),windows=installFloatingWindows(),media=matchMedia('(prefers-color-scheme: dark)');
+  function theme(){const value=loadTheme();document.documentElement.dataset.colorTheme=value==='system'?(media.matches?'dark':'light'):value;}
+  media.addEventListener('change',theme);window.addEventListener('storage',e=>{if(e.key===THEME_KEY)theme();});window.addEventListener('games-theme-change',theme);theme();
+  const friends=windows.create({id:'Friends',element:$('friend-header'),launcher:$('show-friend-panel'),close:$('hide-friend-panel'),title:$('friends-titlebar'),
+    defaults:v=>({x:v.x+v.width-368,y:v.y+Math.max(16,v.height-448),width:352,height:360}),
+    launcherDefaults:v=>({x:v.x+v.width-152,y:v.y+v.height-80,width:64,height:60}),onVisibility:()=>session.onChange()});
+  const chat=windows.create({id:'Chat',element:$('friend-chat'),launcher:$('chat-toggle'),close:$('chat-close'),title:$('chat-titlebar'),
+    defaults:v=>({x:v.x+(v.width>760?v.width-740:16),y:v.y+Math.max(16,v.height-520),width:352,height:432}),
+    launcherDefaults:v=>({x:v.x+v.width-80,y:v.y+v.height-80,width:64,height:60}),onVisibility:open=>session.onChatVisibility?.(open)});
+  session.showPanel=()=>friends.setOpen(true);session.chatWindow=chat;session.setFriendBadge=count=>friends.badge(count,'games need your turn');
 }

@@ -23,7 +23,7 @@ const url=new URL(location.href);
 const initialGame=!url.hash&&savedRoom&&isFriendPage(savedRoom.page)?savedRoom.page:isFriendPage(url.searchParams.get('game'))?url.searchParams.get('game'):'collection';
 let autoInvite=url.searchParams.get('action')==='invite', autoJoin=url.searchParams.get('action')==='join';
 const invitation=url.hash;url.hash='';url.searchParams.delete('action');history.replaceState(null,'',url);
-let renderChat,renderScreen,updateVisibility,readInviteSetup,readNextSetup;
+let renderChat,renderScreen,readInviteSetup,readNextSetup;
 let inviteGame='collection',nextGame,inviteDefaults;
 function showError(message){$('friend-error').textContent=message;$('friend-error').hidden=false;}
 function loadGame(game) {
@@ -87,13 +87,12 @@ function render() {
     const join=autoJoin;autoInvite=autoJoin=false;
     queueMicrotask(()=>join?openJoin():openInvitation(session.game));
   }
-  updateVisibility?.();
   persistRoom();renderSavedGames();renderInbox();
 }
 const session=new FriendSession({game:initialGame,onChange:render,onSwitch:loadGame,onError:showError,onPicker:()=>navigate('collection')});
 session.resumeGame=Boolean(savedRoom&&!invitation);session.resumeSharedPage=Boolean(savedRoom?.shared&&!invitation);session.sharedResume=session.resumeSharedPage;
 if(savedRoom&&!invitation){session.chat=new RoomChat(session);session.chat.restore(savedRoom.chat);session.resumeCredentials=savedRoom;session.isHost=savedRoom.role==='host';session.independent=Boolean(savedRoom.independent);}
-renderChat=installFriendChat(session);renderScreen=installSharedPlay(session,render);updateVisibility=installPanelVisibility(session);
+renderChat=installFriendChat(session);renderScreen=installSharedPlay(session,render);installPanelVisibility(session);
 window.__friendSession=session;
 session.openInvitation=openInvitation;session.openJoin=openJoin;session.openGameSetup=openGameSetup;
 Object.defineProperty(window,'__together',{value:{
@@ -303,7 +302,7 @@ function renderInbox(){
   }
   $('turn-status').textContent=inboxError||(!inbox.length?'Choose Cluance or Flip It and invite your friend to take turns.':'Moves save automatically. You can leave anytime.');
   const pending=inbox.filter(item=>item.myTurn).length;
-  if(pending)$('show-friend-panel').textContent='Friends · '+pending+' turn'+(pending===1?'':'s');
+  session.setFriendBadge?.(pending);
 }
 session.refreshInbox=refreshInbox;
 setInterval(()=>{if(!document.hidden&&session.resumeCredentials){refreshInbox();session.chat.refresh?.().catch(error=>{$('chat-status').textContent=error.message;});}},10000);
