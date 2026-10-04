@@ -1,5 +1,13 @@
 # Browser play notes
 
+## Musicians expansion — 4 October 2026
+
+The renamed Musicians pack has 54 cards, bringing the full collection to 354. All 25 requested subjects appear once; Serge Gainsbourg retains his existing card. All original and archived card records were compared with the base roster and are unchanged. The `singers` deck and card IDs remain compatible with existing saves and replays.
+
+All 24 new illustrations were individually inspected in the production full-bleed UI and labelled AI renderer, including faces, member counts, instruments, crops, captions and distinguishing visual cues. The 54 pack images are distinct. Imagegen rejected Billie Eilish's likeness; her included image is an original symbolic green-lit recording-studio still life. Angine de Poitrine's public stage characters and musical context were checked against its official biography.
+
+Chromium opened all new cards through search and the details drawer, checked both collection sorts, and verified layouts at 1440×900, 1024×768, 390×844 and 320×568 without horizontal overflow. Classic and fixed-hand five-round games used new musicians for every board and clue position, reached a win, exported their replays and reopened them. Six complete engine checks covered both variants and musician/French board-clue combinations; public views exclude the secret, hand and draw pile. No paid provider calls, browser errors or failed artwork requests occurred. Module syntax and whitespace checks passed.
+
 ## 30-card collection audit — 3 October 2026
 
 The expanded collection has 330 active cards, 30 per theme. All eleven collection galleries were opened in Chromium at 1440 × 1000 and checked at 390 × 844; every accessible label was matched to its subject and date caption. Babbage, Sartre and Camus were opened in the inspector and their biographies checked. There were no browser JavaScript errors or failed asset requests.
