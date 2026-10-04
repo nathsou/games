@@ -1,6 +1,6 @@
 # Expansion to at least 40 cards per theme
 
-Result: **440 active cards** — 40 in each of nine expandable themes, 53 Musicians and the 27 administrative French Regions of 2015. Existing IDs, saved games, archived regions and artwork mappings remain unchanged.
+Result: **541 active cards** — 40 in each of nine expandable themes, 53 Musicians, the 27 administrative French Regions of 2015 and the separate [101-card French Departments deck](DEPARTMENTS.md). Existing IDs, saved games, archived regions and artwork mappings remain unchanged.
 
 Each new subject receives original imagegen artwork, an individual review of both card crops, a date caption and a biography. French Regions keeps only its 27 administrative regions of 2015. The ten proposed historical territories were withdrawn; the three earlier provinces are archived for prior saves and replays. This pack is intentionally exempt from the minimum-card target.
 

@@ -1,5 +1,11 @@
 # Browser play notes
 
+## French Departments — 4 October 2026
+
+Added a separate 101-card deck with government-verified names and official-code IDs. Regions remains at its 27 administrative subjects; the collection now has 541 active cards across twelve decks. Every department was searched/opened with matching dates and biography; both sorts, desktop/390/320px collection and inspector layouts, and 101 distinct images in each production renderer passed. All cards were individually reviewed in the UI and labelled AI crops.
+
+1,152 complete engine games cover all twelve board/clue themes in both variants, with every department dealt on both a board and in a hand. Complete Classic and Fixed browser games used Departments as the board and Regions as clues, including private guesser projection, reload/resume and replay export/import. Both Corsican and all five overseas subjects were included on the browser boards. Legacy region and province replays remain readable. Eight complete server Take turns games also pass with Departments as board or clues in both creator roles and hand variants; all active/archived art renders, site assembly and module/whitespace checks pass. See [per-card review](DEPARTMENTS.md). These checks do not require paid AI calls or live cross-network connectivity.
+
 ## French Regions roster correction — 4 October 2026
 
 The active pack is restored to exactly the 27 administrative regions of 2015. Ten proposed historical-territory additions and their two atlases were removed; three previously released provinces are archived for prior saves/replays. The current catalog has 440 active cards and 27 archived cards. Two hundred engine deals in Classic/Fixed variants contain only administrative region IDs, with twelve board cards and five clue cards. All retained active/archived records remain unchanged and the legacy-region replay validates. Earlier expansion notes below record the superseded proposal.

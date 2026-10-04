@@ -2,7 +2,7 @@
 
 The subsequent 2026-10-04 forty-card expansion adds 90 individually reviewed original illustrations; the ten proposed historical-territory additions were withdrawn. Its complete per-card findings and redraw decisions are in [FORTY_CARD_EXPANSION.md](FORTY_CARD_EXPANSION.md); generation provenance is in [FORTY_CARD_PROMPTS.md](assets/FORTY_CARD_PROMPTS.md). The earlier review tables below retain their original scope. All 377 prior active and archived card records remain unchanged.
 
-Original audit completed on 2026-10-03; the Musicians expansion was reviewed on 2026-10-04. **440 active cards: 53 Musicians, 40 in each of nine expandable themes, and 27 administrative French Regions of 2015.** The expandable decks meet or exceed the publisher's [Similo: History deck description](https://horribleguild.com/eu/product/similo-history/): “Each version of Similo comes with a deck of 30 big cards”. Cluance's subjects and illustrations are original; these are expanded original rosters, not copies of commercial rosters.
+Original audit completed on 2026-10-03; the Musicians expansion was reviewed on 2026-10-04. **541 active cards: 101 French Departments, 53 Musicians, 40 in each of nine expandable themes, and 27 administrative French Regions of 2015.** The expandable decks meet or exceed the publisher's [Similo: History deck description](https://horribleguild.com/eu/product/similo-history/): “Each version of Similo comes with a deck of 30 big cards”. Cluance's subjects and illustrations are original; these are expanded original rosters, not copies of commercial rosters.
 
 Added 63 cards, including Charles Babbage, Jean-Paul Sartre and Albert Camus. French Regions retains all 27 administrative regions of 2015 and adds three explicitly labelled historical provinces: Anjou, Touraine and Provence. They are identified in their subtitles, date captions, biographies and deck description, rather than presented as extra regions in the 2015 division.
 
@@ -489,3 +489,7 @@ These 24 cards are only used by older saves/replays and are absent from new deal
 ## French Regions roster correction
 
 Only the 27 administrative regions of 2015 appear in the active collection and new deals. All ten historical-territory additions in the forty-card proposal were withdrawn and their new atlases removed. Anjou, Touraine and Provence from the earlier expansion are now replay-only archived cards; their existing IDs and artwork remain available to prior saves and replays. The accurate region count takes precedence over a minimum-card target.
+
+## French Departments addition
+
+All 101 new department cards have their own [individual findings](DEPARTMENTS.md) and [generation provenance](assets/DEPARTMENT_PROMPTS.md). Official names and codes were verified against the French government geography API, including both Corsican and all five overseas departments. This separate deck brings the active collection to 541 cards; Regions remains at 27.

@@ -78,7 +78,7 @@ export const DEPARTMENT_CARDS = [
     "code": "06",
     "name": "Alpes-Maritimes",
     "subtitle": "06 · Menton coast & citrus terraces",
-    "dates": "Department created: 1860",
+    "dates": "Re-established: 1860",
     "description": "French department 06 (Alpes-Maritimes), in metropolitan France. Its illustrated local scene features Menton coast and citrus terraces. The composition is symbolic, not a map of departmental boundaries.",
     "atlas": "assets/departments-01.webp",
     "atlasIndex": 5,
@@ -1228,10 +1228,10 @@ export const DEPARTMENT_CARDS = [
     "subtitle": "87 · Limoges bridge & porcelain craft",
     "dates": "Department created: 1790",
     "description": "French department 87 (Haute-Vienne), in metropolitan France. Its illustrated local scene features Limoges bridge and porcelain craft. The composition is symbolic, not a map of departmental boundaries.",
-    "atlas": "assets/departments-09.webp",
-    "atlasIndex": 7,
-    "columns": 5,
-    "rows": 2
+    "atlas": "assets/departments-limoges.webp",
+    "atlasIndex": 0,
+    "columns": 1,
+    "rows": 1
   },
   {
     "id": "departments-88",
