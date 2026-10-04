@@ -1,6 +1,6 @@
-import {SharedScreen} from './shared-screen.js';
+import {SharedPlay} from './shared-play.js';
 
-export function installSharedScreen(session, render) {
+export function installSharedPlay(session, render) {
   const $ = id => document.getElementById(id);
   const frame = $('game-frame'), stage = $('game-stage'), surface = $('screen-surface'), cursor = $('friend-cursor');
   let cursorTimer, moveAt = 0;
@@ -24,7 +24,7 @@ export function installSharedScreen(session, render) {
     cursor.hidden = false;
     cursorTimer = setTimeout(() => { cursor.hidden = true; }, 2000);
   }
-  const screen = session.screen = new SharedScreen(session, {
+  const screen = session.screen = new SharedPlay(session, {
     frame, onChange: render, onGeometry: layout, onCursor: showCursor,
   });
   function sendInput(input) {

@@ -1,6 +1,6 @@
 // Shared play sends a renderable view, never HTML strings, scripts or secrets.
 // Stable node IDs preserve canvas contexts and local CSS/font assets on updates.
-const tags = new Set(('body main header footer nav section article aside div span p small strong b i em h1 h2 h3 h4 ol ul li dl dt dd button label input textarea select option optgroup form fieldset legend details summary dialog a img canvas br hr table tbody thead tr td th progress meter svg g path rect circle ellipse line polyline polygon text tspan defs symbol use linearGradient radialGradient stop clipPath mask filter feGaussianBlur feOffset feBlend feColorMatrix').split(' '));
+const tags = new Set(('body main header footer nav section article aside div span p small strong b i em h1 h2 h3 h4 h5 h6 kbd code pre mark s sub sup figure figcaption time output ol ul li dl dt dd button label input textarea select option optgroup form fieldset legend details summary dialog a img canvas br hr table tbody thead tr td th progress meter svg g path rect circle ellipse line polyline polygon text tspan defs symbol use linearGradient radialGradient stop clipPath mask filter feGaussianBlur feOffset feBlend feColorMatrix').split(' '));
 const secrets = /password|secret|token|api.?key|invite|join|pair|credential/i;
 // The bundled Nonocube adapter and outer shell share IDs through the document.
 const nodeKey = Symbol.for('games.friend-view-node'), counterKey = Symbol.for('games.friend-view-counter');
@@ -19,7 +19,7 @@ function asset(value, doc) {
   return null;
 }
 function attribute(name, value, doc) {
-  if (/^on/i.test(name) || ['value', 'srcdoc', 'action', 'formaction', 'autofocus', 'srcset', 'target', 'download'].includes(name)) return null;
+  if (/^on|secret|token|api.?key|credential/i.test(name) || ['value', 'srcdoc', 'action', 'formaction', 'autofocus', 'srcset', 'target', 'download'].includes(name)) return null;
   if (name === 'src' || name === 'href' || name === 'xlink:href') return asset(value, doc);
   if (name === 'style' && /url\s*\(|@import|expression\s*\(/i.test(value)) return null;
   return value;
@@ -59,7 +59,10 @@ export function applyView(doc, view, cache) {
       if (!tags.has(data.tag) || !Array.isArray(data.children) || !data.attrs || typeof data.attrs !== 'object') throw new Error('Invalid shared element.');
       if (!node || node.localName !== data.tag) node = data.tag === 'body' ? doc.body : data.svg
         ? doc.createElementNS('http://www.w3.org/2000/svg', data.tag) : doc.createElement(data.tag);
-      for (const {name} of [...node.attributes]) if (!(name in data.attrs)) node.removeAttribute(name);
+      for (const {name} of [...node.attributes]) {
+        if (node.localName === 'canvas' && ['width', 'height'].includes(name)) continue;
+        if (!(name in data.attrs)) node.removeAttribute(name);
+      }
       for (const [name, value] of Object.entries(data.attrs)) {
         if (!/^[a-zA-Z][\w:.-]*$/.test(name) || typeof value !== 'string') continue;
         const safe = attribute(name, value, doc);

@@ -135,10 +135,10 @@ async function screenshot(p, name) {
   if (artifacts) await p.screenshot({path: resolve(artifacts, name)});
 }
 
-async function sharedPoint(host, guest, locator) {
+async function sharedPoint(host, guest, locator, point = {x: .5, y: .5}) {
   const element = await locator.boundingBox(), source = await host.locator('#game-frame').boundingBox(), target = await guest.locator('#screen-surface').boundingBox();
-  const x = (element.x + element.width / 2 - source.x) / source.width;
-  const y = (element.y + element.height / 2 - source.y) / source.height;
+  const x = (element.x + element.width * point.x - source.x) / source.width;
+  const y = (element.y + element.height * point.y - source.y) / source.height;
   assert(x >= 0 && x <= 1 && y >= 0 && y <= 1, 'Shared target must be visible');
   return {x: target.x + x * target.width, y: target.y + y * target.height};
 }
@@ -240,11 +240,19 @@ async function collectionRoom() {
   const guestFlip = await (await g.locator('#game-frame').elementHandle()).contentFrame();
   await guestFlip.waitForFunction(() => document.querySelector('#player-name')?.value === 'Alex!');
   assert.equal(await guestFlip.evaluate(() => Boolean(window.__flipit)), false, 'Guest must not start a second game engine');
+  assert.notEqual(await guestFlip.evaluate(() => JSON.parse(localStorage.getItem('flip-it.preferences')).name), 'Alex!', 'Shared views must not overwrite guest saves');
   await flip.evaluate(() => {
     const secret = document.createElement('input'); secret.type = 'password'; secret.id = 'api-key'; secret.value = 'PRIVATE-CREDENTIAL'; document.body.append(secret);
   });
   await guestFlip.locator('#api-key').waitFor();
   assert.equal(await guestFlip.locator('#api-key').inputValue(), '');
+  await flip.evaluate(() => { const field = document.querySelector('#api-key'); field.type = 'text'; field.focus(); });
+  await guestFlip.waitForFunction(() => document.querySelector('#api-key')?.type === 'text');
+  assert.equal(await guestFlip.locator('#api-key').inputValue(), '', 'Revealed credentials stay private');
+  const privateInput = await h.evaluate(() => ({count: window.__friendSession.screen.input.count, start: window.__friendSession.screen.input.windowStarted}));
+  await g.evaluate(() => window.__friendSession.screen.send('input', {epoch: window.__friendSession.screen.remoteEpoch, input: {kind: 'text', value: 'UNAUTHORIZED'}}));
+  await h.waitForFunction(old => { const input = window.__friendSession.screen.input; return input.count !== old.count || input.windowStarted !== old.start; }, privateInput);
+  assert.equal(await flip.locator('#api-key').inputValue(), 'PRIVATE-CREDENTIAL');
   assert(await g.locator('.friend-bar').evaluate(el => el.scrollWidth <= el.clientWidth));
   await screenshot(g, 'shared-cursors-320.png');
   for (const game of ['cluance', 'midnight', 'nonocube', 'pawn-quest', 'collection']) {
@@ -259,23 +267,35 @@ async function collectionRoom() {
     const hostView = await (await h.locator('#game-frame').elementHandle()).contentFrame();
     const guestView = await (await g.locator('#game-frame').elementHandle()).contentFrame();
     if (game === 'nonocube') {
+      await hostView.getByRole('button', {name: 'Skip', exact: true}).click();
       await hostView.getByRole('button', {name: 'Play', exact: true}).click();
+      await hostView.locator('.coll-card').first().click();
       await hostView.locator('.gallery').waitFor();
-      await hostView.getByRole('button', {name: 'Play', exact: true}).click();
+      await hostView.locator('.gallery').getByRole('button', {name: 'Play', exact: true}).click();
       await guestView.locator('.play').waitFor();
       await guestView.waitForFunction(() => window.__sharedView?.canvas?.list?.block?.count > 0);
+      await hostView.waitForFunction(() => { const b = window.__sharedCanvas.snapshot().list.block; return b.count === b.dims.reduce((a,b) => a*b, 1); });
       const count = await hostView.evaluate(() => window.__sharedCanvas.snapshot().list.block.count);
-      assert.equal(await guestView.evaluate(() => window.__sharedView.canvas.list.block.count), count);
+      await guestView.waitForFunction(count => window.__sharedView.canvas.list.block.count === count, count);
       await hostView.getByRole('button', {name: 'Turn right', exact: true}).first().click();
       const before = await guestView.evaluate(() => [...window.__sharedView.canvas.matrix]);
       await guestView.waitForFunction(old => JSON.stringify([...window.__sharedView.canvas.matrix]) !== JSON.stringify(old), before);
     }
     if (game === 'pawn-quest') {
       await hostView.evaluate(() => window.pawnQuest.nav.arena());
+      await hostView.getByRole('button', {name: 'Start game ▶', exact: true}).click();
       await hostView.locator('.board-canvas').waitFor();
+      await hostView.waitForFunction(() => window.__board?.pos);
       await guestView.locator('.board-canvas').waitFor();
       const fen = await hostView.evaluate(() => window.__board.pos.toFEN());
       await guestView.waitForFunction(fen => window.__sharedView?.canvas?.boards[0]?.fen === fen, fen);
+      await hostView.waitForFunction(() => window.__board.interactive === 'move');
+      for (const point of [{x:100/180,y:140/180}, {x:100/180,y:100/180}]) {
+        const p = await sharedPoint(h, g, hostView.locator('.board-canvas'), point);
+        await g.mouse.click(p.x, p.y);
+      }
+      await hostView.waitForFunction(() => window.__board.pos.b[0x34] === 1);
+      await guestView.waitForFunction(() => window.__board?.pos?.b[0x34] === 1);
     }
   }
   await g.locator('#screen-toggle').click();

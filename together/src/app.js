@@ -1,7 +1,7 @@
 import {FriendSession, FRIEND_GAMES} from '../../shared/friend-session.js';
 import {friendPanel} from '../../shared/friend-panel.js';
 import {installFriendChat} from '../../shared/friend-chat-view.js';
-import {installSharedScreen} from '../../shared/shared-screen-view.js';
+import {installSharedPlay} from '../../shared/shared-play-view.js';
 import {installPanelVisibility} from '../../shared/friend-panel-visibility.js';
 import {FRIEND_PAGES, isFriendPage} from '../../shared/friend-pages.js';
 import {createHostedRoom, hostedLink, hostedInvitation, roomConfig, roomDetails} from '../../shared/signaling.js';
@@ -96,7 +96,7 @@ const session = new FriendSession({
   onPicker: () => session.requestGame('collection'),
 });
 renderChat = installFriendChat(session);
-renderScreen = installSharedScreen(session, render);
+renderScreen = installSharedPlay(session, render);
 updateVisibility = installPanelVisibility(session);
 window.__friendSession = session;
 Object.defineProperty(window, '__together', {value: {

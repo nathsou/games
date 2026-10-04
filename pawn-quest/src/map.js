@@ -38,7 +38,7 @@ function nodeLayout(n) {
 function hash(x, y, s) { let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
 
 export function drawBiome(canvas, cssW, height, world, pts) {
-  canvas.__friendDraw = {type: 'biome', cssW, height, world, pts};
+  canvas.__friendDraw = {type: 'biome', cssW, height, world: {biome: world.biome, rank: world.rank}, pts};
   const b = BIOMES[world.biome];
   const w = Math.ceil(cssW / PX), hh = Math.ceil(height / PX);
   canvas.width = w; canvas.height = hh;

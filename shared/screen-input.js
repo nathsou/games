@@ -1,4 +1,14 @@
-const privateControl = node => node?.closest('input[type=file], input[type=password]') || node?.matches('input,textarea') && /password|secret|token|api.?key|invite|join|pair|credential/i.test(node.id + ' ' + node.name);
+const credentials = field => field.type === 'password' || field.type === 'file' || /password|secret|token|api.?key|invite|join|pair|credential/i.test(field.id + ' ' + field.name);
+function privateControl(node) {
+  const field = node?.closest('input,textarea');
+  if (field && credentials(field)) return true;
+  const panel = node?.closest('dialog,[role=dialog],.modal,.modal-back');
+  if (panel && [...panel.querySelectorAll('input,textarea')].some(credentials)) return true;
+  const button = node?.closest('button,a');
+  if (!button) return false;
+  const action = button.dataset.action || button.id || button.getAttribute('aria-label') || button.textContent.trim();
+  return /^(?:\W*)(?:copy|clipboard|paste|scan|import|export|download|upload|share|open-replay|load-replay)(?:\b|[-_])/i.test(action);
+}
 const point = value => Number.isFinite(value) && value >= 0 && value <= 1;
 const pointerTypes = ['pointermove', 'pointerdown', 'pointerup', 'pointercancel'];
 

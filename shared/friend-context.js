@@ -8,7 +8,7 @@ export function friendSession() {
   }
 }
 
-export function sharedScreenActive() {
+export function sharedPlayActive() {
   try { return window.parent !== window && Boolean(window.parent.__friendSession?.screen?.active); }
   catch { return false; }
 }

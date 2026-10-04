@@ -10,7 +10,7 @@ const sizeOK = size => Array.isArray(size) && size.length === 2 && size.every(n 
 
 // One authority executes game actions. The other browser renders its view
 // locally. State, controls and cursors all use the room's existing data channel.
-export class SharedScreen {
+export class SharedPlay {
   constructor(session, {frame, onChange, onGeometry, onCursor}) {
     Object.assign(this, {session, frame, onChange, onGeometry, onCursor});
     this.input = new ScreenInput(frame);

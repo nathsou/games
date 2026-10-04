@@ -1,4 +1,4 @@
-import {friendSession, togetherURL, registerFriendGame, redirectTogetherInvitation, sharedScreenActive} from '../../shared/friend-context.js';
+import {friendSession, togetherURL, registerFriendGame, redirectTogetherInvitation, sharedPlayActive} from '../../shared/friend-context.js';
 import { loadTheme, THEME_KEY } from "../../shared/theme.js";
 import { loadAI, saveAI, CONFIG_KEY } from "../../shared/ai/config.js";
 import { DECKS, CARDS } from "./decks.js";
@@ -492,7 +492,7 @@ function renderHome() {
   };
   if ($("invite-friend")) $("invite-friend").onclick = inviteFriend;
   if ($("join-friend")) $("join-friend").onclick = () => {
-    if (sharedScreenActive()) { toast('Stop cursors in the friend panel before starting a separate multiplayer table.'); return; }
+    if (sharedPlayActive()) { toast('Stop cursors in the friend panel before starting a separate multiplayer table.'); return; }
     if (friendSession()?.connected) friendSession().requestGame('cluance');
     else openPairing("guest");
   };
@@ -500,7 +500,7 @@ function renderHome() {
   $("replay-file").onchange = (event) => importReplay(event.target.files[0]);
 }
 function inviteFriend() {
-  if (sharedScreenActive()) { toast('Stop cursors in the friend panel before starting a separate multiplayer table.'); return; }
+  if (sharedPlayActive()) { toast('Stop cursors in the friend panel before starting a separate multiplayer table.'); return; }
   if (friendSession()?.connected) {
     friendSession().requestGame('cluance');
     return;

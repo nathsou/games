@@ -1,4 +1,4 @@
-import {friendSession, togetherURL, registerFriendGame, redirectTogetherInvitation, sharedScreenActive} from '../../shared/friend-context.js';
+import {friendSession, togetherURL, registerFriendGame, redirectTogetherInvitation, sharedPlayActive} from '../../shared/friend-context.js';
 import {trackArcadeGame} from '../../shared/ai/usage.js';
 import {installThemeControls,saveTheme,THEME_KEY} from '../../shared/theme.js';
 import {loadAI} from '../../shared/ai/config.js';
@@ -726,7 +726,7 @@ document.addEventListener('click',async event=>{
       clearTimeout(botTimer); generation++; const old=peer; peer=null; old?.close();
       forgetTable(); session=null; game=null; mode='solo'; scene='menu'; render();
     } else if (action==='host' || action==='join') {
-      if (sharedScreenActive()) {notify('Stop cursors in the friend panel before starting a separate multiplayer table.');return;}
+      if (sharedPlayActive()) {notify('Stop cursors in the friend panel before starting a separate multiplayer table.');return;}
       if (!friendSession() && !peer && action==='host') {location.href=togetherURL('flip-it','invite');return;}
       openPair(action); if (action==='host' && !peer?.connected && !pairOut) await createInvitation(); }
     else if (action==='reconnect-last') { openPair(prefs.lastPlayer?.seat ? 'join' : 'host'); if (!prefs.lastPlayer?.seat && !pairOut) await createInvitation(); }
