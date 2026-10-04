@@ -35,4 +35,31 @@ npm run deploy
 
 No Cloudflare credentials are needed for local tests or `npm run deploy:check`.
 
-The signaling and optional managed TURN configuration are being added in this PR.
+## Optional managed TURN relay
+
+Signaling works without a TURN account. Configure the managed relay for players on networks that block direct WebRTC connections:
+
+1. Open Cloudflare **Realtime → TURN**, and create a TURN key.
+2. In **Workers & Pages → games → Settings → Variables and Secrets**, add `TURN_KEY_ID` with the key's ID and add **secret** `TURN_API_TOKEN` with that TURN key's API token. This is the token issued for the TURN key, not the general Cloudflare account API token.
+3. Deploy the updated configuration. No values belong in GitHub, the invitation URL, the game's settings or browser JavaScript.
+
+The Worker generates credentials valid for one hour, limited to four requests per seat in an authenticated invitation. They remain in browser memory. A manually configured relay takes precedence. Sessions longer than the credential lifetime need a fresh connection.
+
+The `SignalRoom` and `InviteLimiter` Durable Object bindings are created automatically by the checked-in Wrangler migration; do not create KV namespaces, D1 databases, Pages projects or manual bindings. SQLite-backed Durable Objects work on the Workers Free plan.
+
+## Invite behavior and limits
+
+- Invite links expire after 15 minutes. Host and guest each have a distinct random capability; the shared link contains only the guest capability, in its fragment.
+- Both games exchange SDP and ICE automatically. Gameplay, private cards and AI credentials use the existing encrypted WebRTC data channel.
+- The service accepts only two seats and connection metadata. It limits each IP to 30 new invitations per hour, caps signaling size/rate, and discards buffered connection metadata after connection or expiry.
+- A link already used for a completed connection cannot be reused. Keep both game tabs open; reconnecting makes a fresh link while preserving the existing game's recovery behavior.
+- Cluance keeps the inviter's chosen giver/guesser role and public table options. Flip It defaults to a duel with zero bots/AI.
+- **Use manual pairing** provides the original invite/reply flow if needed. Manual pairing and local games remain available on the games' original development servers.
+
+## Branch previews
+
+After the first production deployment creates the Durable Object migrations, Cloudflare's non-production deploy command can be set to `npx wrangler versions upload` to create preview URLs. Those versions share the production Durable Object namespaces. Rooms are bound to their exact origin, preventing an invitation from being used on another preview or production host. Use a separate Worker/account environment if you need fully isolated preview quotas and storage.
+
+## Verification
+
+`npm run test:cloudflare` uses Cloudflare's local runtime to check room permissions, origin/game isolation, expiry, replay/duplicate-seat rejection, signaling limits and TURN credential minting. `npm run build` and `npm run deploy:check` validate the complete collection and Worker bindings. Browser audits cover automatic invite exchange in both games; credentials and remote-network connectivity still require account configuration.
