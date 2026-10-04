@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {botAction} from '../flip-it/src/bot.js';
-import {installTestPeer} from './test-peer.mjs';
+import {installTestPeer, installTestDisplay} from './test-peer.mjs';
 
 const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({
@@ -22,6 +22,7 @@ async function context(mock = true, width = 1280) {
   await c.addInitScript(mock => {
     // Separate each browser's saves while sharing the test RTC BroadcastChannel.
     if (mock) Object.defineProperty(window, 'localStorage', {get: () => sessionStorage});
+    if (!localStorage.getItem('games.friend-panel-auto-hide')) localStorage.setItem('games.friend-panel-auto-hide', 'off');
     if (!localStorage.getItem('flip-it.preferences')) {
       localStorage.setItem('flip-it.preferences', JSON.stringify({
         aiCount: 3, aiKinds: ['model', 'model', 'model'], team: true, stun: '', fx: false,
@@ -59,6 +60,7 @@ async function state(p, game) {
     game === 'flip-it' ? '__flipit' : '__cluance');
 }
 async function connected(p, game) {
+  if (game === 'collection') { await p.waitForFunction(() => window.__together?.connected); return; }
   const view = await gameView(p, game);
   await view.waitForFunction(name => window[name]?.connected,
     game === 'flip-it' ? '__flipit' : '__cluance');
@@ -133,7 +135,115 @@ async function screenshot(p, name) {
   if (artifacts) await p.screenshot({path: resolve(artifacts, name)});
 }
 
+async function sharedPoint(host, guest, locator) {
+  const element = await locator.boundingBox(), source = await host.locator('#game-frame').boundingBox(), target = await guest.locator('#screen-surface').boundingBox();
+  const x = (element.x + element.width / 2 - source.x) / source.width;
+  const y = (element.y + element.height / 2 - source.y) / source.height;
+  assert(x >= 0 && x <= 1 && y >= 0 && y <= 1, 'Shared target must be visible');
+  return {x: target.x + x * target.width, y: target.y + y * target.height};
+}
+
+async function collectionRoom() {
+  console.log('Checking collection rooms, shared cursors and auto-hide');
+  const c = await context();
+  await c.addInitScript(installTestDisplay);
+  const h = await c.newPage(), g = await c.newPage();
+  for (const p of [h, g]) { p.setDefaultTimeout(15000); p.on('pageerror', e => errors.push(e.message)); }
+  let rooms = 0;
+  c.on('request', r => { if (r.method() === 'POST' && new URL(r.url()).pathname === '/api/rooms') rooms++; });
+  await h.goto(origin + '/');
+  await h.locator('#invite-friend').click();
+  await h.waitForFunction(() => document.querySelector('#room-link').value);
+  const link = await h.locator('#room-link').inputValue();
+  assert.equal(new URL(link).pathname, '/');
+  await h.locator('#room-close').click();
+  await h.locator('#invite-friend').click(); // Reopen an existing invitation.
+  assert.equal(await h.locator('#room-link').inputValue(), link);
+  await g.setViewportSize({width: 320, height: 844});
+  await g.goto(link);
+  for (const p of [h, g]) await p.waitForFunction(() => window.__together?.connected);
+  const peerIDs = await Promise.all([h, g].map(p => p.evaluate(() => window.__testPeers[0].id)));
+  // Declining stops capture, while the room and native game choices survive.
+  await h.locator('#screen-toggle').click();
+  await h.locator('#screen-accept').click();
+  await g.locator('#screen-decline').click();
+  await h.waitForFunction(() => window.__together.screen === 'off');
+  assert.equal(await h.evaluate(() => window.__testCaptureStreams[0].getVideoTracks()[0].readyState), 'ended');
+  await g.locator('#screen-toggle').click();
+  await h.locator('#screen-accept').click();
+  await g.locator('#screen-accept').click();
+  await h.waitForFunction(() => window.__together.screen === 'sharing');
+  await g.waitForFunction(() => window.__together.screen === 'viewing');
+  assert.equal(await g.locator('#game-frame').getAttribute('src'), 'about:blank');
+  assert.equal(await g.locator('#screen-video').evaluate(el => Boolean(el.srcObject)), true);
+  assert.equal(await h.locator('#screen-toggle').textContent(), 'Stop');
+  const hostCollection = await (await h.locator('#game-frame').elementHandle()).contentFrame();
+  const point = await sharedPoint(h, g, hostCollection.locator('a.card[href="spacegolf/"]'));
+  await g.mouse.click(point.x, point.y);
+  for (const p of [h, g]) await p.waitForFunction(() => window.__together.game === 'spacegolf');
+  const golf = await (await h.locator('#game-frame').elementHandle()).contentFrame();
+  await golf.locator('canvas').waitFor();
+  await golf.evaluate(() => {
+    window.__remoteEvents = [];
+    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup']) {
+      addEventListener(type, e => { if (!e.isTrusted) window.__remoteEvents.push({type, pointer: e.pointerId}); });
+    }
+  });
+  const bounds = await g.locator('#screen-surface').boundingBox();
+  await g.mouse.move(bounds.x + bounds.width * .4, bounds.y + bounds.height * .4);
+  await g.mouse.down();
+  await g.mouse.move(bounds.x + bounds.width * .6, bounds.y + bounds.height * .6, {steps: 5});
+  await g.mouse.up();
+  await g.mouse.wheel(0, 100);
+  await g.keyboard.press('ArrowRight');
+  await golf.waitForFunction(() => ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup'].every(type => window.__remoteEvents.some(e => e.type === type)));
+  await h.mouse.move(400, 300);
+  await g.locator('#friend-cursor').waitFor({state: 'visible'});
+  await g.locator('#next-game').selectOption('flip-it');
+  for (const p of [h, g]) await p.waitForFunction(() => window.__together.game === 'flip-it');
+  const flip = await (await h.locator('#game-frame').elementHandle()).contentFrame();
+  await flip.locator('#player-name').waitFor();
+  await flip.locator('#player-name').fill('');
+  const namePoint = await sharedPoint(h, g, flip.locator('#player-name'));
+  await g.mouse.click(namePoint.x, namePoint.y);
+  await g.keyboard.type('Alex');
+  await flip.waitForFunction(() => document.querySelector('#player-name').value === 'Alex');
+  assert(await g.locator('.friend-bar').evaluate(el => el.scrollWidth <= el.clientWidth));
+  await screenshot(g, 'shared-cursors-320.png');
+  for (const game of ['cluance', 'midnight', 'nonocube', 'pawn-quest', 'collection']) {
+    await g.locator('#next-game').selectOption(game);
+    await h.waitForFunction(game => window.__together.game === game, game);
+    await g.waitForFunction(game => window.__together.game === game, game);
+    await h.locator('#game-frame').evaluate(frame => new Promise(resolve => {
+      if (frame.contentDocument?.readyState === 'complete') resolve();
+      else frame.addEventListener('load', resolve, {once: true});
+    }));
+  }
+  await g.locator('#screen-toggle').click();
+  for (const p of [h, g]) await p.waitForFunction(() => window.__together.screen === 'off' && window.__together.connected);
+  for (let i = 0; i < 2; i++) assert.equal(await [h, g][i].evaluate(() => window.__testPeers[0].id), peerIDs[i]);
+  assert.equal(rooms, 1);
+  await switchGame(h, g, 'flip-it');
+  assert.equal((await state(h, 'flip-it')).hands.length, 2);
+  // The preference survives game switches; the reveal button remains accessible.
+  await g.locator('#friend-settings summary').click();
+  await g.locator('#header-auto-hide').check();
+  await g.locator('#friend-settings summary').click();
+  await (await gameView(g, 'flip-it')).locator('#app').click({position: {x: 2, y: 2}});
+  await g.locator('#show-friend-panel').waitFor({state: 'visible'});
+  await g.locator('#show-friend-panel').click();
+  await g.locator('#friend-settings summary').click();
+  await g.locator('#header-auto-hide').uncheck();
+  await g.locator('#friend-settings summary').click();
+  await switchGame(h, g, 'collection');
+  assert.equal(await g.evaluate(() => localStorage.getItem('games.friend-panel-auto-hide')), 'off');
+  assert(await g.locator('#friend-header').isVisible());
+  await c.close();
+  results.push('Collection room: capture consent, scaled remote navigation/drag/wheel/typing, bidirectional cursors, every game, stop and native co-op recovery, configurable auto-hide; one signaling room');
+}
+
 try {
+  await collectionRoom();
   for (const initial of ['flip-it', 'cluance']) {
     console.log('Checking persistent sessions beginning in ' + initial);
     const c = await context(), h = await page(c, initial);

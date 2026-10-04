@@ -20,7 +20,9 @@ function seedBrowser({seed,prefs}){
 async function page(size,settings={},mobile=false){
   const c=await browser.newContext({viewport:size,colorScheme:'dark',hasTouch:mobile,isMobile:mobile});
   await c.addInitScript(seedBrowser,{seed:3,prefs:{name:'WWWWWWWWWWWWWWWWWWWWWWWW',fx:false,stun:'',aiCount:1,options:{quickTurns:false,compactDeck:false,lastChance:true,target:5},...settings}});
-  const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto(origin);await p.evaluate(()=>document.fonts.ready);return p;
+  const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));
+  // Isolate the game's standalone layout; cloudflare-audit covers the friend shell.
+  const target=new URL(origin);target.hash='standalone';await p.goto(target.href);await p.evaluate(()=>document.fonts.ready);return p;
 }
 async function state(p){return p.evaluate(()=>window.__flipit.state);}
 async function metrics(p){return p.evaluate(()=>({w:innerWidth,h:innerHeight,sw:document.documentElement.scrollWidth,sh:document.documentElement.scrollHeight,over:[...document.querySelectorAll('#app .flip-card,#app .rival-count,#app .button')].map(n=>{const r=n.getBoundingClientRect();return {class:n.className,text:n.textContent.trim(),x:r.x,right:r.right};}).filter(r=>r.x<-.5||r.right>innerWidth+.5)}));}

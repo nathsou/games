@@ -12,8 +12,21 @@ button:hover, select:hover { background: #315f52; }
 button:disabled, select:disabled { opacity: .6; cursor: wait; }
 button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid #f1d66e; outline-offset: 3px; }
 .friend-actions { display: flex; gap: 6px; }
-main { flex: 1; min-height: 0; }
+#friend-settings { position: relative; }
+#friend-settings summary { padding: 5px 7px; cursor: pointer; list-style: none; border: 1px solid #789188; border-radius: 6px; }
+#friend-settings summary::-webkit-details-marker { display: none; }
+#friend-settings label { position: absolute; z-index: 4; right: 0; top: 36px; width: 220px; padding: 14px; background: #183e37; border: 1px solid #789188; border-radius: 8px; box-shadow: 0 8px 24px #0008; font-size: 13px; }
+#header-auto-hide { accent-color: #f1d66e; }
+#show-friend-panel { position: fixed; z-index: 3; top: 4px; right: 8px; opacity: .85; font-size: 11px; padding: 5px 8px; }
+main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
 iframe { width: 100%; height: 100%; display: block; border: 0; background: #123c3a; }
+#shared-view { position: absolute; inset: 0; background: #081b19; }
+#screen-surface { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); overflow: hidden; touch-action: none; }
+#screen-video { position: absolute; pointer-events: none; max-width: none; object-fit: fill; }
+#screen-typing { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: min(360px, calc(100% - 24px)); opacity: .85; }
+#friend-cursor { position: absolute; pointer-events: none; z-index: 1; font-size: 20px; color: #ffdf70; text-shadow: 0 1px 3px #000; }
+#friend-cursor small { display: inline-block; font: 11px system-ui; background: #183e37; padding: 2px 5px; border-radius: 4px; }
+#screen-wait { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
 dialog { color: inherit; background: #183e37; border: 1px solid #789188; border-radius: 12px; padding: 24px; max-width: min(420px, calc(100vw - 32px)); }
 dialog::backdrop { background: #081b19b3; }
 h2 { font-size: 21px; margin-top: 0; }
@@ -39,7 +52,7 @@ dialog p { line-height: 1.6; }
   .friend-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; padding: 8px; }
   #collection-link { grid-column: 1; grid-row: 1; }
   #friend-status { grid-column: 2; grid-row: 1; min-width: 0; text-align: right; font-size: 11px; }
-  .friend-bar label { display: none; }
+  .friend-bar > label { display: none; }
   #next-game { grid-column: 1; grid-row: 2; max-width: 150px; }
   .friend-actions { grid-column: 2; grid-row: 2; justify-self: end; }
   #next-game { max-width: 130px; width: 100%; }

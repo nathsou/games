@@ -1,10 +1,16 @@
 // The outer page owns WebRTC; game documents may come and go beneath it.
 export function friendSession() {
   try {
-    return window.parent !== window ? window.parent.__friendSession || null : null;
+    const session = window.parent !== window ? window.parent.__friendSession : null;
+    return session?.screen?.active ? null : session || null;
   } catch {
     return null;
   }
+}
+
+export function sharedScreenActive() {
+  try { return window.parent !== window && Boolean(window.parent.__friendSession?.screen?.active); }
+  catch { return false; }
 }
 
 export function togetherURL(game, action = '') {

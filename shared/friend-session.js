@@ -51,11 +51,13 @@ export class FriendSession {
   }
 
   replacePeer(transport, options = {}) {
+    this.screen?.stop(false);
     const old = this.peer;
     this.peer = null;
     old?.close();
     this.epoch = 'initial';
     this.paused = false;
+    this.friendInvitation = null;
     this.chat = new FriendChat(this);
     const {PeerLink} = createPeerTransport(transport);
     const peer = new PeerLink({
@@ -67,6 +69,7 @@ export class FriendSession {
           this.clearProposal();
           clearTimeout(this.loadTimer);
           this.loading = false;
+          this.screen?.stop(false);
         }
         this.link?.notify(status);
         this.onChange();
@@ -79,6 +82,7 @@ export class FriendSession {
     this.disconnect();
     this.isHost = role === 'host';
     this.replacePeer(ROOM_TRANSPORT, {config});
+    this.friendInvitation = role === 'host' ? invitation : null;
     this.onChange();
     await this.peer.connectRoom(invitation, role);
   }
@@ -98,6 +102,7 @@ export class FriendSession {
 
   receive(message) {
     if (this.chat.receive(message)) return;
+    if (message.type.startsWith('friend-screen-')) { this.screen?.handle(message); return; }
     if (message.type === 'friend-game') {
       if (message.game !== this.game || message.epoch !== this.epoch || this.paused) return;
       const payload = message.message, game = FRIEND_GAMES[this.game];
@@ -110,7 +115,7 @@ export class FriendSession {
     }
     if (message.type === 'friend-request') {
       if (!supported(message.game) || !/^[a-f0-9]{32}$/.test(message.id)) return;
-      if (this.proposal || this.loading) {
+      if (this.proposal || this.loading || this.screen?.busy) {
         this.send({type: 'friend-decline', id: message.id});
         return;
       }
@@ -144,6 +149,8 @@ export class FriendSession {
   }
 
   requestGame(game) {
+    if (this.screen?.active) { this.screen.navigate(game); return; }
+    if (this.screen?.busy) return;
     if (!supported(game)) return;
     if (!this.connected) {
       this.disconnect();
@@ -244,6 +251,7 @@ export class FriendSession {
   }
 
   disconnect() {
+    this.screen?.stop();
     this.clearProposal();
     clearTimeout(this.loadTimer);
     this.loading = false;

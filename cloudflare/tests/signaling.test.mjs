@@ -19,27 +19,29 @@ async function connect(mf,room,key,game='flip-it'){
 }
 async function until(fn){const start=Date.now();while(!fn()){if(Date.now()-start>5000)throw Error('Timed out waiting for signaling.');await new Promise(r=>setTimeout(r,10));}}
 test('room permissions, buffering, role restrictions, replay prevention and origin checks',async()=>{
+  for(const game of ['flip-it','friends']) {
   const mf=runtime();
   try{
     assert.equal((await mf.dispatchFetch(origin+'/api/config')).status,200);
-    const room=await create(mf);assert.notEqual(room.hostKey,room.guestKey);
-    const path=origin+'/api/rooms/flip-it/'+room.room;
+    const room=await create(mf,game);assert.notEqual(room.hostKey,room.guestKey);
+    const path=origin+'/api/rooms/'+game+'/'+room.room;
     assert.equal((await mf.dispatchFetch(path+'/info')).status,401);
     assert.equal((await mf.dispatchFetch(path+'/info',{headers:{Authorization:'Bearer '+'f'.repeat(64)}})).status,401);
     assert.equal((await mf.dispatchFetch(path+'/info',{headers:{Origin:'https://other.example',Authorization:'Bearer '+room.guestKey}})).status,403);
     const info=await mf.dispatchFetch(path+'/info',{headers:{Authorization:'Bearer '+room.guestKey}});assert.equal(info.status,200);assert.equal((await info.json()).role,'guest');
     assert.equal((await mf.dispatchFetch(origin+'/api/rooms/cluance/'+room.room+'/info',{headers:{Authorization:'Bearer '+room.guestKey}})).status,410);
-    const host=await connect(mf,room.room,room.hostKey);await until(()=>host.messages.length);assert.equal(host.messages[0].role,'host');
-    assert.equal((await connect(mf,room.room,room.hostKey)).status,409);
+    const host=await connect(mf,room.room,room.hostKey,game);await until(()=>host.messages.length);assert.equal(host.messages[0].role,'host');
+    assert.equal((await connect(mf,room.room,room.hostKey,game)).status,409);
     host.ws.send(JSON.stringify({type:'candidate',candidate:{candidate:'candidate:test',sdpMid:'0',sdpMLineIndex:0}}));
     host.ws.send(JSON.stringify({type:'offer',sdp:'v=0\r\n'}));
-    const guest=await connect(mf,room.room,room.guestKey);await until(()=>guest.messages.length===3);
+    const guest=await connect(mf,room.room,room.guestKey,game);await until(()=>guest.messages.length===3);
     assert.deepEqual(guest.messages.map(m=>m.type),['ready','candidate','offer']);
     guest.ws.send(JSON.stringify({type:'answer',sdp:'v=0\r\n'}));await until(()=>host.messages.length===2);assert.equal(host.messages[1].type,'answer');
     host.ws.send(JSON.stringify({type:'connected'}));guest.ws.send(JSON.stringify({type:'connected'}));
     await until(()=>host.ws.readyState===3);
     assert.equal((await mf.dispatchFetch(path+'/info',{headers:{Authorization:'Bearer '+room.guestKey}})).status,410);
   }finally{await mf.dispose();}
+  }
 });
 test('gameplay and oversized messages cannot enter signaling; TURN requires an invitation',async()=>{
   const mf=runtime();try{

@@ -33,7 +33,7 @@ export class FriendChat {
     return true;
   }
   publish(seat, kind, value) {
-    if (!valid(kind, value) || Date.now() - this.receivedAt[seat] < 500) return;
+    if (!valid(kind, value) || Date.now() - this.receivedAt[seat] < 100) return;
     const entry = {type: 'friend-chat-entry', sequence: this.sequence + 1, seat, kind, value};
     this.session.send(entry);
     this.receivedAt[seat] = Date.now();

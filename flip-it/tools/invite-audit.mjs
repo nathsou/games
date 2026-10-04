@@ -41,7 +41,7 @@ function testTransport(){
 }
 async function context(prefs,transport=false,size={width:1280,height:720}){
   const c=await browser.newContext({viewport:size,permissions:['clipboard-read','clipboard-write']});
-  await c.addInitScript(p=>{if(!localStorage.getItem('flip-it.preferences'))localStorage.setItem('flip-it.preferences',JSON.stringify(p));}, {stun:'',fx:false,...prefs});
+  await c.addInitScript(p=>{localStorage.setItem('games.friend-panel-auto-hide','off');if(!localStorage.getItem('flip-it.preferences'))localStorage.setItem('flip-it.preferences',JSON.stringify(p));}, {stun:'',fx:false,...prefs});
   if(transport)await c.addInitScript(testTransport);
   return c;
 }

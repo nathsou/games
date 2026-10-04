@@ -1,16 +1,19 @@
 import {FriendSession, FRIEND_GAMES} from '../../shared/friend-session.js';
 import {friendPanel} from '../../shared/friend-panel.js';
 import {installFriendChat} from '../../shared/friend-chat-view.js';
+import {installSharedScreen} from '../../shared/shared-screen-view.js';
+import {installPanelVisibility} from '../../shared/friend-panel-visibility.js';
+import {FRIEND_PAGES, isFriendPage} from '../../shared/friend-pages.js';
 import {createHostedRoom, hostedLink, hostedInvitation, roomConfig, roomDetails} from '../../shared/signaling.js';
 
 document.body.innerHTML = friendPanel;
 const $ = id => document.getElementById(id);
 const frame = $('game-frame'), dialog = $('friend-dialog');
-for (const [game, {title}] of Object.entries(FRIEND_GAMES)) {
+for (const [game, title] of Object.entries(FRIEND_PAGES)) {
   $('next-game').append(new Option(title, game));
 }
 const url = new URL(location.href);
-const initialGame = Object.hasOwn(FRIEND_GAMES, url.searchParams.get('game'))
+const initialGame = isFriendPage(url.searchParams.get('game'))
   ? url.searchParams.get('game') : 'collection';
 let autoInvite = url.searchParams.get('action') === 'invite';
 const invitation = url.hash;
@@ -26,15 +29,16 @@ function loadGame(game, hash = '') {
   $('friend-error').hidden = true;
   const target = new URL('../../' + game + '/', import.meta.url);
   target.hash = hash;
-  frame.title = FRIEND_GAMES[game].title;
+  frame.title = FRIEND_PAGES[game];
   frame.src = target.href;
   const page = new URL(game === 'collection' ? '/' : '/together/', location.origin);
   if (game !== 'collection') page.searchParams.set('game', game);
   history.replaceState(null, '', page);
-  document.title = FRIEND_GAMES[game].title + ' · Play together';
+  document.title = FRIEND_PAGES[game] + ' · Play together';
 }
 frame.addEventListener('load', () => {
   if (session.game === 'collection') session.registerGame('collection', {setup: () => ({}), start() {}});
+  else if (!session.supports(session.game) && !session.screen.active) { session.adapter = {invite: createRoom}; render(); }
   const doc = frame.contentDocument;
   doc?.addEventListener('click', event => {
     const link = event.target.closest('a[href]');
@@ -42,25 +46,30 @@ frame.addEventListener('load', () => {
     const target = new URL(link.href);
     if (target.origin !== location.origin) return;
     const game = target.pathname === '/' ? 'collection' : target.pathname.split('/')[1];
-    if (Object.hasOwn(FRIEND_GAMES, game)) {
+    if (isFriendPage(game)) {
       event.preventDefault();
-      session.requestGame(game);
+      navigate(game);
     }
   });
 });
-let renderChat;
+let renderChat, renderScreen, updateVisibility;
 function render() {
-  const title = FRIEND_GAMES[session.game].title;
+  const title = FRIEND_PAGES[session.game];
   let status = 'Invite a friend · ' + title;
   if (session.loading) status = 'Loading ' + title + ' together…';
   else if (session.connected) status = session.paused ? 'Friend connected · Table paused' : 'Friend connected · ' + title;
   else if (session.connecting) status = (session.isHost ? 'Waiting for your friend · ' : 'Joining your friend · ') + title;
+  if (session.screen?.active) status = 'Virtual cursors · ' + title;
   $('friend-status').textContent = status;
-  $('next-game').disabled = session.loading || Boolean(session.proposal);
-  $('invite-friend').hidden = session.connected || session.connecting;
+  $('next-game').disabled = session.loading || Boolean(session.proposal) || Boolean(session.screen?.busy && !session.screen.active);
+  for (const option of $('next-game').options) option.disabled = session.connected && !session.screen?.active && Boolean(option.value) && !session.supports(option.value);
+  const waitingRoom = session.connecting && session.isHost && session.friendInvitation;
+  $('invite-friend').hidden = session.connected || session.connecting && !waitingRoom;
+  $('invite-friend').textContent = waitingRoom ? 'Invite link' : 'Invite a friend';
   $('invite-friend').disabled = !session.adapter || session.roomBusy;
-  $('disconnect').hidden = !session.connected;
+  $('disconnect').hidden = !session.connected && !session.connecting;
   renderChat?.();
+  renderScreen?.();
   if (session.connected && $('room-dialog').open) $('room-dialog').close();
   const proposal = session.proposal;
   if (proposal) {
@@ -80,12 +89,15 @@ function render() {
     autoInvite = false;
     queueMicrotask(() => session.adapter.invite().catch(error => showError(error.message)));
   }
+  updateVisibility?.();
 }
 const session = new FriendSession({
   game: initialGame, onChange: render, onSwitch: loadGame, onError: showError,
   onPicker: () => session.requestGame('collection'),
 });
 renderChat = installFriendChat(session);
+renderScreen = installSharedScreen(session, render);
+updateVisibility = installPanelVisibility(session);
 window.__friendSession = session;
 Object.defineProperty(window, '__together', {value: {
   get game() { return session.game; },
@@ -93,15 +105,27 @@ Object.defineProperty(window, '__together', {value: {
   get epoch() { return session.epoch; },
   get loading() { return session.loading; },
   get paused() { return session.paused; },
+  get screen() { return session.screen.phase; },
 }});
+function navigate(game) {
+  if (!isFriendPage(game)) return;
+  if (session.screen?.active || session.supports(game)) session.requestGame(game);
+  else if (!session.connected) {
+    session.disconnect();
+    session.game = game;
+    session.adapter = {invite: createRoom};
+    loadGame(game);
+    render();
+  } else showError('Use Cursors to share this game, or choose Cluance or Flip It for multiplayer.');
+}
 $('next-game').onchange = event => {
   const game = event.target.value;
   event.target.value = '';
-  session.requestGame(game);
+  navigate(game);
 };
 $('invite-friend').onclick = () => {
-  if (session.game === 'collection') createRoom();
-  else session.adapter.invite().catch(error => showError(error.message));
+  if (session.connecting && session.friendInvitation) { $('room-dialog').showModal(); return; }
+  createRoom();
 };
 async function createRoom() {
   const dialog = $('room-dialog');
@@ -132,7 +156,6 @@ $('accept-switch').onclick = () => {
   if (dialog.dataset.kind === 'leave') {
     session.disconnect();
     dialog.close();
-    if (dialog.dataset.return === 'collection') location.href = '../';
   } else session.accept();
 };
 $('decline-switch').onclick = () => {
@@ -147,9 +170,8 @@ dialog.addEventListener('cancel', event => {
   if (session.proposal?.outgoing) session.cancel();
   else session.decline();
 });
-function confirmDisconnect(returnToCollection = false) {
+function confirmDisconnect() {
   dialog.dataset.kind = 'leave';
-  dialog.dataset.return = returnToCollection ? 'collection' : '';
   $('dialog-title').textContent = 'Disconnect from your friend?';
   $('dialog-copy').textContent = 'To play together again, you will need a fresh invitation.';
   $('accept-switch').textContent = 'Disconnect';
