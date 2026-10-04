@@ -119,7 +119,7 @@ export function installSharedPlay(session, render) {
       $('screen-copy').textContent = incoming
         ? 'Both of you can control the shared game with virtual cursors. You see the same screen, including visible cards and notes. This ends the current multiplayer table. Chat stays open.'
         : host && screen.phase !== 'offering'
-          ? 'Both of you will control the game in this tab and see its full state, including visible cards and notes. This ends the current multiplayer table. Each browser renders the game locally. No screen recording or permission is needed. Stop cursors at any time to return to your room.'
+          ? 'Both of you will control this game and see the same cards and notes. This ends the current multiplayer table. Only game data and cursor positions are shared; your screen is not recorded. Stop cursors at any time to return to your room.'
           : 'Your friend can accept or decline. Your friend room stays connected.';
       $('screen-accept').hidden = !['confirm', 'asked', 'requested'].includes(screen.phase);
       $('screen-accept').textContent = host ? 'Share game state' : 'Play together';

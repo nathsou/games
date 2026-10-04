@@ -259,7 +259,7 @@ async function collectionRoom() {
   await flip.locator('[data-action=table-settings]').click();
   await flip.locator('#table-humans').selectOption('2');
   await flip.locator('#ai-count').selectOption('0');
-  await flip.locator('[data-action=close-modal]').click();
+  await flip.getByRole('button', {name: 'Done', exact: true}).click();
   await flip.locator('[data-action=start-game]').click();
   await flip.locator('[data-action=uncover]').click();
   const flipState = await flip.evaluate(() => window.__flipit.state);

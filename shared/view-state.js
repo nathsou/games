@@ -19,7 +19,7 @@ function asset(value, doc) {
   return null;
 }
 function attribute(name, value, doc) {
-  if (/^on|secret|token|api.?key|credential/i.test(name) || ['value', 'srcdoc', 'action', 'formaction', 'autofocus', 'srcset', 'target', 'download'].includes(name)) return null;
+  if (/^on|secret|api.?key|credential|(?:invite|room|auth|access)[-_]?token/i.test(name) || ['value', 'srcdoc', 'action', 'formaction', 'autofocus', 'srcset', 'target', 'download'].includes(name)) return null;
   if (name === 'src' || name === 'href' || name === 'xlink:href') return asset(value, doc);
   if (name === 'style' && /url\s*\(|@import|expression\s*\(/i.test(value)) return null;
   return value;
