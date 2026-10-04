@@ -1,4 +1,5 @@
 // Append-only additions: existing card IDs and original atlas cells stay unchanged.
+import {MUSICIAN_ADDITIONS} from './musicians.js';
 export const EXPANSION = {
   "french": [
     [
@@ -226,7 +227,8 @@ export const EXPANSION = {
       "Italian operatic tenor",
       "1935–2007",
       "Italian tenor celebrated for his voice, opera performances and popular concerts; one of the Three Tenors alongside Plácido Domingo and José Carreras."
-    ]
+    ],
+    ...MUSICIAN_ADDITIONS,
   ],
   "actors": [
     [
