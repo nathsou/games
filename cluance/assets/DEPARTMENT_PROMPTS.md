@@ -78,3 +78,154 @@ Create ONE new original Cluance SIXTEEN-BIT PIXEL ART atlas, exactly FIVE equall
 10. Maine-et-Loire: Angers castle with striped dark-and-pale stone round towers and a thick massive wall above the Maine, warm slate-roof city.
 Exactly 10 independent scenes, five by two regular grid.
 ```
+
+## departments-03.webp
+
+Original imagegen PNG: `exec-067da008-f441-4c14-9f63-ecb5f8633a97.png`. Delivered grid: 5 × 2. Dimensions: 1619 × 971.
+
+```text
+Create ONE new original Cluance SIXTEEN-BIT PIXEL ART atlas, exactly FIVE equally wide columns and TWO equal rows. Overall LANDSCAPE five-to-three aspect ratio; each cell is an independent three-to-four portrait scene. Perfect equal grid, edge-to-edge cells, NO gutters, margins, borders, text, lettering, numbers, logos, coats of arms, flags or watermarks. Deliberately visible square pixel clusters, crisp stepped outlines and controlled dithering in rich jewel-tone colour ramps, like an illustrated 1990s adventure game; NOT photography, smooth painting or photorealism. Detailed real French local landscapes and landmarks. Each scene has a different composition and palette. Main landmark entirely inside the CENTRAL 80% width and UPPER 75% height of its OWN cell so squarer crops retain it. Keep geographic and architectural features plausible, no invented fantasy castles or extra spires. Do not join or repeat scenes. Exact row-major order, left to right across top row then bottom row:
+1. Côtes-d'Armor: Pink granite coast at Ploumanac’h with rounded salmon-coloured boulders, squat stone lighthouse and Atlantic surf.
+2. Creuse: Aubusson stone bridge and old houses over the Creuse river, a small unlettered floral tapestry hanging on a foreground frame.
+3. Dordogne: Beynac castle above a limestone cliff and curving Dordogne river, ochre-roofed village at its foot, a little wooden gabarre boat.
+4. Doubs: Besançon citadel above the tight loop of the Doubs river, green wooded limestone slopes and cream-stone town.
+5. Drôme: Grignan hilltop Renaissance château and pale limestone village, flowering purple lavender fields and cypress trees.
+6. Eure: Giverny garden with an arched green Japanese-style footbridge over a water-lily pond, willow branches and colourful flower beds.
+7. Eure-et-Loir: Chartres cathedral with two different front spires, one simple Romanesque and one intricate Gothic, towering over wheat fields and old town.
+8. Finistère: Pointe du Raz rugged Atlantic cliffs, small offshore lighthouse on rocky islet, crashing deep-blue waves and Breton heath.
+9. Corse-du-Sud: Bonifacio old town perched on sheer white limestone sea cliffs, Corsican Mediterranean turquoise water and a Genoese watchtower motif.
+10. Haute-Corse: Bastia old harbour with the two bell towers of Saint-Jean-Baptiste church and warm ochre buildings, rugged green Cap Corse mountains behind.
+Exactly 10 independent scenes, five by two regular grid.
+```
+
+## departments-06.webp
+
+Original imagegen PNG: `exec-4993b97a-323c-49b7-a254-04d30e8819f2.png`. Delivered grid: 5 × 2. Dimensions: 1619 × 971.
+
+```text
+Create ONE new original Cluance SIXTEEN-BIT PIXEL ART atlas, exactly FIVE equally wide columns and TWO equal rows. Overall LANDSCAPE five-to-three aspect ratio; each cell is an independent three-to-four portrait scene. Perfect equal grid, edge-to-edge cells, NO gutters, margins, borders, text, lettering, numbers, logos, coats of arms, flags or watermarks. Deliberately visible square pixel clusters, crisp stepped outlines and controlled dithering in rich jewel-tone colour ramps, like an illustrated 1990s adventure game; NOT photography, smooth painting or photorealism. Detailed real French local landscapes and landmarks. Each scene has a different composition and palette. Main landmark entirely inside the CENTRAL 80% width and UPPER 75% height of its OWN cell so squarer crops retain it. Keep geographic and architectural features plausible, no invented fantasy castles or extra spires. Do not join or repeat scenes. Exact row-major order, left to right across top row then bottom row:
+1. Manche: Mont Saint-Michel abbey on its tidal island, slender high spire, dense medieval village and huge reflective sandy bay.
+2. Marne: Reims cathedral elaborate pale Gothic facade with two square flat-topped front towers, vineyard rows and Champagne chalk hills.
+3. Haute-Marne: Langres fortified hilltop town with intact stone ramparts and rounded bastion, slate roofs, wide wooded rolling plateau.
+4. Mayenne: Laval medieval château above the Mayenne river, large round stone keep with a pointed slate roof, old bridge and half-timbered houses.
+5. Meurthe-et-Moselle: Nancy Place Stanislas, ornate gilded wrought-iron gates, cream classical arcades and a small bowl of golden mirabelle plums.
+6. Meuse: Verdun Porte Chaussée fortified medieval gateway with two stout round towers on the Meuse river, quiet old town and wooded hills.
+7. Morbihan: Gulf of Morbihan with calm blue sea dotted with wooded islands, a low Breton stone cottage and a few upright ancient standing stones.
+8. Moselle: Metz cathedral towering golden-yellow stone Gothic building over the Moselle, a high single main bell tower and river reflections.
+9. Nièvre: Nevers Ducal Palace, pale Renaissance facade with turreted roofs, Loire river and a blue-white faience plate at foreground.
+10. Nord: Lille Grand Place with red-brick Flemish facades and ornate stepped gables, old stock exchange courtyard glimpse and northern belfry motif.
+Exactly 10 independent scenes, five by two regular grid.
+```
+
+## departments-07.webp
+
+Original imagegen PNG: `exec-bca4f62e-2356-4e4f-94b9-67bb245e8df0.png`. Delivered grid: 5 × 2. Dimensions: 1619 × 971.
+
+```text
+Create ONE new original Cluance SIXTEEN-BIT PIXEL ART atlas, exactly FIVE equally wide columns and TWO equal rows. Overall LANDSCAPE five-to-three aspect ratio; each cell is an independent three-to-four portrait scene. Perfect equal grid, edge-to-edge cells, NO gutters, margins, borders, text, lettering, numbers, logos, coats of arms, flags or watermarks. Deliberately visible square pixel clusters, crisp stepped outlines and controlled dithering in rich jewel-tone colour ramps, like an illustrated 1990s adventure game; NOT photography, smooth painting or photorealism. Detailed real French local landscapes and landmarks. Each scene has a different composition and palette. Main landmark entirely inside the CENTRAL 80% width and UPPER 75% height of its OWN cell so squarer crops retain it. Keep geographic and architectural features plausible, no invented fantasy castles or extra spires. Do not join or repeat scenes. Exact row-major order, left to right across top row then bottom row:
+1. Oise: Chantilly château with tall slate roofs and ornate cream-stone Renaissance architecture reflected in a lake, woodland and a pale horse at edge.
+2. Orne: Bagnoles-de-l’Orne Belle Époque villas around a wooded lake, decorative timber facades and slate roofs, apple orchard motif.
+3. Pas-de-Calais: Cap Blanc-Nez pale chalk cliffs above the English Channel, green rolling grassy headland and a small red fishing boat.
+4. Puy-de-Dôme: Puy de Dôme smooth green extinct-volcano dome rising above the Chaîne des Puys, small summit antenna, wooded volcanic hills.
+5. Pyrénées-Atlantiques: Bayonne half-timbered red-and-white riverside houses along the Nive, Basque green foothills and a distant Atlantic shoreline motif.
+6. Hautes-Pyrénées: Cirque de Gavarnie immense amphitheatre of layered Pyrenean limestone mountains, one long slender waterfall and green alpine meadow.
+7. Pyrénées-Orientales: Collioure Mediterranean harbour with round church bell tower directly on the waterfront, warm red-tile houses, fishing boat and mountain coast.
+8. Bas-Rhin: Strasbourg Petite France canal district of white plaster and dark timbered houses, red geraniums, distant single pink-sandstone cathedral spire.
+9. Haut-Rhin: Colmar Little Venice bright half-timbered houses reflected in a narrow canal, flower boxes, low Vosges vineyard hills.
+10. Rhône: Villefranche-sur-Saône warm stone old town with Notre-Dame des Marais church tower, rolling Beaujolais vineyards and stone winegrower house; NO Lyon skyline.
+Exactly 10 independent scenes, five by two regular grid.
+```
+
+## departments-08.webp
+
+Original imagegen PNG: `exec-16c3c339-57ee-40e5-a4fb-d8918c5089d9.png`. Delivered grid: 5 × 2. Dimensions: 1619 × 971.
+
+```text
+Create ONE new original Cluance SIXTEEN-BIT PIXEL ART atlas, exactly FIVE equally wide columns and TWO equal rows. Overall LANDSCAPE five-to-three aspect ratio; each cell is an independent three-to-four portrait scene. Perfect equal grid, edge-to-edge cells, NO gutters, margins, borders, text, lettering, numbers, logos, coats of arms, flags or watermarks. Deliberately visible square pixel clusters, crisp stepped outlines and controlled dithering in rich jewel-tone colour ramps, like an illustrated 1990s adventure game; NOT photography, smooth painting or photorealism. Detailed real French local landscapes and landmarks. Each scene has a different composition and palette. Main landmark entirely inside the CENTRAL 80% width and UPPER 75% height of its OWN cell so squarer crops retain it. Keep geographic and architectural features plausible, no invented fantasy castles or extra spires. Do not join or repeat scenes. Exact row-major order, left to right across top row then bottom row:
+1. Haute-Saône: Ronchamp Notre-Dame du Haut chapel, white sculptural walls with tiny irregular coloured windows and a broad curving dark roof, green hilltop landscape.
+2. Saône-et-Loire: Solutré steep limestone escarpment above orderly Burgundy vineyards, small ochre village, warm golden evening.
+3. Sarthe: Le Mans late-Roman city walls with red-brick bands and dark geometric patterns, half-timbered houses above and Sarthe river below.
+4. Savoie: Chambéry elephant fountain with exactly four elephants arranged around a tall central column, old Savoy town and snowy Alpine peaks.
+5. Haute-Savoie: Annecy turquoise lake and old canal with Palais de l’Isle small pointed medieval stone building splitting the water, steep Alpine peaks.
+6. Paris: Paris Eiffel Tower above the Seine and a stone bridge, warm evening skyline, small riverboat, Haussmann roofs.
+7. Seine-Maritime: Étretat natural chalk coastal arch and separate slender sea stack, green clifftop and deep-blue English Channel waves.
+8. Seine-et-Marne: Vaux-le-Vicomte symmetrical classical château with central domed roof, formal geometric garden lawns, fountains and broad water basin.
+9. Yvelines: Versailles palace long golden cream classical facade, formal garden axis, reflecting basin and leafy alleys.
+10. Deux-Sèvres: Marais Poitevin narrow green canal under arching willow trees, small flat-bottomed wooden boat, quiet wetland village.
+Exactly 10 independent scenes, five by two regular grid.
+```
+
+## departments-09.webp
+
+Original imagegen PNG: `exec-1ef91233-9264-4182-bda7-e9868e8fe8a4.png`. Delivered grid: 5 × 2. Dimensions: 1619 × 971.
+
+```text
+Create ONE new original Cluance SIXTEEN-BIT PIXEL ART atlas, exactly FIVE equally wide columns and TWO equal rows. Overall LANDSCAPE five-to-three aspect ratio; each cell is an independent three-to-four portrait scene. Perfect equal grid, edge-to-edge cells, NO gutters, margins, borders, text, lettering, numbers, logos, coats of arms, flags or watermarks. Deliberately visible square pixel clusters, crisp stepped outlines and controlled dithering in rich jewel-tone colour ramps, like an illustrated 1990s adventure game; NOT photography, smooth painting or photorealism. Detailed real French local landscapes and landmarks. Each scene has a different composition and palette. Main landmark entirely inside the CENTRAL 80% width and UPPER 75% height of its OWN cell so squarer crops retain it. Keep geographic and architectural features plausible, no invented fantasy castles or extra spires. Do not join or repeat scenes. Exact row-major order, left to right across top row then bottom row:
+1. Somme: Amiens cathedral immense Gothic facade with two unequal square towers above the Somme, a small hortillonnages garden-island canal foreground.
+2. Tarn: Albi Sainte-Cécile cathedral massive fortress-like red-brick building with a tall rectangular western bell tower, old bridge over the Tarn.
+3. Tarn-et-Garonne: Montauban Place Nationale with rose-brick double arcades and warm terracotta roofs, Tarn riverside motif and green orchards.
+4. Var: Toulon harbour with blue Mediterranean water, small sailboats, Mont Faron rugged wooded mountain behind and coastal umbrella pines.
+5. Vaucluse: Avignon papal palace massive pale medieval stone complex above the Rhône, bridge ending partway across the river, plane trees.
+6. Vendée: Noirmoutier Passage du Gois tidal causeway, narrow road through shallow glistening Atlantic water, refuge post and distant white island houses.
+7. Vienne: Poitiers Notre-Dame-la-Grande Romanesque church with richly sculpted facade, three rounded portals and small conical-topped turrets, warm limestone square.
+8. Haute-Vienne: Limoges old Saint-Étienne bridge with Gothic arches over the Vienne river, warm old roofs and a small white decorated porcelain cup.
+9. Vosges: Gérardmer lake among deep green Vosges forests and rounded mountains, small wooden chalet and a fir branch.
+10. Yonne: Auxerre Gothic cathedral and old half-timbered houses above the Yonne river, traditional wooden riverboat and vineyard hills.
+Exactly 10 independent scenes, five by two regular grid.
+```
+
+## departments-10.webp
+
+Original imagegen PNG: `exec-c6709c42-3378-4c1a-94e8-7a30a4e437ef.png`. Delivered grid: 5 × 2. Dimensions: 1619 × 971.
+
+```text
+Create ONE new original Cluance SIXTEEN-BIT PIXEL ART atlas, exactly FIVE equally wide columns and TWO equal rows. Overall LANDSCAPE five-to-three aspect ratio; each cell is an independent three-to-four portrait scene. Perfect equal grid, edge-to-edge cells, NO gutters, margins, borders, text, lettering, numbers, logos, coats of arms, flags or watermarks. Deliberately visible square pixel clusters, crisp stepped outlines and controlled dithering in rich jewel-tone colour ramps, like an illustrated 1990s adventure game; NOT photography, smooth painting or photorealism. Detailed real French local landscapes and landmarks. Each scene has a different composition and palette. Main landmark entirely inside the CENTRAL 80% width and UPPER 75% height of its OWN cell so squarer crops retain it. Keep geographic and architectural features plausible, no invented fantasy castles or extra spires. Do not join or repeat scenes. Exact row-major order, left to right across top row then bottom row:
+1. Territoire de Belfort: Belfort red-sandstone Lion sculpture lying against the cliff below the Vauban citadel, distant blue Vosges hills.
+2. Essonne: Milly-la-Forêt covered medieval market hall with low tiled roof on wooden posts, quiet stone village and wooded Fontainebleau-edge landscape.
+3. Hauts-de-Seine: La Défense Grande Arche hollow white rectangular architectural cube, modern glass towers and broad pedestrian esplanade, Seine motif; NO Eiffel Tower.
+4. Seine-Saint-Denis: Saint-Denis basilica pale Gothic facade with its single surviving south tower, rose window and green urban square; NO fabricated completed north spire.
+5. Val-de-Marne: Vincennes medieval castle with tall square keep and corner turrets, broad stone enclosure beside forest and calm ornamental lake motif.
+6. Val-d'Oise: Auvers-sur-Oise small Gothic village church with square bell tower and purple-grey slate roof, golden wheat fields and blue sky.
+7. Guadeloupe: Guadeloupe Pointe des Châteaux jagged limestone Atlantic headland, wind-bent palms, turquoise surf and tropical flowers.
+8. Martinique: Martinique Saint-Pierre waterfront below green Mount Pelée volcano, colourful Creole town houses and tropical sea.
+9. Guyane: Guyane Cayenne Fort Cépérou hill with small open wooden-roof bell structure, Creole houses, broad tropical river and Amazonian forest.
+10. La Réunion: La Réunion Piton de la Fournaise volcanic caldera with dark cracked lava and a modest orange lava flow, distant misty green mountain ridges.
+Exactly 10 independent scenes, five by two regular grid.
+```
+
+## departments-11.webp
+
+Original imagegen PNG: `exec-392edbae-48a4-4781-80c5-a164073582b0.png`. Delivered grid: 1 × 1. Dimensions: 1086 × 1448.
+
+```text
+Create ONE new original Cluance SIXTEEN-BIT PIXEL ART card illustration, exactly ONE single portrait illustration. Overall portrait three-to-four aspect ratio. Perfect equal grid, edge-to-edge cells, NO gutters, margins, borders, text, lettering, numbers, logos, coats of arms, flags or watermarks. Deliberately visible square pixel clusters, crisp stepped outlines and controlled dithering in rich jewel-tone colour ramps, like an illustrated 1990s adventure game; NOT photography, smooth painting or photorealism. Detailed real French local landscapes and landmarks. Each scene has a different composition and palette. Main landmark entirely inside the CENTRAL 80% width and UPPER 75% height of its OWN cell so squarer crops retain it. Keep geographic and architectural features plausible, no invented fantasy castles or extra spires. Do not join or repeat scenes. Exact row-major order, left to right across top row then bottom row:
+1. Mayotte: Mayotte lagoon with emerald islets and mangroves, Mount Choungui steep volcanic peak inland, one sea turtle in clear foreground water.
+Exactly 1 independent scene, one portrait image.
+```
+
+## departments-corrections.webp
+
+Original PNG: `exec-5781fc0c-7051-4f7f-a11f-d62b5aa3f5ce.png`. Grid 3 × 2, cells 0–5 replace Ain (01), Alpes-de-Haute-Provence (04), Charente (16), Cher (18), Gers (32) and Haute-Loire (43). Initial cells were rejected for architectural details or an overlarge chapel. Captions/biographies now match the corrected local scenes.
+
+```text
+Create ONE completely NEW original Cluance 16-bit PIXEL ART atlas: EXACTLY THREE equal columns and TWO equal rows, SIX separate portrait landscape illustrations. Overall approximately SQUARE image, making each cell a tall portrait. No gutters, margins, borders, labels, writing, numbers, coats of arms, logos or watermark. Deliberately visible square pixel clusters, crisp stepped edges, controlled dithering, jewel-tone color ramps, detailed warm lighting, original 1990s adventure game art; never photographs or smooth painting. Keep every defining feature centered in upper 75% of each cell and inside central 80% width for card cropping. Exact row-major order: TOP LEFT Ain: traditional Bresse rural farmhouse with long low cream plaster facade, dark exposed timber framing, low sloping red-tile roof and its distinctive broad capped Saracen chimney; green meadow, white Bresse chicken with red comb and distant gently wooded Jura foothills. NO church, cathedral or castle. TOP MIDDLE Alpes-de-Haute-Provence: Valensole plateau lavender fields with distinct parallel rows of purple lavender leading to one small plain rustic honey-colored stone field hut, warm southern hill ridges and a single olive tree. NO castle, church or Alpine snow. TOP RIGHT Charente: Cognac vineyards in warm sunset beside a low limestone winegrower's house with red-tile roof, a clearly coherent COPPER COGNAC DISTILLATION STILL with round boiler body and long swan-neck curved copper pipe displayed as a foreground symbolic motif, Charente river glint beyond. NO cathedral, lettering or labels. BOTTOM LEFT Cher: Bourges marsh gardens, narrow quiet water channel with one little flat-bottomed boat between lush vegetable allotments, modest timber-framed garden hut and willow branches, low warm-town roofs beyond, green and gold. NO cathedral, Gothic tower or castle. BOTTOM MIDDLE Gers: rolling Gascon hills with golden sunflower fields, one genuine simple ROUND STONE WINDMILL with a conical tiled cap and EXACTLY FOUR timber lattice sails attached at one central axle; small pale stone farmhouse with terracotta roof beyond, warm ochre and blue. NO cathedral or invented castle. BOTTOM RIGHT Haute-Loire: real Saint-Michel d'Aiguilhe chapel at Le Puy-en-Velay, a VERY SMALL modest eleventh-century stone Romanesque chapel on a NARROW TALL sheer volcanic rock pinnacle; the chapel has a LOW red-tile pitched nave roof and one SMALL SQUARE stubby stone bell tower with arched openings and low pyramidal tiled cap. The rock is much taller than the chapel. Absolutely NO tall Gothic spire, huge church, fantasy castle or battlements. Red-tile town roofs at foot of rock and green volcanic uplands beyond. Six distinct coherent scenes, perfect regular THREE BY TWO grid, all pixel art.
+
+```
+
+## departments-corrections2.webp
+
+Original PNG: `exec-a990cc71-9a02-4348-9c95-f2a73a8ebefb.png`. Grid 3 × 1, cells 0–2 replace Nièvre (58), Haute-Saône (70) and Haute-Savoie (74). Initial scenes were rejected for misleading palace, chapel or castle details; replacements use local pottery and river/pond/lake landscapes.
+
+```text
+Create ONE new original Cluance 16-bit PIXEL ART atlas, EXACTLY THREE equal columns and ONE row, overall WIDE landscape NINE TO FOUR aspect ratio, three independent three-to-four portrait scenes side by side. No gutters, margins, borders, writing, numbers, coats of arms, flags or watermarks. Crisp visibly stepped square pixel clusters, rich jewel-tone color ramps and fine controlled checkerboard dithering, detailed 1990s adventure-game landscape art, NOT photography or smooth painting. Main features centered inside central 80% width and upper 75% height of each cell so both portrait and squarer crops work. LEFT Nièvre: the Loire river near Nevers with a modest pale limestone riverside old town of slate and red-tile roofs, gently wooded river islands and riverside meadow. In the foreground show ONE handmade BLUE AND WHITE NEVERS FAIENCE PLATE propped upright beside a small blue-white pottery jug on a low stone workshop wall, distinct floral ceramic pattern but absolutely no letters or text. Quiet Loire valley, NO invented château or palace. MIDDLE Haute-Saône: Plateau des Mille Étangs, quiet blue-green ponds among low rounded wooded Vosges foothills, forest reflected in still water, birch branches and a modest dark timber farmhouse tucked well back in green forest. Palette cool emerald, slate blue and warm russet. NO church, cathedral, white concrete building or mountains with snow. RIGHT Haute-Savoie: turquoise Lake Annecy with a small wooden rowing boat with natural coherent oars, snowy Alpine peaks beyond, flower-filled lakeside meadow and a cluster of modest old red-tile Annecy houses far on the shore. Palette bright cyan, pale Alpine blue and warm coral. NO castle, fortress or round turret. Exactly THREE distinct plausible local landscapes, equal columns, pixel art.
+
+```
+
+## departments-saint-denis.webp
+
+Original PNG: `exec-5565d61f-2a6a-40fe-a1e7-9f38a10fd8bf.png`. Single portrait replacing department 93. The initial basilica scene put the surviving tall tower on the wrong side; the final scene places the one tall tower on the viewer’s right, with the other side low and flat.
+
+```text
+Create ONE completely NEW original Cluance collectible-card landscape illustration in authentic 16-bit PIXEL ART. Single portrait THREE TO FOUR aspect ratio, edge-to-edge scene, NO borders, margins, text, lettering, numbers, flags, coats of arms or watermark. Visible square pixel clusters, crisp stepped edges, controlled dithering, rich jewel-tone ramps, detailed 1990s adventure game art, NOT a photograph or smooth painting. Depict the WEST FRONT of the real BASILICA OF SAINT-DENIS in Seine-Saint-Denis, seen head-on from its green public square. This facade has ONLY ONE surviving tall square bell tower and IT IS ON THE RIGHT SIDE OF THE IMAGE AS THE VIEWER SEES IT. The LEFT side of the image is a LOW, FLAT-TOPPED facade mass WITHOUT ANY tall tower or spire. NO tall tower on the left, no second tower, no completed north spire. Centre facade has one round Gothic rose window above three broad pointed entrance portals; pale warm limestone, the single right-hand square bell tower has tall open belfry arches and flat parapet, not a sharp spire. Modest suburban town houses set back to the sides, leafy green plane trees and a small paved garden square. Main facade entire inside central 80% width and upper 75% height so squarer crop retains the one right-hand tower. Blue summer sky and warm limestone lighting. Architecturally coherent, ONLY ONE tall square tower on the IMAGE RIGHT.
+
+```

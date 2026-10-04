@@ -1,6 +1,7 @@
 import {CARD_CONTEXT, REGION_2015_CONTEXT} from './context.js';
 import {EXPANSION} from './expansion.js';
 import {ART_OVERRIDES} from './artwork.js';
+import {DEPARTMENT_CARDS} from './departments.js';
 
 // Preserve the original subjects and artwork when opening an older saved game.
 const legacyRegions = [
@@ -180,6 +181,13 @@ export const DECKS = Object.fromEntries(Object.entries(definitions).map(([id, de
     ...(id === 'regions' ? [] : expansionCards(id, deck)),
   ].map(card => ({...card, ...ART_OVERRIDES[card.name]})),
 }]));
+DECKS.departments = {
+  id: 'departments', name: 'French Departments', subtitle: '101 official departments · names & codes',
+  description: 'All 101 official French departments: 96 metropolitan departments, including Corse-du-Sud and Haute-Corse, and five overseas departments. Individual local landscapes and official department codes. Separate from the 27-region division of 2015; historical provinces and overseas collectivities are excluded.',
+  color: '#a8bb99', symbol: '◫', kind: 'places', preview: 74,
+  atlas: 'assets/departments-01.webp', columns: 5, rows: 2, cards: DEPARTMENT_CARDS,
+};
+
 export const CARDS = Object.fromEntries([...Object.values(DECKS).flatMap(d => d.cards),
   ...expansionCards('regions', definitions.regions),
   ...legacyRegions.map(([name,subtitle],index)=>({id:`regions-${index}`,deck:'regions',index,name,subtitle,...CARD_CONTEXT[name],atlas:LEGACY_REGION_ATLAS,columns:6,rows:4}))].map(c => [c.id,c]));
