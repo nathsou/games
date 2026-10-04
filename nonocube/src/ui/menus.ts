@@ -1,0 +1,310 @@
+import { modelScene, type App, type Screen } from '../app.ts';
+import { sfx, unlockAudio } from '../audio/sfx.ts';
+import { decodePuzzle, encodePuzzle } from '../core/codec.ts';
+import type { Collection, ModelDef, PuzzleDef } from '../core/types.ts';
+import { allCollections } from '../data/collections.ts';
+import { save, store } from '../game/storage.ts';
+import { BlockScene } from '../render/scene.ts';
+import { exhibit, exhibitScale, plinthScene } from './gallery.ts';
+
+import type { DrawList } from '../render/renderer.ts';
+import { button, h, icon, iconButton, modal, toast } from './dom.ts';
+import { I } from './icons.ts';
+import { openSettings } from './settings.ts';
+
+export interface Nav {
+  home(): void;
+  collections(): void;
+  collection(c: Collection, focus?: number): void;
+  play(c: Collection, index: number): void;
+  playCustom(p: PuzzleDef, back: () => void, saveKey?: string | null): void;
+  daily(): void;
+  tutorial(): void;
+  editor(p?: PuzzleDef, userId?: string): void;
+  myPuzzles(): void;
+}
+
+const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+
+function collectionStats(c: Collection): { solved: number; stars: number; total: number } {
+  let solved = 0;
+  let stars = 0;
+  for (const p of c.puzzles) {
+    const r = store.records[p.id];
+    if (r) {
+      solved++;
+      stars += r.stars;
+    }
+  }
+  return { solved, stars, total: c.puzzles.length };
+}
+
+function totalStars(): { stars: number; max: number; solved: number; count: number } {
+  let stars = 0;
+  let max = 0;
+  let solved = 0;
+  let count = 0;
+  for (const c of allCollections) {
+    const s = collectionStats(c);
+    stars += s.stars;
+    max += s.total * 3;
+    solved += s.solved;
+    count += s.total;
+  }
+  return { stars, max, solved, count };
+}
+
+/** Screen that shows a spinning model behind the DOM (home). */
+class ShowcaseScreen {
+  protected scene = new BlockScene();
+  protected model: ModelDef | null = null;
+  protected app: App;
+  protected spinT = 0;
+  constructor(app: App) {
+    this.app = app;
+  }
+  protected plinth = plinthScene();
+  protected setModel(m: ModelDef): void {
+    this.model = m;
+    modelScene(this.scene, m);
+    const cam = this.app.camera;
+    this.fitCamera();
+    cam.autoSpin = store.settings.reducedMotion ? 0 : 0.22;
+    this.spinT = 0;
+  }
+  /** Frame the exhibit (piece on its plinth). */
+  protected fitCamera(): void {
+    const cam = this.app.camera;
+    // aim at the piece; only the top of the plinth shows below it
+    const top = this.model ? this.model.dims[1] * exhibitScale(this.model) : 4.2;
+    cam.target = [0, top / 2 - 0.6, 0];
+    cam.fit([5.6, top + 2.2, 5.6], 1.0);
+  }
+  update(dt: number): void {
+    this.spinT += dt;
+  }
+  draw(): DrawList | null {
+    if (!this.model) return null;
+    if (this.spinT < 2.5 && !store.settings.reducedMotion) modelScene(this.scene, this.model, this.spinT);
+    else modelScene(this.scene, this.model);
+    return { placed: exhibit(this.scene, this.model.dims, 0, 0, this.plinth) };
+  }
+}
+
+export class HomeScreen extends ShowcaseScreen implements Screen {
+  el: HTMLElement;
+  private nav: Nav;
+  private cycle = 0;
+
+  constructor(app: App, nav: Nav) {
+    super(app);
+    this.nav = nav;
+    const t = totalStars();
+    const inProgress = Object.keys(store.progress).length;
+    this.el = h('div', { class: 'home' },
+      h('div', { class: 'home-top' }, h('div', { class: 'logo', 'aria-label': 'Nonocube' }, logoMark(), h('span', null, 'Nonocube')), iconButton(I.gear, 'Settings', () => openSettings(app))),
+      h('div', { class: 'home-card' },
+        h('h1', null, 'Break the block. Reveal the shape.'),
+        h('p', { class: 'tagline' }, '3D nonogram puzzles. The numbers tell you which cubes stay.'),
+        h('div', { class: 'home-actions' },
+          button(inProgress ? 'Continue' : 'Play', () => {
+            const c = allCollections.find((c) => c.puzzles.some((p) => store.progress[p.id]));
+            if (c) nav.play(c, c.puzzles.findIndex((p) => store.progress[p.id]));
+            else nav.collections();
+          }, 'primary big'),
+          button('Daily sculpture', () => nav.daily(), '', I.calendar),
+          button('How to play', () => nav.tutorial(), '', I.help),
+          button('Level editor', () => nav.editor(), '', I.edit),
+        ),
+        h('div', { class: 'home-stats' },
+          icon(I.star, 'on'), h('b', null, `${t.stars}`), h('span', null, `/ ${t.max} stars`),
+          h('span', { class: 'sep' }, '·'), h('b', null, `${t.solved}`), h('span', null, `/ ${t.count} solved`)),
+      ),
+      h('p', { class: 'home-foot' }, 'Drag to turn. A little logic reveals a lot.'),
+    );
+    const solved = allCollections.flatMap((c) => c.puzzles).filter((p) => store.records[p.id]);
+    const pool = solved.length >= 3 ? solved : allCollections.flatMap((c) => c.puzzles).filter((p) => ['k-teapot', 'g-mushroom', 's-rocket', 'c-duck', 'a-lighthouse', 'g-tree'].includes(p.id));
+    this.pool = pool;
+  }
+  private pool: PuzzleDef[];
+
+  enter(): void {
+    const m = this.pool[Math.floor(Math.random() * this.pool.length)];
+    this.setModel(m);
+    this.app.camera.pitch = 0.3;
+    document.body.classList.add('in-gallery');
+    if (!store.welcomed) {
+      store.welcomed = true;
+      save();
+      setTimeout(async () => {
+        const r = await modal({
+          title: 'Welcome to Nonocube!',
+          body: 'A shape is hidden inside every block. Use the number clues to chip away the extra cubes. New here? The tutorial takes about two minutes.',
+          actions: [{ label: 'Skip', value: 'skip' }, { label: 'Start tutorial', value: 'go', cls: 'primary' }],
+        });
+        unlockAudio();
+        if (r === 'go') this.nav.tutorial();
+      }, 500);
+    }
+  }
+
+  exit(): void {
+    document.body.classList.remove('in-gallery');
+  }
+
+  update(dt: number): void {
+    super.update(dt);
+    this.cycle += dt;
+    const cam = this.app.camera;
+    const card = this.el.querySelector('.home-card') as HTMLElement | null;
+    if (card && this.model) {
+      const r = card.getBoundingClientRect();
+      const wide = cam.width > 900;
+      if (wide) cam.frame(112, 36, 60, r.right + 36, dt);
+      else cam.frame((this.el.querySelector('.home-top') as HTMLElement).getBoundingClientRect().bottom + 20, 20, cam.height - r.top + 28, 20, dt);
+      this.fitCamera();
+    }
+    if (this.cycle > 14 && this.pool.length > 1) {
+      this.cycle = 0;
+      let m = this.model;
+      while (m === this.model) m = this.pool[Math.floor(Math.random() * this.pool.length)];
+      if (m) this.setModel(m);
+    }
+  }
+}
+
+function logoMark(): HTMLElement {
+  return h('span', { class: 'logo-mark', 'aria-hidden': 'true' }, '3');
+}
+
+function header(title: string, onBack: () => void, extra?: HTMLElement): HTMLElement {
+  return h('header', { class: 'menu-head' }, iconButton(I.back, 'Back', onBack), h('h1', null, title), h('div', { class: 'spacer' }), extra ?? null);
+}
+
+export class CollectionsScreen implements Screen {
+  el: HTMLElement;
+  constructor(app: App, nav: Nav) {
+    const cards = allCollections.map((c) => {
+      const s = collectionStats(c);
+      const done = s.solved === s.total;
+      return h('button', { class: `coll-card ${done ? 'done' : ''}`, onclick: () => nav.collection(c) },
+        (() => {
+          // the collection's latest acquisition stands in for its icon
+          const shown = [...c.puzzles].reverse().find((p) => store.records[p.id]);
+          return shown
+            ? h('div', { class: 'coll-icon exhibit' }, h('img', { src: app.thumbnail(shown, 160), alt: shown.name }))
+            : h('div', { class: 'coll-icon' }, icon(I.cube));
+        })(),
+        h('div', { class: 'coll-body' },
+          h('div', { class: 'coll-name' }, c.name),
+          h('div', { class: 'coll-blurb' }, c.blurb),
+          h('div', { class: 'coll-meta' },
+            h('span', { class: `tag ${c.difficulty}` }, DIFF_LABEL[c.difficulty]),
+            h('span', null, `${s.solved}/${s.total} exhibits`),
+            h('span', { class: 'mini-stars' }, icon(I.star, 'on'), `${s.stars}`)),
+        ),
+        h('div', { class: 'coll-bar' }, h('i', { style: `width:${(s.solved / s.total) * 100}%` })),
+      );
+    });
+    const daily = h('button', { class: 'coll-card special', onclick: () => nav.daily() },
+      h('div', { class: 'coll-icon' }, icon(I.calendar)),
+      h('div', { class: 'coll-body' }, h('div', { class: 'coll-name' }, 'Daily Sculpture'), h('div', { class: 'coll-blurb' }, 'A fresh random puzzle every day.')));
+    const mine = h('button', { class: 'coll-card special', onclick: () => nav.myPuzzles() },
+      h('div', { class: 'coll-icon' }, icon(I.user)),
+      h('div', { class: 'coll-body' }, h('div', { class: 'coll-name' }, 'My Puzzles'), h('div', { class: 'coll-blurb' }, `${store.user.length} made in the editor.`)));
+    this.el = h('div', { class: 'menu' },
+      header('Galleries', () => nav.home(), h('div', { class: 'head-stat' }, icon(I.star, 'on'), `${totalStars().stars} / ${totalStars().max}`)),
+      h('div', { class: 'menu-scroll' }, h('div', { class: 'coll-grid' }, ...cards, daily, mine)),
+    );
+  }
+  update(): void {}
+  draw(): null {
+    return null;
+  }
+}
+
+export class MyPuzzlesScreen implements Screen {
+  el: HTMLElement;
+  private app: App;
+  private nav: Nav;
+  constructor(app: App, nav: Nav) {
+    this.app = app;
+    this.nav = nav;
+    this.el = h('div', { class: 'menu' });
+    this.render();
+  }
+
+  private render(): void {
+    const { app, nav } = this;
+    const tiles = store.user
+      .slice()
+      .sort((a, b) => b.updated - a.updated)
+      .map((u) => {
+        let p: PuzzleDef;
+        try {
+          p = decodePuzzle(u.code, u.id);
+        } catch {
+          return null;
+        }
+        const rec = store.records[u.id];
+        return h('div', { class: 'puzzle-tile user' },
+          h('button', { class: 'thumb', onclick: () => nav.playCustom(p, () => nav.myPuzzles(), u.id), 'aria-label': `Play ${p.name}` }, h('img', { src: app.thumbnail(p), alt: p.name })),
+          h('div', { class: 'tile-name' }, p.name || 'Untitled'),
+          h('div', { class: 'tile-meta' }, h('span', null, p.dims.join('×')), rec ? h('span', { class: 'mini-stars' }, icon(I.check), 'solved') : null),
+          h('div', { class: 'tile-actions' },
+            iconButton(I.play, 'Play', () => nav.playCustom(p, () => nav.myPuzzles(), u.id)),
+            iconButton(I.edit, 'Edit', () => nav.editor(p, u.id)),
+            iconButton(I.share, 'Share link', () => shareCode(encodePuzzle(p))),
+            iconButton(I.trash, 'Delete', async () => {
+              const r = await modal({ title: `Delete “${p.name}”?`, body: 'This can’t be undone.', actions: [{ label: 'Cancel', value: 'no' }, { label: 'Delete', value: 'yes', cls: 'danger' }] });
+              if (r !== 'yes') return;
+              store.user = store.user.filter((x) => x.id !== u.id);
+              save();
+              this.render();
+            })),
+        );
+      });
+    const newTile = h('button', { class: 'puzzle-tile new', onclick: () => { store.editorDraft = undefined; nav.editor(); } }, h('div', { class: 'thumb' }, icon(I.plus)), h('div', { class: 'tile-name' }, 'New puzzle'));
+    this.el.replaceChildren(
+      header('My Puzzles', () => nav.collections(), button('Import', () => importCode(nav), 'small', I.download)),
+      h('div', { class: 'menu-scroll' },
+        store.user.length ? null : h('p', { class: 'menu-blurb' }, 'Puzzles you save in the level editor appear here. Share them with a link!'),
+        h('div', { class: 'tile-grid' }, newTile, ...tiles.filter((t): t is HTMLDivElement => !!t))),
+    );
+  }
+  update(): void {}
+  draw(): null {
+    return null;
+  }
+}
+
+export function shareUrl(code: string): string {
+  return `${location.origin}${location.pathname}#p=${code}`;
+}
+
+export async function shareCode(code: string): Promise<void> {
+  const url = shareUrl(code);
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('Link copied to clipboard', 'good');
+    sfx.tick();
+  } catch {
+    const input = h('textarea', { class: 'code-box', readonly: true, rows: 4 }, url);
+    await modal({ title: 'Share this puzzle', body: h('div', null, h('p', null, 'Copy this link:'), input), actions: [{ label: 'Done', value: 'ok', cls: 'primary' }] });
+  }
+}
+
+export async function importCode(nav: Nav): Promise<void> {
+  const input = h('textarea', { class: 'code-box', rows: 4, placeholder: 'Paste a puzzle link or code…' });
+  const r = await modal({ title: 'Import puzzle', body: h('div', null, input), actions: [{ label: 'Cancel', value: 'no' }, { label: 'Edit', value: 'edit' }, { label: 'Play', value: 'play', cls: 'primary' }] });
+  if (r !== 'play' && r !== 'edit') return;
+  const raw = input.value.trim();
+  const code = raw.includes('#p=') ? raw.split('#p=')[1] : raw;
+  try {
+    const p = decodePuzzle(code, `shared-${Date.now()}`);
+    if (r === 'play') nav.playCustom(p, () => nav.myPuzzles(), null);
+    else nav.editor(p);
+  } catch (e) {
+    toast(`Couldn’t read that code: ${(e as Error).message}`, 'bad', 3000);
+  }
+}

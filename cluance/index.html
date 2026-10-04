@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#102e31" />
+    <meta
+      name="description"
+      content="A cooperative visual deduction game. Give visual clues, find the secret card, and compare your interpretations at the reveal. Play with a friend or a vision AI."
+    />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://openrouter.ai https://api.openai.com https://api.anthropic.com; font-src 'self'; object-src 'none'; base-uri 'self'"
+    />
+    <title>Cluance — Same cards. Different minds.</title>
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="src/app.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="wordmark" href="#" id="home-link"
+        ><span class="logo-mark" aria-hidden="true"></span>cluance</a
+      >
+      <span id="table-context" class="table-context"></span>
+      <div class="top-actions">
+        <button id="collection-button" class="quiet-button">Collection</button
+        ><button id="rules-button" class="quiet-button">How to play</button
+        ><button id="settings-button" class="quiet-button">Settings</button
+        ><span id="connection-badge" hidden></span
+        ><button id="partner-chip" class="partner-chip" hidden></button
+        ><button
+          id="sound-toggle"
+          class="icon-button"
+          aria-label="Mute background music"
+        >
+          ♪</button
+        ><button
+          id="table-menu"
+          class="icon-button"
+          aria-label="Open menu"
+          aria-expanded="false"
+        >
+          ⋯
+        </button>
+        <div id="resume-slot"></div>
+      </div>
+    </header>
+    <main id="app" tabindex="-1"></main>
+    <aside
+      id="card-drawer"
+      class="card-drawer"
+      aria-label="Card details"
+      hidden
+    ></aside>
+    <div id="drawer-scrim" class="drawer-scrim" hidden></div>
+    <div id="card-peek" class="card-peek" hidden></div>
+    <dialog id="modal" aria-labelledby="modal-title">
+      <div id="modal-content"></div>
+    </dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>

@@ -1,0 +1,34 @@
+.appearance-control{font:11px ui-monospace,monospace;background:transparent;color:inherit;border:1px solid #9cae9580;border-radius:4px;padding:6px;max-width:90px;cursor:pointer}.appearance-control option{background:#193c35;color:#fff0c8}
+[data-color-theme=light]{--felt:#f4edda;--paper:#233d35;--muted:#536954;--gold:#805a1b;--coral:#a53f44;--mint:#32694e;color-scheme:light}
+[data-color-theme=light] body{background:radial-gradient(ellipse at 50% 0,#e6ecd6,transparent 65%),#f4edda;color:var(--paper)}
+[data-color-theme=light] .grain{opacity:.025}
+[data-color-theme=light] .panel,[data-color-theme=light] dialog{background:#fff9eb;border-color:#9ba68d;box-shadow:0 5px 0 #c4cab4}
+[data-color-theme=light] .felt-table{background:radial-gradient(ellipse at 50% 35%,#edf2dd,transparent 70%),#dce8d2;border-color:#9aad91;box-shadow:inset 0 0 70px #b9c9a940,0 7px 0 #b7c4a7}
+[data-color-theme=light] .option,[data-color-theme=light] .team-choice{background:#eaf0dd;border-color:#b7c5aa}
+[data-color-theme=light] input:not([type=checkbox]),[data-color-theme=light] textarea,[data-color-theme=light] .panel select,[data-color-theme=light] dialog select{background:#fffdf3;border-color:#9bae93;color:#233d35}
+[data-color-theme=light] .button{background:#eaa69a;color:#2c3629;border-color:#b86861;box-shadow:0 4px 0 #ad7970}
+[data-color-theme=light] .button.gold{background:#efcb80;border-color:#bb9550;box-shadow:0 4px 0 #b5965d}
+[data-color-theme=light] .button.mint{background:#b7d6b7;border-color:#829e78;box-shadow:0 4px 0 #849d77}
+[data-color-theme=light] .button.dark{background:#45664e;color:#fff6df;border-color:#74936c;box-shadow:0 4px 0 #a0ae91}
+[data-color-theme=light] .button.outline{background:transparent;color:#233d35;border-color:#7e957e;box-shadow:none}
+[data-color-theme=light] .text-button,[data-color-theme=light] .text-link{color:#805a1b}
+[data-color-theme=light] .play-space{border-color:#849c77}
+[data-color-theme=light] .play-space.chosen{border-color:#876825;background:#fff3c940}
+[data-color-theme=light] .space-empty{color:#607b5366}
+[data-color-theme=light] .topbar,[data-color-theme=light] .feature-line,[data-color-theme=light] .divider,[data-color-theme=light] .journal,[data-color-theme=light] .score-seat,[data-color-theme=light] .rival-zone{border-color:#a5b49570}
+[data-color-theme=light] .disconnect,[data-color-theme=light] .last-chance,[data-color-theme=light] .pair-error{background:#f3d8cc;color:#703932;border-color:#c78b79}
+[data-color-theme=light] .rule-example{background:#e7efd9;color:#233d35;border-color:#a7b994}
+[data-color-theme=light] .hero-stamp{background:#e7efd9;color:#805a1b}
+[data-color-theme=light] .game-tile{background:#f9f3e5;border-color:#a5b295;box-shadow:0 5px 0 #bdc4ab}
+[data-color-theme=light] .game-tile.selected{border-color:#a77931}
+[data-color-theme=light] .arcade-ai-dialog{background:#fff9eb;color:#233d35}
+[data-color-theme=light] .arcade-ai-dialog small{color:#536954}
+[data-color-theme=light] .arcade-ai-dialog .ai-error{color:#963c38}
+[data-color-theme=light] .arcade-ai-dialog a{color:#805a1b}
+[data-color-theme=light] .appearance-control option{background:#fff9eb;color:#233d35}
+[data-color-theme=light] dialog::backdrop{background:#344b436e}
+@media(max-width:460px){.topbar{flex-wrap:wrap}.topbar nav,.top-actions{gap:10px;flex-wrap:wrap}.appearance-control{font-size:10px}.scoreboard{flex-wrap:wrap}}
+
+html[data-game=midnight][data-color-theme=light]{--cream:#233d35;--paper:#fff0c8;--felt-deep:#e0e9d5;--night:#f9f1e0;--panel:#fff9eb;--line:#9aa98d80}
+html[data-game=midnight][data-color-theme=light] body{color:var(--cream)}
+[data-color-theme=light] .arcade-ai-dialog input:not([type=checkbox]),[data-color-theme=light] .arcade-ai-dialog select{background:#fffdf3;color:#233d35;border-color:#9bae93}

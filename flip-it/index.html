@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en" data-game="flip-it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123c3a">
+  <meta name="description" content="A double-number card game for 2–5 players. Play matching sets, flip your hand and empty it to win.">
+  <title>Flip it · The double-number card game</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <main id="app"></main>
+  <header class="topbar">
+    <nav aria-label="Game controls"><a href="../">All games ↗</a><button id="sound" type="button">Sound OFF</button><button id="effects" type="button">FX ON</button></nav>
+  </header>
+  <footer class="footer"><span>Double-number card game</span><span>2–5 players · Local or online</span></footer>
+  <dialog id="modal" aria-labelledby="modal-title"><div id="modal-content"></div></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
