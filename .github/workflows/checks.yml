@@ -57,5 +57,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run test:cloudflare
       - run: npm run build
       - run: npm run deploy:check

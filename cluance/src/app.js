@@ -18,6 +18,7 @@ import {
   makeLink,
   iceConfig,
   invitationDetails,
+  validateInvitationDetails,
   makeInvitationLink,
 } from "./peer.js";
 import {
@@ -25,7 +26,10 @@ import {
   connectionSettings,
   copyPairing,
   sharePairing,
+  capturePairingUI,
+  restorePairingUI,
 } from "../../shared/pairing.js";
+import {signalingService,hostedInvitation,hostedLink,createHostedRoom,roomDetails,roomConfig} from '../../shared/signaling.js';
 import { drawQR } from "../../shared/qr.js";
 import { PROVIDERS, chooseMove, listModels } from "./ai.js";
 import { loadSettings, read, write, erase } from "./storage.js";
@@ -82,6 +86,7 @@ let peer = null,
   roleSwap = null;
 let roleSwapTimer,
   cancelledRoleSwap = null;
+let pairingHosted=false,pairingAttempt=0,pairingStun;
 let relay = { url: "", username: "", credential: "" };
 const pairingBus =
   typeof BroadcastChannel !== "undefined"
@@ -235,6 +240,7 @@ modal.addEventListener("close", () => {
     peer?.close();
     peer = null;
     pairingKind = null;
+    pairingAttempt++;
     pairingBusy = false;
     updateConnection();
   }
@@ -1739,6 +1745,8 @@ function newPeer() {
         }
         modal.close();
         toast("Connected. Your shared table is ready.");
+      } else if(status==='signaling-error'){
+        pairingBusy=false;pairingError=link.signalingError;if(pairingKind)renderPairing();else toast(pairingError);
       } else if (["closed", "failed", "disconnected"].includes(status)) {
         if (roleSwap) clearRoleSwap();
         cancelledRoleSwap = null;
@@ -1843,11 +1851,11 @@ function handlePeerMessage(message) {
   }
 }
 function readPairConfig() {
-  const stun = $("stun")?.value ?? settings.stun;
+  const stun = $("stun")?.value ?? pairingStun ?? settings.stun;
   relay = {
-    url: $("turn")?.value || "",
-    username: $("turn-name")?.value || "",
-    credential: $("turn-password")?.value || "",
+    url: $("turn")?.value ?? relay.url,
+    username: $("turn-name")?.value ?? relay.username,
+    credential: $("turn-password")?.value ?? relay.credential,
   };
   const config = iceConfig(stun, relay.url, relay.username, relay.credential);
   settings.stun = stun;
@@ -1856,6 +1864,7 @@ function readPairConfig() {
 }
 function openPairing(kind, reconnect = false, initial = "") {
   cancelAI();
+  pairingAttempt++;pairingHosted=false;
   pairingKind = kind;
   pairingCode = "";
   pairingError = "";
@@ -1877,40 +1886,39 @@ function openPairing(kind, reconnect = false, initial = "") {
   renderPairing();
   if (kind === "guest" && initial) preparePair("answer", initial);
 }
-async function preparePair(type, input = "") {
-  if (type === "offer") clipboardReply = "";
+async function preparePair(type,input='',manual=false) {
+  const attempt=++pairingAttempt;
+  if(type==='offer')clipboardReply='';
   let link;
+  pairingBusy=true;pairingError='';pairingInput=input;pairingCode='';renderPairing();
   try {
-    const config = readPairConfig();
-    if (type === "answer") {
-      await decodePairing(input, "offer");
-      pairingOffer = input;
-      const details = invitationDetails(input);
-      mode = details.role === "giver" ? "peer-guest" : "peer-host";
-      pairingGameOptions = details.options || null;
+    let config=readPairConfig(),room;
+    if(type==='answer'){
+      room=hostedInvitation(input,'cluance');
+      let details;
+      if(room){room=await roomDetails(room,PROTOCOL);details=validateInvitationDetails(room.metadata);}
+      else{await decodePairing(input,'offer');details=invitationDetails(input);}
+      if(attempt!==pairingAttempt||!pairingKind)return;
+      pairingOffer=input;mode=details.role==='giver'?'peer-guest':'peer-host';pairingGameOptions=details.options||null;
+    }else if(!manual&&await signalingService()){
+      room=await createHostedRoom('cluance',PROTOCOL,{role:humanRole(),options:pairingGameOptions||gameOptions()});
     }
-    pairingConfig = config;
-    pairingBusy = true;
-    pairingError = "";
-    pairingInput = input;
-    pairingCode = "";
-    link = newPeer();
-    renderPairing();
-    const code =
-      type === "offer" ? await link.invite() : await link.join(input);
-    if (peer !== link || !pairingKind) return;
-    pairingCode =
-      type === "offer"
-        ? makeInvitationLink(code, humanRole(), pairingGameOptions)
-        : makeLink(code, type);
-    pairingBusy = false;
-    pairingInput = "";
-    renderPairing();
-  } catch (error) {
-    if (link && (peer !== link || !pairingKind)) return;
-    pairingBusy = false;
-    pairingError = error.message;
-    renderPairing();
+    if(room)config=await roomConfig(room,config);
+    if(attempt!==pairingAttempt||!pairingKind)return;
+    pairingHosted=Boolean(room);pairingConfig=config;link=newPeer();renderPairing();
+    if(room){
+      await link.connectRoom(room,type==='offer'?'host':'guest');
+      if(peer!==link||attempt!==pairingAttempt||!pairingKind)return;
+      pairingCode=type==='offer'?hostedLink({game:'cluance',room:room.room,key:room.guestKey}):'';
+    }else{
+      const code=type==='offer'?await link.invite():await link.join(input);
+      if(peer!==link||attempt!==pairingAttempt||!pairingKind)return;
+      pairingCode=type==='offer'?makeInvitationLink(code,humanRole(),pairingGameOptions):makeLink(code,type);
+    }
+    pairingBusy=false;pairingInput='';renderPairing();
+  }catch(error){
+    if(attempt!==pairingAttempt||link&&(peer!==link||!pairingKind))return;
+    pairingBusy=false;pairingError=error.message;renderPairing();
   }
 }
 async function acceptPair(input) {
@@ -1938,6 +1946,7 @@ async function acceptPair(input) {
 function renderPairing() {
   if (!pairingKind) return;
   const host = pairingKind === "host";
+  const ui=capturePairingUI(modalContent);
   showModal(
     host
       ? pairingCode
@@ -1945,7 +1954,7 @@ function renderPairing() {
         : pairingBusy
           ? "Creating invitation…"
           : "Create an invitation."
-      : "Join your friend.",
+      : pairingHosted ? "Connecting to your friend…" : "Join your friend.",
     humanRole() === "giver"
       ? "You give the clues · Your friend guesses"
       : "You guess · Your friend gives the clues",
@@ -1955,8 +1964,11 @@ function renderPairing() {
       busy: pairingBusy,
       error: pairingError,
       initial: pairingInput,
-      stun: settings.stun,
+      stun: pairingStun ?? settings.stun,
+      hosted:pairingHosted,
+      compact:true,
     }) +
+      (host&&pairingHosted?'<button type="button" class="button secondary" data-action="manual-pair">Use manual pairing</button>':'')+
       `<p class="help-text"><button type="button" class="text-button" data-action="${host ? "join-instead" : "invite-instead"}">${host ? "Have an invite? Join instead" : "No invitation yet? Create an invitation instead"}</button></p>`,
   );
   for (const [id, value] of [
@@ -1966,12 +1978,25 @@ function renderPairing() {
   ])
     if ($(id)) $(id).value = value;
   enhancePairing(host);
+  restorePairingUI(modalContent,ui);
   modalContent.querySelectorAll("[data-action]").forEach(
     (button) =>
       (button.onclick = async () => {
         const action = button.dataset.action;
         try {
-          if (action === "invite-instead") inviteFriend();
+          if(action==='paste-pair'){
+            const attempt=pairingAttempt,kind=pairingKind;
+            let input;
+            try{input=await navigator.clipboard.readText();}catch{
+              const details=modalContent.querySelector('.manual-reply');if(details)details.open=true;
+              $('pair-input')?.focus();toast('Paste the invitation or reply into the field.');return;
+            }
+            if(attempt!==pairingAttempt||kind!==pairingKind||pairingBusy||peer?.connected)return;
+            pairingInput=input;if($('pair-input'))$('pair-input').value=input;
+            if(host)await acceptPair(input);else await preparePair('answer',input);
+          }
+          else if(action==='manual-pair')await preparePair('offer','',true);
+          else if (action === "invite-instead") inviteFriend();
           else if (action === "join-instead") {
             const old = peer;
             peer = null;
@@ -1995,7 +2020,7 @@ function renderPairing() {
           } else if (action === "share")
             await sharePairing($("pair-output"), "Cluance");
         } catch (error) {
-          toast(error.message);
+          pairingError=error.message;pairingBusy=false;renderPairing();
         }
       }),
   );
@@ -2006,8 +2031,8 @@ function renderPairing() {
     $("pair-input").onpaste = (event) => {
       const input = event.clipboardData?.getData("text");
       if (!input || pairingBusy) return;
-      decodePairing(input, host ? "answer" : "offer")
-        .then(() => (host ? acceptPair(input) : preparePair("answer", input)))
+      const task=host?decodePairing(input,"answer").then(()=>acceptPair(input)):preparePair("answer",input);
+      task
         .catch((error) => {
           pairingError = error.message;
           renderPairing();
@@ -2028,7 +2053,7 @@ function enhancePairing(host) {
     b.textContent = b.textContent
       .toLocaleLowerCase()
       .replace(/^./, (c) => c.toUpperCase());
-  if (host && pairingCode) {
+  if (host && pairingCode && !pairingHosted) {
     const input = $("pair-input"),
       button = modalContent.querySelector('[data-action="accept-reply"]'),
       details = document.createElement("details");
@@ -2037,6 +2062,7 @@ function enhancePairing(host) {
     details.innerHTML = "<summary>Paste a reply manually</summary>";
     input.previousElementSibling.before(details);
     details.append(input.previousElementSibling, input, button);
+    const paste=modalContent.querySelector('[data-action="paste-pair"]');if(paste)details.before(paste);
     if (clipboardReply) {
       const banner = document.createElement("div");
       banner.className = "clipboard-banner";
@@ -2072,8 +2098,13 @@ async function checkClipboardReply() {
     /* Clipboard permission is optional. Manual paste remains available. */
   }
 }
-window.addEventListener("focus", checkClipboardReply);
-document.addEventListener("visibilitychange", checkClipboardReply);
+// Read the clipboard only after an explicit Paste action.
+modalContent.addEventListener('input',event=>{
+  if(!pairingKind||!modal.classList.contains('pairing-dialog'))return;
+  if(event.target.id==='stun')pairingStun=event.target.value;
+  const field={'turn':'url','turn-name':'username','turn-password':'credential'}[event.target.id];
+  if(field)relay[field]=event.target.value;
+});
 pairingBus?.addEventListener("message", (event) => {
   if (event.data?.type !== "reply" || !peer?.isInviter || peer.connected)
     return;
@@ -2088,10 +2119,10 @@ pairingBus?.addEventListener("message", (event) => {
 });
 async function openPairHash() {
   const params = new URLSearchParams(location.hash.slice(1)),
-    invite = params.get("invite") || params.get("pair"),
+    invite = params.has("room")?location.href:params.get("invite") || params.get("pair"),
     reply = params.get("reply");
   if (!invite && !reply) return;
-  const invitation = params.has("invite") ? location.href : invite;
+  const invitation = params.has("invite")||params.has("room") ? location.href : invite;
   history.replaceState(null, "", location.pathname + location.search);
   if (invite) {
     openPairing("guest", false, invitation);

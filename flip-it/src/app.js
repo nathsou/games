@@ -10,7 +10,8 @@ import {FlipSession, REACTIONS} from './session.js';
 import {ReplayStore,highlights} from './replays.js';
 import {saveTable, loadTable, forgetTable} from './resume.js';
 import {captureTable, animateMove, cancelMotion, motionEnabled} from './effects.js';
-import {PeerLink, decodePairing, makeLink, iceConfig} from './peer.js';
+import {PROTOCOL,PeerLink, decodePairing, makeLink, iceConfig} from './peer.js';
+import {signalingService,hostedInvitation,hostedLink,createHostedRoom,roomDetails,roomConfig} from '../../shared/signaling.js';
 import {pairingBody} from '../../shared/pairing.js';
 import {drawQR} from './qr.js';
 import {setSound, sound} from './sound.js';
@@ -24,6 +25,7 @@ let aiController=null,aiBusy=false,aiError='',offlineControllers=[],aiHistory=ne
 let scene = 'menu', mode = 'solo', game = null, seat = 0, lane = 1, chosen = [], handoff = false, preview = false;
 let session = null, peer = null, linkStatus = 'idle', botTimer = null, generation = 0, lastViewKey = '';
 const pairNetwork = {};
+let pairHosted=false,pairAttempt=0;
 let pairKind = 'host', pairBusy = false, pairOut = '', pairError = '', pairMessage = '', pairingOpen = false, pairOffer = '';
 const replayStore=new ReplayStore();
 let replayOpen=false,replayRecord=null,replayIndex=0,replayTimer=null,replayOnlyHighlights=false,storageNotified=false,replayPosition=null;
@@ -176,7 +178,8 @@ document.addEventListener('paste', event => {
   const host=pairKind==='host';
   // An intact pasted link advances either seat automatically. Buttons remain
   // available for typed links and browsers without clipboard event data.
-  decodePairing(input,host?'answer':'offer').then(()=>host?acceptReply(input):joinInvitation(input)).catch(error=>{pairError=error.message;renderPair();});
+  const task=host?decodePairing(input,'answer').then(()=>acceptReply(input)):joinInvitation(input);
+  task.catch(error=>{pairError=error.message;renderPair();});
 });
 function actionValid(actions, action) {
   return actions.some(a => a.kind === action.kind && a.lane === action.lane && a.target === action.target && (a.targetSeat ?? (view().hands.length===2?1-mySeat():-1)) === (action.targetSeat ?? (view().hands.length===2?1-mySeat():-1)) && (!a.cards || a.cards.length === action.cards?.length && a.cards.every(id => action.cards.includes(id))));
@@ -395,6 +398,7 @@ function makePeer(role,config) {
     if (peer!==link) return; linkStatus=status;
     if(!link.connected&&aiBusy){generation++;stopAI();}
     if ((status==='open'||status==='connected') && link.connected && !link.helloSent) { link.helloSent=true; session.opened(); }
+    if(status==='signaling-error'){pairError=link.signalingError;pairBusy=false;}
     if (status==='invalid-message') { notify('An invalid connection message arrived. Reconnect to continue.'); link.close(); }
     if (pairingOpen) renderPair(); render(); scheduleBot();
   }});
@@ -415,6 +419,7 @@ function modalHead(title, eyebrow = 'FLIP IT') {
   return '<div class="modal-head"><div><p class="eyebrow">' + eyebrow + '</p><h2 id="modal-title">' + title + '</h2></div><button class="close-button" data-action="close-modal" aria-label="Close dialog">×</button></div>';
 }
 function openPair(kind) {
+  pairAttempt++;pairHosted=Boolean(peer?.hosted);
   pairKind = kind; pairError = ''; pairingOpen = true;
   if (!peer || (!peer.connected && peer.pc.signalingState !== 'have-local-offer' && session?.seat === 0) || linkStatus === 'closed' || linkStatus === 'failed' || !pairOut) { pairOut = ''; pairMessage = ''; pairBusy = false; }
   if (peer?.connected) pairKind = 'connected';
@@ -432,7 +437,7 @@ function renderPair() {
   const focused=document.activeElement;
   const focus=modal.contains(focused)&&focused.id?{id:focused.id,start:focused.selectionStart,end:focused.selectionEnd}:null;
   const scroll=modalContent.scrollTop;
-  let html = modalHead(pairKind === 'return' ? 'Back to your table.' : pairKind === 'connected' ? 'Connected' : pairKind === 'host' ? (pairOut?'Invitation ready':pairBusy?'Creating invitation…':'Invite a friend') : (pairOut?'Send your reply':'Join a friend'), 'PRIVATE TABLE / PEER-TO-PEER');
+  let html = modalHead(pairKind === 'return' ? 'Back to your table.' : pairKind === 'connected' ? 'Connected' : pairKind === 'host' ? (pairOut?'Invitation ready':pairBusy?'Creating invitation…':'Invite a friend') : (pairHosted?'Joining your friend…':pairOut?'Send your reply':'Join a friend'), 'PRIVATE TABLE / PEER-TO-PEER');
   if (pairKind === 'connected') {
     html += '<p class="modal-copy">You are connected directly to ' + esc(session.members[1 - session.seat]) + '. Keep both game tabs open while you play.</p>' + button('BACK TO THE TABLE →', 'close-modal', 'gold');
   } else if (pairKind === 'return') {
@@ -441,9 +446,10 @@ function renderPair() {
     const locked=Boolean(session?.state),team=locked?session.team:Boolean(prefs.onlineTeam);
     const count=locked?session.aiPlayers.length:aiPlayers(3,0,true).length;
     const setup=pairKind==='host'?'<details class="pair-options"><summary>'+(team?'Team against bots':count+' bot / AI opponents · '+(count?'optional players':'just you and your friend'))+'</summary><label class="team-choice"><input type="checkbox" id="team" '+(team?'checked':'')+' '+(locked?'disabled':'')+'> <span>Team up against bots<small>Share one hand instead of playing against each other.</small></span></label>'+aiLobby(locked,true)+'</details>':'';
-    html += pairingBody({host:pairKind==='host',output:pairOut,busy:pairBusy,message:pairMessage,canScan,compact:true,initial:input,
+    html += pairingBody({host:pairKind==='host',output:pairOut,busy:pairBusy,message:pairMessage,canScan,compact:true,initial:input,hosted:pairHosted,
       stun:Object.hasOwn(prefs,'stun')?prefs.stun:undefined,setup});
     if(!session?.view)html+=button(pairKind==='host'?'Have an invite? Join instead':'Create an invitation instead','switch-pair','outline compact',pairBusy);
+    if(pairKind==='host'&&pairHosted)html+=button('Use manual pairing','manual-pair','outline compact',pairBusy);
     html += button('CANCEL SETUP', 'cancel-pair', 'outline');
   }
   if (pairError) html += '<p class="pair-error" role="alert">' + esc(pairError) + '</p>';
@@ -458,31 +464,46 @@ function renderPair() {
     catch (error) { modal.querySelector('.qr-wrap').remove(); const p = document.createElement('p'); p.className = 'qr-note'; p.textContent = error.message; modalContent.append(p); }
   }
 }
-async function createInvitation() {
+async function createInvitation(manual=false) {
+  const attempt=++pairAttempt;
   prefs.onlineTeam = modal.querySelector('#team')?.checked ?? Boolean(prefs.onlineTeam); savePrefs();
-  const config = readConfig();
-  pairOut=''; pairBusy = true; pairError = ''; pairMessage = 'Finding a direct route. This can take a few seconds.';
-  const link = makePeer(0, config);
-  renderPair();
+  let config=readConfig(),link;
+  pairOut='';pairBusy=true;pairError='';pairMessage='Preparing your invitation…';renderPair();
   try {
-    const token = await link.invite();
-    if (peer !== link) return;
-    pairOut = makeLink(token, 'offer');
-    pairMessage = 'Invitation ready. Share it, then accept the reply here.';
-  } catch (error) { if (peer !== link) return; pairError = error.message; }
-  pairBusy = false; renderPair(); render();
+    const service=manual?null:await signalingService();
+    if(attempt!==pairAttempt||!pairingOpen)return;
+    pairHosted=Boolean(service);
+    if(service){
+      const room=await createHostedRoom('flip-it',PROTOCOL);
+      config=await roomConfig(room,config);
+      if(attempt!==pairAttempt||!pairingOpen)return;
+      link=makePeer(0,config);await link.connectRoom(room,'host');
+      if(peer!==link||attempt!==pairAttempt)return;
+      pairOut=hostedLink({game:'flip-it',room:room.room,key:room.guestKey});
+      pairMessage='Your friend joins automatically when they open the link.';
+    }else{
+      link=makePeer(0,config);renderPair();const token=await link.invite();
+      if(peer!==link||attempt!==pairAttempt)return;
+      pairOut=makeLink(token,'offer');pairMessage='Invitation ready. Share it, then accept the reply here.';
+    }
+  }catch(error){if(attempt!==pairAttempt||link&&peer!==link)return;pairError=error.message;}
+  if(attempt===pairAttempt){pairBusy=false;renderPair();render();}
 }
 async function joinInvitation(input) {
-  const config = readConfig();
-  await decodePairing(input, 'offer'); pairOffer=input; // Validate before replacing any live connection.
-  pairOut=''; pairBusy = true; pairError = ''; pairMessage = 'Preparing your reply. This can take a few seconds.';
-  const link = makePeer(1, config); renderPair();
+  const attempt=++pairAttempt;
+  let config=readConfig(),link;
+  pairBusy=true;pairError='';pairMessage='Connecting to your friend…';renderPair();
   try {
-    const token = await link.join(input);
-    if (peer !== link) return;
-    pairOut = makeLink(token, 'answer'); pairMessage = 'Send your reply to the host to finish connecting.';
-  } catch (error) { if (peer !== link) return; pairError = error.message; }
-  pairBusy = false; renderPair(); render();
+    let room=hostedInvitation(input,'flip-it');
+    if(room){room=await roomDetails(room,PROTOCOL);config=await roomConfig(room,config);}
+    else await decodePairing(input,'offer');
+    if(attempt!==pairAttempt||!pairingOpen)return;
+    pairOffer=input;pairHosted=Boolean(room);pairOut='';
+    link=makePeer(1,config);renderPair();
+    if(room){await link.connectRoom(room,'guest');pairMessage='Connecting automatically. No reply link needed.';}
+    else{const token=await link.join(input);if(peer!==link||attempt!==pairAttempt)return;pairOut=makeLink(token,'answer');pairMessage='Send your reply to the host to finish connecting.';}
+  }catch(error){if(attempt!==pairAttempt||link&&peer!==link)return;pairError=error.message;}
+  if(attempt===pairAttempt){pairBusy=false;renderPair();render();}
 }
 async function acceptReply(input) {
   if (!peer || session?.seat !== 0) throw new Error('Open your hosting tab first, then paste the reply there.');
@@ -522,7 +543,7 @@ async function scanCode(target) {
     if (current !== scanGeneration || !modal.open) return;
     try {
       const codes = await detector.detect(video);
-      const code = codes.find(c => c.rawValue.includes('FI1'));
+      const code = codes.find(c => c.rawValue.includes('FI1')||c.rawValue.includes('/flip-it/#room='));
       if (code) {
         stopScan();
         if (target === 'offer') await joinInvitation(code.rawValue);
@@ -711,6 +732,7 @@ document.addEventListener('click',async event=>{
       const field=modal.querySelector('#pair-input');if(field)field.value=input;
       if(pairKind==='host')await acceptReply(input);else await joinInvitation(input);
     }
+    else if(action==='manual-pair')await createInvitation(true);
     else if (action==='create-invite') await createInvitation();
     else if (action==='remake-reply') await joinInvitation(pairOffer);
     else if (action==='join-invite') await joinInvitation(modal.querySelector('#pair-input').value);
@@ -721,7 +743,7 @@ document.addEventListener('click',async event=>{
       else await copyOutput();
     } else if (action==='close-modal') {pauseReplay();modal.close();}
     else if (action==='cancel-pair') {
-      stopScan(); const old=peer; peer=null; old?.close(); pairOut=''; pairBusy=false; pairError=''; pairMessage=''; linkStatus='idle';
+      pairAttempt++;stopScan(); const old=peer; peer=null; old?.close(); pairOut=''; pairBusy=false; pairError=''; pairMessage=''; linkStatus='idle';
       if (!session?.view) { mode='solo'; session=null; }
       modal.close(); render();
     } else if (action==='scan-invite') await scanCode('offer');
@@ -793,11 +815,11 @@ bus?.addEventListener('message',async event=>{
   } else if (message.type==='reply-accepted' && pairKind==='return') { pairMessage='Reply delivered. Your match is connecting in the original hosting tab. You can close this tab.'; renderPair(); }
 });
 async function handleHash() {
-  const params=new URLSearchParams(location.hash.slice(1)), invite=params.get('invite'), reply=params.get('reply');
+  const params=new URLSearchParams(location.hash.slice(1)), invite=params.has('room')?location.href:params.get('invite'), reply=params.get('reply');
   if (!invite && !reply) return;
   history.replaceState(null,'',location.pathname+location.search);
   if (invite) {
-    openPair('join'); modal.querySelector('#pair-input').value=makeLink(invite,'offer');
+    openPair('join'); modal.querySelector('#pair-input').value=params.has('room')?invite:makeLink(invite,'offer');
     try { await joinInvitation(invite); } catch(error) { pairError=error.message;pairBusy=false;renderPair(); }
   } else {
     try {

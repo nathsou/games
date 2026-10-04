@@ -8,6 +8,7 @@ const games=['spacegolf','flip-it','midnight','cluance','pawn-quest'];
 await rm(output,{recursive:true,force:true});
 await mkdir(output,{recursive:true});
 await cp(resolve(root,'index.html'),resolve(output,'index.html'));
+await cp(resolve(root,'cloudflare/_headers'),resolve(output,'_headers'));
 await cp(resolve(root,'shared'),resolve(output,'shared'),{recursive:true,filter:path=>!/(?:\/tests|\/tools|\.md$|\.json$)/.test(path)});
 for(const game of games){
   const dest=resolve(output,game);await mkdir(dest,{recursive:true});

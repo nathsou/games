@@ -3533,3 +3533,6 @@ body[data-screen="curtain"] .topbar {
     display: none;
   }
 }
+
+.pair-link { margin: 10px 0; color: var(--ink2); }
+.pair-link .link-output { width: 100%; margin-top: 8px; }

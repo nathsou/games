@@ -8,13 +8,16 @@ export function invitationDetails(input) {
     ? new URLSearchParams(new URL(input).hash.slice(1))
     : new URLSearchParams();
   const role = params.get('role') || 'giver';
-  if (!['giver', 'guesser'].includes(role)) throw new Error('This invitation has an invalid player role. Ask for a fresh invitation.');
   let options;
   if (['theme', 'clueTheme', 'variant'].some(key => params.has(key))) {
     options = {theme:params.get('theme'), clueTheme:params.get('clueTheme'), variant:params.get('variant')};
-    if (!Object.hasOwn(DECKS, options.theme) || !Object.hasOwn(DECKS, options.clueTheme) || !['classic', 'fixed'].includes(options.variant))
-      throw new Error('This invitation has incompatible table settings. Ask for a fresh invitation.');
   }
+  return validateInvitationDetails({role,options});
+}
+export function validateInvitationDetails({role,options}) {
+  if (!['giver', 'guesser'].includes(role)) throw new Error('This invitation has an invalid player role. Ask for a fresh invitation.');
+  if(options&&(!Object.hasOwn(DECKS, options.theme) || !Object.hasOwn(DECKS, options.clueTheme) || !['classic', 'fixed'].includes(options.variant)))
+    throw new Error('This invitation has incompatible table settings. Ask for a fresh invitation.');
   if (role === 'guesser' && !options) throw new Error('This invitation is missing its table settings. Ask for a fresh invitation.');
   return {role, options};
 }
