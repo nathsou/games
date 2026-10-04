@@ -19,13 +19,13 @@ export function pairingBody({host, output='', busy=false, error='', message='', 
   } else if(hosted&&!host){
     html+='<p class="modal-copy pair-copy" role="status">Connecting you to your friend. Keep both game tabs open.</p>'+settings+button('TRY AGAIN','remake-reply',busy);
   } else if(host) {
-    html+=`<p class="modal-copy pair-copy">Send the invite. Your friend opens it and sends a reply. Paste that reply here to start playing.</p>${compact?'':setup}${settings}${button(busy?'PREPARING INVITATION…':'CREATE INVITATION ↗','create-invite',busy,'gold')}`;
+    html+=`<p class="modal-copy pair-copy">Create an invitation and send it to your friend. Keep both game tabs open.</p>${compact?'':setup}${settings}${button(busy?'PREPARING INVITATION…':'CREATE INVITATION ↗','create-invite',busy,'gold')}`;
   } else {
     html+=`<p class="modal-copy pair-copy">Open your friend’s invitation link, or paste it below. No account needed.</p><label class="field-label label" for="pair-input">INVITATION LINK</label><textarea id="pair-input" class="code-box" placeholder="Paste the invitation link here…" spellcheck="false">${esc(initial)}</textarea>${compact?button('PASTE INVITE & JOIN','paste-pair',busy,'gold'):""}${settings}${button(busy?'PREPARING YOUR REPLY…':'JOIN THIS TABLE →','join-invite',busy,'gold')}${canScan?button('SCAN INVITATION QR','scan-invite',busy):''}`;
   }
   if(message)html+=`<p class="modal-copy help-text" role="status">${esc(message)}</p>`;
   if(error)html+=`<p class="inline-error" role="alert">${esc(error)}</p>`;
-  return html+'<p class="help-text small">'+(hosted?'A private browser connection. No account needed.':'A direct browser connection. No account or room server.')+' Keep both tabs open. Relay credentials stay in this session.</p>';
+  return html+'<p class="help-text small">'+'A private browser connection. No account needed.'+' Keep both tabs open. Relay credentials stay in this session.</p>';
 }
 export async function copyPairing(field) {
   try {await navigator.clipboard.writeText(field.value);}
