@@ -32,8 +32,8 @@ export function installSharedScreen(session, render) {
     onStream(stream) { video.srcObject = stream; if (stream) video.play().catch(() => {}); },
   });
   function sendInput(input) {
-    if (!screen.active || session.isHost) return;
-    try { screen.send('input', {input}); } catch { /* Drop input while the channel is congested. */ }
+    if (!screen.active || session.isHost || !screen.remoteEpoch || !screen.remoteReady) return;
+    try { screen.send('input', {input, epoch: screen.remoteEpoch}); } catch { /* Drop input while the channel is congested. */ }
   }
   function pointer(event) {
     if (!screen.active || session.isHost) return;
@@ -49,7 +49,7 @@ export function installSharedScreen(session, render) {
     if (event.type !== 'click') event.preventDefault();
     sendInput({kind: event.type, x, y, button: event.button, buttons: event.buttons,
       shift: event.shiftKey, alt: event.altKey, ctrl: event.ctrlKey});
-    try { screen.send('cursor', {x, y}); } catch { /* Drop cursor updates while busy. */ }
+    try { screen.send('cursor', {x, y, epoch: screen.remoteEpoch}); } catch { /* Drop cursor updates while busy. */ }
   }
   for (const type of ['pointermove', 'pointerdown', 'pointerup', 'pointercancel', 'click']) surface.addEventListener(type, pointer);
   surface.addEventListener('contextmenu', event => event.preventDefault());
@@ -90,9 +90,9 @@ export function installSharedScreen(session, render) {
     doc?.addEventListener('pointermove', event => {
       if (!event.isTrusted || !screen.active || !session.isHost || performance.now() - last < 33) return;
       last = performance.now();
-      try { screen.send('cursor', {x: event.clientX / frame.contentWindow.innerWidth, y: event.clientY / frame.contentWindow.innerHeight}); } catch { /* Drop stale moves. */ }
+      try { screen.send('cursor', {x: event.clientX / frame.contentWindow.innerWidth, y: event.clientY / frame.contentWindow.innerHeight, epoch: screen.pageEpoch}); } catch { /* Drop stale moves. */ }
     });
-    if (screen.active && session.isHost) screen.geometry();
+    if (screen.active && session.isHost) { screen.pageReady = true; screen.geometry(); }
   });
   new ResizeObserver(() => {
     layout();
@@ -113,7 +113,7 @@ export function installSharedScreen(session, render) {
     const viewing = screen.active && !session.isHost;
     frame.hidden = viewing;
     $('shared-view').hidden = !viewing;
-    $('screen-wait').hidden = !viewing || Boolean(video.srcObject);
+    $('screen-wait').hidden = !viewing || Boolean(video.srcObject && screen.remoteReady);
     const dialog = $('screen-dialog');
     const show = ['confirm', 'asked', 'requested', 'offering', 'waiting'].includes(screen.phase);
     if (show) {

@@ -72,8 +72,11 @@ export class SharedScreen {
   activate() {
     clearTimeout(this.timer);
     this.phase = 'connecting';
+    this.pageEpoch = this.session.isHost ? id() : null;
+    this.remoteEpoch = null;
     this.session.clearProposal();
     const multiplayer = Boolean(this.session.link);
+    this.pageReady = !multiplayer && this.frame.contentDocument?.readyState === 'complete';
     this.session.pause(false);
     this.session.link?.close(true);
     this.session.link = null;
@@ -147,13 +150,15 @@ export class SharedScreen {
           c.sdpMLineIndex != null && (!Number.isInteger(c.sdpMLineIndex) || c.sdpMLineIndex < 0 || c.sdpMLineIndex > 255))) return;
       if (pc.remoteDescription) await pc.addIceCandidate(c);
       else if (this.candidates.length < 64) this.candidates.push(c);
-    } else if (type === 'geometry' && !this.session.isHost && this.active && validGeometry(message.geometry) && isFriendPage(message.page)) {
+    } else if (type === 'geometry' && !this.session.isHost && this.active && validID(message.epoch) && validGeometry(message.geometry) && isFriendPage(message.page)) {
       this.remoteGeometry = message.geometry;
+      this.remoteEpoch = message.epoch;
+      this.remoteReady = message.ready === true;
       this.session.game = message.page;
       this.onGeometry(message.geometry); this.changed();
-    } else if (type === 'cursor' && this.active && point(message.x) && point(message.y)) {
+    } else if (type === 'cursor' && this.active && message.epoch === (this.session.isHost ? this.pageEpoch : this.remoteEpoch) && point(message.x) && point(message.y)) {
       this.onCursor(message.x, message.y);
-    } else if (type === 'input' && this.session.isHost && this.active) {
+    } else if (type === 'input' && this.session.isHost && this.active && this.pageReady && message.epoch === this.pageEpoch) {
       this.input.receive(message.input);
     } else if (type === 'navigate' && this.session.isHost && this.active) this.navigate(message.page);
   }
@@ -166,6 +171,8 @@ export class SharedScreen {
     if (!this.active || !isFriendPage(page)) return;
     if (!this.session.isHost) { this.send('navigate', {page}); return; }
     this.input.reset();
+    this.pageEpoch = id();
+    this.pageReady = false;
     this.session.game = page;
     this.session.adapter = null;
     this.session.onSwitch(page);
@@ -175,7 +182,7 @@ export class SharedScreen {
     if (!this.active || !this.session.isHost) return;
     const rect = this.frame.getBoundingClientRect();
     const geometry = {width: innerWidth, height: innerHeight, frame: {left: rect.left, top: rect.top, width: rect.width, height: rect.height}};
-    this.send('geometry', {geometry, page: this.session.game});
+    this.send('geometry', {geometry, page: this.session.game, epoch: this.pageEpoch, ready: this.pageReady});
   }
   stop(notify = true) {
     const wasActive = this.active;
@@ -188,6 +195,9 @@ export class SharedScreen {
     const pc = this.pc, stream = this.stream;
     this.pc = this.stream = null;
     this.remoteGeometry = null;
+    this.remoteEpoch = this.pageEpoch = null;
+    this.remoteReady = false;
+    this.pageReady = false;
     this.input.reset();
     pc?.close();
     stream?.getTracks().forEach(track => track.stop());

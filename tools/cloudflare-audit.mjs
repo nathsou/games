@@ -183,6 +183,7 @@ async function collectionRoom() {
   for (const p of [h, g]) await p.waitForFunction(() => window.__together.game === 'spacegolf');
   const golf = await (await h.locator('#game-frame').elementHandle()).contentFrame();
   await golf.locator('canvas').waitFor();
+  await g.waitForFunction(() => window.__friendSession.screen.remoteReady);
   await golf.evaluate(() => {
     window.__remoteEvents = [];
     for (const type of ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup']) {
@@ -197,17 +198,26 @@ async function collectionRoom() {
   await g.mouse.wheel(0, 100);
   await g.keyboard.press('ArrowRight');
   await golf.waitForFunction(() => ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup'].every(type => window.__remoteEvents.some(e => e.type === type)));
+  const retiredEpoch = await g.evaluate(() => window.__friendSession.screen.remoteEpoch);
   await h.mouse.move(400, 300);
   await g.locator('#friend-cursor').waitFor({state: 'visible'});
   await g.locator('#next-game').selectOption('flip-it');
   for (const p of [h, g]) await p.waitForFunction(() => window.__together.game === 'flip-it');
   const flip = await (await h.locator('#game-frame').elementHandle()).contentFrame();
   await flip.locator('#player-name').waitFor();
+  await g.waitForFunction(() => window.__friendSession.screen.remoteReady);
   await flip.locator('#player-name').fill('');
   const namePoint = await sharedPoint(h, g, flip.locator('#player-name'));
   await g.mouse.click(namePoint.x, namePoint.y);
+  await g.evaluate(epoch => {
+    window.__friendSession.screen.send('input', {epoch, input: {kind: 'text', value: 'STALE'}});
+    window.__friendSession.screen.send('input', {epoch: window.__friendSession.screen.remoteEpoch, input: {kind: 'text', value: 'X'.repeat(281)}});
+  }, retiredEpoch);
   await g.keyboard.type('Alex');
   await flip.waitForFunction(() => document.querySelector('#player-name').value === 'Alex');
+  await g.locator('#screen-typing').fill('!');
+  await flip.waitForFunction(() => document.querySelector('#player-name').value === 'Alex!');
+  assert.equal(await flip.evaluate(() => JSON.parse(localStorage.getItem('flip-it.preferences')).name), 'Alex!');
   assert(await g.locator('.friend-bar').evaluate(el => el.scrollWidth <= el.clientWidth));
   await screenshot(g, 'shared-cursors-320.png');
   for (const game of ['cluance', 'midnight', 'nonocube', 'pawn-quest', 'collection']) {

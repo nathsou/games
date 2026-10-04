@@ -58,7 +58,9 @@ The `SignalRoom` and `InviteLimiter` Durable Object bindings are created automat
 
 ## Playing multiple games together
 
-New Cluance and Flip It invitations open the shared friend page. Either player can choose the next game; their friend accepts or declines. An accepted switch starts a new table while retaining WebRTC and its relay credentials, with no new signaling room. No account settings or extra bindings are needed. See [friend session behavior and implementation](FRIEND_SESSIONS.md).
+The index and shared game page have the same friend panel, including chat, reactions and a configurable auto-hide setting. Its **Invite a friend** button creates a game-independent room; existing Cluance and Flip It game invites also remain available. Either player can choose the next multiplayer game, and their friend accepts or declines. An accepted switch starts a new table while retaining WebRTC and its relay credentials, with no new signaling room.
+
+**Cursors** starts a separate shared-tab mode for every game in the collection. The room creator hosts the authoritative game and shares the Games tab using a desktop browser's capture picker; their friend sees the game video and sends game-only controls. Media negotiation uses the existing authenticated friend connection and ICE settings. Deploy the updated Worker and assets together; no additional account settings, secrets or bindings are needed. See [friend room behavior, browser requirements and implementation](FRIEND_SESSIONS.md).
 
 ## Branch previews
 
