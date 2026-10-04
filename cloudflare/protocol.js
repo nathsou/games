@@ -1,7 +1,8 @@
 export const ROOM_TTL=15*60*1000;
+export const FRIEND_TTL=90*24*60*60*1000;
 export const TOKEN=/^[a-f0-9]{64}$/;
 export const ROOM=/^[a-f0-9]{32}$/;
-export const GAMES=Object.freeze({'flip-it':5,cluance:1,friends:1});
+export const GAMES=Object.freeze({'flip-it':6,cluance:1,friends:1});
 export function validMetadata(game,value={}){
   if(game==='flip-it'||game==='friends')return {};
   if(!value||!['giver','guesser'].includes(value.role)||!value.options||

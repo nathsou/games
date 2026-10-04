@@ -10,7 +10,8 @@
     "deploy:check": "wrangler deploy --dry-run",
     "test:cloudflare": "node --test cloudflare/tests/*.test.mjs",
     "test:cloudflare:ui": "node tools/cloudflare-audit.mjs",
-    "preview": "wrangler preview"
+    "preview": "wrangler preview",
+    "test:checkpoints:ui": "node tools/checkpoint-audit.mjs"
   },
   "devDependencies": {
     "miniflare": "^5.20261001.0-alpha",

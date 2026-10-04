@@ -20,16 +20,18 @@ export class SharedPlay {
   get busy() { return this.phase !== 'off'; }
   send(type, data = {}) { this.session.send({type: 'friend-screen-' + type, id: this.id, ...data}); }
   changed() { this.onChange(); }
-  async request() {
+  async request(page = this.session.game, resume = false) {
     if (!this.session.connected || this.busy || this.session.loading || this.session.proposal) return;
     this.id = id();
+    this.targetPage=isFriendPage(page)?page:this.session.game;
+    this.resumePage=resume;
     this.phase = this.session.isHost ? 'confirm' : 'waiting';
-    if (!this.session.isHost) this.send('ask', {version: 2});
+    if (!this.session.isHost) this.send('ask', {version: 2,page:this.targetPage,resume});
     this.deadline(); this.changed();
   }
   async accept() {
     if (['asked', 'confirm'].includes(this.phase) && this.session.isHost) {
-      this.phase = 'offering'; this.send('request', {version: 2}); this.deadline(); this.changed();
+      this.phase = 'offering'; this.send('request', {version: 2,page:this.targetPage,resume:this.resumePage}); this.deadline(); this.changed();
     } else if (this.phase === 'requested' && !this.session.isHost) {
       this.activate(); this.send('accept', {version: 2}); this.changed();
     }
@@ -51,7 +53,9 @@ export class SharedPlay {
     if (this.session.isHost) {
       this.pageEpoch = id();
       this.pageReady = !multiplayer && this.frame.contentDocument?.readyState === 'complete';
-      if (multiplayer) this.session.onSwitch(this.session.game);
+      this.session.resumeSharedPage=Boolean(this.resumePage);
+      if (this.targetPage && this.targetPage !== this.session.game) {this.session.game=this.targetPage;this.pageReady=false;this.session.onSwitch(this.targetPage);}
+      else if (multiplayer) this.session.onSwitch(this.session.game);
       this.geometry();
       this.ticker = setInterval(() => this.publish(), 50);
     }
@@ -67,6 +71,7 @@ export class SharedPlay {
         return;
       }
       this.id = message.id; this.phase = type === 'ask' ? 'asked' : 'requested';
+      this.targetPage=isFriendPage(message.page)?message.page:this.session.game;this.resumePage=Boolean(message.resume);
       this.deadline(); this.changed(); return;
     }
     if (!this.busy || message.id !== this.id) return;
@@ -188,5 +193,16 @@ export class SharedPlay {
       this.session.onSwitch('collection');
     }
     this.changed();
+  }
+  suspend() {
+    // Keep the authoritative engine and its local checkpoint in place.
+    this.phase='off';clearTimeout(this.timer);clearInterval(this.ticker);clearInterval(this.readyPoll);
+    this.incoming=this.outgoing=this.lastState=this.renderState=null;
+    this.remoteReady=this.pageReady=this.guestReady=false;
+    this.input.reset();this.onCursor(null,null);this.changed();
+  }
+  restoreConnection(roomEpoch) {
+    this.id=roomEpoch;this.targetPage=this.session.game;this.resumePage=true;
+    this.session.loading=false;this.activate();this.changed();
   }
 }

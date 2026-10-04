@@ -23,7 +23,7 @@ npm run build
 npm run dev
 ```
 
-Use Wrangler's local site for automatic invitations. Each game's original development server still supports offline play and manual pairing.
+Use Wrangler's local site for automatic invitations. Each game's original development server supports offline play. Use Wrangler for global invitations and saved turn games.
 
 ## Deploy manually
 
@@ -43,24 +43,17 @@ Signaling works without a TURN account. Configure the managed relay for players 
 2. In **Workers & Pages → games → Settings → Variables and Secrets**, add `TURN_KEY_ID` with the key's ID and add **secret** `TURN_API_TOKEN` with that TURN key's API token. This is the token issued for the TURN key, not the general Cloudflare account API token.
 3. Deploy the updated configuration. No values belong in GitHub, the invitation URL, the game's settings or browser JavaScript.
 
-The Worker generates credentials valid for one hour, limited to four requests per seat in an authenticated invitation. They remain in browser memory. A manually configured relay takes precedence. Sessions longer than the credential lifetime need a fresh connection.
+The Worker generates credentials valid for one hour, limited to twelve requests per hour per seat in a friend room (four for legacy invitations). They remain in browser memory. A manually configured relay takes precedence. Sessions longer than the credential lifetime need a fresh connection.
 
 The `SignalRoom` and `InviteLimiter` Durable Object bindings are created automatically by the checked-in Wrangler migration; do not create KV namespaces, D1 databases, Pages projects or manual bindings. SQLite-backed Durable Objects work on the Workers Free plan.
 
-## Invite behavior and limits
+## Friend rooms and saved games
 
-- Invite links expire after 15 minutes. Host and guest each have a distinct random capability; the shared link contains only the guest capability, in its fragment.
-- Both games exchange SDP and ICE automatically. Gameplay, private cards and AI credentials use the existing encrypted WebRTC data channel.
-- The service accepts only two seats and connection metadata. It limits each IP to 30 new invitations per hour, caps signaling size/rate, and discards buffered connection metadata after connection or expiry.
-- A link already used for a completed connection cannot be reused. Keep both game tabs open; reconnecting makes a fresh link while preserving the existing game's recovery behavior.
-- Cluance keeps the inviter's chosen giver/guesser role and public table options. Flip It defaults to a duel with zero bots/AI.
-- **Use manual pairing** provides the original invite/reply flow if needed. Manual pairing and local games remain available on the games' original development servers.
+All invitations use the global Friends side panel. Choose settings before creating the link; the guest joins directly without a reply link. An unclaimed room initially expires after 15 minutes. Claiming a private browser seat extends room retention to 90 days after the most recent authenticated visit. The shared link claims the guest seat once; returning players use their saved private credential. Reconnection retains the same room.
 
-## Playing multiple games together
+Live game traffic uses encrypted WebRTC. Take-turn Cluance and Flip It use server-authoritative game state in the existing SignalRoom Durable Object, so either browser can be offline. Every move is validated and responses contain only that player's allowed view. Chat's latest 60 entries are also persisted in the room. No new bindings or secrets are required. See [friend room behavior and recovery limits](FRIEND_SESSIONS.md).
 
-The index and shared game page have the same friend panel, including chat, reactions and a configurable auto-hide setting. Its **Invite a friend** button creates a game-independent room; existing Cluance and Flip It game invites also remain available. Either player can choose the next multiplayer game, and their friend accepts or declines. An accepted switch starts a new table while retaining WebRTC and its relay credentials, with no new signaling room.
-
-**Cursors** starts a separate shared-state mode for every game in the collection. The room creator runs the authoritative game, and both browsers render its view locally. Game UI, board/camera state, cursors and controls use the existing authenticated friend data channel. There is no screen capture, video stream or additional RTC connection; phones can host if they support the selected game. Deploy the updated assets with the existing Worker configuration; no additional account settings, secrets or bindings are needed. See [friend room behavior and implementation](FRIEND_SESSIONS.md).
+Native multiplayer covers Cluance, Flip It and Midnight Table. With mutual consent, Cursors shares all collection games using state and input on the same connection, without screen capture. The Friends panel provides one chat and saved-game list across these modes. Clearing browser storage loses that seat's private resume credential.
 
 ## Branch previews
 
@@ -81,7 +74,6 @@ Use Wrangler 4.135.0 or newer; the repository pins a compatible release.
 
 ## Verification
 
-`npm run test:cloudflare` uses Cloudflare's local runtime to check room permissions, origin/game isolation, expiry, replay/duplicate-seat rejection, signaling limits and TURN credential minting. `npm run build` and `npm run deploy:check` validate the complete collection and Worker bindings. Browser audits cover automatic invite exchange in both games; credentials and remote-network connectivity still require account configuration.
+`npm run test:cloudflare` checks permissions, origin isolation, expiry, signaling, TURN, idempotent seat recovery, durable private game views, stale/concurrent moves and chat. `npm run build` and `npm run deploy:check` validate assets and Worker bindings.
 
-
-With Wrangler running locally, `npm run test:cloudflare:ui` checks short-link creation, automatic exchange, Flip It zero-bot games and saved-game reconnection, Cluance private views and agreed role swaps, manual fallback and dialog retention at desktop/phone sizes. Install Playwright separately or set `PLAYWRIGHT_MODULE` to its module path; `CHROMIUM_PATH` chooses a system browser. `GAMES_URL` overrides `http://127.0.0.1:8787`, and `GAMES_ARTIFACTS` saves screenshots. Browser gameplay checks use a test-only RTC substitute with real Worker/WebSocket signaling; separate native Chromium checks verify real offer/answer exchange. This test environment produced no usable native ICE candidates, so it does not verify native data-channel or cross-network connectivity. Verify those after configuring TURN on the deployed Worker.
+With Wrangler running locally, `npm run test:cloudflare:ui` checks the unified invitation/settings/chat panel, independent offline browsers, closed-tab recovery, concurrent turn games, background games, live reconnects, shared physics recovery and phone layout. Install Playwright separately or set `PLAYWRIGHT_MODULE` to its module path; `CHROMIUM_PATH` chooses a system browser. `GAMES_URL` overrides `http://127.0.0.1:8787`. Native gameplay uses a deterministic RTC substitute and real Worker signaling; deployed native data-channel and cross-network connectivity need relay/network verification.

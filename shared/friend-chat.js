@@ -45,4 +45,14 @@ export class FriendChat {
     if (this.entries.length > 60) this.entries.shift();
     this.session.onChange();
   }
+  snapshot() { return {sequence:this.sequence,entries:this.entries.slice()}; }
+  restore(history) {
+    if (!history || !Number.isSafeInteger(history.sequence) || history.sequence < 0 || !Array.isArray(history.entries) || history.entries.length > 60) return;
+    let previous=0;
+    for (const entry of history.entries) {
+      if (!entry || !Number.isSafeInteger(entry.sequence) || entry.sequence <= previous || entry.sequence > history.sequence || ![0,1].includes(entry.seat) || !valid(entry.kind,entry.value)) return;
+      previous=entry.sequence;
+    }
+    this.sequence=history.sequence;this.entries=history.entries.map(entry=>({...entry}));
+  }
 }

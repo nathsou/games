@@ -1,3 +1,4 @@
+import {installCheckpoint} from './checkpoint.js';
 import {installHostView} from './friend-view.js';
 import { App } from './app.js';
 import { TitleScene } from './scenes/title.js';
@@ -31,6 +32,7 @@ try {
   app.routeFromHash();
   window.addEventListener('hashchange', () => app.routeFromHash());
   app.start();
+  installCheckpoint(app);
 } catch (e) {
   console.error(e);
   fail(e && e.message ? e.message : e);

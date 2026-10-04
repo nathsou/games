@@ -1,6 +1,7 @@
 import {friendSession} from './friend-context.js';
 // Hosted invitations contain a random guest capability in the URL fragment.
-// Only SDP and ICE travel through this service; game traffic uses PeerLink.
+// This module handles SDP/ICE signaling. Turn games and durable chat use
+// the room APIs in turn-client.js; live game traffic uses PeerLink.
 const ROOM=/^[a-f0-9]{32}$/,KEY=/^[a-f0-9]{64}$/;
 let servicePromise;
 async function request(path,{key,method='GET',body,signal}={}){
@@ -80,4 +81,10 @@ export class SignalConnection {
   }
   send(message){if(!this.closed&&this.socket?.readyState===WebSocket.OPEN)this.socket.send(JSON.stringify(message));}
   close(){if(this.closed)return;this.closed=true;this.reject?.(new Error('The invitation was cancelled.'));this.reject=null;this.socket?.close(1000);}
+}
+
+export async function claimRoomResume(invitation) {
+  const details=await request('/api/rooms/friends/'+invitation.room+'/resume',{key:invitation.key,method:'POST'});
+  if(!KEY.test(details.key)||!['host','guest'].includes(details.role))throw new Error('The room could not be restored. Create a fresh invitation.');
+  return {game:'friends',room:invitation.room,key:details.key,role:details.role,expiresAt:details.expiresAt};
 }

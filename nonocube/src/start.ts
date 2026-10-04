@@ -1,6 +1,8 @@
+import {registerCheckpoint} from '../../shared/game-checkpoint.js';
+import {allCollections} from './data/collections.ts';
 import {installHostView} from './friend-view.ts';
 import { App } from './app.ts';
-import { decodePuzzle } from './core/codec.ts';
+import { encodePuzzle, decodePuzzle } from './core/codec.ts';
 import type { Collection, PuzzleDef } from './core/types.ts';
 import { randomSculpture, todayKey } from './data/daily.ts';
 import { EditorScreen } from './editor/editor.ts';
@@ -115,3 +117,21 @@ if (!openFromHash()) nav.home();
 
 // Debug handle for development builds.
 if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__nono = { app, nav, store };
+
+registerCheckpoint('nonocube',{
+  capture(){
+    const screen=app.screen;
+    if(!(screen instanceof PlayScreen)||screen.opts.hooks||screen.opts.saveKey===null)return null;
+    return {id:screen.opts.puzzle.id,code:encodePuzzle({...screen.opts.puzzle,mask:screen.opts.mask}),saveKey:screen.opts.saveKey,subtitle:screen.opts.subtitle,progress:screen.session.serialize()};
+  },
+  restore(data){
+    if(!data||typeof data.code!=='string'||typeof data.id!=='string')throw Error('Invalid saved puzzle.');
+    const puzzle=decodePuzzle(data.code,data.id),size=puzzle.cells.length,progress=data.progress;
+    if(!progress||typeof progress.state!=='string'||progress.state.length!==size||!/^[0-3]*$/.test(progress.state)||![progress.strikes,progress.hints,progress.elapsed].every(v=>Number.isFinite(v)&&v>=0))throw Error('Invalid saved puzzle progress.');
+    const collection=allCollections.find(c=>c.puzzles.some(p=>p.id===data.id));
+    if(collection)nav.play(collection,collection.puzzles.findIndex(p=>p.id===data.id));
+    else app.go(new PlayScreen(app,{puzzle,mask:puzzle.mask!,saveKey:data.saveKey,subtitle:data.subtitle,onExit:()=>nav.collections()}));
+    const screen=app.screen;
+    if(screen instanceof PlayScreen){screen.session.restore(progress);screen.refreshHud();}
+  },
+});
