@@ -82,7 +82,7 @@ const definitions = {
     ],
   },
   singers: {
-    name: 'Singers', subtitle: 'Iconic voices, stages & unmistakable styles', color: '#ec99bd', symbol: '♪', preview: 8,
+    name: 'Musicians', subtitle: 'Artists, bands & unmistakable sounds', color: '#ec99bd', symbol: '♪', preview: 8,
     cards: [
       ['Édith Piaf', 'French chanson singer'], ['Charles Aznavour', 'French-Armenian chanson singer'], ['Jacques Brel', 'Belgian chanson singer'],
       ['Barbara', 'French singer and pianist'], ['Georges Brassens', 'French singer and guitarist'], ['Johnny Hallyday', 'French rock singer'],
@@ -168,9 +168,10 @@ export const DECKS = Object.fromEntries(Object.entries(definitions).map(([id, de
   ...deck, id, kind: deck.kind || 'people', atlas: deck.atlas || `assets/${id}.webp`, columns:deck.columns||6, rows:deck.rows||4,
   cards: [
     ...deck.cards.map(([name, subtitle], index) => ({id: `${deck.cardPrefix||id}-${index}`, deck: id, index, name, subtitle, ...(id==='regions'?REGION_2015_CONTEXT:CARD_CONTEXT)[name]})),
-    ...(EXPANSION[id] || []).map(([name, subtitle, dates, description], atlasIndex) => ({
+    ...(EXPANSION[id] || []).map(([name, subtitle, dates, description, art], atlasIndex) => ({
       id: `${deck.cardPrefix || id}-${deck.cards.length + atlasIndex}`, deck: id, index: deck.cards.length + atlasIndex,
       name, subtitle, dates, description, atlas: `assets/${id}-extra.webp`, atlasIndex, columns: 3, rows: 2,
+      ...art,
     })),
   ].map(card => ({...card, ...ART_OVERRIDES[card.name]})),
 }]));

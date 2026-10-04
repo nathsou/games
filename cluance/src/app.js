@@ -12,13 +12,24 @@ import {
   PROTOCOL,
 } from "./game.js";
 import { loadArt, cardElement, observationImage } from "./art.js";
-import { PeerLink, decodePairing, makeLink, iceConfig } from "./peer.js";
+import {
+  PeerLink,
+  decodePairing,
+  makeLink,
+  iceConfig,
+  invitationDetails,
+  validateInvitationDetails,
+  makeInvitationLink,
+} from "./peer.js";
 import {
   pairingBody,
   connectionSettings,
   copyPairing,
   sharePairing,
+  capturePairingUI,
+  restorePairingUI,
 } from "../../shared/pairing.js";
+import {signalingService,hostedInvitation,hostedLink,createHostedRoom,roomDetails,roomConfig} from '../../shared/signaling.js';
 import { drawQR } from "../../shared/qr.js";
 import { PROVIDERS, chooseMove, listModels } from "./ai.js";
 import { loadSettings, read, write, erase } from "./storage.js";
@@ -70,7 +81,12 @@ let peer = null,
   pairingBusy = false,
   pairingOffer = "",
   pairingInput = "",
-  pairingConfig = null;
+  pairingConfig = null,
+  pairingGameOptions = null,
+  roleSwap = null;
+let roleSwapTimer,
+  cancelledRoleSwap = null;
+let pairingHosted=false,pairingAttempt=0,pairingStun;
 let relay = { url: "", username: "", credential: "" };
 const pairingBus =
   typeof BroadcastChannel !== "undefined"
@@ -107,7 +123,6 @@ let openToken = null,
   renderedRevision = null,
   noteOpen = false,
   settingsTab = "game",
-  clipboardReply = "",
   dragCleanup = null;
 const colorPreference = matchMedia("(prefers-color-scheme: dark)");
 const CARD_SIZES = [
@@ -168,6 +183,7 @@ function isHumanTurn() {
   return (
     game &&
     game.phase !== "over" &&
+    !roleSwap &&
     (game.phase === "clue") === (humanRole() === "giver")
   );
 }
@@ -216,13 +232,20 @@ modal.addEventListener("click", (event) => {
   }
 });
 modal.addEventListener("close", () => {
+  // A queued close event can arrive after another dialog has already opened.
+  if (modal.open) return;
+  if (roleSwap && !roleSwap.accepted) cancelRoleSwap();
   if (pairingKind && !peer?.connected) {
     peer?.close();
     peer = null;
     pairingKind = null;
+    pairingAttempt++;
     pairingBusy = false;
     updateConnection();
   }
+});
+modal.addEventListener("cancel", (event) => {
+  if (roleSwap?.accepted) event.preventDefault();
 });
 function closeDrawer() {
   const wasOpen = drawerCardId !== null;
@@ -433,7 +456,7 @@ function renderHome() {
       : homePartner === "local"
         ? "a friend on this screen"
         : "a friend";
-  app.innerHTML = `<section class="home-hero"><div class="home-copy"><p class="eyebrow">SAME CARDS. DIFFERENT MINDS.</p><h1 class="setup-sentence">I’ll ${token("role", homeRole === "guesser" ? "guess" : "give the clues")} while ${token("partner", partner)} ${homeRole === "guesser" ? "gives the clues" : "guesses"}, with ${token("deck", DECKS[setup.theme].name)} cards.</h1><p class="secondary-clause">Clues come from <button data-token="clues">${setup.clueTheme === "same" ? "the same deck" : esc(DECKS[setup.clueTheme].name)}</button>. The clue giver <button data-token="variant">${setup.variant === "fixed" ? "keeps the same five cards" : "draws a new card after each clue"}</button>.</p><div class="home-cta"><button class="button deal-button" id="start-game">${homePartner === "friend" ? (homeRole === "giver" ? "Invite a friend →" : "Join a friend →") : "Deal the cards →"}</button><div class="home-friend-actions">${homePartner === "friend" && homeRole === "giver" ? "" : `<button class="text-button" id="invite-friend">${homePartner === "friend" ? "Give clues & invite a friend →" : "Invite a friend →"}</button>`}${homePartner === "friend" && homeRole === "guesser" ? "" : `<button class="text-button" id="join-friend">Have an invite? Join a friend</button>`}</div></div><div id="token-picker" class="token-picker" ${openToken ? "" : "hidden"}></div></div><div class="hero-art" id="hero-art"></div></section><div class="home-footer"><span>One secret card. Five rounds. Win or lose together.</span><button class="text-button" id="open-replay">Open a replay ↓</button><a href="https://www.gigamic.com/blog/post/tout-sur-la-gamme-similo" target="_blank" rel="noopener noreferrer">Inspired by Similo ↗</a><input id="replay-file" type="file" accept="application/json,.json" hidden></div>`;
+  app.innerHTML = `<section class="home-hero"><div class="home-copy"><p class="eyebrow">SAME CARDS. DIFFERENT MINDS.</p><h1 class="setup-sentence">I’ll ${token("role", homeRole === "guesser" ? "guess" : "give the clues")} while ${token("partner", partner)} ${homeRole === "guesser" ? "gives the clues" : "guesses"}, with ${token("deck", DECKS[setup.theme].name)} cards.</h1><p class="secondary-clause">Clues come from <button data-token="clues">${setup.clueTheme === "same" ? "the same deck" : esc(DECKS[setup.clueTheme].name)}</button>. The clue giver <button data-token="variant">${setup.variant === "fixed" ? "keeps the same five cards" : "draws a new card after each clue"}</button>.</p><div class="home-cta"><button class="button deal-button" id="start-game">${homePartner === "friend" ? "Invite a friend →" : "Deal the cards →"}</button><div class="home-friend-actions">${homePartner === "friend" ? "" : '<button class="text-button" id="invite-friend">Invite a friend →</button>'}<button class="text-button" id="join-friend">Have an invite? Join a friend</button></div></div><div id="token-picker" class="token-picker" ${openToken ? "" : "hidden"}></div></div><div class="hero-art" id="hero-art"></div></section><div class="home-footer"><span>One secret card. Five rounds. Win or lose together.</span><button class="text-button" id="open-replay">Open a replay ↓</button><a href="https://www.gigamic.com/blog/post/tout-sur-la-gamme-similo" target="_blank" rel="noopener noreferrer">Inspired by Similo ↗</a><input id="replay-file" type="file" accept="application/json,.json" hidden></div>`;
   const deck = DECKS[setup.theme],
     preferred =
       setup.theme === "french"
@@ -463,25 +486,21 @@ function renderHome() {
   );
   if (openToken) renderTokenPicker();
   $("start-game").onclick = () => {
-    if (homePartner === "friend" && homeRole === "guesser")
-      openPairing("guest");
+    if (homePartner === "friend") inviteFriend();
     else start(setup.mode);
   };
-  if ($("invite-friend"))
-    $("invite-friend").onclick = () => {
-      // In direct pairing the inviter gives clues and their friend guesses.
-      homeRole = "giver";
-      homePartner = "friend";
-      setup.mode = "peer-host";
-      openToken = null;
-      saveSetup();
-      renderHome();
-      start("peer-host");
-    };
-  if ($("join-friend"))
-    $("join-friend").onclick = () => openPairing("guest");
+  if ($("invite-friend")) $("invite-friend").onclick = inviteFriend;
+  if ($("join-friend")) $("join-friend").onclick = () => openPairing("guest");
   $("open-replay").onclick = () => $("replay-file").click();
   $("replay-file").onchange = (event) => importReplay(event.target.files[0]);
+}
+function inviteFriend() {
+  homePartner = "friend";
+  setup.mode = homeRole === "giver" ? "peer-host" : "peer-guest";
+  openToken = null;
+  saveSetup();
+  renderHome();
+  start(setup.mode);
 }
 function renderTokenPicker() {
   const picker = $("token-picker");
@@ -593,7 +612,7 @@ function start(nextMode) {
   peer?.close();
   peer = null;
   updateConnection();
-  if (nextMode === "peer-host") {
+  if (nextMode.startsWith("peer-")) {
     openPairing("host");
     return;
   }
@@ -758,7 +777,7 @@ function renderGame() {
     : giver
       ? "Your partner is guessing."
       : "A clue is on its way.";
-  app.innerHTML = `<section class="table-header ${giver ? "giver-header" : ""}">${giver ? '<div id="secret-preview"></div>' : ""}<div class="turn-heading"><div class="round-line"><p class="eyebrow">ROUND ${view.round + 1} OF 5${giver ? " · YOUR CLUE" : ""}</p>${progress(view.round, giver)}</div><h1>${title}</h1><p>${giver ? `Your partner removes ${n} ${n === 1 ? "card" : "cards"} after your clue.` : "Keep the secret on the table. Every clue still counts."}</p></div><div id="clue-history" class="clue-rail"></div></section><section class="board-section ${giver ? "giver-board" : ""}"><div class="board" id="board"></div></section>${giver ? `<section class="giver-zone"><div class="drop-zone similar ${clueCard && relation === "similar" ? "filled" : ""}" id="similar" role="button" tabindex="0" aria-label="Choose Similar" aria-pressed="${relation === "similar"}"></div><div class="hand-section"><p class="eyebrow">YOUR HAND · ${view.variant === "fixed" ? view.hand.length + " LEFT · NO REFILLS" : "DRAG UP"}</p><div class="hand" id="hand"></div><small>Drag a card up. Tap a card, then choose a direction.</small></div><div class="drop-zone different ${clueCard && relation === "different" ? "filled" : ""}" id="different" role="button" tabindex="0" aria-label="Choose Different" aria-pressed="${relation === "different"}"></div></section>` : ""}<div class="action-bar ${giver ? "giver-actions" : ""}">${myTurn ? `<form id="turn-form"><div class="note-control"><button type="button" id="note-toggle" class="text-button" aria-expanded="${noteOpen}">✎ <span>${giver ? "Why?" : "Why these cards?"} Your note stays sealed until the reveal.</span></button><textarea id="turn-note" maxlength="1200" placeholder="Why? Sealed until the reveal" ${noteOpen ? "" : "hidden"}>${esc(draftNote)}</textarea></div><span id="selection-count" class="selection-count"></span>${giver ? "" : '<button type="button" class="text-button" id="clear-selection">Clear</button>'}<button class="button ${giver ? "" : "danger"}" id="confirm-move" type="submit"></button>${!giver && view.round === 4 ? '<button type="button" class="text-button" id="compare-final">Compare</button>' : ""}</form>` : ""}${aiBusy ? `<div class="thinking" role="status"><i></i><i></i><i></i>${esc(modelName())} is reading the table… <button id="cancel-ai" class="text-button">Cancel</button></div>` : ""}${aiError ? `<div class="inline-error" role="alert">${esc(aiError)} <button id="retry-ai" class="button small">Retry turn</button><button id="fix-ai" class="text-button">Settings</button></div>` : ""}${pendingGuess ? '<p role="status">Waiting for your friend to confirm…</p>' : ""}${isPeer() && !peer?.connected ? '<button id="reconnect" class="button secondary">Reconnect →</button>' : ""}${!myTurn && !aiBusy && !aiError && !pendingGuess ? '<p class="help-text">Your partner’s interpretation stays sealed until the reveal.</p>' : ""}</div>`;
+  app.innerHTML = `<section class="table-header ${giver ? "giver-header" : ""}">${giver ? '<div id="secret-preview"></div>' : ""}<div class="turn-heading"><div class="round-line"><p class="eyebrow">ROUND ${view.round + 1} OF 5${giver ? " · YOUR CLUE" : ""}</p>${progress(view.round, giver)}</div><h1>${title}</h1><p>${giver ? `Your partner removes ${n} ${n === 1 ? "card" : "cards"} after your clue.` : "Keep the secret on the table. Every clue still counts."}</p></div><div id="clue-history" class="clue-rail"></div></section><section class="board-section ${giver ? "giver-board" : ""}"><div class="board" id="board"></div></section>${giver ? `<section class="giver-zone"><div class="drop-zone similar ${clueCard && relation === "similar" ? "filled" : ""}" id="similar" role="button" tabindex="0" aria-label="Choose Similar" aria-pressed="${relation === "similar"}"></div><div class="hand-section"><p class="eyebrow">YOUR HAND · ${view.variant === "fixed" ? view.hand.length + " LEFT · NO REFILLS" : myTurn ? "DRAG UP" : view.hand.length + " CARDS"}</p><div class="hand" id="hand"></div><small>${myTurn ? "Drag a card up. Tap a card, then choose a direction." : "Inspect your hand while your partner guesses."}</small></div><div class="drop-zone different ${clueCard && relation === "different" ? "filled" : ""}" id="different" role="button" tabindex="0" aria-label="Choose Different" aria-pressed="${relation === "different"}"></div></section>` : ""}<div class="action-bar ${giver ? "giver-actions" : ""}">${myTurn ? `<form id="turn-form"><div class="note-control"><button type="button" id="note-toggle" class="text-button" aria-expanded="${noteOpen}">✎ <span>${giver ? "Why?" : "Why these cards?"} Your note stays sealed until the reveal.</span></button><textarea id="turn-note" maxlength="1200" placeholder="Why? Sealed until the reveal" ${noteOpen ? "" : "hidden"}>${esc(draftNote)}</textarea></div><span id="selection-count" class="selection-count"></span>${giver ? "" : '<button type="button" class="text-button" id="clear-selection">Clear</button>'}<button class="button ${giver ? "" : "danger"}" id="confirm-move" type="submit"></button>${!giver && view.round === 4 ? '<button type="button" class="text-button" id="compare-final">Compare</button>' : ""}</form>` : ""}${aiBusy ? `<div class="thinking" role="status"><i></i><i></i><i></i>${esc(modelName())} is reading the table… <button id="cancel-ai" class="text-button">Cancel</button></div>` : ""}${aiError ? `<div class="inline-error" role="alert">${esc(aiError)} <button id="retry-ai" class="button small">Retry turn</button><button id="fix-ai" class="text-button">Settings</button></div>` : ""}${pendingGuess ? '<p role="status">Waiting for your friend to confirm…</p>' : ""}${isPeer() && !peer?.connected ? '<button id="reconnect" class="button secondary">Reconnect →</button>' : ""}${!myTurn && !aiBusy && !aiError && !pendingGuess ? '<p class="help-text">Your partner’s interpretation stays sealed until the reveal.</p>' : ""}</div>`;
   for (let i = 0; i < view.board.length; i++) {
     const id = view.board[i],
       removed = view.eliminated.includes(id);
@@ -1191,7 +1210,8 @@ function renderReveal() {
   replayRound = Math.max(0, Math.min(replayRound, view.history.length - 1));
   const round = view.history[replayRound],
     win = view.result === "win",
-    ai = mode?.startsWith("ai-");
+    ai = mode?.startsWith("ai-"),
+    canSwap = ai || isPeer();
   const matched = round.expectedRemovals?.filter((id) =>
     round.removed.includes(id),
   ).length;
@@ -1221,7 +1241,7 @@ function renderReveal() {
         : round.guesserRemovalReasons;
     return `<section class="rationale"><p class="eyebrow">${esc(label)} ${giver ? "MEANT" : "SAW"}</p><blockquote>${esc(note || "No interpretation was recorded.")}</blockquote>${giver && round.expectedRemovals ? `<div class="expected-chips">${round.expectedRemovals.map((id) => `<span class="${round.removed.includes(id) ? "match" : "mismatch"}">${round.removed.includes(id) ? "✓" : "×"} ${esc(CARDS[id].name)}</span>`).join("")}</div>` : ""}${dims?.length ? `<p class="decision-basis">Connections: ${esc(dims.map((d) => dimensions[d] || d).join(" · "))}</p>` : ""}${reasons?.length ? `<details class="decision-reasons"><summary>Card-by-card connections</summary>${reasons.map((r) => `<p><strong>${esc(CARDS[r.card].name)}</strong> ${esc(r.rationale)}</p>`).join("")}</details>` : ""}${!giver && round.keptCards ? `<p class="help-text">Kept: ${esc(round.keptCards.map((id) => CARDS[id].name).join(", "))}</p>` : ""}</section>`;
   };
-  app.innerHTML = `<section class="reveal-header"><div id="reveal-secret"></div><div><p class="eyebrow ${win ? "similar" : "different"}">${win ? "WON · ALL FIVE ROUNDS" : "LOST IN ROUND " + view.history.length}</p><h1>${esc(CARDS[view.secret].name)} ${win ? "stayed on" : "left"} the table.</h1><p>${mode === "replay" ? "A saved game." : mode === "local" ? "Two minds, one screen." : isPeer() ? "You played with a friend." : humanRole() === "giver" ? `You gave the clues. ${esc(modelName())} guessed.` : `${esc(modelName())} gave the clues. You guessed.`} Step through to compare what you each meant.</p></div><div class="reveal-controls">${ai ? '<button class="button small" id="swap-deal">Swap roles & deal</button>' : ""}<button class="button small ${ai ? "secondary" : ""}" id="rematch">Deal again</button><button class="text-button" id="export-replay">Save replay ↓</button><button class="icon-button" id="reveal-home" aria-label="Back to start">✕</button></div></section><div class="replay-layout"><section class="replay-table"><div class="board replay-board" id="replay-board"></div><nav class="replay-scrubber" aria-label="Replay rounds"><button class="replay-play icon-button" id="replay-play" aria-label="${replayPlaying ? "Pause" : "Play"} replay">${replayPlaying ? "Ⅱ" : "▶"}</button><div class="scrubber-track">${view.history.map((r, i) => `<button class="replay-tab ${i === replayRound ? "current" : i < replayRound ? "done" : ""}" data-round="${i}" aria-label="Round ${i + 1}: ${esc(CARDS[r.card].name)}, ${r.relation}" aria-pressed="${i === replayRound}"><span id="scrub-art-${i}" class="scrub-art"></span><i></i><small>${esc(CARDS[r.card].name)} ${r.relation === "similar" ? "↑" : "→"}</small></button>`).join("")}</div><span class="scrubber-label">Round ${replayRound + 1} of ${view.history.length} · ← →</span></nav></section><aside class="interpretation-panel"><div class="replay-clue"><div id="replay-clue"></div><div><p class="eyebrow">ROUND ${round.round} · REMOVE ${REMOVALS[round.round - 1]}</p><h3>${esc(CARDS[round.card].name)}</h3><strong class="relation ${round.relation}">${round.relation === "similar" ? "↑ Similar" : "→ Different"}</strong></div></div>${notes("giver")}${notes("guesser")}${round.expectedRemovals ? `<p class="match-stat"><strong>${matched}/${round.removed.length}</strong> removals matched what you expected</p>` : `<p class="removed-list">Removed: ${esc(round.removed.map((id) => CARDS[id].name).join(", "))}</p>`}</aside></div>`;
+  app.innerHTML = `<section class="reveal-header"><div id="reveal-secret"></div><div><p class="eyebrow ${win ? "similar" : "different"}">${win ? "WON · ALL FIVE ROUNDS" : "LOST IN ROUND " + view.history.length}</p><h1>${esc(CARDS[view.secret].name)} ${win ? "stayed on" : "left"} the table.</h1><p>${mode === "replay" ? "A saved game." : mode === "local" ? "Two minds, one screen." : isPeer() ? "You played with a friend." : humanRole() === "giver" ? `You gave the clues. ${esc(modelName())} guessed.` : `${esc(modelName())} gave the clues. You guessed.`} Step through to compare what you each meant.</p></div><div class="reveal-controls">${canSwap ? '<button class="button small" id="swap-deal">Swap roles & deal</button>' : ""}<button class="button small ${canSwap ? "secondary" : ""}" id="rematch">Deal again</button><button class="text-button" id="export-replay">Save replay ↓</button><button class="icon-button" id="reveal-home" aria-label="Back to start">✕</button></div></section><div class="replay-layout"><section class="replay-table"><div class="board replay-board" id="replay-board"></div><nav class="replay-scrubber" aria-label="Replay rounds"><button class="replay-play icon-button" id="replay-play" aria-label="${replayPlaying ? "Pause" : "Play"} replay">${replayPlaying ? "Ⅱ" : "▶"}</button><div class="scrubber-track">${view.history.map((r, i) => `<button class="replay-tab ${i === replayRound ? "current" : i < replayRound ? "done" : ""}" data-round="${i}" aria-label="Round ${i + 1}: ${esc(CARDS[r.card].name)}, ${r.relation}" aria-pressed="${i === replayRound}"><span id="scrub-art-${i}" class="scrub-art"></span><i></i><small>${esc(CARDS[r.card].name)} ${r.relation === "similar" ? "↑" : "→"}</small></button>`).join("")}</div><span class="scrubber-label">Round ${replayRound + 1} of ${view.history.length} · ← →</span></nav></section><aside class="interpretation-panel"><div class="replay-clue"><div id="replay-clue"></div><div><p class="eyebrow">ROUND ${round.round} · REMOVE ${REMOVALS[round.round - 1]}</p><h3>${esc(CARDS[round.card].name)}</h3><strong class="relation ${round.relation}">${round.relation === "similar" ? "↑ Similar" : "→ Different"}</strong></div></div>${notes("giver")}${notes("guesser")}${round.expectedRemovals ? `<p class="match-stat"><strong>${matched}/${round.removed.length}</strong> removals matched what you expected</p>` : `<p class="removed-list">Removed: ${esc(round.removed.map((id) => CARDS[id].name).join(", "))}</p>`}</aside></div>`;
   mountCard($("reveal-secret"), view.secret, { caption: "none", secret: true });
   for (let i = 0; i < view.board.length; i++) {
     const id = view.board[i],
@@ -1279,7 +1299,8 @@ function renderReveal() {
   if ($("swap-deal"))
     $("swap-deal").onclick = () => {
       stopReplay();
-      start(mode === "ai-giver" ? "ai-guesser" : "ai-giver");
+      if (isPeer()) requestRoleSwap();
+      else start(mode === "ai-giver" ? "ai-guesser" : "ai-giver");
     };
   $("export-replay").onclick = exportReplay;
   $("reveal-home").onclick = () => {
@@ -1466,6 +1487,238 @@ function updateConnection() {
 function sendState() {
   peer.send({ type: "state", game: viewFor(game, "guesser") });
 }
+function syncOnlineSetup() {
+  homeRole = humanRole();
+  homePartner = "friend";
+  setup.mode = mode;
+  if (game) {
+    setup.theme = game.theme;
+    setup.clueTheme = game.clueTheme === game.theme ? "same" : game.clueTheme;
+    setup.variant = game.variant;
+  }
+  saveSetup();
+}
+function swapMessage(type, swap, extra = {}) {
+  return {
+    type,
+    requestId: swap.requestId,
+    gameId: swap.gameId,
+    revision: swap.revision,
+    ...extra,
+  };
+}
+function clearRoleSwap() {
+  clearTimeout(roleSwapTimer);
+  roleSwap = null;
+  if (modal.open) modal.close();
+}
+function cancelRoleSwap() {
+  const swap = roleSwap;
+  if (!swap || swap.committed) return;
+  if (swap.direction === "outgoing" && swap.nextRole === "giver")
+    cancelledRoleSwap = swap;
+  clearRoleSwap();
+  if (peer?.connected) peer.send(swapMessage("role-swap-cancel", swap));
+}
+function swapRecord(requestId, direction) {
+  return {
+    requestId,
+    direction,
+    gameId: game.id,
+    revision: game.revision,
+    nextRole: humanRole() === "giver" ? "guesser" : "giver",
+    options: {
+      theme: game.theme,
+      clueTheme: game.clueTheme,
+      variant: game.variant,
+    },
+  };
+}
+function showSwapWaiting() {
+  showModal(
+    roleSwap.accepted ? "Swapping roles…" : "Waiting for your friend.",
+    "Same table, fresh deal",
+    `<p>Your next role: <strong>${roleSwap.nextRole === "giver" ? "clue giver" : "guesser"}</strong>.</p><p>${roleSwap.accepted ? "Preparing a fresh secret and hand." : "Your current game stays in place until your friend agrees."}</p>${roleSwap.accepted ? "" : '<button id="cancel-role-swap" class="button secondary">Cancel request</button>'}`,
+  );
+  modal.className = "role-swap-dialog";
+  $("modal-close").hidden = !!roleSwap.accepted;
+  if ($("cancel-role-swap")) $("cancel-role-swap").onclick = cancelRoleSwap;
+}
+function requestRoleSwap() {
+  if (!peer?.connected)
+    return toast("Reconnect your friend before swapping roles.");
+  if (!game || roleSwap || pendingGuess)
+    return toast("Wait for the current action to finish.");
+  showModal(
+    "Swap roles and deal again?",
+    "Stay at this table",
+    `<p>You’ll ${humanRole() === "giver" ? "guess" : "give the clues"} in a fresh game with the same decks and hand variant. ${game.phase === "over" ? "The connection stays open." : "This ends the current game once your friend agrees."}</p><div class="pair-actions"><button id="ask-role-swap" class="button">Ask to swap roles</button><button id="keep-roles" class="button secondary">Keep playing</button></div>`,
+  );
+  modal.className = "role-swap-dialog";
+  $("keep-roles").onclick = () => modal.close();
+  $("ask-role-swap").onclick = () => {
+    if (!peer?.connected || !game || roleSwap || pendingGuess)
+      return toast("The table has changed. Try again.");
+    roleSwap = swapRecord(crypto.randomUUID(), "outgoing");
+    peer.send(swapMessage("role-swap-request", roleSwap));
+    roleSwapTimer = setTimeout(() => {
+      cancelRoleSwap();
+      toast("The swap request expired. You can ask again.");
+    }, 120000);
+    showSwapWaiting();
+  };
+}
+function retireClueGiver(swap) {
+  // The previous giver must not keep authority or a resumable private session.
+  if (read("session", null)?.game?.id === swap.gameId) erase("session");
+  mode = "peer-guest";
+  game = null;
+  resetTurn();
+  syncOnlineSetup();
+  app.innerHTML =
+    '<p class="help-text">Waiting for your friend’s fresh deal…</p>';
+}
+function commitRoleSwap() {
+  const swap = roleSwap;
+  if (!swap?.accepted || mode !== "peer-host") return;
+  swap.committed = true;
+  clearTimeout(roleSwapTimer);
+  peer.send(swapMessage("role-swap-commit", swap));
+  retireClueGiver(swap);
+  showSwapWaiting();
+}
+function finishRoleSwap(next, nextMode) {
+  clearRoleSwap();
+  cancelledRoleSwap = null;
+  game = next;
+  mode = nextMode;
+  resetTurn();
+  syncOnlineSetup();
+  saveSession();
+  trackGame(game, mode);
+  updateConnection();
+  renderGame();
+  toast("Roles swapped. A fresh game is ready.");
+}
+function handleRoleSwapMessage(message) {
+  if (!message.type?.startsWith("role-swap-")) return false;
+  const matches = (swap) =>
+    swap &&
+    message.requestId === swap.requestId &&
+    message.gameId === swap.gameId &&
+    message.revision === swap.revision;
+  if (message.type === "role-swap-request") {
+    if (
+      typeof message.requestId !== "string" ||
+      !/^[a-f0-9-]{36}$/.test(message.requestId) ||
+      !game ||
+      message.gameId !== game.id ||
+      message.revision !== game.revision ||
+      roleSwap ||
+      pendingGuess
+    ) {
+      peer.send({
+        type: "role-swap-response",
+        requestId: message.requestId,
+        gameId: message.gameId,
+        revision: message.revision,
+        accepted: false,
+      });
+      return true;
+    }
+    roleSwap = swapRecord(message.requestId, "incoming");
+    roleSwapTimer = setTimeout(() => {
+      cancelRoleSwap();
+      toast("The swap request expired.");
+    }, 120000);
+    showModal(
+      "Your friend wants to swap roles.",
+      "Same table, fresh deal",
+      `<p>You’ll ${roleSwap.nextRole === "giver" ? "give the clues" : "guess"} in a fresh game with the same decks and hand variant. ${game.phase === "over" ? "You stay connected." : "Accepting ends the current game."}</p><div class="pair-actions"><button id="accept-role-swap" class="button">Swap roles & deal</button><button id="decline-role-swap" class="button secondary">Keep current roles</button></div>`,
+    );
+    modal.className = "role-swap-dialog";
+    $("decline-role-swap").onclick = cancelRoleSwap;
+    $("accept-role-swap").onclick = () => {
+      roleSwap.accepted = true;
+      clearTimeout(roleSwapTimer);
+      peer.send(
+        swapMessage("role-swap-response", roleSwap, { accepted: true }),
+      );
+      if (mode === "peer-host") commitRoleSwap();
+      else showSwapWaiting();
+    };
+    return true;
+  }
+  if (message.type === "role-swap-commit") {
+    const swap = matches(roleSwap)
+      ? roleSwap
+      : matches(cancelledRoleSwap)
+        ? cancelledRoleSwap
+        : null;
+    if (
+      !swap ||
+      (swap.direction === "incoming" && !swap.accepted) ||
+      mode !== "peer-guest" ||
+      swap.nextRole !== "giver" ||
+      !game ||
+      game.id !== swap.gameId ||
+      game.revision !== swap.revision
+    )
+      return true;
+    // A committed swap wins a cancellation that crossed it in flight.
+    const next = createGame(swap.options);
+    peer.send(
+      swapMessage("role-swap-start", swap, { game: viewFor(next, "guesser") }),
+    );
+    finishRoleSwap(next, "peer-host");
+    return true;
+  }
+  if (!matches(roleSwap)) return true;
+  if (
+    message.type === "role-swap-response" &&
+    roleSwap.direction === "outgoing"
+  ) {
+    if (message.accepted !== true) {
+      clearRoleSwap();
+      toast("Your roles are unchanged.");
+      return true;
+    }
+    roleSwap.accepted = true;
+    clearTimeout(roleSwapTimer);
+    if (mode === "peer-host") commitRoleSwap();
+    else showSwapWaiting();
+  } else if (message.type === "role-swap-cancel") {
+    if (roleSwap.committed)
+      peer.send(swapMessage("role-swap-commit", roleSwap));
+    else {
+      clearRoleSwap();
+      toast("Your roles are unchanged.");
+    }
+  } else if (
+    message.type === "role-swap-start" &&
+    roleSwap.committed &&
+    mode === "peer-guest"
+  ) {
+    const next = validatePublicView(message.game),
+      options = roleSwap.options;
+    if (
+      next.role !== "guesser" ||
+      next.id === roleSwap.gameId ||
+      next.phase !== "clue" ||
+      next.round !== 0 ||
+      next.revision !== 0 ||
+      next.history.length ||
+      next.eliminated.length ||
+      next.result !== null ||
+      next.theme !== options.theme ||
+      next.clueTheme !== options.clueTheme ||
+      next.variant !== options.variant
+    )
+      throw new Error("Your friend sent an incompatible fresh deal.");
+    finishRoleSwap(next, "peer-guest");
+  }
+  return true;
+}
 function newPeer() {
   const old = peer;
   peer = null;
@@ -1486,7 +1739,8 @@ function newPeer() {
         pairingBusy = false;
         pairingError = "";
         if (mode === "peer-host") {
-          if (!game) game = createGame(gameOptions());
+          if (!game) game = createGame(pairingGameOptions || gameOptions());
+          syncOnlineSetup();
           saveSession();
           sendState();
           renderGame();
@@ -1495,8 +1749,20 @@ function newPeer() {
         }
         modal.close();
         toast("Connected. Your shared table is ready.");
+      } else if(status==='signaling-error'){
+        pairingBusy=false;pairingError=link.signalingError;if(pairingKind)renderPairing();else toast(pairingError);
       } else if (["closed", "failed", "disconnected"].includes(status)) {
+        if (roleSwap) clearRoleSwap();
+        cancelledRoleSwap = null;
         pendingGuess = false;
+        if (!game && isPeer() && !pairingKind) {
+          showModal(
+            "Connection lost during the swap.",
+            "Reconnect to the table",
+            '<p>Ask the new clue giver for a fresh invitation.</p><button id="swap-reconnect" class="button">Join your friend</button>',
+          );
+          $("swap-reconnect").onclick = () => openPairing("guest", true);
+        }
         if (screen === "game") renderGame();
         if (status === "failed") {
           pairingBusy = false;
@@ -1510,18 +1776,24 @@ function newPeer() {
     },
     onMessage: (message) => handlePeerMessage(message),
   });
+  link.isInviter = pairingKind === "host";
   peer = link;
   updateConnection();
   return link;
 }
 function handlePeerMessage(message) {
   try {
+    if (isPeer() && handleRoleSwapMessage(message)) return;
     if (mode === "peer-host") {
       if (message.type === "hello") {
         sendState();
         return;
       }
       if (message.type === "guess") {
+        if (roleSwap)
+          throw new Error(
+            "Wait for the role-swap request to finish, then choose again.",
+          );
         if (
           !game ||
           message.gameId !== game.id ||
@@ -1554,8 +1826,10 @@ function handlePeerMessage(message) {
         if (game && next.id === game.id && next.revision > game.revision + 1)
           toast("The table has been resynchronized.");
         const oldPhase = game?.phase;
+        if (roleSwap) cancelRoleSwap();
         game = next;
         resetTurn();
+        syncOnlineSetup();
         trackGame(game, mode);
         if (next.phase === "over") {
           replayRound = next.history.length - 1;
@@ -1567,6 +1841,7 @@ function handlePeerMessage(message) {
         return;
       }
       if (message.type === "error") {
+        if (roleSwap) clearRoleSwap();
         pendingGuess = false;
         toast(String(message.message).slice(0, 500));
         renderGame();
@@ -1580,11 +1855,11 @@ function handlePeerMessage(message) {
   }
 }
 function readPairConfig() {
-  const stun = $("stun")?.value ?? settings.stun;
+  const stun = $("stun")?.value ?? pairingStun ?? settings.stun;
   relay = {
-    url: $("turn")?.value || "",
-    username: $("turn-name")?.value || "",
-    credential: $("turn-password")?.value || "",
+    url: $("turn")?.value ?? relay.url,
+    username: $("turn-name")?.value ?? relay.username,
+    credential: $("turn-password")?.value ?? relay.credential,
   };
   const config = iceConfig(stun, relay.url, relay.username, relay.credential);
   settings.stun = stun;
@@ -1593,53 +1868,65 @@ function readPairConfig() {
 }
 function openPairing(kind, reconnect = false, initial = "") {
   cancelAI();
+  pairingAttempt++;pairingHosted=false;
+  const old=peer;peer=null;old?.close();updateConnection();
   pairingKind = kind;
   pairingCode = "";
   pairingError = "";
   pairingBusy = false;
   pairingInput = initial;
-  clipboardReply = "";
   if (!reconnect) {
     game = null;
     resetTurn();
   }
-  mode = kind === "host" ? "peer-host" : "peer-guest";
+  pairingGameOptions = null;
+  if (kind === "host") {
+    if (!reconnect) mode = homeRole === "giver" ? "peer-host" : "peer-guest";
+    pairingGameOptions = game
+      ? { theme: game.theme, clueTheme: game.clueTheme, variant: game.variant }
+      : gameOptions();
+  } else mode = "peer-guest";
   if (kind === "guest" && reconnect) game = null;
   renderPairing();
-  if (kind === "host" || initial)
-    preparePair(kind === "host" ? "offer" : "answer", initial);
+  if (kind === "guest" && initial) preparePair("answer", initial);
 }
-async function preparePair(type, input = "") {
-  if (type === "offer") clipboardReply = "";
+async function preparePair(type,input='',manual=false) {
+  const attempt=++pairingAttempt;
+  let link;
+  pairingBusy=true;pairingError='';pairingInput=input;pairingCode='';renderPairing();
   try {
-    const config = readPairConfig();
-    if (type === "answer") {
-      await decodePairing(input, "offer");
-      pairingOffer = input;
+    let config=readPairConfig(),room;
+    if(type==='answer'){
+      room=hostedInvitation(input,'cluance');
+      let details;
+      if(room){room=await roomDetails(room,PROTOCOL);details=validateInvitationDetails(room.metadata);}
+      else{await decodePairing(input,'offer');details=invitationDetails(input);}
+      if(attempt!==pairingAttempt||!pairingKind)return;
+      pairingOffer=input;mode=details.role==='giver'?'peer-guest':'peer-host';pairingGameOptions=details.options||null;
+    }else if(!manual&&await signalingService()){
+      room=await createHostedRoom('cluance',PROTOCOL,{role:humanRole(),options:pairingGameOptions||gameOptions()});
     }
-    pairingConfig = config;
-    pairingBusy = true;
-    pairingError = "";
-    pairingInput = input;
-    pairingCode = "";
-    const link = newPeer();
-    renderPairing();
-    const code =
-      type === "offer" ? await link.invite() : await link.join(input);
-    if (peer !== link || !pairingKind) return;
-    pairingCode = makeLink(code, type);
-    pairingBusy = false;
-    pairingInput = "";
-    renderPairing();
-  } catch (error) {
-    pairingBusy = false;
-    pairingError = error.message;
-    renderPairing();
+    if(room)config=await roomConfig(room,config);
+    if(attempt!==pairingAttempt||!pairingKind)return;
+    pairingHosted=Boolean(room);pairingConfig=config;link=newPeer();renderPairing();
+    if(room){
+      await link.connectRoom(room,type==='offer'?'host':'guest');
+      if(peer!==link||attempt!==pairingAttempt||!pairingKind)return;
+      pairingCode=type==='offer'?hostedLink({game:'cluance',room:room.room,key:room.guestKey}):'';
+    }else{
+      const code=type==='offer'?await link.invite():await link.join(input);
+      if(peer!==link||attempt!==pairingAttempt||!pairingKind)return;
+      pairingCode=type==='offer'?makeInvitationLink(code,humanRole(),pairingGameOptions):makeLink(code,type);
+    }
+    pairingBusy=false;pairingInput='';renderPairing();
+  }catch(error){
+    if(attempt!==pairingAttempt||link&&(peer!==link||!pairingKind))return;
+    pairingBusy=false;pairingError=error.message;renderPairing();
   }
 }
 async function acceptPair(input) {
-  if (!peer || mode !== "peer-host") {
-    toast("Paste the reply in the hosting tab.");
+  if (!peer?.isInviter) {
+    toast("Paste the reply in the tab that created the invitation.");
     return;
   }
   const link = peer;
@@ -1662,17 +1949,30 @@ async function acceptPair(input) {
 function renderPairing() {
   if (!pairingKind) return;
   const host = pairingKind === "host";
+  const ui=capturePairingUI(modalContent);
   showModal(
-    host ? "Invite your guesser." : "Join your clue giver.",
-    "Private table / peer-to-peer",
+    host
+      ? pairingCode
+        ? "Invitation ready."
+        : pairingBusy
+          ? "Creating invitation…"
+          : "Create an invitation."
+      : pairingHosted ? "Connecting to your friend…" : "Join your friend.",
+    humanRole() === "giver"
+      ? "You give the clues · Your friend guesses"
+      : "You guess · Your friend gives the clues",
     pairingBody({
       host,
       output: pairingCode,
       busy: pairingBusy,
       error: pairingError,
       initial: pairingInput,
-      stun: settings.stun,
-    }),
+      stun: pairingStun ?? settings.stun,
+      hosted:pairingHosted,
+      compact:true,
+    }) +
+      (host&&pairingHosted?'<button type="button" class="button secondary" data-action="manual-pair">Use manual pairing</button>':'')+
+      `<p class="help-text"><button type="button" class="text-button" data-action="${host ? "join-instead" : "invite-instead"}">${host ? "Have an invite? Join instead" : "No invitation yet? Create an invitation instead"}</button></p>`,
   );
   for (const [id, value] of [
     ["turn", relay.url],
@@ -1681,12 +1981,32 @@ function renderPairing() {
   ])
     if ($(id)) $(id).value = value;
   enhancePairing(host);
+  restorePairingUI(modalContent,ui);
   modalContent.querySelectorAll("[data-action]").forEach(
     (button) =>
       (button.onclick = async () => {
         const action = button.dataset.action;
         try {
-          if (action === "create-invite") await preparePair("offer");
+          if(action==='paste-pair'){
+            const attempt=pairingAttempt,kind=pairingKind;
+            let input;
+            try{input=await navigator.clipboard.readText();}catch{
+              const details=modalContent.querySelector('.manual-reply');if(details)details.open=true;
+              $('pair-input')?.focus();toast('Paste the invitation or reply into the field.');return;
+            }
+            if(attempt!==pairingAttempt||kind!==pairingKind||pairingBusy||peer?.connected)return;
+            pairingInput=input;if($('pair-input'))$('pair-input').value=input;
+            if(host)await acceptPair(input);else await preparePair('answer',input);
+          }
+          else if(action==='manual-pair')await preparePair('offer','',true);
+          else if (action === "invite-instead") inviteFriend();
+          else if (action === "join-instead") {
+            const old = peer;
+            peer = null;
+            old?.close();
+            updateConnection();
+            openPairing("guest");
+          } else if (action === "create-invite") await preparePair("offer");
           else if (action === "join-invite")
             await preparePair("answer", $("pair-input").value);
           else if (action === "remake-reply")
@@ -1703,7 +2023,7 @@ function renderPairing() {
           } else if (action === "share")
             await sharePairing($("pair-output"), "Cluance");
         } catch (error) {
-          toast(error.message);
+          pairingError=error.message;pairingBusy=false;renderPairing();
         }
       }),
   );
@@ -1714,8 +2034,8 @@ function renderPairing() {
     $("pair-input").onpaste = (event) => {
       const input = event.clipboardData?.getData("text");
       if (!input || pairingBusy) return;
-      decodePairing(input, host ? "answer" : "offer")
-        .then(() => (host ? acceptPair(input) : preparePair("answer", input)))
+      const task=host?decodePairing(input,"answer").then(()=>acceptPair(input)):preparePair("answer",input);
+      task
         .catch((error) => {
           pairingError = error.message;
           renderPairing();
@@ -1736,7 +2056,7 @@ function enhancePairing(host) {
     b.textContent = b.textContent
       .toLocaleLowerCase()
       .replace(/^./, (c) => c.toUpperCase());
-  if (host && pairingCode) {
+  if (host && pairingCode && !pairingHosted) {
     const input = $("pair-input"),
       button = modalContent.querySelector('[data-action="accept-reply"]'),
       details = document.createElement("details");
@@ -1745,50 +2065,18 @@ function enhancePairing(host) {
     details.innerHTML = "<summary>Paste a reply manually</summary>";
     input.previousElementSibling.before(details);
     details.append(input.previousElementSibling, input, button);
-    if (clipboardReply) {
-      const banner = document.createElement("div");
-      banner.className = "clipboard-banner";
-      banner.innerHTML =
-        '<p>Found a reply link on your clipboard.</p><button id="clipboard-accept" class="button small">Accept reply →</button>';
-      details.before(banner);
-      $("clipboard-accept").onclick = () => {
-        const link = clipboardReply;
-        clipboardReply = "";
-        acceptPair(link);
-      };
-    }
+    const paste=modalContent.querySelector('[data-action="paste-pair"]');if(paste)details.before(paste);
   }
 }
-async function checkClipboardReply() {
-  if (
-    pairingKind !== "host" ||
-    !pairingCode ||
-    pairingBusy ||
-    !modal.open ||
-    document.hidden ||
-    !navigator.clipboard?.readText
-  )
-    return;
-  try {
-    const value = await navigator.clipboard.readText();
-    const reply = await decodePairing(value, "answer");
-    if (reply.room === peer?.room && value !== clipboardReply) {
-      clipboardReply = value;
-      renderPairing();
-    }
-  } catch {
-    /* Clipboard permission is optional. Manual paste remains available. */
-  }
-}
-window.addEventListener("focus", checkClipboardReply);
-document.addEventListener("visibilitychange", checkClipboardReply);
+// Read the clipboard only after an explicit Paste action.
+modalContent.addEventListener('input',event=>{
+  if(!pairingKind||!modal.classList.contains('pairing-dialog'))return;
+  if(event.target.id==='stun')pairingStun=event.target.value;
+  const field={'turn':'url','turn-name':'username','turn-password':'credential'}[event.target.id];
+  if(field)relay[field]=event.target.value;
+});
 pairingBus?.addEventListener("message", (event) => {
-  if (
-    event.data?.type !== "reply" ||
-    mode !== "peer-host" ||
-    !peer ||
-    peer.connected
-  )
+  if (event.data?.type !== "reply" || !peer?.isInviter || peer.connected)
     return;
   decodePairing(event.data.link, "answer")
     .then((reply) => {
@@ -1801,17 +2089,18 @@ pairingBus?.addEventListener("message", (event) => {
 });
 async function openPairHash() {
   const params = new URLSearchParams(location.hash.slice(1)),
-    invite = params.get("invite") || params.get("pair"),
+    invite = params.has("room")?location.href:params.get("invite") || params.get("pair"),
     reply = params.get("reply");
   if (!invite && !reply) return;
+  const invitation = params.has("invite")||params.has("room") ? location.href : invite;
   history.replaceState(null, "", location.pathname + location.search);
   if (invite) {
-    openPairing("guest", false, invite);
+    openPairing("guest", false, invitation);
     return;
   }
   try {
     const decoded = await decodePairing(reply, "answer");
-    if (mode === "peer-host" && peer?.room === decoded.room) {
+    if (peer?.isInviter && peer.room === decoded.room) {
       pairingKind = "host";
       renderPairing();
       await acceptPair(reply);
@@ -2495,7 +2784,7 @@ $("table-menu").onclick = () => {
   const menu = document.createElement("div");
   menu.id = "menu-popover";
   menu.className = "menu-popover";
-  menu.innerHTML = `<button id="menu-collection">Collection</button><button id="menu-rules">How to play</button><button id="menu-settings">Settings</button>${screen === "game" ? '<button id="leave-table">Leave table</button>' : ""}`;
+  menu.innerHTML = `<button id="menu-collection">Collection</button><button id="menu-rules">How to play</button><button id="menu-settings">Settings</button>${isPeer() && game ? '<button id="menu-swap-roles">Swap roles & deal</button>' : ""}${screen === "game" ? '<button id="leave-table">Leave table</button>' : ""}`;
   document.querySelector(".top-actions").append(menu);
   $("table-menu").setAttribute("aria-expanded", "true");
   const close = () => {
@@ -2516,6 +2805,11 @@ $("table-menu").onclick = () => {
       toast("Leave the table first to browse the collection.");
     else showCollection(setup.theme);
   };
+  if ($("menu-swap-roles"))
+    $("menu-swap-roles").onclick = () => {
+      close();
+      requestRoleSwap();
+    };
   if ($("leave-table"))
     $("leave-table").onclick = () => {
       close();

@@ -74,7 +74,7 @@ Focused browser checks exercised visible Play, Take, bank deposits, returned/fli
 
 The active table fits without page scrolling at **1280 × 720**, **1366 × 768** and **1440 × 900**, including a five-seat full-deck table at 1280 × 720. Light and dark appearances were checked, including light-theme body ink. A DOM-only 40-card hand stress check stayed inside widths 768, 1280 and 1440. Widths **320, 390, 768, 1280, 1366 and 1440** had no horizontal page overflow. Phones retain vertical scrolling, with cards wrapping and the chat below the table. Last chance replaces the normal turn prompt to preserve the compact table height.
 
-Fresh screenshots of the lobby, solo table, multiplayer chat, five-player layout, phone layout, card motion, live reactions and light appearance are in [screenshots](screenshots/). The PR description embeds these images from the branch. Browser automation tools and the loopback test relay were kept outside the shipped game. Physical MacBook hardware, Safari, Firefox, phone cameras and external NAT/relay connectivity were not available for this verification.
+Screenshots of the lobby, solo table, multiplayer chat, five-player layout, phone layout, card motion, live reactions and light appearance were captured during verification. Generated captures are excluded from Git. Browser automation tools and the loopback test relay were kept outside the shipped game. Physical MacBook hardware, Safari, Firefox, phone cameras and external NAT/relay connectivity were not available for this verification.
 
 ## Single-space quick turns, browser replay and shared invites (2026-10-03)
 
@@ -92,3 +92,17 @@ Fresh screenshots of the lobby, solo table, multiplayer chat, five-player layout
 - Chromium verified a human opening, a bot opening, the second shared-device human opening behind the correct handoff curtain, and an online guest opening. In double turns the starred recipient gets the right-hand opening action, then the next player gets right and left. No page errors.
 - Old unfinished saves keep their current turn and receive the visible physical marker; future rounds use the starred-card deal rule. Older replay views still load without exposing other hands.
 - Screenshots 17–19 show the simplified lobby, starred opening hand and player settings. The collection preview is refreshed.
+
+
+## Human-only friend invites and simpler pairing (2026-10-04)
+
+Friend invitations use separate online opponent preferences and default to two humans, even when legacy solo AI counts and team settings are saved. The zero-opponent choice is always available for a human duel and local setup. A solo deal with zero opponents asks for a second human or an opponent rather than adding one silently; explicit team mode requires an opponent for its shared hand.
+
+Chromium's invite audit verifies the real application/session handshake over a local test transport, including two-human tables, adding optional bots, returning to zero for a new deal, private local handoffs and explicit team play. Native WebRTC offer/reply generation, clipboard copy and paste-to-connect, acceptance of the matching reply, recovery from an invalid reply, relay values surviving dialog rerenders without entering preferences, and dialog widths of 1280, 390 and 320 pixels all passed. This environment produced zero native ICE candidates; live native data-channel and cross-network connectivity remain unverified.
+
+The existing UI audit passed 60 table layouts and 75 dialog checks plus mouse/touch drag and replay interactions, with no page errors. Flip it rule/session/replay/QR tests, shared AI tests and Midnight peer/session tests passed. No signaling service was added.
+
+
+## Cloudflare automatic invitations
+
+The local Cloudflare Worker and both browser tabs exchanged short invitations automatically. A test-only RTC substitute exercised the application handshake, two-human defaults despite saved offline AI/team preferences, six synchronized moves and reconnection of the exact saved match ID/revision. Native Chromium separately applied the guest's real SDP answer automatically at desktop and 390/320-pixel phone widths, with no page errors or horizontal dialog overflow. Fresh links also worked in an existing join tab. Cluance's matching checks are in its play notes. Native data-channel and cross-network connectivity remain unverified here because the environment supplied no usable ICE candidates. The optional account-configured managed TURN service needs a deployed-site check.

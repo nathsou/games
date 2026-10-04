@@ -1,6 +1,6 @@
 # Cluance
 
-A cooperative visual deduction game with original retro pixel art. Play with a friend through link-based WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. **No runtime or development packages, CDNs, frameworks, build step, or backend. Martian Mono and DM Mono are self-hosted with their SIL OFL licences.**
+A cooperative visual deduction game with original retro pixel art. Play with a friend through link-based WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. The browser game needs no packages, CDNs, frameworks or compilation. Martian Mono and DM Mono are self-hosted with their SIL OFL licences. The collection’s Cloudflare Worker provides automatic friend-invite signaling.
 
 The interface follows the supplied [UX/UI redesign](UX_REDESIGN.md), with paper tones, full-bleed artwork and self-hosted mono typography.
 
@@ -14,24 +14,25 @@ node tools/serve.mjs
 
 Open <http://127.0.0.1:4173>. Optionally set `PORT` to use another port. The preview server uses only Node's standard library. Any static HTTP server also works; ES modules require serving over HTTP rather than opening `index.html` as a local file.
 
-## GitHub Pages
+## Cloudflare hosting
 
-Publish `cluance/` together with the repository's `shared/` directory. The Pages workflow assembles both alongside the other games when changes reach `main`. The game URL is `https://nathsou.github.io/games/cluance/`; relative imports also support another static host with the same directory layout. The local preview server serves the shared files automatically.
+The collection builds a clean `_site` directory for Cloudflare Workers Static Assets, with the game's files and the shared runtime. See [Cloudflare setup](../docs/CLOUDFLARE.md) for Git build settings and optional managed TURN credentials. From the repository root, run `npm run build` and `npm run dev` for automatic invitations locally.
 
-There is no hosted room registry. AI mode makes browser requests directly to the user's selected provider. Multiplayer uses browser-to-browser WebRTC and, by default, a public STUN service for route discovery. No TURN service is provided; optional relay credentials and STUN addresses can be supplied in the shared invitation controls.
+AI mode makes browser requests directly to the selected provider. Multiplayer gameplay and private cards use browser-to-browser WebRTC. The Worker exchanges only connection metadata and public table settings. The game also supports manual pairing on an ordinary static host and the original preview server.
 
 ## Play
 
-- **Play with a friend:** the creator is the clue giver. Create and send an invitation link. The friend opens it, receives a reply link automatically, and sends it back. The creator pastes the reply; both browsers open the shared table. Keep both tabs open. This exchange contains connection metadata, not the secret, hand, notes, or API keys.
+- **Play with a friend:** choose **Invite a friend →**, then **Create invitation**. Copy, share or scan the short link; your friend connects automatically when they open it, with no reply link needed. Your chosen **guess** or **give the clues** role is preserved; your friend takes the opposite role. Links expire after 15 minutes and are single-use once connected. Keep both tabs open. For the original two-link flow, choose **Use manual pairing**; **Paste reply & connect** reads the clipboard only when clicked. Typed input, connection fields and expanded sections survive status changes; TURN passwords remain in memory. Switch between joining and inviting inside the dialog. Invitations contain connection metadata and public table settings, with no secret card, hand, notes or API keys.
 - **Guess the AI's card:** the AI knows the secret and chooses one clue card and its direction each round.
 - **Give clues to AI:** you know the secret and play clues; the AI chooses cards to eliminate.
+- **Swap online roles:** open the table’s **…** menu and choose **Swap roles & deal**, or use that button after a game. Your friend must accept. The same connection stays open, with a fresh secret and hand, the same decks and the same hand variant. The new clue giver creates the private deal locally.
 - **Play on one screen:** the guesser's public view opens immediately after a clue. Hold to reveal the clue giver's secret and hand when switching back. No provider key is required.
 
 The board has twelve illustrated people or places. The clue giver starts with five cards and plays one as **Similar** (upright) or **Different** (sideways). The guesser eliminates **1, 2, 3, 4, 1** cards across five rounds. Removing the secret loses immediately; leaving it alone wins. Clues accumulate and remain relevant.
 
 **Classic hand:** draw one replacement after each clue. **Fixed five:** no replacements; use the initial five cards in a considered order.
 
-Eleven decks with **330 active illustrated cards: 30 in every theme**, matching the publisher's [30-card Similo deck size](https://horribleguild.com/eu/product/similo-history/). Scientists includes Charles Babbage, Philosophers includes Jean-Paul Sartre, and Writers includes Albert Camus. Every existing and new card has an [individual audit record](CARD_AUDIT.md); inconsistent artwork was redrawn from scratch with imagegen.
+Eleven decks with **353 active illustrated cards: 53 Musicians and 30 in each of the other ten themes**, meeting or exceeding the publisher's [30-card Similo deck size](https://horribleguild.com/eu/product/similo-history/). Scientists includes Charles Babbage, Philosophers includes Jean-Paul Sartre, and Writers includes Albert Camus. Every existing and new card has an [individual audit record](CARD_AUDIT.md); inconsistent artwork was redrawn from scratch with imagegen.
 
 1. French History
 2. Global History
@@ -39,7 +40,7 @@ Eleven decks with **330 active illustrated cards: 30 in every theme**, matching 
 4. Scientists
 5. Philosophers
 6. Writers
-7. Singers
+7. Musicians
 8. Actors
 9. Cities
 10. Countries
@@ -47,11 +48,11 @@ Eleven decks with **330 active illustrated cards: 30 in every theme**, matching 
 
 Cities include Paris, Rome, London, Berlin, Tokyo and New York City, with 24 more cities worldwide. French Regions contains the complete division as it stood on 31 December 2015: [22 metropolitan regions](https://www.insee.fr/fr/statistiques/1906658), including Corsica, and five overseas regions. Three additional cards depict **historical provinces: Anjou, Touraine and Provence**, explicitly labelled in their captions and descriptions; they are not extra administrative regions of 2015. Every card has one original illustration, dates and public context. Centre-Val de Loire uses its [name adopted in January 2015](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000030110734). New deals exclude the merged post-2016 regions. Old region IDs and their artwork are preserved only for compatible saved games and replays.
 
-Every card displays a date caption and has a short description available in card inspection. People have lifespans or labelled birth years; places have labelled landmarks or milestones. Approximate and traditional dates are marked, and mythological figures are identified as myths. The [card context notes](CARD_CONTEXT.md) explain these conventions and link selected references.
+Every card displays a date caption and has a short description available in card inspection. People have lifespans or labelled birth years; bands have formation/activity dates; places have labelled landmarks or milestones. Approximate and traditional dates are marked, and mythological figures are identified as myths. The [card context notes](CARD_CONTEXT.md) explain these conventions and link selected references.
 
-Choose board and clue decks independently, including people/place combinations. When themes overlap, clue cards depicting the same subject as a board card are excluded. The opening sentence chooses your role, partner, board deck, clue deck and hand variant. Collection is a searchable full page with all 330 cards. All decks use smaller WebP delivery images; the original generated PNGs are retained with their prompts.
+Choose board and clue decks independently, including people/place combinations. When themes overlap, clue cards depicting the same subject as a board card are excluded. The opening sentence chooses your role, partner, board deck, clue deck and hand variant. Collection is a searchable full page with all 353 cards. Musicians includes solo artists and bands; Serge Gainsbourg is retained once, and the deck keeps its original `singers` identifier so old saves and replays remain compatible. All decks use smaller WebP delivery images; the original generated PNGs are retained with their prompts.
 
-Select cards with a mouse, touch, or keyboard. The table keeps the board and clue trail together, with the giver’s hand between Similar and Different drop zones. Tap a hand card then a zone, or drag it there. Arrow keys browse the hand; **S**/**D** choose a direction and **Enter** plays the selected clue. Different clues stay sideways throughout the table and replay.
+Select cards with a mouse, touch, or keyboard. The table keeps the board and clue trail together, with the giver’s hand between Similar and Different drop zones. Tap a hand card then a zone, or drag it there. While the partner guesses, the clue giver can still see and inspect their private hand; the clue controls return on the next clue turn. Arrow keys browse the hand; **S**/**D** choose a direction and **Enter** plays the selected clue. Different clues stay sideways throughout the table and replay.
 
 Click the **ⓘ** affordance on a card, right-click, double-click or press **I** to open its details drawer. Use **←/→** to browse, **M** to mark an eligible card, and **Esc** to close. Compare the latest clue with up to two candidates, including the final two. The AI observation retains its explicit labels and final comparison. Settings offers Drawer or Peek details, Compact/Comfortable/Large cards, Light/Dark/System appearance and Reduce motion. These preferences are saved locally; System follows operating-system changes. Reduced-motion preferences disable animation.
 
@@ -85,12 +86,13 @@ Every response is accounted for before its move is parsed, so paid correction at
 
 AI and one-screen games are saved after each move. The clue giver also saves multiplayer state and can resume it with a fresh invitation after a reload. The guest's browser receives only public state and must re-pair with the giver. An interrupted guest move can be retried after reconnecting; revisions prevent duplicate actions. A rematch keeps the current connection and deals a new secret and board.
 
-These are cooperative games between trusted players. A local browser that runs a solo game necessarily holds the game engine's secret; the AI's actual request is filtered by role. In multiplayer, the guest is not sent the secret until the game ends. Replay data and network input are validated before use, and user notes are rendered as text.
+These are cooperative games between trusted players. A local browser that runs a solo game necessarily holds the game engine's secret; the AI's actual request is filtered by role. In multiplayer, the guesser is not sent the secret until the game ends. Replay data and network input are validated before use, and user notes are rendered as text.
 
 ## Source
 
 - `src/game.js`: rules, dealing, move validation, role projections, replay/network validation.
 - `src/decks.js`: the eleven card rosters and future theme ideas.
+- `src/musicians.js`: the additional musician and band roster with explicit supplemental atlas cells.
 - `src/expansion.js`: the 63 appended subjects, date captions and biographies.
 - `src/artwork.js`: subject-based redraw mappings shared across overlapping themes.
 - `src/context.js`: shared dates and descriptions for all card subjects.
@@ -103,7 +105,7 @@ These are cooperative games between trusted players. A local browser that runs a
 - `src/music.js`, `src/outcome.js`: eleven original scores, WebAudio playback and finite result animations.
 - `assets/PROMPTS.md`: the complete image-generation prompts and provenance.
 - `assets/EXPANSION_PROMPTS.md`: expansion/redesign prompts and accepted or rejected dispositions.
-- `CARD_AUDIT.md`: individual findings for all 330 active cards and 24 archived region cards.
+- `CARD_AUDIT.md`: individual findings for all 353 active cards and 24 archived region cards.
 
 No tests or test suites are included, as requested. Verification is performed directly in the browser. [Play notes](PLAY_NOTES.md) record the live GPT-6 Luna games, prompt refinements, interface checks and remaining limitations.
 
@@ -124,4 +126,4 @@ New exports use the `cluance-replay` format and `cluance-…json` filenames. Pre
 
 ## Shared invitations
 
-Flip it and Cluance use the same three-step invitation controls and WebRTC transport. Creating an invitation starts automatically; opening or pasting an invitation prepares a reply automatically. Both links support copy, native share and QR codes. Paste the reply into the host tab to connect automatically, or open it in another tab of the same browser to send it to the original host. Connection settings include optional TURN credentials (kept in memory) and STUN configuration. Make a fresh invite or remake a reply to apply changed settings. Replies are bound to their original invitation; another table’s reply is rejected. Previous SIM invitation codes must be regenerated as new CL links. The saved host table still resumes with a fresh invitation.
+Flip it and Cluance use the same three-step invitation controls and WebRTC transport. Cluance waits for **Create invitation** before generating a host link and then displays **Invitation ready**; its join dialog also offers **Create an invitation instead**. Opening or pasting an invitation prepares a reply automatically. Both links support copy, native share and QR codes. Paste the reply into the host tab to connect automatically, or open it in another tab of the same browser to send it to the original host. Connection settings include optional TURN credentials (kept in memory) and STUN configuration. Make a fresh invite or remake a reply to apply changed settings. Replies are bound to their original invitation; another table’s reply is rejected. Previous SIM invitation codes must be regenerated as new CL links. The saved host table still resumes with a fresh invitation.
