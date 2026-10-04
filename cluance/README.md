@@ -31,7 +31,7 @@ The board has twelve illustrated people or places. The clue giver starts with fi
 
 **Classic hand:** draw one replacement after each clue. **Fixed five:** no replacements; use the initial five cards in a considered order.
 
-Eleven decks with **354 active illustrated cards: 54 Musicians and 30 in each of the other ten themes**, meeting or exceeding the publisher's [30-card Similo deck size](https://horribleguild.com/eu/product/similo-history/). Scientists includes Charles Babbage, Philosophers includes Jean-Paul Sartre, and Writers includes Albert Camus. Every existing and new card has an [individual audit record](CARD_AUDIT.md); inconsistent artwork was redrawn from scratch with imagegen.
+Eleven decks with **353 active illustrated cards: 53 Musicians and 30 in each of the other ten themes**, meeting or exceeding the publisher's [30-card Similo deck size](https://horribleguild.com/eu/product/similo-history/). Scientists includes Charles Babbage, Philosophers includes Jean-Paul Sartre, and Writers includes Albert Camus. Every existing and new card has an [individual audit record](CARD_AUDIT.md); inconsistent artwork was redrawn from scratch with imagegen.
 
 1. French History
 2. Global History
@@ -49,7 +49,7 @@ Cities include Paris, Rome, London, Berlin, Tokyo and New York City, with 24 mor
 
 Every card displays a date caption and has a short description available in card inspection. People have lifespans or labelled birth years; bands have formation/activity dates; places have labelled landmarks or milestones. Approximate and traditional dates are marked, and mythological figures are identified as myths. The [card context notes](CARD_CONTEXT.md) explain these conventions and link selected references.
 
-Choose board and clue decks independently, including people/place combinations. When themes overlap, clue cards depicting the same subject as a board card are excluded. The opening sentence chooses your role, partner, board deck, clue deck and hand variant. Collection is a searchable full page with all 354 cards. Musicians includes solo artists and bands; Billie Eilish uses a symbolic blue underwater doorway because imagegen rejected her likeness; Serge Gainsbourg is retained once, and the deck keeps its original `singers` identifier so old saves and replays remain compatible. All decks use smaller WebP delivery images; the original generated PNGs are retained with their prompts.
+Choose board and clue decks independently, including people/place combinations. When themes overlap, clue cards depicting the same subject as a board card are excluded. The opening sentence chooses your role, partner, board deck, clue deck and hand variant. Collection is a searchable full page with all 353 cards. Musicians includes solo artists and bands; Serge Gainsbourg is retained once, and the deck keeps its original `singers` identifier so old saves and replays remain compatible. All decks use smaller WebP delivery images; the original generated PNGs are retained with their prompts.
 
 Select cards with a mouse, touch, or keyboard. The table keeps the board and clue trail together, with the giver’s hand between Similar and Different drop zones. Tap a hand card then a zone, or drag it there. Arrow keys browse the hand; **S**/**D** choose a direction and **Enter** plays the selected clue. Different clues stay sideways throughout the table and replay.
 
@@ -104,7 +104,7 @@ These are cooperative games between trusted players. A local browser that runs a
 - `src/music.js`, `src/outcome.js`: eleven original scores, WebAudio playback and finite result animations.
 - `assets/PROMPTS.md`: the complete image-generation prompts and provenance.
 - `assets/EXPANSION_PROMPTS.md`: expansion/redesign prompts and accepted or rejected dispositions.
-- `CARD_AUDIT.md`: individual findings for all 354 active cards and 24 archived region cards.
+- `CARD_AUDIT.md`: individual findings for all 353 active cards and 24 archived region cards.
 
 No tests or test suites are included, as requested. Verification is performed directly in the browser. [Play notes](PLAY_NOTES.md) record the live GPT-6 Luna games, prompt refinements, interface checks and remaining limitations.
 
