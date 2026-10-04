@@ -168,3 +168,10 @@ No tests were written. Module syntax and whitespace checks passed; this verifica
 
 
 The legacy `similo/` folder and its deployment and preview redirects were subsequently removed at the user’s request. Cluance remains at `cluance/`; saved-data and replay compatibility are unchanged.
+
+
+## Cloudflare invitation checks
+
+The hosted invite now uses a short, expiring link and exchanges SDP/ICE automatically, removing the reply-link step. The manual flow remains available with explicit clipboard actions. Browser checks at 1280, 390 and 320 pixels found no horizontal dialog overflow or page errors. Typed replies, relay credentials and expanded sections survived status/error updates; relay passwords were absent from saved preferences. Switching invite/join modes closes the previous pending connection.
+
+A browser RTC substitute exercised gameplay through real Cloudflare local Worker/WebSocket signaling: inviter roles were preserved, only the giver saw the secret/hand, a clue and elimination synchronized, and an agreed role swap kept both peers on the same new game. Native Chromium independently generated and applied real offers/answers automatically. This environment produced no usable native ICE candidates, so native data-channel and remote-network connectivity need verification with the configured Cloudflare account/TURN service. The substitute is test tooling and is excluded from deployed assets.

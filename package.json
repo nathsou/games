@@ -1,0 +1,18 @@
+{
+  "name": "browser-games",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm --prefix nonocube ci && npm --prefix nonocube run build && node tools/build-site.mjs",
+    "build:assets": "node tools/build-site.mjs",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:check": "wrangler deploy --dry-run",
+    "test:cloudflare": "node --test cloudflare/tests/*.test.mjs",
+    "test:cloudflare:ui": "node tools/cloudflare-audit.mjs"
+  },
+  "devDependencies": {
+    "miniflare": "^5.20261001.0-alpha",
+    "wrangler": "4.147.0"
+  }
+}
