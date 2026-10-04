@@ -26,8 +26,14 @@ export function installFloatingWindows() {
   const overlaps=(a,b)=>a.x<b.x+b.width+GAP&&a.x+a.width+GAP>b.x&&a.y<b.y+b.height+GAP&&a.y+a.height+GAP>b.y;
   function draw() {
     const v=viewport(),occupied=[];
-    for(const c of controllers)paint(c.element,c.bounds());
-    // Preserve preferred placement, but separate launchers when a smaller screen clamps them together.
+    for(const c of controllers) {
+      paint(c.element,c.bounds());
+      if(!c.element.hidden) {
+        const r=c.element.querySelector('.window-titlebar').getBoundingClientRect();
+        occupied.push({x:r.x,y:r.y,width:r.width,height:r.height});
+      }
+    }
+    // Keep launchers separate and title bars unobstructed without overwriting preferred placement.
     for(const c of [...controllers].reverse()) {
       let r=fitRect(c.launcherRect,v);
       if(occupied.some(other=>overlaps(r,other))) {
@@ -48,7 +54,7 @@ export function installFloatingWindows() {
   function finish(cancel=false) {
     if(!gesture)return;
     const g=gesture;gesture=undefined;
-    if(cancel)g.c[g.launcher?'launcherRect':'rect']=g.start;
+    if(cancel)g.c[g.launcher?'launcherRect':'rect']=g.preferred;
     g.c.draw();shield.hidden=true;
     try { g.handle.releasePointerCapture(g.pointer); } catch { /* Capture may already be gone. */ }
     if(g.moved)g.suppressClick();
@@ -64,7 +70,7 @@ export function installFloatingWindows() {
       if(gesture||e.button!==0||!e.isPrimary||e.target.closest('button')&&e.target.closest('button')!==handle)return;
       if(document.querySelector('dialog[open]'))return;
       c.front();const launcher=kind==='launcher';
-      gesture={c,handle,kind,launcher,pointer:e.pointerId,px:e.clientX,py:e.clientY,start:c.bounds(launcher),moved:false,
+      gesture={c,handle,kind,launcher,pointer:e.pointerId,px:e.clientX,py:e.clientY,start:c.bounds(launcher),preferred:{...(launcher?c.launcherRect:c.rect)},moved:false,
         suppressClick(){suppress=true;setTimeout(()=>{suppress=false;},0);}};
       handle.setPointerCapture(e.pointerId);
       if(!launcher){e.preventDefault();handle.focus({preventScroll:true});}
@@ -106,7 +112,7 @@ export function installFloatingWindows() {
       front(){element.style.zIndex=++layer;},
       setOpen(open,focus=true){
         c.open=open;element.hidden=!open;launcher.setAttribute('aria-expanded',String(open));
-        if(open){c.draw();c.front();}if(focus)(open?title:launcher).focus({preventScroll:true});
+        c.draw();if(open)c.front();if(focus)(open?title:launcher).focus({preventScroll:true});
         persist();onVisibility?.(open);
       },
       reset(isLauncher=false){c[isLauncher?'launcherRect':'rect']=(isLauncher?launcherDefaults:defaults)(viewport());c.draw();persist();},
@@ -131,9 +137,10 @@ export function installFloatingWindows() {
       }else handle.setAttribute('aria-hidden','true');
       element.append(handle);pointer(handle,c,kind);
     }
-    c.draw();element.hidden=!c.open;launcher.setAttribute('aria-expanded',String(c.open));if(c.open)c.front();return c;
+    element.hidden=!c.open;c.draw();launcher.setAttribute('aria-expanded',String(c.open));if(c.open)c.front();return c;
   }
   const redraw=()=>{if(gesture)finish(true);draw();};
+  window.addEventListener('blur',()=>finish(true));
   window.addEventListener('resize',redraw);window.visualViewport?.addEventListener('resize',redraw);window.visualViewport?.addEventListener('scroll',redraw);
   return {create};
 }

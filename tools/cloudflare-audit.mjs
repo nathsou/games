@@ -15,7 +15,7 @@ async function invite(p,name,mode='live'){
   await p.locator('#room-create').click();await p.waitForFunction(()=>document.querySelector('#room-link').value);const link=await p.locator('#room-link').inputValue();assert.equal(new URL(link).pathname,'/');await p.locator('#room-close').click();return link;
 }
 async function showPanel(p){if(!await p.locator('#friend-header').isVisible())await p.locator('#show-friend-panel').click();}
-async function hidePanel(p){if(await p.locator('#friend-header').isVisible())await p.locator('#hide-friend-panel').click();}
+async function hideSocialWindows(p){if(await p.locator('#friend-header').isVisible())await p.locator('#hide-friend-panel').click();if(await p.locator('#friend-chat').isVisible())await p.locator('#chat-toggle').click();}
 async function sendChat(p,text){await p.locator('#chat-toggle').click();await p.locator('#chat-input').fill(text);await p.locator('#chat-send').click();await p.locator('#chat-log').getByText(text,{exact:true}).waitFor();}
 async function flipMove(p){const f=await game(p,'flip-it'),v=await f.evaluate(()=>window.__flipit.state),seat=await f.evaluate(()=>window.__flipit.seat),move=botAction(v,seat);
   if(move.kind==='next'){await f.locator('[data-action=next]').click();return;}
@@ -33,32 +33,47 @@ try{
   const privateView=await hf.evaluate(()=>window.__cluance.state),publicView=await gf.evaluate(()=>window.__cluance.state);
   assert(privateView.secret&&privateView.hand.length===5);assert(!publicView.secret&&!publicView.hand);assert.equal(privateView.variant,'fixed');
   await sendChat(h,'A persistent conversation');await g.evaluate(()=>window.__friendSession.chat.refresh());await g.locator('#chat-toggle').click();await g.locator('#chat-log').getByText('A persistent conversation',{exact:true}).waitFor();
-  await hidePanel(h);await hf.locator('#hand [data-card]').first().click();await hf.locator('#confirm-move').click();await hf.waitForFunction(()=>window.__cluance.state.revision===1);
+  await g.locator('#chat-toggle').click();await g.reload();gf=await game(g,'cluance');await gf.waitForFunction(()=>window.__cluance.mode==='async');
+  assert(!await g.locator('#chat-toggle .launcher-badge').isVisible(),'Read messages must remain read after reload');
+  // A slow send must not erase a reply being composed or persist the sent text as a draft.
+  let releasePost;
+  const held=new Promise(resolve=>releasePost=resolve);
+  const started=h.waitForRequest(request=>request.method()==='POST'&&new URL(request.url()).pathname.endsWith('/chat'));
+  const delayed=async route=>{if(route.request().method()==='POST'){await held;await new Promise(resolve=>setTimeout(resolve,600));}await route.continue();};
+  await h.route('**/api/rooms/friends/*/chat',delayed);
+  await h.locator('#chat-input').fill('A slow message');await h.locator('#chat-send').click();await started;
+  assert(await h.locator('#chat-send').isDisabled());await h.locator('#chat-input').fill('My next reply');releasePost();
+  await h.locator('#chat-log').getByText('A slow message',{exact:true}).waitFor();await h.waitForFunction(()=>!document.querySelector('#chat-send').disabled);
+  assert.equal(await h.locator('#chat-input').inputValue(),'My next reply');
+  await h.unroute('**/api/rooms/friends/*/chat',delayed);
+  await h.locator('#chat-input').fill('');await h.locator('#chat-input').fill('A final draft');
+  assert.equal(await h.evaluate(()=>JSON.parse(localStorage.getItem('games.friend-room.v1')).draft),'A final draft');
+  await hideSocialWindows(h);await hf.locator('#hand [data-card]').first().click();await hf.locator('#confirm-move').click();await hf.waitForFunction(()=>window.__cluance.state.revision===1);
   // Close the giver's tab entirely; the guesser can still submit a legal move.
   await h.close();await g.evaluate(()=>window.__friendSession.refreshInbox());await gf.waitForFunction(()=>window.__cluance.state.phase==='guess');
-  const safe=publicView.board.find(id=>id!==privateView.secret);await hidePanel(g);await gf.locator('#board [data-card="'+safe+'"]').click();await gf.locator('#confirm-move').click();await gf.waitForFunction(()=>window.__cluance.state.revision===2);
+  const safe=publicView.board.find(id=>id!==privateView.secret);await hideSocialWindows(g);await gf.locator('#board [data-card="'+safe+'"]').click();await gf.locator('#confirm-move').click();await gf.waitForFunction(()=>window.__cluance.state.revision===2);
   const returned=await page(hc);await returned.goto(origin+'/');const restored=await game(returned,'cluance');await restored.waitForFunction(()=>window.__cluance.state.revision===2);assert.equal((await restored.evaluate(()=>window.__cluance.state)).secret,privateView.secret);
   await showPanel(returned);await returned.locator('#new-turn-game').click(); // new Cluance game, while retaining the first
   await returned.locator('#game-setup-start').click();await returned.waitForFunction(()=>window.__friendSession.asyncGame?.record.revision===0);await returned.evaluate(()=>window.__friendSession.refreshInbox());await returned.waitForFunction(()=>document.querySelectorAll('#turn-games-list button').length===2);
   await returned.locator('#next-game').selectOption('flip-it');await game(returned,'flip-it');await returned.locator('#new-turn-game').click();await returned.locator('#game-setup-start').click();const flip=await game(returned,'flip-it');await flip.waitForFunction(()=>window.__flipit.mode==='async');
   const flipID=await returned.evaluate(()=>window.__friendSession.asyncGame.record.id);
   await showPanel(g);await g.evaluate(()=>window.__friendSession.refreshInbox());await g.locator('#turn-games-list button').filter({hasText:'Flip It'}).click();gf=await game(g,'flip-it');await gf.waitForFunction(()=>window.__flipit.mode==='async');
-  const fv=await flip.evaluate(()=>window.__flipit.state);assert(fv.hands[1].every(c=>c.hidden));const asyncActor=fv.turn===0?returned:g;await hidePanel(asyncActor);await flipMove(asyncActor);await flip.waitForFunction(()=>window.__flipit.state.revision===1);
+  const fv=await flip.evaluate(()=>window.__flipit.state);assert(fv.hands[1].every(c=>c.hidden));const asyncActor=fv.turn===0?returned:g;await hideSocialWindows(asyncActor);await flipMove(asyncActor);await flip.waitForFunction(()=>window.__flipit.state.revision===1);
   await showPanel(returned);await returned.locator('#next-game').selectOption('spacegolf');await returned.waitForFunction(()=>window.__together.game==='spacegolf');await returned.reload();await returned.waitForFunction(()=>window.__together.game==='spacegolf');
   await returned.evaluate(()=>window.__friendSession.refreshInbox());await returned.locator('#turn-games-list button').filter({hasText:'Flip It'}).click();await(await game(returned,'flip-it')).waitForFunction(()=>window.__flipit.state.revision===1);assert.equal(await returned.evaluate(()=>window.__friendSession.asyncGame.record.id),flipID);
-  await returned.setViewportSize({width:320,height:844});assert(await returned.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await hidePanel(returned);await returned.reload();await returned.locator('#friend-header').waitFor({state:'hidden'});await showPanel(returned);await returned.locator('#friend-header').waitFor({state:'visible'});
+  await returned.setViewportSize({width:320,height:844});assert(await returned.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await hideSocialWindows(returned);await returned.reload();await returned.locator('#friend-header').waitFor({state:'hidden'});await showPanel(returned);await returned.locator('#friend-header').waitFor({state:'visible'});
   assert.equal(await returned.locator('#chat-input').count(),1);assert.equal(await(await game(returned,'flip-it')).locator('#chat-input').count(),0);
-  results.push('Offline Cluance and Flip It, private views, browser close/reopen, persistent unified chat, concurrent saved games, background play, 320px panel and visibility preference');await hc.close();await gc.close();
+  results.push('Offline Cluance and Flip It, private views, browser close/reopen, persistent unified chat and drafts during delayed sends, concurrent saved games, background play, 320px panel and visibility preference');await hc.close();await gc.close();
   // A real signaling service with a deterministic RTC substitute for native game protocols.
   const c=await browser.newContext({viewport:{width:1280,height:900}});await c.addInitScript(()=>Object.defineProperty(window,'localStorage',{get:()=>sessionStorage}));await c.addInitScript(installTestPeer);
   const host=await page(c),guest=await page(c),liveLink=await invite(host,'flip-it');await guest.goto(liveLink);
   for(const p of [host,guest])await p.waitForFunction(()=>window.__together?.connected&&!window.__together.loading);
-  let hostFlip=await game(host,'flip-it');await hostFlip.waitForFunction(()=>window.__flipit.connected&&window.__flipit.state);const firstLive=await hostFlip.evaluate(()=>window.__flipit.state);const firstActor=firstLive.turn===0?host:guest;await hidePanel(firstActor);await flipMove(firstActor);await hostFlip.waitForFunction(()=>window.__flipit.state.revision===1);await(await game(guest,'flip-it')).waitForFunction(()=>window.__flipit.state.revision===1);if(!await guest.locator('#friend-header').isVisible())await showPanel(guest);
+  let hostFlip=await game(host,'flip-it');await hostFlip.waitForFunction(()=>window.__flipit.connected&&window.__flipit.state);const firstLive=await hostFlip.evaluate(()=>window.__flipit.state);const firstActor=firstLive.turn===0?host:guest;await hideSocialWindows(firstActor);await flipMove(firstActor);await hostFlip.waitForFunction(()=>window.__flipit.state.revision===1);await(await game(guest,'flip-it')).waitForFunction(()=>window.__flipit.state.revision===1);if(!await guest.locator('#friend-header').isVisible())await showPanel(guest);
   await host.reload();await host.waitForFunction(()=>window.__together?.connected&&!window.__together.loading);hostFlip=await game(host,'flip-it');await hostFlip.waitForFunction(()=>window.__flipit.state?.revision===1);if(!await host.locator('#friend-header').isVisible())await showPanel(host);
   await switchGame(host,guest,'cluance');let giving=await game(host,'cluance'),guessing=await game(guest,'cluance');await giving.waitForFunction(()=>window.__cluance.state);await guessing.waitForFunction(()=>window.__cluance.state);assert.notEqual((await giving.evaluate(()=>window.__cluance.state)).role,(await guessing.evaluate(()=>window.__cluance.state)).role);
   const hostClue=await giving.evaluate(()=>window.__cluance.state),giverPage=hostClue.role==='giver'?host:guest,guesserPage=giverPage===host?guest:host;
   giving=await game(giverPage,'cluance');guessing=await game(guesserPage,'cluance');const clueBefore=await giving.evaluate(()=>window.__cluance.state);
-  await hidePanel(giverPage);await giving.locator('#hand [data-card]').first().click();await giving.locator('#confirm-move').click();await guessing.waitForFunction(()=>window.__cluance.state.phase==='guess');await hidePanel(guesserPage);
+  await hideSocialWindows(giverPage);await giving.locator('#hand [data-card]').first().click();await giving.locator('#confirm-move').click();await guessing.waitForFunction(()=>window.__cluance.state.phase==='guess');await hideSocialWindows(guesserPage);
   await guessing.locator('#board [data-card="'+clueBefore.board.find(id=>id!==clueBefore.secret)+'"]').click();await guessing.locator('#confirm-move').click();await giving.waitForFunction(()=>window.__cluance.state.revision===2);
   await giverPage.reload();await giverPage.waitForFunction(()=>window.__together.connected&&!window.__together.loading);giving=await game(giverPage,'cluance');await giving.waitForFunction(()=>window.__cluance.state?.revision===2);assert.equal((await giving.evaluate(()=>window.__cluance.state)).secret,clueBefore.secret);await showPanel(host);await showPanel(guest);
   await sendChat(host,'Still together across games');await guest.evaluate(()=>window.__friendSession.chat.refresh());await guest.locator('#chat-toggle').click();await guest.locator('#chat-log').getByText('Still together across games',{exact:true}).waitFor();

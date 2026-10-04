@@ -59,6 +59,8 @@ try {
   await inside(p,'#show-friend-panel');await inside(p,'#chat-toggle');await p.locator('#show-friend-panel').click();await inside(p,'#friend-header');
   assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await p.locator('#hide-friend-panel').click();await p.locator('#chat-toggle').click();await inside(p,'#friend-chat');
+  const phoneTitle=await box(p,'#chat-titlebar');await p.mouse.move(phoneTitle.x+100,phoneTitle.y+20);await p.mouse.down();await p.mouse.move(phoneTitle.x+80,phoneTitle.y+80);
+  await p.evaluate(()=>dispatchEvent(new Event('blur')));await p.mouse.up();assert(!await p.locator('.window-drag-shield').isVisible());
   await p.setViewportSize({width:568,height:320});await inside(p,'#friend-chat');
   const composer=await box(p,'#chat-form');assert(composer.y+composer.height<=312);
   await p.locator('#chat-close').click();await p.setViewportSize({width:1280,height:900});await p.locator('#chat-toggle').click();assert.deepEqual(await box(p,'#friend-chat'),chatRect,'Temporary viewport changes must preserve the preferred desktop placement');

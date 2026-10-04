@@ -2,7 +2,7 @@
 
 Friends and Chat have separate floating launchers and modeless windows above the game. Both start closed. Drag either launcher or a window title bar to move it; resize from the right/bottom edges or corner, and close with × or Escape. Placement, size and visibility are remembered in this browser across games and reloads. Reset a window with ↺. On a focused launcher/title bar, arrow keys move and Home resets; Shift + arrows on a title bar resize. The focused resize corner also accepts arrow keys. Windows stay within the visible screen, including when the phone keyboard opens.
 
-Invitations, connection controls, settings and saved games live in Friends. Chat opens independently, and its launcher shows unread messages. The Friends launcher shows games awaiting your turn. Game invite and chat buttons open the corresponding window without changing the other window. Window placement follows the shared light/dark appearance and stays local to this browser; it is never sent to a friend.
+Invitations, connection controls, settings and saved games live in Friends. Chat opens independently, and its launcher shows unread messages, retaining read status across reloads. The Friends launcher shows games awaiting your turn. Game invite and chat buttons open the corresponding window without changing the other window. Window placement follows the shared light/dark appearance and stays local to this browser; it is never sent to a friend.
 
 ## One invitation, two ways to play
 

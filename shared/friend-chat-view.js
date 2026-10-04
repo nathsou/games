@@ -2,13 +2,24 @@ import {REACTIONS} from './friend-chat.js';
 
 export function installFriendChat(session) {
   const $ = id => document.getElementById(id);
-  let current, rendered = 0, unread = 0, sending = false;
+  const READ_KEY='games.chat-read.v1';
+  let readMarkers={};
+  try {readMarkers=JSON.parse(localStorage.getItem(READ_KEY))||{};} catch { /* Optional storage. */ }
+  if(typeof readMarkers!=='object'||Array.isArray(readMarkers))readMarkers={};
+  let current, rendered = 0, readSequence = 0, sending = false;
+  function markRead() {
+    readSequence=current.sequence;
+    const room=session.resumeCredentials?.room;
+    if(!room || readMarkers[room]===readSequence)return;
+    readMarkers[room]=readSequence;
+    readMarkers=Object.fromEntries(Object.entries(readMarkers).slice(-20));
+    try {localStorage.setItem(READ_KEY,JSON.stringify(readMarkers));} catch { /* Optional storage. */ }
+  }
   function seen() {
     return !$('friend-chat').hidden && !document.hidden;
   }
   session.onChatVisibility = open => {
     if (open) {
-      unread = 0;
       $('chat-log').scrollTop = $('chat-log').scrollHeight;
       if (!$('chat-input').disabled) $('chat-input').focus({preventScroll:true});
     }
@@ -52,7 +63,9 @@ export function installFriendChat(session) {
   function render() {
     if (current !== session.chat) {
       current = session.chat;
-      rendered = unread = 0;
+      rendered = 0;
+      const read=readMarkers[session.resumeCredentials?.room];
+      readSequence=Number.isSafeInteger(read)&&read>=0&&read<=current.sequence?read:0;
       $('chat-log').replaceChildren();
       $('chat-input').value = '';
       $('chat-error').hidden = true;
@@ -69,11 +82,11 @@ export function installFriendChat(session) {
       row.append(author, content);
       log.append(row);
       if (log.children.length > 60) log.firstElementChild.remove();
-      if (!own && !seen()) unread++;
       rendered = entry.sequence;
     }
     if (nearBottom) log.scrollTop = log.scrollHeight;
-    if (seen()) unread = 0;
+    if (seen()) markRead();
+    const unread=current.entries.filter(entry=>entry.sequence>readSequence && entry.seat!==(session.isHost?0:1)).length;
     session.chatWindow?.badge(unread, 'unread messages');
     $('chat-empty').hidden = Boolean(current.entries.length);
     const available = Boolean(session.resumeCredentials || session.connected);
