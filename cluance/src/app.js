@@ -273,11 +273,6 @@ function toggleMark(id) {
   renderGame();
   if (drawerCardId) renderDrawer();
 }
-function artworkCredit(card) {
-  const credit = card.artCredit;
-  if (!credit) return '';
-  return `<p class="art-credit">Photo: <a href="${esc(credit.source)}" target="_blank" rel="noopener noreferrer" title="${esc(credit.title)}">${esc(credit.artist)}</a> · <a href="${esc(credit.licenseUrl)}" target="_blank" rel="noopener noreferrer">${esc(credit.license)}</a> · Cropped for this card.</p>`;
-}
 function renderDrawer(compare = false) {
   const id = drawerCardId,
     card = CARDS[id];
@@ -293,7 +288,7 @@ function renderDrawer(compare = false) {
   const drawer = $("card-drawer");
   drawer.hidden = false;
   $("drawer-scrim").hidden = false;
-  drawer.innerHTML = `<div class="drawer-nav"><button id="drawer-prev" class="icon-button" aria-label="Previous card" ${index <= 0 ? "disabled" : ""}>←</button><span>${String(index + 1).padStart(2, "0")} / ${drawerCards.length}</span><button id="drawer-next" class="icon-button" aria-label="Next card" ${index === drawerCards.length - 1 ? "disabled" : ""}>→</button><button id="drawer-close" class="icon-button" aria-label="Close card details">✕</button></div>${compare ? '<h2>Compare the connection.</h2><div id="compare-cards" class="compare-cards"></div>' : '<div id="drawer-art"></div>'}<p class="eyebrow">${esc(DECKS[card.deck].name)} · NO. ${String(card.index + 1).padStart(2, "0")}</p><h2>${esc(card.name)}</h2><p>${esc(card.subtitle)} · ${esc(card.dates)}</p><p class="card-description">${esc(card.description)}</p>${artworkCredit(card)}<div class="drawer-actions">${canMark ? `<button class="button secondary danger" id="drawer-mark">${selected.has(id) ? "Unmark" : "Mark for removal"}</button>` : ""}${latest && id !== latest.card ? `<button class="button secondary" id="drawer-compare">${compare ? "Back to details" : "Compare with " + esc(CARDS[latest.card].name)}</button>` : ""}</div><p class="drawer-hint">← → browse · M mark · Esc close</p>`;
+  drawer.innerHTML = `<div class="drawer-nav"><button id="drawer-prev" class="icon-button" aria-label="Previous card" ${index <= 0 ? "disabled" : ""}>←</button><span>${String(index + 1).padStart(2, "0")} / ${drawerCards.length}</span><button id="drawer-next" class="icon-button" aria-label="Next card" ${index === drawerCards.length - 1 ? "disabled" : ""}>→</button><button id="drawer-close" class="icon-button" aria-label="Close card details">✕</button></div>${compare ? '<h2>Compare the connection.</h2><div id="compare-cards" class="compare-cards"></div>' : '<div id="drawer-art"></div>'}<p class="eyebrow">${esc(DECKS[card.deck].name)} · NO. ${String(card.index + 1).padStart(2, "0")}</p><h2>${esc(card.name)}</h2><p>${esc(card.subtitle)} · ${esc(card.dates)}</p><p class="card-description">${esc(card.description)}</p><div class="drawer-actions">${canMark ? `<button class="button secondary danger" id="drawer-mark">${selected.has(id) ? "Unmark" : "Mark for removal"}</button>` : ""}${latest && id !== latest.card ? `<button class="button secondary" id="drawer-compare">${compare ? "Back to details" : "Compare with " + esc(CARDS[latest.card].name)}</button>` : ""}</div><p class="drawer-hint">← → browse · M mark · Esc close</p>`;
   if (compare) {
     for (const cid of [latest.card, ...comparePins])
       mountCard($("compare-cards"), cid, {
