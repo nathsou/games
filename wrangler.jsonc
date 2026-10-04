@@ -10,6 +10,14 @@
       {"name": "INVITE_LIMITS", "class_name": "InviteLimiter"}
     ]
   },
+  "previews": {
+    "durable_objects": {
+      "bindings": [
+        {"name": "SIGNAL_ROOMS", "class_name": "SignalRoom"},
+        {"name": "INVITE_LIMITS", "class_name": "InviteLimiter"}
+      ]
+    }
+  },
   "migrations": [
     {"tag": "v1", "new_sqlite_classes": ["SignalRoom", "InviteLimiter"]}
   ],
