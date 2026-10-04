@@ -49,7 +49,7 @@ The `SignalRoom` and `InviteLimiter` Durable Object bindings are created automat
 
 ## Friend rooms and saved games
 
-All invitations use the global Friends side panel. Choose settings before creating the link; the guest joins directly without a reply link. An unclaimed room initially expires after 15 minutes. Claiming a private browser seat extends room retention to 90 days after the most recent authenticated visit. The shared link claims the guest seat once; returning players use their saved private credential. Reconnection retains the same room.
+All invitations use the global Friends window. Choose settings, then share an eight-character room code or invitation link; the guest joins directly without a reply link. Codes expire after 24 hours, admit only the unclaimed guest seat, and retain the selected async game. Code lookups are origin-scoped and limited to 30 attempts per hour per IP. The expiring code registry uses the existing InviteLimiter namespace, so deployment requires no new binding or migration. An unclaimed room initially expires after 15 minutes. Claiming a private browser seat extends room retention to 90 days after the most recent authenticated visit. The shared link claims the guest seat once; returning players use their saved private credential. Reconnection retains the same room.
 
 Live game traffic uses encrypted WebRTC. Take-turn Cluance and Flip It use server-authoritative game state in the existing SignalRoom Durable Object, so either browser can be offline. Every move is validated and responses contain only that player's allowed view. Chat's latest 60 entries are also persisted in the room. No new bindings or secrets are required. See [friend room behavior and recovery limits](FRIEND_SESSIONS.md).
 

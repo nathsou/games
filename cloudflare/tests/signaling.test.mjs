@@ -148,6 +148,11 @@ test('room codes use the existing guest seat, retain links, and cannot claim hos
     assert.equal((await post(base+'/code',host.key,{turn:'not-in-this-room'})).status,400);
     const issued=await post(base+'/code',host.key);assert.equal(issued.status,200);assert.match(issued.data.code,/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/);
     assert(issued.data.expiresAt>Date.now()+23*60*60*1000);assert.deepEqual((await post(base+'/code',host.key)).data,issued.data);
+    const limiters=await mf.getDurableObjectNamespace('INVITE_LIMITS');
+    for(let i=0;i<29;i++)assert.equal((await limiters.getByName('code-create:'+room.room).fetch('https://internal/limit')).status,204);
+    assert.equal((await post(base+'/code',host.key)).status,200,'Reopening an existing code must not use the generation quota');
+    const otherGame=(await post(base+'/turns',host.key,{game:'flip-it',setup:{}})).data;
+    assert.equal((await post(base+'/code',host.key,{turn:otherGame.id})).status,429);
     const resolved=await post(origin+'/api/room-codes/join',null,{code:issued.data.code.toLowerCase().replace('-',' ')});assert.equal(resolved.status,200);assert.equal(resolved.data.room,room.room);assert.equal(resolved.data.game,'friends');assert.equal(resolved.data.turn,null);
     const info=await mf.dispatchFetch(base+'/info',{headers:{Authorization:'Bearer '+resolved.data.key}});assert.equal((await info.json()).role,'guest');
     assert.equal((await mf.dispatchFetch(base+'/info',{headers:{Authorization:'Bearer '+room.guestKey}})).status,200,'A code must not revoke the original link');

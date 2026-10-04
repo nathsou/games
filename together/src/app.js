@@ -139,8 +139,9 @@ function openInvitation(game=session.game,metadata) {
   if(session.connected||session.resumeCredentials&&!session.connecting){if(Object.hasOwn(SETUP_GAMES,game)&&game!=='collection')openGameSetup(game,metadata);else session.showPanel();return;}
   session.showPanel();
   $('room-title').textContent='Invite a friend';$('room-join-form').hidden=true;
-  $('room-settings').hidden=false;$('room-copy').hidden=false;
+  $('room-copy').hidden=false;
   const waiting=session.connecting&&session.friendInvitation;
+  $('room-settings').hidden=Boolean(waiting);
   $('room-output').hidden=!waiting;$('room-create').hidden=waiting;
   if(!waiting){
     $('room-link').value='';$('room-copy').disabled=true;$('room-settings').disabled=false;
@@ -166,8 +167,9 @@ async function createRoom() {
       const config=await roomConfig(credential,{iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
       await session.connectFriendRoom(credential,'host',config,{game:inviteGame,metadata,resume,restoring:true});
     }
-    $('room-link').value=hostedLink({...room,key:room.guestKey})+(asyncMode?'&turn='+session.asyncGame.record.id:'');session.resumeCredentials.inviteLink=$('room-link').value;persistRoom();$('room-copy').disabled=false;$('room-output').hidden=false;$('room-create').hidden=true;
-    $('room-status').textContent=setupSummary(inviteGame,metadata)+' Share the code or link with one friend. Your room and saved games stay available for 90 days after your last visit.';
+    $('room-link').value=hostedLink({...room,key:room.guestKey})+(asyncMode?'&turn='+session.asyncGame.record.id:'');session.resumeCredentials.inviteLink=$('room-link').value;persistRoom();$('room-copy').disabled=false;$('room-output').hidden=false;$('room-create').hidden=true;$('room-settings').hidden=true;
+    $('room-title').textContent=FRIEND_PAGES[inviteGame]+' · '+(asyncMode?'Take turns':'Play live');
+    $('room-status').textContent=setupSummary(inviteGame,metadata).replace(/\.$/,'')+'. Share the code or link with one friend. Your room and saved games stay available for 90 days after your last visit.';
     await offerRoomCode();
   }catch(error){$('room-status').textContent=error.message;$('room-settings').disabled=false;}
   finally{session.roomBusy=false;$('room-create').disabled=false;render();}
@@ -183,9 +185,9 @@ async function offerRoomCode() {
     const code=await createRoomCode(credential,turn);
     if(session.resumeCredentials?.room!==credential.room)return;
     session.resumeCredentials.inviteCode=code;persistRoom();$('room-code').value=code.code;
-    $('room-code-copy').disabled=false;$('room-code-status').textContent='Valid for 24 hours · admits one friend.';
+    $('room-code-copy').disabled=false;$('room-code-status').textContent='Expires '+new Date(code.expiresAt).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})+' · admits one friend.';
   }catch(error){
-    $('room-code').placeholder='Code unavailable';$('room-code-status').textContent=error.message;$('room-code-refresh').hidden=false;
+    $('room-code').placeholder='Code unavailable';$('room-code-status').textContent=error.message;$('room-code-refresh').hidden=error.status===410;
   }
 }
 $('room-code-refresh').onclick=offerRoomCode;

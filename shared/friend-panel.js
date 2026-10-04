@@ -67,7 +67,7 @@ export const friendPanel = `
     <label for="room-code">Room code</label>
     <div class="room-code-row"><input id="room-code" type="text" readonly placeholder="Generating…" aria-describedby="room-code-status"><button id="room-code-copy" type="button" disabled>Copy code</button></div>
     <p id="room-code-status" class="setup-note" role="status"></p>
-    <button id="room-code-refresh" type="button" hidden>Get a new code</button>
+    <button id="room-code-refresh" type="button" hidden>Get room code</button>
     <p class="setup-note">Your friend can open Friends → Join and enter this code.</p>
     <details id="room-link-details"><summary>Or send an invitation link</summary><label class="visually-hidden" for="room-link">Invitation link</label><input id="room-link" type="text" readonly></details>
     </div>

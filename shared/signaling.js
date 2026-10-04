@@ -9,7 +9,7 @@ async function request(path,{key,method='GET',body,signal}={}){
   const response=await fetch(path,{method,credentials:'omit',cache:'no-store',signal:signal||AbortSignal.timeout(10000),
     headers:{...(key?{Authorization:'Bearer '+key}:{}),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
   const data=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(data.error||'The invitation service is unavailable. Try again.');
+  if(!response.ok){const error=new Error(data.error||'The invitation service is unavailable. Try again.');error.status=response.status;throw error;}
   return data;
 }
 export function signalingService(){

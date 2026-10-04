@@ -140,7 +140,10 @@ export class SignalRoom extends DurableObject {
         }catch{return json({error:'Choose a saved game from this room.'},400);}
         if(latest.joinCode&&latest.codeExpiresAt>Date.now()&&latest.codeTurn===turn)
           return json({code:formatRoomCode(latest.joinCode),expiresAt:latest.codeExpiresAt});
-        const room=url.pathname.split('/')[4],key=hex(32),expiresAt=Math.min(latest.expiresAt,Date.now()+CODE_TTL);
+        const room=url.pathname.split('/')[4];
+        if(!(await this.env.INVITE_LIMITS.getByName('code-create:'+room).fetch('https://internal/limit')).ok)
+          return json({error:'Too many new codes. Try again in an hour, or share the invitation link.'},429);
+        const key=hex(32),expiresAt=Math.min(latest.expiresAt,Date.now()+CODE_TTL);
         for(let attempt=0;attempt<5;attempt++) {
           const code=[...crypto.getRandomValues(new Uint8Array(8))].map(n=>ROOM_CODE_ALPHABET[n&31]).join('');
           const registered=await this.env.INVITE_LIMITS.getByName('room-code:'+await digest(code)).fetch('https://internal/register-code',{method:'POST',body:JSON.stringify({room,key,turn,expiresAt,origin:meta.origin})});
