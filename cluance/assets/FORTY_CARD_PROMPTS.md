@@ -1,6 +1,29 @@
 # Forty-card expansion artwork
 
-Generated with the built-in imagegen tool on 4 October 2026. The tool does not expose a model selector. Original generated PNG outputs remain in the execution workspace; Git retains the WebP runtime assets, encoded at quality 94 without changing the dimensions or composition. Each atlas has five equal columns and two rows, in the append-only roster order.
+Generated with the built-in imagegen tool on 4 October 2026. The tool does not expose a model selector. Original generated PNG outputs remain in the execution workspace; Git retains the WebP runtime assets, encoded at quality 94 without changing the dimensions or composition. Each standard ten-card atlas has five equal columns and two rows, in the append-only roster order; correction grids are listed below.
+
+## Original output identifiers and delivered grids
+
+Original PNGs are in `/workspace/generated_images/` in this execution workspace. The standard ten-card atlases use 5 × 2 grids; correction grids below override selected subjects in `src/forty.js`.
+
+| Runtime asset / disposition | Original imagegen PNG | Grid |
+| --- | --- | --- |
+| scientists-forty.webp | exec-1a9ed5c3-d349-4298-af8c-be60c4121fbf.png | 5 × 2 |
+| philosophers-forty.webp | exec-157778bf-c690-4328-a867-43c0679e1b31.png | 5 × 2 |
+| french-forty.webp | exec-19164636-b33b-4248-93e0-a4e0f0da9e54.png | 5 × 2 |
+| global-forty.webp | exec-dd768323-cefd-48c8-bacc-b0c8622fa211.png | 5 × 2 |
+| global-forty-corrections.webp | exec-81e62479-3e73-4bad-b80d-b50ee5bffdb3.png | 2 × 1 |
+| actors-forty.webp | exec-eb1f1a45-9607-4419-a0bc-cea6822e58ea.png | 5 × 2 |
+| cities-forty.webp | exec-90fab11b-ae29-4fa4-b4ad-8a5b510ecca5.png | 5 × 2 |
+| countries-forty.webp | exec-b1417de0-293c-4b55-922f-87002c195053.png | 5 × 2 |
+| Rejected first Writers sheet; not delivered | exec-ed205888-4c47-4bf5-8345-b155566bb58b.png | 5 × 2 |
+| writers-forty.webp | exec-267a9c5b-55bc-42f2-9c02-c7eaf96048c4.png | 5 × 2 |
+| writers-forty-corrections.webp | exec-aee0f00d-bc9e-4dec-85cb-143de14eea3c.png | 2 × 1 |
+| greek-forty.webp | exec-00eaefb7-f804-49bd-bff6-64b21844ed4f.png | 5 × 2 |
+| greek-forty-sisyphus.webp | exec-6258b723-edb7-44db-80df-7ba61112b12e.png | 1 × 1 |
+| Rejected first Regions sheet; not delivered | exec-69ae87a3-bcf0-4e78-a79d-47115ceb0a0d.png | 5 × 2 |
+| regions-forty.webp | exec-e0d25e6c-9eb0-464d-bb86-576f714cf40e.png | 5 × 2 |
+| regions-forty-corrections.webp | exec-f45c52a5-a0cf-4da6-9f22-2af3db7e4e6d.png | 3 × 2 |
 
 ## scientists-forty.webp
 
