@@ -6,7 +6,7 @@ The supplied **Cluance redesign from ground up** handoff is the visual reference
 
 - Home: role/partner/deck sentence tokens, independent clue deck and hand variant, responsive pickers, three distinct selected-deck hero cards, resume pill and replay import. Invite and join actions are available in every setup mode; inviting switches to giving clues and preserves the chosen decks and variant. Long sentence tokens wrap on phones.
 - Guesser: proportional round progress, six-by-two desktop/four-by-three phone board, upright/sideways clue trail, sealed-note control, removal count, clear and named confirmation.
-- Giver: secret thumbnail and gold ring, compact board, private hand fan, pointer dragging and tap/keyboard direction selection, clue/note controls inside the desktop drop zone and a phone action bar. Waiting/error states use the action bar.
+- Giver: secret thumbnail and gold ring, compact board, private hand fan, pointer dragging and tap/keyboard direction selection, clue/note controls inside the desktop drop zone and a phone action bar. The private hand remains visible for inspection while the partner guesses; drop zones are hidden and clue submission is unavailable until the next clue turn. Waiting/error states use the action bar.
 - Reveal: outcome moment, board as it stood in each round, round removal tags, expected-removal match/mismatch chips when recorded, both interpretations and per-card reasons, arrow-key scrubber, autoplay, rematch/swap and replay export.
 - Pairing: explicit **Create invitation** action followed by **Invitation ready**, plus **Create an invitation instead** from the join dialog and **Join instead** from the host dialog. Existing shared invitation/reply/QR/share flow, collapsed manual reply and connection settings, optional matching clipboard reply banner. TURN credentials remain in memory for the current visit.
 - Details: right drawer with arrow browsing, marking, latest-clue comparison and up to two pinned candidates; optional hover/long-press Peek. Closed drawers and covered handoffs remove their contents.
@@ -38,3 +38,5 @@ Verification uses temporary Playwright scripts with system Chromium; no test dep
 Invitation follow-up: [Cities home](screenshots/redesign-cities-home.png) and [invitation link](screenshots/redesign-invitation.png).
 
 Explicit invitation creation: [desktop](screenshots/invitation-create-desktop.png) and [phone](screenshots/invitation-create-phone.png). Native offer/reply generation, clipboard copying, matching-room acceptance, role switching and invalid-reply recovery were checked; live connectivity remains unverified in this environment, which produced zero ICE candidates.
+
+Clue-giver hand during the partner’s guess: [desktop](screenshots/giver-waiting-hand-desktop.png) and [phone](screenshots/giver-waiting-hand-phone.png). Both hand variants were checked for visible cards, inspection, turn restrictions and private-hand exclusion from the guesser view.

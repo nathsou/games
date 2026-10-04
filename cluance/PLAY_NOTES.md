@@ -1,5 +1,13 @@
 # Browser play notes
 
+## Clue-giver hand while waiting — 4 October 2026
+
+The clue giver's current hand stays visible and inspectable while the partner guesses. The waiting layout hides only the Similar/Different drop zones, centres the hand and shows an inspection hint. Existing turn checks prevent selecting, dragging or submitting another clue until the next clue turn.
+
+Chromium restored real engine-created multiplayer-host positions after a clue in both Classic and Fixed five. At 1440×1000, 1024×768, 390×844 and 320×568, every remaining hand card was visible, with five Classic cards and four Fixed five cards. Clicks opened the matching card details; keyboard shortcuts did not change the game while waiting. After applying a legal guess through the engine, the next clue turn restored both drop zones and the submission form. No horizontal overflow, browser errors or failed assets occurred. Module syntax and whitespace checks passed.
+
+Guesser projections still omit the private hand, secret and draw pile. Both the covered one-screen handoff and the revealed guesser view contain no private hand/secret elements. These checks used saved host fixtures; they did not require a live WebRTC connection or provider calls.
+
 ## Explicit invitation creation — 4 October 2026
 
 The host dialog now waits for **Create invitation**, then displays **Invitation ready** with copy/share/QR controls. A player who opened the join dialog can choose **Create an invitation instead** to become the clue giver; the host can choose **Join instead**. A cancelled or superseded invitation cannot report its late preparation error in a new dialog.
