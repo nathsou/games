@@ -206,7 +206,7 @@ export class SignalRoom extends DurableObject {
           }
           const parts=url.pathname.split('/turns')[1].split('/').filter(Boolean);
           let index=await this.ctx.storage.get('turn-index')||[];
-          const announce=(record,kind)=>{for(const seat of ['host','guest'])this.publish(seat,{type:'game',game:turnView(record,seat),cause:{by:role,kind}});};
+          const announce=(record,kind)=>{const by=kind==='bot'||kind==='ai'?'bot':role;for(const seat of ['host','guest'])this.publish(seat,{type:'game',game:turnView(record,seat),cause:{by,kind}});};
           const save=async record=>{const entry={id:record.id,host:turnSummary(record,'host'),guest:turnSummary(record,'guest')};index=index.filter(e=>e.id!==record.id);index.push(entry);const retained=index.filter(e=>!e.host.finished).concat(index.filter(e=>e.host.finished).slice(-40)).sort((a,b)=>a.host.updatedAt-b.host.updatedAt);for(const entry of index)if(!retained.some(e=>e.id===entry.id))await this.ctx.storage.delete('turn-'+entry.id);index=retained;await this.ctx.storage.put({['turn-'+record.id]:record,'turn-index':index});};
           if(!parts.length) {
             if(request.method==='POST') {
@@ -219,7 +219,7 @@ export class SignalRoom extends DurableObject {
           const record=index.some(entry=>entry.id===parts[0])?await this.ctx.storage.get('turn-'+parts[0]):null;
           if(!record)return json({error:'Saved game not found.'},404);
           if(parts[1]==='moves'&&request.method==='POST') {
-            const kind=advanceTurn(record,role,body.revision,body.action);await save(record);announce(record,kind);
+            const kind=advanceTurn(record,role,body);await save(record);announce(record,kind);
           }else if(parts.length===1&&request.method==='DELETE') {
             abandonTurn(record,role);await save(record);announce(record,'abandoned');
           }else if(parts.length!==1||request.method!=='GET')return json({error:'Method not allowed.'},405);
