@@ -15,7 +15,11 @@ import {drawQR} from '../../shared/qr.js';
 
 const ABOUT = {'flip-it': 'Card duel · bots and teams optional', cluance: 'Co-op clues · one gives, one guesses', midnight: 'Three quick card games'};
 const SHAREABLE = ['spacegolf', 'nonocube', 'pawn-quest'];
-const SEEN_KEY = 'games.together-seen.v1';
+const SEEN_KEY = 'games.together-seen.v1', SETUP_KEY = 'games.room-setup.v1';
+function lastSetup(game) { try { return JSON.parse(localStorage.getItem(SETUP_KEY))?.[game]; } catch { return undefined; } }
+function rememberSetup(game, setup) {
+  try { const all = JSON.parse(localStorage.getItem(SETUP_KEY)) || {}; all[game] = setup; localStorage.setItem(SETUP_KEY, JSON.stringify(all)); } catch { /* Optional storage. */ }
+}
 const $ = id => document.getElementById(id);
 
 document.body.innerHTML = friendPanel;
@@ -261,8 +265,10 @@ function openGameSetup(game, metadata) {
     : 'Your friend sees this game as soon as they join your room.';
   $('game-setup-error').hidden = true;
   let initial = metadata;
-  try { initial = validateGameSetup(game, metadata || (game === session.game && session.adapter?.setup ? session.adapter.setup() : defaultGameSetup(game))); }
-  catch { initial = defaultGameSetup(game); }
+  for (const candidate of [metadata, game === session.game && !session.asyncGame ? session.adapter?.setup?.() : undefined, lastSetup(game), defaultGameSetup(game)]) {
+    if (!candidate) continue;
+    try { initial = validateGameSetup(game, candidate); break; } catch { /* Try the next default. */ }
+  }
   readNextSetup = renderGameSetup($('game-setup-fields'), game, initial);
   $('game-setup-start').disabled = false;
   $('game-setup-dialog').showModal();
@@ -270,7 +276,9 @@ function openGameSetup(game, metadata) {
 $('game-setup-start').onclick = async () => {
   $('game-setup-start').disabled = true;
   try {
-    const record = await session.createGame(nextGame, readNextSetup());
+    const setup = readNextSetup();
+    const record = await session.createGame(nextGame, setup);
+    rememberSetup(nextGame, setup);
     $('game-setup-dialog').close();
     await openRoomGame(record.id, record);
     if (session.friend.joined) notifier.toast({key: 'sent-' + record.id, name: session.friend.name, title: 'Request sent to ' + friendName(), body: session.friend.online ? 'They’ll see it right away.' : 'They’ll see it when they’re back.', notify: false});
@@ -366,7 +374,8 @@ function handleGame({record, cause, mine}) {
   } else if (record.myTurn) {
     // At the table already: the game shows the move; a chime is enough.
     if (viewing && !document.hidden) { notifier.chime('turn'); return; }
-    const text = cause.kind === 'ready' ? name + ' is ready for the next round.' : name + ' played.';
+    const text = cause.kind === 'ready' ? name + ' is ready for the next round.' : cause.kind === 'ai' ? 'An AI player moved.' : cause.kind === 'bot' ? 'A bot moved.'
+      : record.game === 'midnight' && record.phase !== 'reveal' ? name + ' made a choice.' : name + ' played.';
     notifier.toast({key: 'turn-' + record.id, name: session.friend.name, title: viewing ? 'Your turn' : 'Your turn in ' + title, body: text, sound: 'turn',
       action: viewing ? null : {label: 'Open', run: () => openRoomGame(record.id)}});
   }
