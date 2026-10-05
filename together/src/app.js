@@ -38,7 +38,7 @@ function markSeen(id) {
 
 const session = new FriendSession({game: initialGame, onChange: render, onSwitch: loadGame, onError: showError, onEvent: handleEvent, onPicker: () => navigate('collection')});
 window.__friendSession = session;
-Object.assign(session, {openInvitation, openJoin, openGameSetup, requestGame: game => openGameSetup(game), stopCursors, selectTab});
+Object.assign(session, {openInvitation, openJoin, openGameSetup, requestGame: game => openGameSetup(game), stopCursors, selectTab, leaveRoomGame: () => { session.useGame(null); render(); }});
 const renderChat = installFriendChat(session), renderScreen = installSharedPlay(session, render);
 installPanelVisibility(session);
 const notifier = installNotifier({alerts: $('together-alerts'), toasts: $('together-toasts'), onOpen: () => session.showPanel()});
@@ -358,10 +358,13 @@ function handleGame({record, cause, mine}) {
     notifier.toast({key: 'game-' + record.id, name: session.friend.name, title: name + ' ended ' + title, body: 'It stays in your finished games.', sound: 'message'});
     return;
   }
+  if (cause.by === 'bot' && viewing) return;
   if (record.finished) {
     notifier.toast({key: 'turn-' + record.id, name: session.friend.name, title: title + ' is over', body: viewing ? 'See the final table.' : name + ' made the last move.', sound: 'turn',
       action: viewing ? null : {label: 'View', run: () => openRoomGame(record.id)}});
   } else if (record.myTurn) {
+    // At the table already: the game shows the move; a chime is enough.
+    if (viewing && !document.hidden) { notifier.chime('turn'); return; }
     const text = cause.kind === 'ready' ? name + ' is ready for the next round.' : name + ' played.';
     notifier.toast({key: 'turn-' + record.id, name: session.friend.name, title: viewing ? 'Your turn' : 'Your turn in ' + title, body: text, sound: 'turn',
       action: viewing ? null : {label: 'Open', run: () => openRoomGame(record.id)}});

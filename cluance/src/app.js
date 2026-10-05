@@ -418,6 +418,7 @@ function setScreen(next) {
 function modelName() {
   return settings.models[settings.provider].split("/").at(-1);
 }
+function partnerName() { return mode === "async" ? asyncClient.names.friend : "Your partner"; }
 function updatePartner() {
   const chip = $("partner-chip");
   chip.hidden =
@@ -426,7 +427,7 @@ function updatePartner() {
     mode === "local" ||
     mode === "replay";
   if (chip.hidden) return;
-  if(mode==="async"){chip.textContent=asyncClient.busy?"Saving move…":asyncClient.record.myTurn?"Your turn · saved room":"Friend can play later";chip.onclick=()=>friendSession()?.showPanel();return;}
+  if(mode==="async"){const friend=asyncClient.names.friend;chip.textContent=asyncClient.busy?"Saving move…":asyncClient.friendHere?"● "+friend+" is here":asyncClient.record.myTurn?"Your turn · "+friend+" can be away":friend+" plays when they’re back";chip.onclick=()=>friendSession()?.showPanel("chat");return;}
   if (isPeer()) {
     chip.innerHTML = `<span class="connection-dot ${peer?.connected ? "connected" : ""}"></span> ${peer?.connected ? "Friend connected" : "Reconnect"}`;
     chip.onclick = () => {
@@ -500,8 +501,7 @@ function renderHome() {
   if ($("invite-friend")) $("invite-friend").onclick = inviteFriend;
   if ($("join-friend")) $("join-friend").onclick = () => {
     if (sharedPlayActive()) { toast('Stop cursors in the friend panel before starting a separate multiplayer table.'); return; }
-    if (friendSession()?.connected) friendSession().requestGame('cluance');
-    else joinFriendRoom('cluance');
+    joinFriendRoom('cluance');
   };
   $("open-replay").onclick = () => $("replay-file").click();
   $("replay-file").onchange = (event) => importReplay(event.target.files[0]);
@@ -783,8 +783,8 @@ function renderGame() {
       ? `Point them to <span class="gold">${esc(CARDS[view.secret].name)}</span>.`
       : `Remove ${n} ${n === 1 ? "card" : "cards"}.`
     : giver
-      ? "Your partner is guessing."
-      : "A clue is on its way.";
+      ? esc(partnerName()) + " is guessing."
+      : mode === "async" ? esc(partnerName()) + " is choosing a clue." : "A clue is on its way.";
   app.innerHTML = `<section class="table-header ${giver ? "giver-header" : ""}">${giver ? '<div id="secret-preview"></div>' : ""}<div class="turn-heading"><div class="round-line"><p class="eyebrow">ROUND ${view.round + 1} OF 5${giver ? " · YOUR CLUE" : ""}</p>${progress(view.round, giver)}</div><h1>${title}</h1><p>${giver ? `Your partner removes ${n} ${n === 1 ? "card" : "cards"} after your clue.` : "Keep the secret on the table. Every clue still counts."}</p></div><div id="clue-history" class="clue-rail"></div></section><section class="board-section ${giver ? "giver-board" : ""}"><div class="board" id="board"></div></section>${giver ? `<section class="giver-zone"><div class="drop-zone similar ${clueCard && relation === "similar" ? "filled" : ""}" id="similar" role="button" tabindex="0" aria-label="Choose Similar" aria-pressed="${relation === "similar"}"></div><div class="hand-section"><p class="eyebrow">YOUR HAND · ${view.variant === "fixed" ? view.hand.length + " LEFT · NO REFILLS" : myTurn ? "DRAG UP" : view.hand.length + " CARDS"}</p><div class="hand" id="hand"></div><small>${myTurn ? "Drag a card up. Tap a card, then choose a direction." : "Inspect your hand while your partner guesses."}</small></div><div class="drop-zone different ${clueCard && relation === "different" ? "filled" : ""}" id="different" role="button" tabindex="0" aria-label="Choose Different" aria-pressed="${relation === "different"}"></div></section>` : ""}<div class="action-bar ${giver ? "giver-actions" : ""}">${myTurn ? `<form id="turn-form"><div class="note-control"><button type="button" id="note-toggle" class="text-button" aria-expanded="${noteOpen}">✎ <span>${giver ? "Why?" : "Why these cards?"} Your note stays sealed until the reveal.</span></button><textarea id="turn-note" maxlength="1200" placeholder="Why? Sealed until the reveal" ${noteOpen ? "" : "hidden"}>${esc(draftNote)}</textarea></div><span id="selection-count" class="selection-count"></span>${giver ? "" : '<button type="button" class="text-button" id="clear-selection">Clear</button>'}<button class="button ${giver ? "" : "danger"}" id="confirm-move" type="submit"></button>${!giver && view.round === 4 ? '<button type="button" class="text-button" id="compare-final">Compare</button>' : ""}</form>` : ""}${aiBusy ? `<div class="thinking" role="status"><i></i><i></i><i></i>${esc(modelName())} is reading the table… <button id="cancel-ai" class="text-button">Cancel</button></div>` : ""}${aiError ? `<div class="inline-error" role="alert">${esc(aiError)} <button id="retry-ai" class="button small">Retry turn</button><button id="fix-ai" class="text-button">Settings</button></div>` : ""}${pendingGuess ? '<p role="status">Waiting for your friend to confirm…</p>' : ""}${isPeer() && !peer?.connected ? '<button id="reconnect" class="button secondary">Reconnect →</button>' : ""}${!myTurn && !aiBusy && !aiError && !pendingGuess ? '<p class="help-text">Your partner’s interpretation stays sealed until the reveal.</p>' : ""}</div>`;
   for (let i = 0; i < view.board.length; i++) {
     const id = view.board[i],
@@ -1489,7 +1489,7 @@ async function importReplay(file) {
   }
 }
 function updateConnection() {
-  if(mode==="async"){const badge=$("connection-badge");badge.hidden=false;badge.textContent=asyncClient.busy?"SAVING MOVE…":asyncClient.record.myTurn?"TAKE TURNS · YOUR TURN":"TAKE TURNS · WAITING FOR FRIEND";badge.classList.remove("offline");return;}
+  if(mode==="async"){const badge=$("connection-badge"),friend=asyncClient.names.friend.toUpperCase();badge.hidden=false;badge.textContent=asyncClient.busy?"SAVING MOVE…":asyncClient.record.finished?"WITH "+friend+" · FINISHED":asyncClient.record.myTurn?"WITH "+friend+" · YOUR TURN":"WAITING FOR "+friend;badge.classList.toggle("offline",!asyncClient.friendHere);updatePartner();return;}
   const badge = $("connection-badge");
   badge.hidden = !peer;
   badge.textContent = peer?.connected
@@ -2864,6 +2864,8 @@ registerCheckpoint('cluance',{
   capture:()=>game&&mode!=="async"?{game,mode,localRole,screen,setup:friendSetup()}:null,
   restore(value){
     if(!value||!['local','ai-giver','ai-guesser','peer-host','peer-guest','replay'].includes(value.mode))throw new Error('Invalid saved game.');
+    // Games with a friend now live in the room rather than in this browser.
+    if(value.mode.startsWith('peer-'))return;
     validatePublicView(value.mode==='peer-guest'?value.game:viewFor(value.game,'guesser'));
     if(value.mode!=='peer-guest'&&(!value.game.board.includes(value.game.secret)||!Array.isArray(value.game.hand)||value.game.hand.some(id=>!CARDS[id])||!Array.isArray(value.game.draw)||value.game.draw.some(id=>!CARDS[id])))throw new Error('Invalid saved cards.');
     cancelAI();game=value.game;mode=value.mode;localRole=value.localRole;resetTurn();
@@ -2874,24 +2876,8 @@ registerFriendGame('cluance', {
   setup: friendSetup,
   startAsync(client){
     cancelAI();peer?.close();peer=null;asyncClient=client;mode='async';modal.close();
-    const unsubscribe=client.subscribe(record=>{if(mode!=='async')return;const changed=game?.revision!==record.view.revision;game=record.view;if(changed)resetTurn();if(game.phase==='over')renderReveal();else renderGame();updateConnection();});
+    const unsubscribe=client.subscribe(record=>{if(mode!=='async')return;const previous=game,changed=previous?.revision!==record.view.revision;game=record.view;if(changed){resetTurn();if(previous&&previous.id===game.id)sound(game.phase==='over'?'select':game.phase==='guess'?'clue':'select');}if(game.phase==='over')renderReveal();else renderGame();updateConnection();});
     window.addEventListener('pagehide',unsubscribe,{once:true});
-  },
-  canResume: () => Boolean(game&&isPeer() || readCheckpoint('cluance')?.data?.mode?.startsWith('peer-')),
-  start({host, metadata, resume}) {
-    const details=validateInvitationDetails(metadata);
-    cancelAI();resetTurn();
-    const role=host?details.role:(details.role==='giver'?'guesser':'giver');
-    if (resume && role==='giver' && !game) {
-      const saved=readCheckpoint('cluance')?.data||read('session',null);
-      if (saved?.mode==='peer-host') {validatePublicView(viewFor(saved.game,'guesser'));game=saved.game;}
-      if(!game)throw new Error('The clue giver’s saved game is unavailable. Start a fresh game together.');
-    }
-    if (!resume || role!=='giver') game=null;
-    mode=role==='giver'?'peer-host':'peer-guest';
-    setup.theme=details.options.theme;setup.clueTheme=details.options.clueTheme;setup.variant=details.options.variant;
-    homeRole=role;pairingGameOptions=details.options;pairingKind=null;pairingBusy=false;pairingCode='';pairingInput='';
-    modal.close();const link=newPeer();link.isInviter=host;
   },
 });
 

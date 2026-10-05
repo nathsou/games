@@ -47,6 +47,7 @@ export class FriendSession {
   }
   leave() {
     this.stopCursors?.();
+    this.asyncGame?.close();
     this.link?.close(); this.link = null;
     this.credential = null; this.status = 'none'; this.games = []; this.asyncGame = null;
     this.me = {name: this.me.name};
@@ -109,6 +110,7 @@ export class FriendSession {
   }
   fetchGame(id) { return roomRequest(this.credential, 'turns/' + id); }
   useGame(record) {
+    this.asyncGame?.close();
     this.asyncGame = record ? new TurnClient(this, record) : null;
     this.link?.update({game: record?.id || null});
   }
@@ -116,7 +118,7 @@ export class FriendSession {
   registerGame(game, adapter) {
     if (game !== this.game) return;
     this.adapter = adapter;
-    if (this.asyncGame?.record.game === game) adapter.startAsync?.(this.asyncGame);
+    if (this.asyncGame?.record.game === game) { adapter.startAsync?.(this.asyncGame); this.asyncGame.schedule(); }
     this.onChange();
   }
 

@@ -3025,3 +3025,9 @@ input[type=range] { user-select:none; -webkit-user-select:none; }
 .pair-options, .pair-link { margin: 12px 0; color: var(--soft); font-size: 19px; }
 .pair-options[open] { padding-bottom: 8px; }
 .pair-link .link-output { width: 100%; margin-top: 8px; }
+
+/* Room games: whether the friend is at the table right now. */
+.room-presence { margin:0; padding:6px 10px; border-radius:10px; font-size:12px; line-height:1.35; color:var(--muted, #6b6583); background:rgba(0,0,0,.06); overflow-wrap:anywhere; }
+.room-presence.here { color:#1f7a45; background:rgba(47,158,91,.14); font-weight:700; }
+:root[data-color-theme=dark] .room-presence { background:rgba(255,255,255,.07); }
+:root[data-color-theme=dark] .room-presence.here { color:#7be0a4; background:rgba(90,208,138,.14); }
