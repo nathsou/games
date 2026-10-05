@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {qrMatrix} from '../src/qr.js';
+import {qrMatrix} from '../../shared/qr.js';
 
 // Every fixture was decoded independently by macOS Vision, and its decoded
 // bytes matched the input. These cover all seven version profiles.

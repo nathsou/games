@@ -1,7 +1,7 @@
 let asyncClient=null;
-import {registerCheckpoint,readCheckpoint} from '../../shared/game-checkpoint.js';
+import {registerCheckpoint} from '../../shared/game-checkpoint.js';
 import {installHostView} from './friend-view.js';
-import {friendSession, togetherURL, registerFriendGame, redirectTogetherInvitation, sharedPlayActive, inviteFriendGame, joinFriendRoom} from '../../shared/friend-context.js';
+import {friendSession, registerFriendGame, sharedPlayActive, inviteFriendGame, joinFriendRoom} from '../../shared/friend-context.js';
 import { loadTheme, THEME_KEY } from "../../shared/theme.js";
 import { loadAI, saveAI, CONFIG_KEY } from "../../shared/ai/config.js";
 import { DECKS, CARDS } from "./decks.js";
@@ -16,25 +16,6 @@ import {
   PROTOCOL,
 } from "./game.js";
 import { loadArt, cardElement, observationImage } from "./art.js";
-import {
-  PeerLink,
-  decodePairing,
-  makeLink,
-  iceConfig,
-  invitationDetails,
-  validateInvitationDetails,
-  makeInvitationLink,
-} from "./peer.js";
-import {
-  pairingBody,
-  connectionSettings,
-  copyPairing,
-  sharePairing,
-  capturePairingUI,
-  restorePairingUI,
-} from "../../shared/pairing.js";
-import {signalingService,hostedInvitation,hostedLink,createHostedRoom,roomDetails,roomConfig} from '../../shared/signaling.js';
-import { drawQR } from "../../shared/qr.js";
 import { PROVIDERS, chooseMove, listModels } from "./ai.js";
 import { loadSettings, read, write, erase } from "./storage.js";
 import { chime, setMusic, unlockAudio } from "./sound.js";
@@ -77,26 +58,6 @@ let game = null,
   clueCard = null,
   relation = "similar",
   draftNote = "";
-let peer = null,
-  peerStatus = "",
-  pendingGuess = false,
-  pairingKind = null,
-  pairingCode = "",
-  pairingError = "",
-  pairingBusy = false,
-  pairingOffer = "",
-  pairingInput = "",
-  pairingConfig = null,
-  pairingGameOptions = null,
-  roleSwap = null;
-let roleSwapTimer,
-  cancelledRoleSwap = null;
-let pairingHosted=false,pairingAttempt=0,pairingStun;
-let relay = { url: "", username: "", credential: "" };
-const pairingBus =
-  typeof BroadcastChannel !== "undefined"
-    ? new BroadcastChannel("cluance-pairing")
-    : null;
 let aiBusy = false,
   aiError = "",
   aiController = null,
@@ -176,29 +137,25 @@ function mountCard(parent, id, opts = {}) {
 }
 function humanRole() {
   if(mode==="async")return asyncClient.record.role;
-  return mode === "ai-giver" || mode === "peer-guest"
+  return mode === "ai-giver"
     ? "guesser"
     : mode === "local"
       ? localRole
       : "giver";
 }
 function currentView() {
-  return mode === "async" || mode === "peer-guest" ? game : viewFor(game, humanRole());
+  return mode === "async" ? game : viewFor(game, humanRole());
 }
 function isHumanTurn() {
   return (
     game &&
     game.phase !== "over" &&
-    !roleSwap &&
     !(mode==="async"&&asyncClient.busy) &&
     (game.phase === "clue") === (humanRole() === "giver")
   );
 }
-function isPeer() {
-  return mode === "peer-host" || mode === "peer-guest";
-}
 function saveSession() {
-  if (game && ["ai-giver", "ai-guesser", "local", "peer-host"].includes(mode)) {
+  if (game && ["ai-giver", "ai-guesser", "local"].includes(mode)) {
     trackGame(game, mode);
     write("session", { game, mode, localRole });
   }
@@ -211,7 +168,6 @@ function resetTurn() {
   noteOpen = false;
   comparePins = [];
   aiError = "";
-  pendingGuess = false;
 }
 function cancelAI() {
   aiGeneration++;
@@ -241,18 +197,6 @@ modal.addEventListener("click", (event) => {
 modal.addEventListener("close", () => {
   // A queued close event can arrive after another dialog has already opened.
   if (modal.open) return;
-  if (roleSwap && !roleSwap.accepted) cancelRoleSwap();
-  if (pairingKind && !peer?.connected) {
-    peer?.close();
-    peer = null;
-    pairingKind = null;
-    pairingAttempt++;
-    pairingBusy = false;
-    updateConnection();
-  }
-});
-modal.addEventListener("cancel", (event) => {
-  if (roleSwap?.accepted) event.preventDefault();
 });
 function closeDrawer() {
   const wasOpen = drawerCardId !== null;
@@ -289,8 +233,7 @@ function toggleMark(id) {
     screen !== "game" ||
     !isHumanTurn() ||
     humanRole() !== "guesser" ||
-    game.eliminated.includes(id) ||
-    pendingGuess
+    game.eliminated.includes(id)
   )
     return;
   if (selected.has(id)) selected.delete(id);
@@ -428,13 +371,7 @@ function updatePartner() {
     mode === "replay";
   if (chip.hidden) return;
   if(mode==="async"){const friend=asyncClient.names.friend;chip.textContent=asyncClient.busy?"Saving move…":asyncClient.friendHere?"● "+friend+" is here":asyncClient.record.myTurn?"Your turn · "+friend+" can be away":friend+" plays when they’re back";chip.onclick=()=>friendSession()?.showPanel("chat");return;}
-  if (isPeer()) {
-    chip.innerHTML = `<span class="connection-dot ${peer?.connected ? "connected" : ""}"></span> ${peer?.connected ? "Friend connected" : "Reconnect"}`;
-    chip.onclick = () => {
-      if (!peer?.connected)
-        openPairing(mode === "peer-host" ? "host" : "guest", true);
-    };
-  } else {
+  {
     const u = gameUsage(game.id);
     chip.textContent =
       screen === "reveal"
@@ -617,11 +554,9 @@ function start(nextMode) {
     return;
   }
   cancelAI();
-  peer?.close();
-  peer = null;
   updateConnection();
   if (nextMode.startsWith("peer-")) {
-    openPairing("host");
+    inviteFriend();
     return;
   }
   mode = nextMode;
@@ -640,7 +575,7 @@ function resumeGame() {
   const saved = read("session", null);
   if (
     !saved?.game ||
-    !["ai-giver", "ai-guesser", "local", "peer-host"].includes(saved.mode)
+    !["ai-giver", "ai-guesser", "local"].includes(saved.mode)
   ) {
     erase("session");
     toast("No saved game is available.");
@@ -664,10 +599,7 @@ function resumeGame() {
     resetTurn();
     screen = game.phase === "over" ? "reveal" : "game";
     trackGame(game, mode);
-    if (mode === "peer-host" && game.phase !== "over") {
-      renderGame();
-      openPairing("host", true);
-    } else if (game.phase === "over") renderReveal();
+    if (game.phase === "over") renderReveal();
     else if (mode === "local") showPassScreen();
     else {
       renderGame();
@@ -785,7 +717,7 @@ function renderGame() {
     : giver
       ? esc(partnerName()) + " is guessing."
       : mode === "async" ? esc(partnerName()) + " is choosing a clue." : "A clue is on its way.";
-  app.innerHTML = `<section class="table-header ${giver ? "giver-header" : ""}">${giver ? '<div id="secret-preview"></div>' : ""}<div class="turn-heading"><div class="round-line"><p class="eyebrow">ROUND ${view.round + 1} OF 5${giver ? " · YOUR CLUE" : ""}</p>${progress(view.round, giver)}</div><h1>${title}</h1><p>${giver ? `Your partner removes ${n} ${n === 1 ? "card" : "cards"} after your clue.` : "Keep the secret on the table. Every clue still counts."}</p></div><div id="clue-history" class="clue-rail"></div></section><section class="board-section ${giver ? "giver-board" : ""}"><div class="board" id="board"></div></section>${giver ? `<section class="giver-zone"><div class="drop-zone similar ${clueCard && relation === "similar" ? "filled" : ""}" id="similar" role="button" tabindex="0" aria-label="Choose Similar" aria-pressed="${relation === "similar"}"></div><div class="hand-section"><p class="eyebrow">YOUR HAND · ${view.variant === "fixed" ? view.hand.length + " LEFT · NO REFILLS" : myTurn ? "DRAG UP" : view.hand.length + " CARDS"}</p><div class="hand" id="hand"></div><small>${myTurn ? "Drag a card up. Tap a card, then choose a direction." : "Inspect your hand while your partner guesses."}</small></div><div class="drop-zone different ${clueCard && relation === "different" ? "filled" : ""}" id="different" role="button" tabindex="0" aria-label="Choose Different" aria-pressed="${relation === "different"}"></div></section>` : ""}<div class="action-bar ${giver ? "giver-actions" : ""}">${myTurn ? `<form id="turn-form"><div class="note-control"><button type="button" id="note-toggle" class="text-button" aria-expanded="${noteOpen}">✎ <span>${giver ? "Why?" : "Why these cards?"} Your note stays sealed until the reveal.</span></button><textarea id="turn-note" maxlength="1200" placeholder="Why? Sealed until the reveal" ${noteOpen ? "" : "hidden"}>${esc(draftNote)}</textarea></div><span id="selection-count" class="selection-count"></span>${giver ? "" : '<button type="button" class="text-button" id="clear-selection">Clear</button>'}<button class="button ${giver ? "" : "danger"}" id="confirm-move" type="submit"></button>${!giver && view.round === 4 ? '<button type="button" class="text-button" id="compare-final">Compare</button>' : ""}</form>` : ""}${aiBusy ? `<div class="thinking" role="status"><i></i><i></i><i></i>${esc(modelName())} is reading the table… <button id="cancel-ai" class="text-button">Cancel</button></div>` : ""}${aiError ? `<div class="inline-error" role="alert">${esc(aiError)} <button id="retry-ai" class="button small">Retry turn</button><button id="fix-ai" class="text-button">Settings</button></div>` : ""}${pendingGuess ? '<p role="status">Waiting for your friend to confirm…</p>' : ""}${isPeer() && !peer?.connected ? '<button id="reconnect" class="button secondary">Reconnect →</button>' : ""}${!myTurn && !aiBusy && !aiError && !pendingGuess ? '<p class="help-text">Your partner’s interpretation stays sealed until the reveal.</p>' : ""}</div>`;
+  app.innerHTML = `<section class="table-header ${giver ? "giver-header" : ""}">${giver ? '<div id="secret-preview"></div>' : ""}<div class="turn-heading"><div class="round-line"><p class="eyebrow">ROUND ${view.round + 1} OF 5${giver ? " · YOUR CLUE" : ""}</p>${progress(view.round, giver)}</div><h1>${title}</h1><p>${giver ? `Your partner removes ${n} ${n === 1 ? "card" : "cards"} after your clue.` : "Keep the secret on the table. Every clue still counts."}</p></div><div id="clue-history" class="clue-rail"></div></section><section class="board-section ${giver ? "giver-board" : ""}"><div class="board" id="board"></div></section>${giver ? `<section class="giver-zone"><div class="drop-zone similar ${clueCard && relation === "similar" ? "filled" : ""}" id="similar" role="button" tabindex="0" aria-label="Choose Similar" aria-pressed="${relation === "similar"}"></div><div class="hand-section"><p class="eyebrow">YOUR HAND · ${view.variant === "fixed" ? view.hand.length + " LEFT · NO REFILLS" : myTurn ? "DRAG UP" : view.hand.length + " CARDS"}</p><div class="hand" id="hand"></div><small>${myTurn ? "Drag a card up. Tap a card, then choose a direction." : "Inspect your hand while your partner guesses."}</small></div><div class="drop-zone different ${clueCard && relation === "different" ? "filled" : ""}" id="different" role="button" tabindex="0" aria-label="Choose Different" aria-pressed="${relation === "different"}"></div></section>` : ""}<div class="action-bar ${giver ? "giver-actions" : ""}">${myTurn ? `<form id="turn-form"><div class="note-control"><button type="button" id="note-toggle" class="text-button" aria-expanded="${noteOpen}">✎ <span>${giver ? "Why?" : "Why these cards?"} Your note stays sealed until the reveal.</span></button><textarea id="turn-note" maxlength="1200" placeholder="Why? Sealed until the reveal" ${noteOpen ? "" : "hidden"}>${esc(draftNote)}</textarea></div><span id="selection-count" class="selection-count"></span>${giver ? "" : '<button type="button" class="text-button" id="clear-selection">Clear</button>'}<button class="button ${giver ? "" : "danger"}" id="confirm-move" type="submit"></button>${!giver && view.round === 4 ? '<button type="button" class="text-button" id="compare-final">Compare</button>' : ""}</form>` : ""}${aiBusy ? `<div class="thinking" role="status"><i></i><i></i><i></i>${esc(modelName())} is reading the table… <button id="cancel-ai" class="text-button">Cancel</button></div>` : ""}${aiError ? `<div class="inline-error" role="alert">${esc(aiError)} <button id="retry-ai" class="button small">Retry turn</button><button id="fix-ai" class="text-button">Settings</button></div>` : ""}${!myTurn && !aiBusy && !aiError ? '<p class="help-text">Your partner’s interpretation stays sealed until the reveal.</p>' : ""}</div>`;
   for (let i = 0; i < view.board.length; i++) {
     const id = view.board[i],
       removed = view.eliminated.includes(id);
@@ -915,9 +847,6 @@ function renderGame() {
       aiError = "Request cancelled. Retry when you’re ready.";
       renderGame();
     };
-  if ($("reconnect"))
-    $("reconnect").onclick = () =>
-      openPairing(mode === "peer-host" ? "host" : "guest", true);
   if ($("compare-final")) $("compare-final").onclick = () => compareFinal(view);
   // Keep long secret names on one line on the desktop table.
   if (giver && innerWidth >= 1000) {
@@ -1042,10 +971,7 @@ function updateConfirm() {
   const giver = humanRole() === "giver",
     n = REMOVALS[game.round],
     button = $("confirm-move");
-  button.disabled =
-    (isPeer() && !peer?.connected) ||
-    pendingGuess ||
-    (giver ? !clueCard : selected.size !== n);
+  button.disabled = giver ? !clueCard : selected.size !== n;
   $("selection-count").textContent = giver
     ? clueCard
       ? CARDS[clueCard].name
@@ -1059,26 +985,13 @@ function updateConfirm() {
 
 function submitMove() {
   try {
-    if (!isHumanTurn() || pendingGuess) return;
+    if (!isHumanTurn()) return;
     const role = humanRole();
     const action =
       role === "giver"
         ? { card: clueCard, relation, rationale: draftNote, source: "Human" }
         : { cards: [...selected], rationale: draftNote, source: "Human" };
     if(mode==="async"){asyncClient.move(action).catch(error=>toast(error.message));return;}
-    if (mode === "peer-guest") {
-      peer.send({
-        type: "guess",
-        gameId: game.id,
-        revision: game.revision,
-        action,
-      });
-      pendingGuess = true;
-      renderGame();
-      return;
-    }
-    if (isPeer() && !peer?.connected)
-      throw new Error("Reconnect your partner before continuing.");
     commitGame(
       role === "giver" ? playClue(game, action) : eliminate(game, action),
     );
@@ -1096,7 +1009,6 @@ function commitGame(next) {
   game = next;
   resetTurn();
   saveSession();
-  if (mode === "peer-host" && peer?.connected) sendState();
   if (game.phase === "over") {
     replayRound = Math.max(0, game.history.length - 1);
     renderReveal();
@@ -1178,12 +1090,9 @@ async function runAI() {
   }
 }
 function confirmLeave() {
-  let description = "Your game is saved on this browser. You can resume it from the opening screen.";
-  if (isPeer()) {
-    description = friendSession()?.connected
-      ? "This table will pause. Your friend stays connected; choose Next game to start another table together."
-      : "Your friend will be disconnected. The clue giver can resume this game and create a fresh invitation.";
-  }
+  const description = mode === "async"
+    ? "Your game with " + esc(asyncClient.names.friend) + " stays saved in your room. Open it again from Play together."
+    : "Your game is saved on this browser. You can resume it from the opening screen.";
   showModal(
     "Leave this table?",
     "Game in progress",
@@ -1193,12 +1102,9 @@ function confirmLeave() {
   $("leave-confirm").onclick = () => {
     saveSession();
     cancelAI();
-    const old = peer;
-    peer = null;
-    old?.close();
+    if (mode === "async") friendSession()?.leaveRoomGame?.();
     mode = null;
     game = null;
-    pairingKind = null;
     modal.close();
     app.hidden = false;
     updateConnection();
@@ -1226,7 +1132,7 @@ function renderReveal() {
   const round = view.history[replayRound],
     win = view.result === "win",
     ai = mode?.startsWith("ai-"),
-    canSwap = ai || isPeer();
+    canSwap = ai || mode === "async";
   const matched = round.expectedRemovals?.filter((id) =>
     round.removed.includes(id),
   ).length;
@@ -1256,7 +1162,7 @@ function renderReveal() {
         : round.guesserRemovalReasons;
     return `<section class="rationale"><p class="eyebrow">${esc(label)} ${giver ? "MEANT" : "SAW"}</p><blockquote>${esc(note || "No interpretation was recorded.")}</blockquote>${giver && round.expectedRemovals ? `<div class="expected-chips">${round.expectedRemovals.map((id) => `<span class="${round.removed.includes(id) ? "match" : "mismatch"}">${round.removed.includes(id) ? "✓" : "×"} ${esc(CARDS[id].name)}</span>`).join("")}</div>` : ""}${dims?.length ? `<p class="decision-basis">Connections: ${esc(dims.map((d) => dimensions[d] || d).join(" · "))}</p>` : ""}${reasons?.length ? `<details class="decision-reasons"><summary>Card-by-card connections</summary>${reasons.map((r) => `<p><strong>${esc(CARDS[r.card].name)}</strong> ${esc(r.rationale)}</p>`).join("")}</details>` : ""}${!giver && round.keptCards ? `<p class="help-text">Kept: ${esc(round.keptCards.map((id) => CARDS[id].name).join(", "))}</p>` : ""}</section>`;
   };
-  app.innerHTML = `<section class="reveal-header"><div id="reveal-secret"></div><div><p class="eyebrow ${win ? "similar" : "different"}">${win ? "WON · ALL FIVE ROUNDS" : "LOST IN ROUND " + view.history.length}</p><h1>${esc(CARDS[view.secret].name)} ${win ? "stayed on" : "left"} the table.</h1><p>${mode === "replay" ? "A saved game." : mode === "local" ? "Two minds, one screen." : isPeer() ? "You played with a friend." : humanRole() === "giver" ? `You gave the clues. ${esc(modelName())} guessed.` : `${esc(modelName())} gave the clues. You guessed.`} Step through to compare what you each meant.</p></div><div class="reveal-controls">${canSwap ? '<button class="button small" id="swap-deal">Swap roles & deal</button>' : ""}<button class="button small ${canSwap ? "secondary" : ""}" id="rematch">Deal again</button><button class="text-button" id="export-replay">Save replay ↓</button><button class="icon-button" id="reveal-home" aria-label="Back to start">✕</button></div></section><div class="replay-layout"><section class="replay-table"><div class="board replay-board" id="replay-board"></div><nav class="replay-scrubber" aria-label="Replay rounds"><button class="replay-play icon-button" id="replay-play" aria-label="${replayPlaying ? "Pause" : "Play"} replay">${replayPlaying ? "Ⅱ" : "▶"}</button><div class="scrubber-track">${view.history.map((r, i) => `<button class="replay-tab ${i === replayRound ? "current" : i < replayRound ? "done" : ""}" data-round="${i}" aria-label="Round ${i + 1}: ${esc(CARDS[r.card].name)}, ${r.relation}" aria-pressed="${i === replayRound}"><span id="scrub-art-${i}" class="scrub-art"></span><i></i><small>${esc(CARDS[r.card].name)} ${r.relation === "similar" ? "↑" : "→"}</small></button>`).join("")}</div><span class="scrubber-label">Round ${replayRound + 1} of ${view.history.length} · ← →</span></nav></section><aside class="interpretation-panel"><div class="replay-clue"><div id="replay-clue"></div><div><p class="eyebrow">ROUND ${round.round} · REMOVE ${REMOVALS[round.round - 1]}</p><h3>${esc(CARDS[round.card].name)}</h3><strong class="relation ${round.relation}">${round.relation === "similar" ? "↑ Similar" : "→ Different"}</strong></div></div>${notes("giver")}${notes("guesser")}${round.expectedRemovals ? `<p class="match-stat"><strong>${matched}/${round.removed.length}</strong> removals matched what you expected</p>` : `<p class="removed-list">Removed: ${esc(round.removed.map((id) => CARDS[id].name).join(", "))}</p>`}</aside></div>`;
+  app.innerHTML = `<section class="reveal-header"><div id="reveal-secret"></div><div><p class="eyebrow ${win ? "similar" : "different"}">${win ? "WON · ALL FIVE ROUNDS" : "LOST IN ROUND " + view.history.length}</p><h1>${esc(CARDS[view.secret].name)} ${win ? "stayed on" : "left"} the table.</h1><p>${mode === "replay" ? "A saved game." : mode === "local" ? "Two minds, one screen." : mode === "async" ? "You played with " + esc(asyncClient.names.friend) + "." : humanRole() === "giver" ? `You gave the clues. ${esc(modelName())} guessed.` : `${esc(modelName())} gave the clues. You guessed.`} Step through to compare what you each meant.</p></div><div class="reveal-controls">${canSwap ? '<button class="button small" id="swap-deal">Swap roles & deal</button>' : ""}<button class="button small ${canSwap ? "secondary" : ""}" id="rematch">Deal again</button><button class="text-button" id="export-replay">Save replay ↓</button><button class="icon-button" id="reveal-home" aria-label="Back to start">✕</button></div></section><div class="replay-layout"><section class="replay-table"><div class="board replay-board" id="replay-board"></div><nav class="replay-scrubber" aria-label="Replay rounds"><button class="replay-play icon-button" id="replay-play" aria-label="${replayPlaying ? "Pause" : "Play"} replay">${replayPlaying ? "Ⅱ" : "▶"}</button><div class="scrubber-track">${view.history.map((r, i) => `<button class="replay-tab ${i === replayRound ? "current" : i < replayRound ? "done" : ""}" data-round="${i}" aria-label="Round ${i + 1}: ${esc(CARDS[r.card].name)}, ${r.relation}" aria-pressed="${i === replayRound}"><span id="scrub-art-${i}" class="scrub-art"></span><i></i><small>${esc(CARDS[r.card].name)} ${r.relation === "similar" ? "↑" : "→"}</small></button>`).join("")}</div><span class="scrubber-label">Round ${replayRound + 1} of ${view.history.length} · ← →</span></nav></section><aside class="interpretation-panel"><div class="replay-clue"><div id="replay-clue"></div><div><p class="eyebrow">ROUND ${round.round} · REMOVE ${REMOVALS[round.round - 1]}</p><h3>${esc(CARDS[round.card].name)}</h3><strong class="relation ${round.relation}">${round.relation === "similar" ? "↑ Similar" : "→ Different"}</strong></div></div>${notes("giver")}${notes("guesser")}${round.expectedRemovals ? `<p class="match-stat"><strong>${matched}/${round.removed.length}</strong> removals matched what you expected</p>` : `<p class="removed-list">Removed: ${esc(round.removed.map((id) => CARDS[id].name).join(", "))}</p>`}</aside></div>`;
   mountCard($("reveal-secret"), view.secret, { caption: "none", secret: true });
   for (let i = 0; i < view.board.length; i++) {
     const id = view.board[i],
@@ -1314,27 +1220,20 @@ function renderReveal() {
   if ($("swap-deal"))
     $("swap-deal").onclick = () => {
       stopReplay();
-      if (isPeer()) requestRoleSwap();
-      else start(mode === "ai-giver" ? "ai-guesser" : "ai-giver");
+      start(mode === "ai-giver" ? "ai-guesser" : "ai-giver");
     };
   $("export-replay").onclick = exportReplay;
   $("reveal-home").onclick = () => {
     stopReplay();
     cancelAI();
-    const old = peer;
-    peer = null;
-    old?.close();
+    if (mode === "async") friendSession()?.leaveRoomGame?.();
+    else erase("session");
     mode = null;
     game = null;
-    pairingKind = null;
-    erase("session");
     updateConnection();
     renderHome();
   };
-  if (mode === "peer-guest") {
-    $("rematch").textContent = "Ask to deal again";
-    $("rematch").disabled = !peer?.connected;
-  }
+  if (mode === "async") $("rematch").textContent = "Play again with " + asyncClient.names.friend;
   if (mode === "replay") $("rematch").textContent = "Play this setup →";
   if (mode !== "replay" && lastOutcome !== view.id) {
     lastOutcome = view.id;
@@ -1376,32 +1275,6 @@ function rematch() {
     game = null;
     mode = null;
     renderHome();
-    return;
-  }
-  if (mode === "peer-guest") {
-    try {
-      peer.send({ type: "rematch-request", gameId: game.id });
-      toast("Your partner has been asked to deal again.");
-    } catch (error) {
-      toast(error.message);
-    }
-    return;
-  }
-  if (mode === "peer-host") {
-    if (!peer?.connected) {
-      toast("Reconnect your friend to deal again.");
-      openPairing("host", true);
-      return;
-    }
-    game = createGame({
-      theme: game.theme,
-      clueTheme: game.clueTheme,
-      variant: game.variant,
-    });
-    resetTurn();
-    saveSession();
-    sendState();
-    renderGame();
     return;
   }
   const oldMode = mode;
@@ -1472,8 +1345,6 @@ async function importReplay(file) {
     )
       throw new Error("This replay contains invalid round notes.");
     cancelAI();
-    peer?.close();
-    peer = null;
     mode = "replay";
     game = imported;
     replayRound = 0;
@@ -1490,602 +1361,9 @@ async function importReplay(file) {
 }
 function updateConnection() {
   if(mode==="async"){const badge=$("connection-badge"),friend=asyncClient.names.friend.toUpperCase();badge.hidden=false;badge.textContent=asyncClient.busy?"SAVING MOVE…":asyncClient.record.finished?"WITH "+friend+" · FINISHED":asyncClient.record.myTurn?"WITH "+friend+" · YOUR TURN":"WAITING FOR "+friend;badge.classList.toggle("offline",!asyncClient.friendHere);updatePartner();return;}
-  const badge = $("connection-badge");
-  badge.hidden = !peer;
-  badge.textContent = peer?.connected
-    ? "● FRIEND CONNECTED"
-    : peerStatus === "connecting"
-      ? "◌ CONNECTING"
-      : "○ DISCONNECTED";
-  badge.classList.toggle("offline", !peer?.connected);
+  $("connection-badge").hidden = true;
   updatePartner();
 }
-function sendState() {
-  peer.send({ type: "state", game: viewFor(game, "guesser") });
-}
-function syncOnlineSetup() {
-  homeRole = humanRole();
-  homePartner = "friend";
-  setup.mode = mode;
-  if (game) {
-    setup.theme = game.theme;
-    setup.clueTheme = game.clueTheme === game.theme ? "same" : game.clueTheme;
-    setup.variant = game.variant;
-  }
-  saveSetup();
-}
-function swapMessage(type, swap, extra = {}) {
-  return {
-    type,
-    requestId: swap.requestId,
-    gameId: swap.gameId,
-    revision: swap.revision,
-    ...extra,
-  };
-}
-function clearRoleSwap() {
-  clearTimeout(roleSwapTimer);
-  roleSwap = null;
-  if (modal.open) modal.close();
-}
-function cancelRoleSwap() {
-  const swap = roleSwap;
-  if (!swap || swap.committed) return;
-  if (swap.direction === "outgoing" && swap.nextRole === "giver")
-    cancelledRoleSwap = swap;
-  clearRoleSwap();
-  if (peer?.connected) peer.send(swapMessage("role-swap-cancel", swap));
-}
-function swapRecord(requestId, direction) {
-  return {
-    requestId,
-    direction,
-    gameId: game.id,
-    revision: game.revision,
-    nextRole: humanRole() === "giver" ? "guesser" : "giver",
-    options: {
-      theme: game.theme,
-      clueTheme: game.clueTheme,
-      variant: game.variant,
-    },
-  };
-}
-function showSwapWaiting() {
-  showModal(
-    roleSwap.accepted ? "Swapping roles…" : "Waiting for your friend.",
-    "Same table, fresh deal",
-    `<p>Your next role: <strong>${roleSwap.nextRole === "giver" ? "clue giver" : "guesser"}</strong>.</p><p>${roleSwap.accepted ? "Preparing a fresh secret and hand." : "Your current game stays in place until your friend agrees."}</p>${roleSwap.accepted ? "" : '<button id="cancel-role-swap" class="button secondary">Cancel request</button>'}`,
-  );
-  modal.className = "role-swap-dialog";
-  $("modal-close").hidden = !!roleSwap.accepted;
-  if ($("cancel-role-swap")) $("cancel-role-swap").onclick = cancelRoleSwap;
-}
-function requestRoleSwap() {
-  if (!peer?.connected)
-    return toast("Reconnect your friend before swapping roles.");
-  if (!game || roleSwap || pendingGuess)
-    return toast("Wait for the current action to finish.");
-  showModal(
-    "Swap roles and deal again?",
-    "Stay at this table",
-    `<p>You’ll ${humanRole() === "giver" ? "guess" : "give the clues"} in a fresh game with the same decks and hand variant. ${game.phase === "over" ? "The connection stays open." : "This ends the current game once your friend agrees."}</p><div class="pair-actions"><button id="ask-role-swap" class="button">Ask to swap roles</button><button id="keep-roles" class="button secondary">Keep playing</button></div>`,
-  );
-  modal.className = "role-swap-dialog";
-  $("keep-roles").onclick = () => modal.close();
-  $("ask-role-swap").onclick = () => {
-    if (!peer?.connected || !game || roleSwap || pendingGuess)
-      return toast("The table has changed. Try again.");
-    roleSwap = swapRecord(crypto.randomUUID(), "outgoing");
-    peer.send(swapMessage("role-swap-request", roleSwap));
-    roleSwapTimer = setTimeout(() => {
-      cancelRoleSwap();
-      toast("The swap request expired. You can ask again.");
-    }, 120000);
-    showSwapWaiting();
-  };
-}
-function retireClueGiver(swap) {
-  // The previous giver must not keep authority or a resumable private session.
-  if (read("session", null)?.game?.id === swap.gameId) erase("session");
-  mode = "peer-guest";
-  game = null;
-  resetTurn();
-  syncOnlineSetup();
-  app.innerHTML =
-    '<p class="help-text">Waiting for your friend’s fresh deal…</p>';
-}
-function commitRoleSwap() {
-  const swap = roleSwap;
-  if (!swap?.accepted || mode !== "peer-host") return;
-  swap.committed = true;
-  clearTimeout(roleSwapTimer);
-  peer.send(swapMessage("role-swap-commit", swap));
-  retireClueGiver(swap);
-  showSwapWaiting();
-}
-function finishRoleSwap(next, nextMode) {
-  clearRoleSwap();
-  cancelledRoleSwap = null;
-  game = next;
-  mode = nextMode;
-  resetTurn();
-  syncOnlineSetup();
-  saveSession();
-  trackGame(game, mode);
-  updateConnection();
-  renderGame();
-  toast("Roles swapped. A fresh game is ready.");
-}
-function handleRoleSwapMessage(message) {
-  if (!message.type?.startsWith("role-swap-")) return false;
-  const matches = (swap) =>
-    swap &&
-    message.requestId === swap.requestId &&
-    message.gameId === swap.gameId &&
-    message.revision === swap.revision;
-  if (message.type === "role-swap-request") {
-    if (
-      typeof message.requestId !== "string" ||
-      !/^[a-f0-9-]{36}$/.test(message.requestId) ||
-      !game ||
-      message.gameId !== game.id ||
-      message.revision !== game.revision ||
-      roleSwap ||
-      pendingGuess
-    ) {
-      peer.send({
-        type: "role-swap-response",
-        requestId: message.requestId,
-        gameId: message.gameId,
-        revision: message.revision,
-        accepted: false,
-      });
-      return true;
-    }
-    roleSwap = swapRecord(message.requestId, "incoming");
-    roleSwapTimer = setTimeout(() => {
-      cancelRoleSwap();
-      toast("The swap request expired.");
-    }, 120000);
-    showModal(
-      "Your friend wants to swap roles.",
-      "Same table, fresh deal",
-      `<p>You’ll ${roleSwap.nextRole === "giver" ? "give the clues" : "guess"} in a fresh game with the same decks and hand variant. ${game.phase === "over" ? "You stay connected." : "Accepting ends the current game."}</p><div class="pair-actions"><button id="accept-role-swap" class="button">Swap roles & deal</button><button id="decline-role-swap" class="button secondary">Keep current roles</button></div>`,
-    );
-    modal.className = "role-swap-dialog";
-    $("decline-role-swap").onclick = cancelRoleSwap;
-    $("accept-role-swap").onclick = () => {
-      roleSwap.accepted = true;
-      clearTimeout(roleSwapTimer);
-      peer.send(
-        swapMessage("role-swap-response", roleSwap, { accepted: true }),
-      );
-      if (mode === "peer-host") commitRoleSwap();
-      else showSwapWaiting();
-    };
-    return true;
-  }
-  if (message.type === "role-swap-commit") {
-    const swap = matches(roleSwap)
-      ? roleSwap
-      : matches(cancelledRoleSwap)
-        ? cancelledRoleSwap
-        : null;
-    if (
-      !swap ||
-      (swap.direction === "incoming" && !swap.accepted) ||
-      mode !== "peer-guest" ||
-      swap.nextRole !== "giver" ||
-      !game ||
-      game.id !== swap.gameId ||
-      game.revision !== swap.revision
-    )
-      return true;
-    // A committed swap wins a cancellation that crossed it in flight.
-    const next = createGame(swap.options);
-    peer.send(
-      swapMessage("role-swap-start", swap, { game: viewFor(next, "guesser") }),
-    );
-    finishRoleSwap(next, "peer-host");
-    return true;
-  }
-  if (!matches(roleSwap)) return true;
-  if (
-    message.type === "role-swap-response" &&
-    roleSwap.direction === "outgoing"
-  ) {
-    if (message.accepted !== true) {
-      clearRoleSwap();
-      toast("Your roles are unchanged.");
-      return true;
-    }
-    roleSwap.accepted = true;
-    clearTimeout(roleSwapTimer);
-    if (mode === "peer-host") commitRoleSwap();
-    else showSwapWaiting();
-  } else if (message.type === "role-swap-cancel") {
-    if (roleSwap.committed)
-      peer.send(swapMessage("role-swap-commit", roleSwap));
-    else {
-      clearRoleSwap();
-      toast("Your roles are unchanged.");
-    }
-  } else if (
-    message.type === "role-swap-start" &&
-    roleSwap.committed &&
-    mode === "peer-guest"
-  ) {
-    const next = validatePublicView(message.game),
-      options = roleSwap.options;
-    if (
-      next.role !== "guesser" ||
-      next.id === roleSwap.gameId ||
-      next.phase !== "clue" ||
-      next.round !== 0 ||
-      next.revision !== 0 ||
-      next.history.length ||
-      next.eliminated.length ||
-      next.result !== null ||
-      next.theme !== options.theme ||
-      next.clueTheme !== options.clueTheme ||
-      next.variant !== options.variant
-    )
-      throw new Error("Your friend sent an incompatible fresh deal.");
-    finishRoleSwap(next, "peer-guest");
-  }
-  return true;
-}
-function newPeer() {
-  const old = peer;
-  peer = null;
-  old?.close();
-  const link = new PeerLink({
-    config: pairingConfig || iceConfig(settings.stun),
-    onStatus: (status) => {
-      if (peer !== link) return;
-      peerStatus = status;
-      updateConnection();
-      if (
-        (status === "open" || status === "connected") &&
-        link.connected &&
-        !link.started
-      ) {
-        link.started = true;
-        pairingKind = null;
-        pairingBusy = false;
-        pairingError = "";
-        if (mode === "peer-host") {
-          if (!game) game = createGame(pairingGameOptions || gameOptions());
-          syncOnlineSetup();
-          saveSession();
-          sendState();
-          renderGame();
-        } else {
-          link.send({ type: "hello" });
-        }
-        modal.close();
-        toast("Connected. Your shared table is ready.");
-      } else if(status==='signaling-error'){
-        pairingBusy=false;pairingError=link.signalingError;if(pairingKind)renderPairing();else toast(pairingError);
-      } else if (["closed", "failed", "disconnected"].includes(status)) {
-        if (roleSwap) clearRoleSwap();
-        cancelledRoleSwap = null;
-        pendingGuess = false;
-        if (!game && isPeer() && !pairingKind) {
-          showModal(
-            "Connection lost during the swap.",
-            "Reconnect to the table",
-            '<p>Ask the new clue giver for a fresh invitation.</p><button id="swap-reconnect" class="button">Join your friend</button>',
-          );
-          $("swap-reconnect").onclick = () => openPairing("guest", true);
-        }
-        if (screen === "game") renderGame();
-        if (status === "failed") {
-          pairingBusy = false;
-          pairingError =
-            "The browsers could not connect. Try a different network, or change the STUN server in Settings. Open Connection settings to use a TURN relay on restricted networks.";
-          if (pairingKind) renderPairing();
-          else
-            toast("Connection lost. Create a fresh invitation to reconnect.");
-        }
-      }
-    },
-    onMessage: (message) => handlePeerMessage(message),
-  });
-  link.isInviter = pairingKind === "host";
-  peer = link;
-  updateConnection();
-  return link;
-}
-function handlePeerMessage(message) {
-  try {
-    if (isPeer() && handleRoleSwapMessage(message)) return;
-    if (mode === "peer-host") {
-      if (message.type === "hello") {
-        sendState();
-        return;
-      }
-      if (message.type === "guess") {
-        if (roleSwap)
-          throw new Error(
-            "Wait for the role-swap request to finish, then choose again.",
-          );
-        if (
-          !game ||
-          message.gameId !== game.id ||
-          message.revision !== game.revision
-        )
-          throw new Error(
-            "The table has changed. Your move was not applied; choose again.",
-          );
-        commitGame(eliminate(game, { ...message.action, source: "Human" }));
-        return;
-      }
-      if (
-        message.type === "rematch-request" &&
-        message.gameId === game?.id &&
-        game.phase === "over"
-      ) {
-        toast(
-          "Your friend would like another game. Choose “Deal again” to begin.",
-        );
-        return;
-      }
-      throw new Error("Unknown message from your partner.");
-    }
-    if (mode === "peer-guest") {
-      if (message.type === "state") {
-        const next = validatePublicView(message.game);
-        if (game?.id === next.id && next.revision <= game.revision) return;
-        if (game && game.id !== next.id && game.phase !== "over")
-          throw new Error("Unexpected new game. Pair again to resynchronize.");
-        if (game && next.id === game.id && next.revision > game.revision + 1)
-          toast("The table has been resynchronized.");
-        const oldPhase = game?.phase;
-        if (roleSwap) cancelRoleSwap();
-        game = next;
-        resetTurn();
-        syncOnlineSetup();
-        trackGame(game, mode);
-        if (next.phase === "over") {
-          replayRound = next.history.length - 1;
-          renderReveal();
-        } else {
-          if (oldPhase === "clue" && next.phase === "guess") sound("clue");
-          renderGame();
-        }
-        return;
-      }
-      if (message.type === "error") {
-        if (roleSwap) clearRoleSwap();
-        pendingGuess = false;
-        toast(String(message.message).slice(0, 500));
-        renderGame();
-        return;
-      }
-    }
-  } catch (error) {
-    if (mode === "peer-host" && peer?.connected)
-      peer.send({ type: "error", message: error.message });
-    else toast(error.message);
-  }
-}
-function readPairConfig() {
-  const stun = $("stun")?.value ?? pairingStun ?? settings.stun;
-  relay = {
-    url: $("turn")?.value ?? relay.url,
-    username: $("turn-name")?.value ?? relay.username,
-    credential: $("turn-password")?.value ?? relay.credential,
-  };
-  const config = iceConfig(stun, relay.url, relay.username, relay.credential);
-  settings.stun = stun;
-  persistPreferences();
-  return config;
-}
-function openPairing(kind) {
-  if (kind==='guest') joinFriendRoom('cluance');
-  else inviteFriendGame('cluance', friendSetup());
-}
-async function preparePair(type,input='',manual=false) {
-  if (type === 'answer' && redirectTogetherInvitation('cluance', input)) return;
-  const attempt=++pairingAttempt;
-  let link;
-  pairingBusy=true;pairingError='';pairingInput=input;pairingCode='';renderPairing();
-  try {
-    let config=readPairConfig(),room;
-    if(type==='answer'){
-      room=hostedInvitation(input,'cluance');
-      let details;
-      if(room){room=await roomDetails(room,PROTOCOL);details=validateInvitationDetails(room.metadata);}
-      else{await decodePairing(input,'offer');details=invitationDetails(input);}
-      if(attempt!==pairingAttempt||!pairingKind)return;
-      pairingOffer=input;mode=details.role==='giver'?'peer-guest':'peer-host';pairingGameOptions=details.options||null;
-    }else if(!manual&&await signalingService()){
-      room=await createHostedRoom('cluance',PROTOCOL,{role:humanRole(),options:pairingGameOptions||gameOptions()});
-    }
-    if(room)config=await roomConfig(room,config);
-    if(attempt!==pairingAttempt||!pairingKind)return;
-    pairingHosted=Boolean(room);pairingConfig=config;link=newPeer();renderPairing();
-    if(room){
-      await link.connectRoom(room,type==='offer'?'host':'guest');
-      if(peer!==link||attempt!==pairingAttempt||!pairingKind)return;
-      pairingCode=type==='offer'?hostedLink({game:'cluance',room:room.room,key:room.guestKey}):'';
-    }else{
-      const code=type==='offer'?await link.invite():await link.join(input);
-      if(peer!==link||attempt!==pairingAttempt||!pairingKind)return;
-      pairingCode=type==='offer'?makeInvitationLink(code,humanRole(),pairingGameOptions):makeLink(code,type);
-    }
-    pairingBusy=false;pairingInput='';renderPairing();
-  }catch(error){
-    if(attempt!==pairingAttempt||link&&(peer!==link||!pairingKind))return;
-    pairingBusy=false;pairingError=error.message;renderPairing();
-  }
-}
-async function acceptPair(input) {
-  if (!peer?.isInviter) {
-    toast("Paste the reply in the tab that created the invitation.");
-    return;
-  }
-  const link = peer;
-  pairingBusy = true;
-  pairingError = "";
-  pairingInput = input;
-  renderPairing();
-  try {
-    await link.accept(input);
-    if (peer !== link) return;
-    pairingBusy = false;
-    renderPairing();
-  } catch (error) {
-    if (peer !== link) return;
-    pairingBusy = false;
-    pairingError = error.message;
-    renderPairing();
-  }
-}
-function renderPairing() {
-  if (!pairingKind) return;
-  const host = pairingKind === "host";
-  const ui=capturePairingUI(modalContent);
-  showModal(
-    host
-      ? pairingCode
-        ? "Invitation ready."
-        : pairingBusy
-          ? "Creating invitation…"
-          : "Create an invitation."
-      : pairingHosted ? "Connecting to your friend…" : "Join your friend.",
-    humanRole() === "giver"
-      ? "You give the clues · Your friend guesses"
-      : "You guess · Your friend gives the clues",
-    pairingBody({
-      host,
-      output: pairingCode,
-      busy: pairingBusy,
-      error: pairingError,
-      initial: pairingInput,
-      stun: pairingStun ?? settings.stun,
-      hosted:pairingHosted,
-      compact:true,
-    }) +
-      (host&&pairingHosted?'<button type="button" class="button secondary" data-action="manual-pair">Use manual pairing</button>':'')+
-      `<p class="help-text"><button type="button" class="text-button" data-action="${host ? "join-instead" : "invite-instead"}">${host ? "Have an invite? Join instead" : "No invitation yet? Create an invitation instead"}</button></p>`,
-  );
-  for (const [id, value] of [
-    ["turn", relay.url],
-    ["turn-name", relay.username],
-    ["turn-password", relay.credential],
-  ])
-    if ($(id)) $(id).value = value;
-  enhancePairing(host);
-  restorePairingUI(modalContent,ui);
-  modalContent.querySelectorAll("[data-action]").forEach(
-    (button) =>
-      (button.onclick = async () => {
-        const action = button.dataset.action;
-        try {
-          if(action==='paste-pair'){
-            const attempt=pairingAttempt,kind=pairingKind;
-            let input;
-            try{input=await navigator.clipboard.readText();}catch{
-              const details=modalContent.querySelector('.manual-reply');if(details)details.open=true;
-              $('pair-input')?.focus();toast('Paste the invitation or reply into the field.');return;
-            }
-            if(attempt!==pairingAttempt||kind!==pairingKind||pairingBusy||peer?.connected)return;
-            pairingInput=input;if($('pair-input'))$('pair-input').value=input;
-            if(host)await acceptPair(input);else await preparePair('answer',input);
-          }
-          else if(action==='manual-pair')await preparePair('offer','',true);
-          else if (action === "invite-instead") inviteFriend();
-          else if (action === "join-instead") {
-            const old = peer;
-            peer = null;
-            old?.close();
-            updateConnection();
-            openPairing("guest");
-          } else if (action === "create-invite") await preparePair("offer");
-          else if (action === "join-invite")
-            await preparePair("answer", $("pair-input").value);
-          else if (action === "remake-reply")
-            await preparePair("answer", pairingOffer);
-          else if (action === "accept-reply")
-            await acceptPair($("pair-input").value);
-          else if (action === "copy") {
-            await copyPairing($("pair-output"));
-            toast(
-              host
-                ? "Invitation copied. Send it to your friend."
-                : "Reply copied. Send it to the host.",
-            );
-          } else if (action === "share")
-            await sharePairing($("pair-output"), "Cluance");
-        } catch (error) {
-          pairingError=error.message;pairingBusy=false;renderPairing();
-        }
-      }),
-  );
-  if ($("pair-input")) {
-    $("pair-input").oninput = (event) => {
-      pairingInput = event.target.value;
-    };
-    $("pair-input").onpaste = (event) => {
-      const input = event.clipboardData?.getData("text");
-      if (!input || pairingBusy) return;
-      const task=host?decodePairing(input,"answer").then(()=>acceptPair(input)):preparePair("answer",input);
-      task
-        .catch((error) => {
-          pairingError = error.message;
-          renderPairing();
-        });
-    };
-  }
-  if ($("pair-qr"))
-    try {
-      drawQR($("pair-qr"), pairingCode);
-    } catch (error) {
-      $("pair-qr").parentElement.remove();
-      toast(error.message);
-    }
-}
-function enhancePairing(host) {
-  modal.classList.add("pairing-dialog");
-  for (const b of modalContent.querySelectorAll("[data-action]"))
-    b.textContent = b.textContent
-      .toLocaleLowerCase()
-      .replace(/^./, (c) => c.toUpperCase());
-  if (host && pairingCode && !pairingHosted) {
-    const input = $("pair-input"),
-      button = modalContent.querySelector('[data-action="accept-reply"]'),
-      details = document.createElement("details");
-    details.className = "manual-reply";
-    details.open = !!pairingInput;
-    details.innerHTML = "<summary>Paste a reply manually</summary>";
-    input.previousElementSibling.before(details);
-    details.append(input.previousElementSibling, input, button);
-    const paste=modalContent.querySelector('[data-action="paste-pair"]');if(paste)details.before(paste);
-  }
-}
-// Read the clipboard only after an explicit Paste action.
-modalContent.addEventListener('input',event=>{
-  if(!pairingKind||!modal.classList.contains('pairing-dialog'))return;
-  if(event.target.id==='stun')pairingStun=event.target.value;
-  const field={'turn':'url','turn-name':'username','turn-password':'credential'}[event.target.id];
-  if(field)relay[field]=event.target.value;
-});
-pairingBus?.addEventListener("message", (event) => {
-  if (event.data?.type !== "reply" || !peer?.isInviter || peer.connected)
-    return;
-  decodePairing(event.data.link, "answer")
-    .then((reply) => {
-      if (reply.room !== peer.room) return;
-      pairingKind = "host";
-      renderPairing();
-      acceptPair(event.data.link);
-    })
-    .catch(() => {});
-});
-async function openPairHash() {}
-window.addEventListener("hashchange", openPairHash);
 function showRules() {
   showModal(
     "A little trust goes a long way.",
@@ -2188,8 +1466,6 @@ function usagePanelHTML() {
     "ai-giver": "AI gives clues",
     "ai-guesser": "AI guesses",
     local: "One screen",
-    "peer-host": "With a friend",
-    "peer-guest": "With a friend",
   };
   const models = [
     ...new Set(data.requests.map((r) => priceKey(r.provider, r.model))),
@@ -2299,7 +1575,6 @@ function captureSettings() {
   settingsDraft.models[provider] = $("model").value.trim();
   settingsDraft.efforts[provider] = $("effort").value;
   settingsDraft.tokenBudget = Number($("token-budget").value);
-  settingsDraft.stun = $("stun").value.trim();
   settingsDraft.effects = $("effects").checked;
   settingsDraft.sound = $("sound").checked;
   settingsDraft.music = $("music").checked;
@@ -2309,11 +1584,6 @@ function captureSettings() {
   settingsDraft.detailsMode = $("details-mode").value;
   settingsDraft.reduceMotion = $("reduce-motion").checked;
   settingsRemember = $("remember-key").checked;
-  relay = {
-    url: $("turn").value,
-    username: $("turn-name").value,
-    credential: $("turn-password").value,
-  };
 }
 function openSettings(tab = "game") {
   settingsTab = typeof tab === "string" ? tab : "game";
@@ -2355,7 +1625,7 @@ function renderSettings() {
     String(settingsDraft.tokenBudget),
   )}</select></div></div><p class="help-text">Effort support depends on the model. “Provider default” leaves it unset. Higher effort may take longer and needs more response tokens. Unsupported choices are reported; they are never silently changed.</p>
   <details class="usage-panel"><summary>Model pricing for estimates</summary><div id="pricing-fields"></div></details>
-  <details style="margin-top:20px"><summary class="field-label">Music, effects & connection</summary><label class="check-row"><input id="sound" type="checkbox" ${settingsDraft.sound ? "checked" : ""}>Arcade sounds & outcome fanfares</label><label class="check-row"><input id="music" type="checkbox" ${settingsDraft.music ? "checked" : ""}>Theme background music</label><label class="field-label" for="music-volume">Music volume · <span id="music-volume-value">${settingsDraft.musicVolume}%</span></label><input id="music-volume" type="range" min="0" max="70" step="1" value="${settingsDraft.musicVolume}"><p class="help-text">Original composition: ${esc(THEME_MUSIC[screen === "home" ? setup.theme : game?.theme || setup.theme].title)}.<br>Music follows the board theme, fades between tracks and pauses when this tab is hidden. The top music button pauses music while keeping sound effects unchanged.</p><label class="check-row"><input id="effects" type="checkbox" ${settingsDraft.effects ? "checked" : ""}>Table animations & result effects</label><label class="field-label" for="stun">STUN server for direct pairing</label><input id="stun" value="${esc(settingsDraft.stun)}" spellcheck="false" placeholder="stun:stun.l.google.com:19302"><p class="help-text">Comma-separated STUN URLs. Leave blank to try local-network connections only. Optional TURN relay settings are available in the invitation dialog.</p></details>
+  <details style="margin-top:20px"><summary class="field-label">Music & effects</summary><label class="check-row"><input id="sound" type="checkbox" ${settingsDraft.sound ? "checked" : ""}>Arcade sounds & outcome fanfares</label><label class="check-row"><input id="music" type="checkbox" ${settingsDraft.music ? "checked" : ""}>Theme background music</label><label class="field-label" for="music-volume">Music volume · <span id="music-volume-value">${settingsDraft.musicVolume}%</span></label><input id="music-volume" type="range" min="0" max="70" step="1" value="${settingsDraft.musicVolume}"><p class="help-text">Original composition: ${esc(THEME_MUSIC[screen === "home" ? setup.theme : game?.theme || setup.theme].title)}.<br>Music follows the board theme, fades between tracks and pauses when this tab is hidden. The top music button pauses music while keeping sound effects unchanged.</p><label class="check-row"><input id="effects" type="checkbox" ${settingsDraft.effects ? "checked" : ""}>Table animations & result effects</label></details>
   <div class="modal-footer"><span class="help-text">No account with this game.<br>No keys in invitations or replays.</span><button class="button" type="submit">Save settings ✓</button></div></form>`,
   );
   arrangeSettings();
@@ -2455,31 +1725,6 @@ function renderSettings() {
       $("pricing-error").scrollIntoView({ block: "nearest" });
       return;
     }
-    if (
-      settingsDraft.stun &&
-      settingsDraft.stun
-        .split(",")
-        .some((url) => !/^stuns?:[^\s]+$/.test(url.trim()))
-    ) {
-      toast("Use STUN URLs such as stun:stun.l.google.com:19302.");
-      return;
-    }
-    try {
-      relay = {
-        url: $("turn")?.value || "",
-        username: $("turn-name")?.value || "",
-        credential: $("turn-password")?.value || "",
-      };
-      pairingConfig = iceConfig(
-        settingsDraft.stun,
-        relay.url,
-        relay.username,
-        relay.credential,
-      );
-    } catch (error) {
-      toast(error.message);
-      return;
-    }
     settings = { ...settingsDraft, rememberKeys: settingsRemember };
     const persisted = {
       ...settings,
@@ -2507,10 +1752,10 @@ function arrangeSettings() {
   const nav = document.createElement("nav");
   nav.className = "settings-nav";
   nav.setAttribute("aria-label", "Settings categories");
-  nav.innerHTML = ["game", "ai", "spending", "network"]
+  nav.innerHTML = ["game", "ai", "spending"]
     .map(
       (tab, i) =>
-        `<button type="button" data-settings-tab="${tab}">${["Game", "AI partner", "Spending", "Network"][i]}${tab === "spending" ? "<small>" + esc(formatSpend(usageSnapshot().total)) + "</small>" : ""}</button>`,
+        `<button type="button" data-settings-tab="${tab}">${["Game", "AI partner", "Spending"][i]}${tab === "spending" ? "<small>" + esc(formatSpend(usageSnapshot().total)) + "</small>" : ""}</button>`,
     )
     .join("");
   modalContent.prepend(nav);
@@ -2519,7 +1764,7 @@ function arrangeSettings() {
   form.before(content);
   content.append(form);
   const panels = {};
-  for (const tab of ["game", "ai", "spending", "network"]) {
+  for (const tab of ["game", "ai", "spending"]) {
     const panel = document.createElement("section");
     panel.dataset.settingsPanel = tab;
     panels[tab] = panel;
@@ -2552,18 +1797,6 @@ function arrangeSettings() {
   reduce.className = "check-row";
   reduce.innerHTML = `<span>Reduce motion</span><input id="reduce-motion" type="checkbox" ${settingsDraft.reduceMotion ? "checked" : ""}>`;
   panels.game.append(reduce);
-  panels.network.innerHTML =
-    '<h3>Connection settings</h3><p class="help-text">Pairing can also use an optional TURN relay. Relay credentials stay in the current session.</p>';
-  panels.network.append($("stun").previousElementSibling, $("stun"));
-  $("stun").hidden = true;
-  $("stun").previousElementSibling.hidden = true;
-  panels.network.insertAdjacentHTML(
-    "beforeend",
-    connectionSettings(settingsDraft.stun)
-      .replace(/id="stun"/g, 'id="network-stun"')
-      .replace(/for="stun"/g, 'for="network-stun"'),
-  );
-  panels.network.querySelector(".connection-settings").open = true;
   const existingUsage = $("usage-panel").closest("details");
   panels.spending.append($("usage-panel"));
   existingUsage.remove();
@@ -2600,15 +1833,6 @@ function arrangeSettings() {
           .forEach((c) => c.setAttribute("aria-pressed", String(c === b)));
       }),
   );
-  for (const [id, value] of [
-    ["turn", relay.url],
-    ["turn-name", relay.username],
-    ["turn-password", relay.credential],
-  ])
-    $(id).value = value;
-  $("network-stun").oninput = (e) => {
-    $("stun").value = e.target.value;
-  };
   for (const id of ["appearance", "preference-card-size"]) {
     const select = $(id),
       segment = document.createElement("div");
@@ -2704,15 +1928,12 @@ $("home-link").onclick = (event) => {
 window.addEventListener("beforeunload", () => saveSession());
 window.addEventListener("pagehide", () => {
   cancelAI();
-  peer?.close();
-  pairingBus?.close();
 });
 applyPreferences();
 app.innerHTML = `<section class="hero"><div><p class="eyebrow">Setting the table</p><h1>${Object.keys(DECKS).length} worlds.<br>One <em>connection.</em></h1><p>Shuffling the illustrated decks…</p></div></section>`;
 try {
   await Promise.all([loadArt(), document.fonts.ready]);
   renderHome();
-  await openPairHash();
 } catch (error) {
   app.innerHTML = `<p class="inline-error">${esc(error.message)}</p><button class="button" id="reload">Reload artwork</button>`;
   $("reload").onclick = () => location.reload();
@@ -2735,9 +1956,6 @@ Object.defineProperty(window, "__cluance", {
     get state() {
       return game ? structuredClone(currentView()) : null;
     },
-    get connected() {
-      return Boolean(peer?.connected);
-    },
     get mode() {
       return mode;
     },
@@ -2755,7 +1973,7 @@ $("table-menu").onclick = () => {
   const menu = document.createElement("div");
   menu.id = "menu-popover";
   menu.className = "menu-popover";
-  menu.innerHTML = `<button id="menu-collection">Collection</button><button id="menu-rules">How to play</button><button id="menu-settings">Settings</button>${isPeer() && game ? '<button id="menu-swap-roles">Swap roles & deal</button>' : ""}${screen === "game" ? '<button id="leave-table">Leave table</button>' : ""}`;
+  menu.innerHTML = `<button id="menu-collection">Collection</button><button id="menu-rules">How to play</button><button id="menu-settings">Settings</button>${screen === "game" ? '<button id="leave-table">Leave table</button>' : ""}`;
   document.querySelector(".top-actions").append(menu);
   $("table-menu").setAttribute("aria-expanded", "true");
   const close = () => {
@@ -2776,11 +1994,6 @@ $("table-menu").onclick = () => {
       toast("Leave the table first to browse the collection.");
     else showCollection(setup.theme);
   };
-  if ($("menu-swap-roles"))
-    $("menu-swap-roles").onclick = () => {
-      close();
-      requestRoleSwap();
-    };
   if ($("leave-table"))
     $("leave-table").onclick = () => {
       close();
@@ -2858,7 +2071,7 @@ matchMedia("(max-width:760px)").addEventListener("change", () => {
 
 function friendSetup() {
   if(mode==="async")return {...asyncClient.record.setup,role:humanRole()};
-  return {role:game&&isPeer()?humanRole():homeRole, options:game&&isPeer()?{theme:game.theme,clueTheme:game.clueTheme,variant:game.variant}:gameOptions()};
+  return {role:homeRole, options:gameOptions()};
 }
 registerCheckpoint('cluance',{
   capture:()=>game&&mode!=="async"?{game,mode,localRole,screen,setup:friendSetup()}:null,
@@ -2875,10 +2088,16 @@ registerCheckpoint('cluance',{
 registerFriendGame('cluance', {
   setup: friendSetup,
   startAsync(client){
-    cancelAI();peer?.close();peer=null;asyncClient=client;mode='async';modal.close();
+    cancelAI();asyncClient=client;mode='async';screen='game';modal.close();
     const unsubscribe=client.subscribe(record=>{if(mode!=='async')return;const previous=game,changed=previous?.revision!==record.view.revision;game=record.view;if(changed){resetTurn();if(previous&&previous.id===game.id)sound(game.phase==='over'?'select':game.phase==='guess'?'clue':'select');}if(game.phase==='over')renderReveal();else renderGame();updateConnection();});
     window.addEventListener('pagehide',unsubscribe,{once:true});
   },
 });
 
-document.addEventListener('click',event=>{if(mode==='async'&&event.target.closest('#rematch,#swap-deal')){event.preventDefault();event.stopImmediatePropagation();friendSession().openGameSetup('cluance',friendSetup());}},true);
+// Another game with the same friend goes through the room's setup sheet.
+document.addEventListener('click',event=>{
+  const target=mode==='async'&&event.target.closest('#rematch,#swap-deal');if(!target)return;
+  event.preventDefault();event.stopImmediatePropagation();
+  const setup=friendSetup();if(target.id==='swap-deal')setup.role=setup.role==='giver'?'guesser':'giver';
+  friendSession()?.openGameSetup('cluance',setup);
+},true);
