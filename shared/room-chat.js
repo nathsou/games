@@ -1,12 +1,13 @@
 import {FriendChat} from './friend-chat.js';
 import {roomRequest} from './turn-client.js';
+// The room stores the latest 60 entries and pushes the history after each send.
 export class RoomChat extends FriendChat {
   persistent=true;
-  async refresh(){const history=await roomRequest(this.session.resumeCredentials,'chat');if(history.sequence>=this.sequence){this.restore(history);this.session.onChange();}}
+  apply(history){if(history&&history.sequence>=this.sequence){this.restore(history);this.session.onChange();}}
+  async refresh(){this.apply(await roomRequest(this.session.credential,'chat'));}
   async send(kind,value){
-    if(!this.session.resumeCredentials)throw Error('Join a room before sending a message.');
-    const history=await roomRequest(this.session.resumeCredentials,'chat',{method:'POST',body:{kind,value}});
-    this.restore(history);this.session.onChange();this.session.send({type:'friend-chat-updated'});
+    if(!this.session.credential)throw Error('Join a room before sending a message.');
+    this.apply(await roomRequest(this.session.credential,'chat',{method:'POST',body:{kind,value}}));
   }
-  receive(message){if(message.type==='friend-chat-updated'){this.refresh().catch(error=>this.session.onError(error.message));return true;}return message.type==='friend-chat-send'||message.type==='friend-chat-entry';}
+  receive(){return false;}
 }

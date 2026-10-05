@@ -3,7 +3,7 @@ import {applyView} from './view-state.js';
 export function isSharedFollower() {
   try {
     const session = parent !== window && parent.__friendSession;
-    return Boolean(session?.screen?.active && !session.isHost);
+    return Boolean(session?.screen?.active && !session.screen.sharer);
   } catch { return false; }
 }
 export function installGameView(canvasRenderer = null) {

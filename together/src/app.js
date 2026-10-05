@@ -1,350 +1,608 @@
-import {FriendSession, FRIEND_GAMES} from '../../shared/friend-session.js';
+import {FriendSession, ROOM_GAMES, isRoomGame} from '../../shared/friend-session.js';
 import {friendPanel} from '../../shared/friend-panel.js';
 import {installFriendChat} from '../../shared/friend-chat-view.js';
 import {installSharedPlay} from '../../shared/shared-play-view.js';
 import {installPanelVisibility} from '../../shared/friend-panel-visibility.js';
+import {installNotifier} from '../../shared/together-notify.js';
 import {FRIEND_PAGES, isFriendPage} from '../../shared/friend-pages.js';
-import {SETUP_GAMES, defaultGameSetup, validateGameSetup, renderGameSetup, setupSummary} from '../../shared/friend-setup.js';
-import {createHostedRoom, hostedLink, hostedInvitation, roomConfig, roomDetails, claimRoomResume,createRoomCode,resolveRoomCode} from '../../shared/signaling.js';
-
-import {readFriendRoom, saveFriendRoom} from '../../shared/friend-resume.js';
+import {renderGameSetup, setupSummary, defaultGameSetup, validateGameSetup} from '../../shared/friend-setup.js';
+import {createHostedRoom, hostedLink, hostedInvitation, roomDetails, claimRoomResume, createRoomCode, resolveRoomCode} from '../../shared/signaling.js';
+import {readFriendRoom, saveFriendRoom, forgetFriendRoom} from '../../shared/friend-resume.js';
 import {normalizeRoomCode} from '../../shared/room-code.js';
-import {RoomChat} from '../../shared/room-chat.js';
-import {TurnClient,roomRequest} from '../../shared/turn-client.js';
 import {readCheckpoint} from '../../shared/game-checkpoint.js';
+import {loadPlayerName, savePlayerName} from '../../shared/player-name.js';
+import {drawQR} from '../../shared/qr.js';
 
-const savedRoom=readFriendRoom();
-let manualOffline=Boolean(savedRoom?.manualOffline),inbox=[],inboxBusy=false,inboxError='',resumeBusy=false,reconnectTimer,reconnectAttempt=0,leaving=false;
-document.body.innerHTML = friendPanel;
+const ABOUT = {'flip-it': 'Card duel · bots and teams optional', cluance: 'Co-op clues · one gives, one guesses', midnight: 'Three quick card games'};
+const SHAREABLE = ['spacegolf', 'nonocube', 'pawn-quest'];
+const SEEN_KEY = 'games.together-seen.v1', SETUP_KEY = 'games.room-setup.v1';
+function lastSetup(game) { try { return JSON.parse(localStorage.getItem(SETUP_KEY))?.[game]; } catch { return undefined; } }
+function rememberSetup(game, setup) {
+  try { const all = JSON.parse(localStorage.getItem(SETUP_KEY)) || {}; all[game] = setup; localStorage.setItem(SETUP_KEY, JSON.stringify(all)); } catch { /* Optional storage. */ }
+}
 const $ = id => document.getElementById(id);
-const frame=$('game-frame'),dialog=$('friend-dialog');
-for(const [game,title] of Object.entries(FRIEND_PAGES))$('next-game').append(new Option(title,game));
-for(const [game,title] of Object.entries(SETUP_GAMES))$('room-game').append(new Option(title,game));
-const url=new URL(location.href);
-const initialGame=!url.hash&&savedRoom&&isFriendPage(savedRoom.page)?savedRoom.page:isFriendPage(url.searchParams.get('game'))?url.searchParams.get('game'):'collection';
-let autoInvite=url.searchParams.get('action')==='invite', autoJoin=url.searchParams.get('action')==='join';
-const invitation=url.hash;url.hash='';url.searchParams.delete('action');history.replaceState(null,'',url);
-let renderChat,renderScreen,readInviteSetup,readNextSetup;
-let inviteGame='collection',nextGame,inviteDefaults;
-function showError(message){$('friend-error').textContent=message;$('friend-error').hidden=false;}
+
+document.body.innerHTML = friendPanel;
+const frame = $('game-frame');
+const saved = readFriendRoom();
+const url = new URL(location.href);
+const invitation = url.hash.includes('room=') ? url.hash : '';
+const requestedGame = isFriendPage(url.searchParams.get('game')) ? url.searchParams.get('game') : null;
+const initialGame = requestedGame || (!url.searchParams.has('game') && location.pathname !== '/' && saved && isFriendPage(saved.page) ? saved.page : 'collection');
+let pendingAction = url.searchParams.get('action');
+url.hash = ''; url.searchParams.delete('action'); history.replaceState(null, '', url);
+
+let tab = 'play', leaving = false, nextGame, readNextSetup, outgoingCursors, errorTimer, welcomed = false, roomBusy = false;
+let seen = new Set();
+try { seen = new Set(JSON.parse(localStorage.getItem(SEEN_KEY)) || []); } catch { /* Optional storage. */ }
+function markSeen(id) {
+  seen.add(id);
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seen].slice(-80))); } catch { /* Optional storage. */ }
+}
+
+const session = new FriendSession({game: initialGame, onChange: render, onSwitch: loadGame, onError: showError, onEvent: handleEvent, onPicker: () => navigate('collection')});
+window.__friendSession = session;
+Object.assign(session, {openInvitation, openJoin, openGameSetup, requestGame: game => openGameSetup(game), stopCursors, selectTab, leaveRoomGame: () => { session.useGame(null); render(); }});
+const renderChat = installFriendChat(session), renderScreen = installSharedPlay(session, render);
+installPanelVisibility(session);
+const notifier = installNotifier({alerts: $('together-alerts'), toasts: $('together-toasts'), onOpen: () => session.showPanel()});
+session.notifier = notifier;
+session.screen.onStop = viewing => { session.closePeer(); if (viewing) navigate('collection'); render(); };
+session.onPeerStatus = status => {
+  if (status === 'open' && session.screen.sharer) session.screen.geometry();
+  if (['closed', 'failed', 'disconnected', 'signaling-error'].includes(status) && session.screen.busy) {
+    session.screen.stop(false);
+    notifier.toast({key: 'cursors', title: 'Shared cursors ended', body: status === 'signaling-error' ? session.peer?.signalingError || 'The browsers could not connect.' : 'The connection closed.', notify: false});
+  }
+  render();
+};
+session.onPanelVisibility = open => { if (open && tab === 'chat') session.onChatVisibility?.(true); };
+Object.defineProperty(window, '__together', {value: {
+  get game() { return session.game; }, get status() { return session.status; }, get friend() { return {...session.friend}; },
+  get screen() { return session.screen.phase; }, get games() { return session.games.slice(); }, get roomGame() { return session.asyncGame?.record.id || null; },
+}});
+
+function showError(message) {
+  clearTimeout(errorTimer);
+  $('friend-error').textContent = message; $('friend-error').hidden = false;
+  errorTimer = setTimeout(() => { $('friend-error').hidden = true; }, 9000);
+}
+$('friend-error').onclick = () => { $('friend-error').hidden = true; };
+const gameTitle = game => FRIEND_PAGES[game] || 'this game';
+const friendName = () => session.friend.name || 'Your friend';
+
+// Pages ---------------------------------------------------------------------
 function loadGame(game) {
   frame.contentWindow?.__gameCheckpoint?.save();
-  $('friend-error').hidden=true;
-  const target=new URL('../../'+game+'/',import.meta.url);
-  frame.title=FRIEND_PAGES[game];frame.src=target.href;
-  const page=new URL(game==='collection'?'/':'/together/',location.origin);
-  if(game!=='collection')page.searchParams.set('game',game);
-  history.replaceState(null,'',page);document.title=FRIEND_PAGES[game]+' · Play together';
+  session.adapter = null;
+  const target = new URL('../../' + game + '/', import.meta.url);
+  frame.title = FRIEND_PAGES[game]; frame.src = target.href;
+  const page = new URL(game === 'collection' ? '/' : '/together/', location.origin);
+  if (game !== 'collection') page.searchParams.set('game', game);
+  history.replaceState(null, '', page);
+  notifier.setTitle(game === 'collection' ? 'Games · nathsou' : FRIEND_PAGES[game] + ' · Games');
+  session.setPage(game);
+  persist();
 }
-function currentSetup(game) {
-  return validateGameSetup(game,game===session.game&&session.adapter?.setup?session.adapter.setup():defaultGameSetup(game));
+function navigate(game) {
+  if (!isFriendPage(game)) return;
+  if (session.screen.active) { session.screen.navigate(game); return; }
+  session.useGame(null);
+  session.resumeGame = session.resumeSharedPage = false;
+  session.game = game; loadGame(game); render();
 }
-frame.addEventListener('load',()=>{
-  if(session.game==='collection')session.registerGame('collection',{setup:()=>({}),start(){}});
-  else if(!session.supports(session.game)&&!session.screen.active){session.adapter={};render();}
-  frame.contentDocument?.addEventListener('click',event=>{
-    const link=event.target.closest('a[href]');
-    if(!link||event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||event.shiftKey)return;
-    const target=new URL(link.href);if(target.origin!==location.origin)return;
-    const game=target.pathname==='/'?'collection':target.pathname.split('/')[1];
-    if(isFriendPage(game)){event.preventDefault();navigate(game);}
+frame.addEventListener('load', () => {
+  frame.contentDocument?.addEventListener('click', event => {
+    const link = event.target.closest('a[href]');
+    if (!link || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    const target = new URL(link.href); if (target.origin !== location.origin) return;
+    const game = target.pathname === '/' ? 'collection' : target.pathname.split('/')[1];
+    if (isFriendPage(game)) { event.preventDefault(); navigate(game); }
   });
 });
-function render() {
-  const title=FRIEND_PAGES[session.game];
-  let status='Play solo or invite a friend · '+title;
-  if(resumeBusy||reconnectTimer)status='Reconnecting to your friend…';
-  else if(session.asyncGame)status='Take turns · '+(session.asyncGame.record.finished?'Finished':session.asyncGame.record.myTurn?'Your turn':'Waiting for your friend')+' · '+title;
-  else if(!session.connected&&!session.connecting&&session.resumeCredentials)status='Your room is saved · '+title;
-  else if(session.loading)status='Loading '+title+' together…';
-  else if(session.connected)status=session.paused?'Friend connected · Table paused':'Friend connected · '+title;
-  else if(session.connecting)status=(session.isHost?'Waiting for your friend · ':'Joining your friend · ')+title;
-  if(session.screen?.active)status='Virtual cursors · '+title;
-  $('friend-status').textContent=status;
-  $('next-game').disabled=session.loading||Boolean(session.proposal)||Boolean(session.screen?.busy&&!session.screen.active);
-  for(const option of $('next-game').options)option.disabled=!session.independent&&session.connected&&!session.screen?.active&&Boolean(option.value)&&!session.supports(option.value);
-  const waiting=session.connecting&&session.isHost&&session.friendInvitation;
-  $('invite-friend').hidden=session.connected||session.connecting&&!waiting;
-  $('invite-friend').textContent=waiting?'Invite link':'Invite a friend';
-  $('invite-friend').disabled=Boolean(session.roomBusy);
-  $('join-friend').hidden=session.connected||session.connecting;
-  $('disconnect').hidden=!session.connected&&!session.connecting&&!session.resumeCredentials;
-  $('reconnect-friend').hidden=session.connected||session.connecting||!session.resumeCredentials;
-  $('reconnect-friend').disabled=resumeBusy;
-  renderChat?.();renderScreen?.();
-  if(session.connected&&$('room-dialog').open)$('room-dialog').close();
-  const proposal=session.proposal;
-  if(proposal){
-    dialog.dataset.kind='switch';
-    $('dialog-title').textContent=proposal.outgoing?'Waiting for your friend':'Play '+FRIEND_GAMES[proposal.game].title+'?';
-    const description=setupSummary(proposal.game,proposal.metadata,session.isHost);
-    $('dialog-copy').textContent=(proposal.outgoing?'Your friend can accept or decline. ':(proposal.resume?'This resumes your saved game and keeps your connection open. ':'This starts a fresh game and keeps your connection open. '))+description;
-    $('accept-switch').textContent='Play together';$('accept-switch').hidden=proposal.outgoing;$('accept-switch').disabled=Boolean(proposal.accepted);
-    $('decline-switch').textContent=proposal.cancelled?'Cancelling…':proposal.outgoing?'Cancel request':'Keep playing';
-    $('decline-switch').disabled=Boolean(proposal.accepted||proposal.cancelled);
-    if(!dialog.open)dialog.showModal();
-  }else if(dialog.dataset.kind==='switch'&&dialog.open)dialog.close();
-  if((autoInvite||autoJoin)&&session.adapter){
-    const join=autoJoin;autoInvite=autoJoin=false;
-    queueMicrotask(()=>join?openJoin():openInvitation(session.game));
+$('collection-link').onclick = event => { event.preventDefault(); navigate('collection'); };
+async function openRoomGame(id, record) {
+  try {
+    record ||= await session.fetchGame(id);
+    if (session.screen.busy) stopCursors();
+    frame.contentWindow?.__gameCheckpoint?.save();
+    markSeen(record.id); notifier.dismiss('game-' + record.id);
+    session.useGame(record);
+    session.resumeGame = session.resumeSharedPage = false;
+    session.game = record.game; loadGame(record.game);
+    session.panel?.setOpen(false, false);
+    render();
+  } catch (error) { showError(error.message); }
+}
+function resumeSavedGame({game}) {
+  if (session.screen.busy) stopCursors();
+  session.useGame(null);
+  session.resumeGame = true; session.resumeSharedPage = false;
+  session.game = game; loadGame(game); render();
+}
+
+// Room membership -------------------------------------------------------------
+function persist() {
+  if (!session.credential || leaving) return;
+  saveFriendRoom({...session.credential, page: session.game, asyncId: session.asyncGame?.record.id || null, chat: session.chat.snapshot(), draft: $('chat-input').value});
+}
+$('chat-input').addEventListener('input', persist);
+function adopt(credential) {
+  session.attach(credential);
+  persist();
+  welcomed = false;
+  render();
+}
+function chosenName(input) {
+  const name = savePlayerName(input.value);
+  if (!name) { input.focus(); throw Error('Enter your name so your friend knows it’s you.'); }
+  input.value = name;
+  return name;
+}
+async function createRoom() {
+  if (roomBusy) return;
+  const status = $('start-status');
+  try {
+    chosenName($('my-name'));
+    roomBusy = true; render(); status.textContent = 'Creating your room…';
+    const room = await createHostedRoom('friends', 1);
+    const credential = await claimRoomResume(room, loadPlayerName());
+    credential.inviteLink = hostedLink({...room, key: room.guestKey});
+    adopt(credential);
+    status.textContent = '';
+    await offerRoomCode();
+  } catch (error) { status.textContent = error.message; }
+  finally { roomBusy = false; render(); }
+}
+$('invite-friend').onclick = createRoom;
+async function offerRoomCode(force = false) {
+  const credential = session.credential;
+  if (!credential || credential.role !== 'host' || session.friend.joined) return;
+  if (!force && credential.inviteCode?.expiresAt > Date.now() + 60000) { renderInvite(); return; }
+  $('room-code-status').textContent = 'Generating your room code…'; $('room-code-refresh').hidden = true;
+  try {
+    const code = await createRoomCode(credential);
+    if (session.credential !== credential) return;
+    credential.inviteCode = code; persist();
+    $('room-code-status').textContent = '';
+  } catch (error) {
+    $('room-code-status').textContent = error.message; $('room-code-refresh').hidden = error.status === 410;
   }
-  persistRoom();renderSavedGames();renderInbox();
+  renderInvite();
 }
-const session=new FriendSession({game:initialGame,onChange:render,onSwitch:loadGame,onError:showError,onPicker:()=>navigate('collection')});
-session.resumeGame=Boolean(savedRoom&&!invitation);session.resumeSharedPage=Boolean(savedRoom?.shared&&!invitation);session.sharedResume=session.resumeSharedPage;
-if(savedRoom&&!invitation){session.chat=new RoomChat(session);session.chat.restore(savedRoom.chat);session.resumeCredentials=savedRoom;session.isHost=savedRoom.role==='host';session.independent=Boolean(savedRoom.independent);}
-renderChat=installFriendChat(session);renderScreen=installSharedPlay(session,render);installPanelVisibility(session);
-window.__friendSession=session;
-session.openInvitation=openInvitation;session.openJoin=openJoin;session.openGameSetup=openGameSetup;
-Object.defineProperty(window,'__together',{value:{
-  get game(){return session.game;},get connected(){return session.connected;},get epoch(){return session.epoch;},get loading(){return session.loading;},get paused(){return session.paused;},get screen(){return session.screen.phase;},
-}});
-function navigate(game) {
-  if(!isFriendPage(game))return;
-  if(session.independent){session.asyncGame=null;session.link?.close(true);session.link=null;session.game=game;session.adapter=null;session.resumeGame=session.resumeSharedPage=false;loadGame(game);render();return;}
-  if(session.screen?.active){session.requestGame(game);return;}
-  if(session.connected&&session.supports(game)&&game!=='collection'){openGameSetup(game);return;}
-  if(session.supports(game))session.requestGame(game);
-  else if(!session.connected){session.disconnect();session.game=game;session.adapter={};loadGame(game);render();}
-  else showError('Use Cursors to share this game, or choose a multiplayer game.');
+$('room-code-refresh').onclick = () => offerRoomCode(true);
+async function copy(text, button, done = 'Copied') {
+  try { await navigator.clipboard.writeText(text); button.textContent = done; setTimeout(() => render(), 1500); }
+  catch { $('room-code-status').textContent = 'Select and copy: ' + text; }
 }
-$('next-game').onchange=event=>{const game=event.target.value;event.target.value='';navigate(game);};
-function openGameSetup(game,metadata) {
-  if(session.loading||session.proposal||session.screen?.busy)return;
-  $('game-play-mode').value=session.independent?'async':'live';$('game-play-mode').querySelector('[value=async]').disabled=!['cluance','flip-it'].includes(game);
-  if(!['cluance','flip-it'].includes(game))$('game-play-mode').value='live';
-  nextGame=game;$('game-setup-title').textContent='Play '+SETUP_GAMES[game]+' together';
-  $('game-setup-error').hidden=true;
-  readNextSetup=renderGameSetup($('game-setup-fields'),game,metadata||currentSetup(game));
-  configurePlayMode('game',game);
+$('room-code-copy').onclick = () => copy(session.credential?.inviteCode?.code || '', $('room-code-copy'));
+$('room-copy').onclick = () => copy(session.credential?.inviteLink || '', $('room-copy'));
+$('invite-share').onclick = async () => {
+  const link = session.credential?.inviteLink, code = session.credential?.inviteCode?.code;
+  if (!link) return;
+  const text = (session.me.name || 'A friend') + ' invited you to play.' + (code ? ' Room code: ' + code : '');
+  if (navigator.share) { try { await navigator.share({title: 'Play together', text, url: link}); return; } catch (error) { if (error.name === 'AbortError') return; } }
+  copy(link, $('invite-share'), 'Link copied');
+};
+$('invite-qr-details').addEventListener('toggle', () => { if ($('invite-qr-details').open && session.credential?.inviteLink) drawQR($('invite-qr'), session.credential.inviteLink); });
+
+async function joinRoom(input) {
+  let room, turn = null;
+  if (normalizeRoomCode(input)) { room = await resolveRoomCode(input); turn = room.turn; }
+  else {
+    room = hostedInvitation(input, 'friends');
+    if (!room) throw Error('Enter the eight-character room code or paste a complete invitation link.');
+    turn = new URLSearchParams(new URL(input, location.href).hash.slice(1)).get('turn');
+  }
+  if (session.credential?.room === room.room) { session.showPanel(); return; }
+  if (session.inRoom && !await confirmAction('Leave your current room?', 'You’re in a room with ' + friendName() + '. Joining another room removes it from this browser, with its chat and saved games.', 'Join new room')) return;
+  const details = await roomDetails(room, 1);
+  const credential = await claimRoomResume(details, loadPlayerName());
+  if (session.inRoom) leaveRoom(false);
+  adopt(credential);
+  if (turn) openRoomGame(turn);
+  selectTab('play');
+}
+$('join-form').onsubmit = async event => {
+  event.preventDefault();
+  const status = $('start-status');
+  try {
+    chosenName($('my-name'));
+    $('join-friend').disabled = true; status.textContent = 'Joining your friend’s room…';
+    await joinRoom($('join-input').value.trim());
+    status.textContent = ''; $('join-input').value = '';
+  } catch (error) { status.textContent = error.message; }
+  finally { $('join-friend').disabled = false; }
+};
+function leaveRoom(confirmFirst = true) {
+  const run = () => {
+    stopCursors();
+    session.leave();
+    forgetFriendRoom();
+    notifier.dismiss('cursors'); for (const element of $('together-alerts').children) element.remove();
+    if (isRoomGame(session.game)) navigate('collection');
+    $('settings-dialog').close();
+    render();
+  };
+  if (!confirmFirst) { run(); return; }
+  const joined = session.friend.joined;
+  confirmAction(joined ? 'Leave this room?' : 'Cancel this invitation?', joined
+    ? 'This browser loses the room with ' + friendName() + ', its chat and your saved games together. ' + friendName() + ' keeps their copy.'
+    : 'The code and link stop working for this browser.', joined ? 'Leave room' : 'Cancel invitation').then(ok => { if (ok) run(); });
+}
+$('leave-room').onclick = () => leaveRoom();
+$('cancel-room').onclick = () => leaveRoom();
+
+function confirmAction(title, copyText, label) {
+  const dialog = $('confirm-dialog');
+  $('confirm-title').textContent = title; $('confirm-copy').textContent = copyText; $('confirm-accept').textContent = label;
+  dialog.showModal();
+  return new Promise(resolve => {
+    const finish = value => { dialog.close(); $('confirm-accept').onclick = $('confirm-cancel').onclick = null; resolve(value); };
+    $('confirm-accept').onclick = () => finish(true);
+    $('confirm-cancel').onclick = () => finish(false);
+    dialog.oncancel = event => { event.preventDefault(); finish(false); };
+  });
+}
+
+// Entry points used by game pages ------------------------------------------------
+function openInvitation(game = session.game, metadata) {
+  if (session.inRoom && isRoomGame(game)) { openGameSetup(game, metadata); return; }
+  session.showPanel(session.inRoom ? 'play' : undefined);
+  if (!session.inRoom) ($('my-name').value ? $('invite-friend') : $('my-name')).focus();
+}
+function openJoin() {
+  session.showPanel();
+  if (!session.inRoom) $('join-input').focus();
+}
+function openGameSetup(game, metadata) {
+  if (!isRoomGame(game)) { session.showPanel('play'); return; }
+  if (!session.inRoom) { openInvitation(game); return; }
+  nextGame = game;
+  $('game-setup-title').textContent = 'Play ' + ROOM_GAMES[game] + ' with ' + (session.friend.name || 'your friend');
+  $('game-setup-copy').textContent = session.friend.joined
+    ? (session.friend.name || 'Your friend') + ' gets a request to join. The game is saved, so either of you can play later.'
+    : 'Your friend sees this game as soon as they join your room.';
+  $('game-setup-error').hidden = true;
+  let initial = metadata;
+  for (const candidate of [metadata, game === session.game && !session.asyncGame ? session.adapter?.setup?.() : undefined, lastSetup(game), defaultGameSetup(game)]) {
+    if (!candidate) continue;
+    try { initial = validateGameSetup(game, candidate); break; } catch { /* Try the next default. */ }
+  }
+  readNextSetup = renderGameSetup($('game-setup-fields'), game, initial);
+  $('game-setup-start').disabled = false;
   $('game-setup-dialog').showModal();
 }
-$('game-setup-start').onclick=async()=>{
-  try {const metadata=readNextSetup();if($('game-play-mode').value==='async'){await startTurnGame(nextGame,metadata);$('game-setup-dialog').close();}else{if(!session.connected)throw Error('Reconnect your friend before starting a live game.');$('game-setup-dialog').close();session.requestGame(nextGame,metadata);}}
-  catch(error){$('game-setup-error').textContent=error.message;$('game-setup-error').hidden=false;}
-};
-$('game-setup-cancel').onclick=()=>$('game-setup-dialog').close();
-function configureInvitation(game,metadata) {
-  $('room-play-mode').querySelector('[value=async]').disabled=!['cluance','flip-it'].includes(game);
-  if(!['cluance','flip-it'].includes(game))$('room-play-mode').value='live';
-  inviteGame=game;inviteDefaults=metadata||currentSetup(game);$('room-game').value=game;
-  readInviteSetup=renderGameSetup($('room-setup'),game,inviteDefaults);
-  const canResume=game===session.game&&Boolean(session.adapter?.canResume?.());
-  $('room-resume-row').hidden=!canResume;$('room-resume').checked=canResume;
-  $('room-setup').querySelectorAll('input,select').forEach(input=>input.disabled=canResume);configurePlayMode('room',game);
-}
-function openInvitation(game=session.game,metadata) {
-  if(session.screen?.active){session.showPanel();return;}
-  if(!session.connected&&session.resumeCredentials?.inviteLink&&!session.connecting){session.showPanel();$('room-title').textContent='Your room invitation';$('room-status').textContent='Share the code or link with one friend. Once joined, return in the same browser.';$('room-settings').hidden=$('room-create').hidden=$('room-join-form').hidden=true;$('room-output').hidden=$('room-copy').hidden=false;$('room-link').value=session.resumeCredentials.inviteLink;$('room-copy').disabled=false;$('room-dialog').showModal();offerRoomCode();return;}
-  if(session.connected||session.resumeCredentials&&!session.connecting){if(Object.hasOwn(SETUP_GAMES,game)&&game!=='collection')openGameSetup(game,metadata);else session.showPanel();return;}
-  session.showPanel();
-  $('room-title').textContent='Invite a friend';$('room-join-form').hidden=true;
-  $('room-copy').hidden=false;
-  const waiting=session.connecting&&session.friendInvitation;
-  $('room-settings').hidden=Boolean(waiting);
-  $('room-output').hidden=!waiting;$('room-create').hidden=waiting;
-  if(!waiting){
-    $('room-link').value='';$('room-copy').disabled=true;$('room-settings').disabled=false;
-    $('room-status').textContent='Choose a game, then share a room code or invitation link.';
-    configureInvitation(Object.hasOwn(SETUP_GAMES,game)?game:'collection',metadata);
-  }
-  $('room-dialog').showModal();if(waiting)offerRoomCode();
-}
-$('room-game').onchange=()=>configureInvitation($('room-game').value);
-$('room-resume').onchange=()=>{$('room-setup').querySelectorAll('input,select').forEach(input=>input.disabled=$('room-resume').checked);};
-$('invite-friend').onclick=()=>openInvitation();
-async function createRoom() {
-  const dialog=$('room-dialog');
-  const asyncMode=$('room-play-mode').value==='async';
-  const metadata=readInviteSetup(),resume=!$('room-resume-row').hidden&&$('room-resume').checked;
-  $('room-status').textContent='Creating an invitation…';session.roomBusy=true;$('room-create').disabled=true;$('room-settings').disabled=true;render();
+$('game-setup-start').onclick = async () => {
+  $('game-setup-start').disabled = true;
   try {
-    const room=await createHostedRoom('friends',1);
-    if(!dialog.open)return;
-    const credential=await claimRoomResume(room);
-    session.resumeCredentials={...credential,page:inviteGame,setup:metadata,shared:false,independent:asyncMode};session.isHost=true;attachRoomChat();persistRoom();
-    if(asyncMode){await startTurnGame(inviteGame,metadata);}else{
-      const config=await roomConfig(credential,{iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
-      await session.connectFriendRoom(credential,'host',config,{game:inviteGame,metadata,resume,restoring:true});
+    const setup = readNextSetup();
+    const record = await session.createGame(nextGame, setup);
+    rememberSetup(nextGame, setup);
+    $('game-setup-dialog').close();
+    await openRoomGame(record.id, record);
+    if (session.friend.joined) notifier.toast({key: 'sent-' + record.id, name: session.friend.name, title: 'Request sent to ' + friendName(), body: session.friend.online ? 'They’ll see it right away.' : 'They’ll see it when they’re back.', notify: false});
+  } catch (error) { $('game-setup-error').textContent = error.message; $('game-setup-error').hidden = false; }
+  finally { $('game-setup-start').disabled = false; }
+};
+$('game-setup-cancel').onclick = () => $('game-setup-dialog').close();
+
+// Shared cursors ----------------------------------------------------------------
+function inviteCursors(page) {
+  if (!session.friend.online || session.screen.busy || outgoingCursors) return;
+  const id = crypto.randomUUID();
+  if (!session.relay({kind: 'cursors-invite', id, page})) { showError('Reconnecting to your room. Try again in a moment.'); return; }
+  outgoingCursors = {id, page, timer: setTimeout(() => cancelCursors(true), 60000)};
+  notifier.request({key: 'cursors-out', name: session.friend.name, eyebrow: 'Waiting', title: 'Asking ' + friendName() + ' to share ' + gameTitle(page), body: 'You’ll both control the game with your own cursor.', sound: null,
+    actions: [{label: 'Cancel', run: () => cancelCursors(false)}]});
+  render();
+}
+function cancelCursors(expired) {
+  if (!outgoingCursors) return;
+  clearTimeout(outgoingCursors.timer);
+  session.relay({kind: 'cursors-cancel', id: outgoingCursors.id});
+  outgoingCursors = null; notifier.dismiss('cursors-out');
+  if (expired) notifier.toast({key: 'cursors', title: friendName() + ' didn’t answer', body: 'Try again when they’re back.', notify: false});
+  render();
+}
+async function startCursors({sharer, id, page}) {
+  session.useGame(null);
+  session.panel?.setOpen(false, false);
+  session.screen.start({sharer, id, page});
+  render();
+  try { await session.connectPeer(); }
+  catch (error) {
+    if (session.screen.id === id) { session.screen.stop(false); session.relay({kind: 'cursors-end', id}); }
+    showError(error.message);
+  }
+}
+function stopCursors() {
+  if (outgoingCursors) cancelCursors(false);
+  if (session.screen.busy) { session.relay({kind: 'cursors-end', id: session.screen.id}); session.screen.stop(); }
+  session.closePeer();
+}
+function handleRelay(data) {
+  const id = typeof data.id === 'string' && /^[a-f0-9-]{36}$/.test(data.id) ? data.id : null;
+  if (!id) return;
+  if (data.kind === 'cursors-invite' && isFriendPage(data.page)) {
+    if (session.screen.busy || outgoingCursors) { session.relay({kind: 'cursors-decline', id}); return; }
+    notifier.request({key: 'cursors', name: session.friend.name, eyebrow: 'Shared cursors', title: friendName() + ' wants to play ' + gameTitle(data.page) + ' with you',
+      body: 'You’ll see their screen and both control the game with your own cursor.',
+      actions: [
+        {label: 'Join', primary: true, run: () => { session.relay({kind: 'cursors-accept', id}); startCursors({sharer: false, id}); }},
+        {label: 'Not now', run: () => session.relay({kind: 'cursors-decline', id})},
+      ]});
+  } else if (data.kind === 'cursors-accept' && outgoingCursors?.id === id) {
+    clearTimeout(outgoingCursors.timer);
+    const {page} = outgoingCursors; outgoingCursors = null; notifier.dismiss('cursors-out');
+    startCursors({sharer: true, id, page});
+  } else if (data.kind === 'cursors-decline' && outgoingCursors?.id === id) {
+    clearTimeout(outgoingCursors.timer); outgoingCursors = null; notifier.dismiss('cursors-out');
+    notifier.toast({key: 'cursors', name: session.friend.name, title: friendName() + ' can’t share right now', notify: false});
+  } else if (data.kind === 'cursors-cancel') notifier.dismiss('cursors');
+  else if (data.kind === 'cursors-end' && session.screen.id === id) {
+    session.screen.stop(false);
+    notifier.toast({key: 'cursors', name: session.friend.name, title: friendName() + ' stopped sharing', notify: false});
+  }
+  render();
+}
+
+// Notifications -------------------------------------------------------------------
+function gameRequest(record) {
+  if (record.finished || seen.has(record.id) || record.creator === session.role || notifier.has('game-' + record.id)) return;
+  let summary = '';
+  try { summary = setupSummary(record.game, record.setup, session.isHost); } catch { /* Older setup. */ }
+  notifier.request({key: 'game-' + record.id, name: session.friend.name, eyebrow: 'Game request', title: friendName() + ' wants to play ' + gameTitle(record.game), body: summary,
+    actions: [
+      {label: 'Play now', primary: true, run: () => openRoomGame(record.id)},
+      {label: 'Later', run: () => { markSeen(record.id); notifier.toast({key: 'later', title: 'Saved in Games', body: 'Open it from Play together whenever you’re ready.', notify: false}); render(); }},
+    ]});
+}
+function handleGame({record, cause, mine}) {
+  if (mine) return;
+  const viewing = session.asyncGame?.record.id === record.id, title = gameTitle(record.game), name = friendName();
+  if (cause.kind === 'created') { gameRequest(record); return; }
+  if (cause.kind === 'abandoned') {
+    notifier.dismiss('game-' + record.id);
+    notifier.toast({key: 'game-' + record.id, name: session.friend.name, title: name + ' ended ' + title, body: 'It stays in your finished games.', sound: 'message'});
+    return;
+  }
+  if (cause.by === 'bot' && viewing) return;
+  if (record.finished) {
+    notifier.toast({key: 'turn-' + record.id, name: session.friend.name, title: title + ' is over', body: viewing ? 'See the final table.' : name + ' made the last move.', sound: 'turn',
+      action: viewing ? null : {label: 'View', run: () => openRoomGame(record.id)}});
+  } else if (record.myTurn) {
+    // At the table already: the game shows the move; a chime is enough.
+    if (viewing && !document.hidden) { notifier.chime('turn'); return; }
+    const text = cause.kind === 'ready' ? name + ' is ready for the next round.' : cause.kind === 'ai' ? 'An AI player moved.' : cause.kind === 'bot' ? 'A bot moved.'
+      : record.game === 'midnight' && record.phase !== 'reveal' ? name + ' made a choice.' : name + ' played.';
+    notifier.toast({key: 'turn-' + record.id, name: session.friend.name, title: viewing ? 'Your turn' : 'Your turn in ' + title, body: text, sound: 'turn',
+      action: viewing ? null : {label: 'Open', run: () => openRoomGame(record.id)}});
+  }
+}
+function handleEvent(event) {
+  const name = friendName();
+  if (event.kind === 'welcome') {
+    if (!welcomed) {
+      welcomed = true;
+      const mine = loadPlayerName();
+      if (!session.me.name && mine) session.saveName(mine).catch(() => {});
+      for (const record of session.games) gameRequest(record);
     }
-    $('room-link').value=hostedLink({...room,key:room.guestKey})+(asyncMode?'&turn='+session.asyncGame.record.id:'');session.resumeCredentials.inviteLink=$('room-link').value;persistRoom();$('room-copy').disabled=false;$('room-output').hidden=false;$('room-create').hidden=true;$('room-settings').hidden=true;
-    $('room-title').textContent=FRIEND_PAGES[inviteGame]+' · '+(asyncMode?'Take turns':'Play live');
-    $('room-status').textContent=setupSummary(inviteGame,metadata).replace(/\.$/,'')+'. Share the code or link with one friend. Your room and saved games stay available for 90 days after your last visit.';
-    await offerRoomCode();
-  }catch(error){$('room-status').textContent=error.message;$('room-settings').disabled=false;}
-  finally{session.roomBusy=false;$('room-create').disabled=false;render();}
+    if (session.isHost && !session.friend.joined) offerRoomCode();
+  } else if (event.kind === 'friend-joined') {
+    selectTab('play');
+    notifier.toast({key: 'joined', name: session.friend.name, title: name + ' joined your room', body: 'Pick a game to play together.', sound: 'join', action: {label: 'Choose a game', run: () => session.showPanel('play')}});
+  } else if (event.kind === 'friend-online') {
+    if (notifier.recent?.('joined')) return;
+    notifier.toast({key: 'presence', name: session.friend.name, title: name + ' is online', notify: false, timeout: 3500});
+  } else if (event.kind === 'friend-moved') {
+    const mine = session.asyncGame?.record.id;
+    if (mine && session.friend.game === mine && event.previous.game !== mine) notifier.toast({key: 'presence', name: session.friend.name, title: name + ' joined the game', notify: false, timeout: 3500});
+  } else if (event.kind === 'chat') {
+    if (!$('friend-chat').hidden && !$('friend-header').hidden && !document.hidden) return;
+    const entry = event.entry;
+    notifier.toast({key: 'chat', name: session.friend.name, title: name, body: entry.value, sound: 'message', action: {label: 'Reply', run: () => session.openChat()}});
+  } else if (event.kind === 'game') handleGame(event);
+  else if (event.kind === 'relay') handleRelay(event.data);
+  else if (event.kind === 'rejected') showError('This room has expired. Open Play together → Settings → Leave room, then invite your friend again.');
 }
-$('room-create').onclick=()=>createRoom().catch(error=>{$('room-status').textContent=error.message;});
-async function offerRoomCode() {
-  const credential=session.resumeCredentials;
-  if(!credential || credential.role!=='host')return;
-  $('room-code').value='';$('room-code').placeholder='Generating…';$('room-code-copy').disabled=true;$('room-code-copy').textContent='Copy code';$('room-code-refresh').hidden=true;
-  $('room-code-status').textContent='Generating your room code…';
-  try {
-    const turn=credential.inviteLink?new URLSearchParams(new URL(credential.inviteLink).hash.slice(1)).get('turn'):null;
-    const code=await createRoomCode(credential,turn);
-    if(session.resumeCredentials?.room!==credential.room)return;
-    session.resumeCredentials.inviteCode=code;persistRoom();$('room-code').value=code.code;
-    $('room-code-copy').disabled=false;$('room-code-status').textContent='Expires '+new Date(code.expiresAt).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})+' · admits one friend.';
-  }catch(error){
-    $('room-code').placeholder='Code unavailable';$('room-code-status').textContent=error.message;$('room-code-refresh').hidden=error.status===410;
+
+// Panel ------------------------------------------------------------------------------
+function selectTab(next) {
+  tab = next;
+  for (const [name, panel] of [['play', 'panel-play'], ['games', 'panel-games'], ['chat', 'friend-chat']]) {
+    const button = $('tab-' + name), active = name === tab;
+    button.setAttribute('aria-selected', String(active)); button.tabIndex = active ? 0 : -1;
+    $(panel).hidden = !active;
   }
+  if (tab === 'chat') session.onChatVisibility?.(true);
+  render();
 }
-$('room-code-refresh').onclick=offerRoomCode;
-$('room-code-copy').onclick=async()=>{
-  try {await navigator.clipboard.writeText($('room-code').value);$('room-code-copy').textContent='Copied';}
-  catch {$('room-code').focus();$('room-code').select();$('room-code-status').textContent='Select and copy the room code.';}
-};
-function openJoin() {
-  if(session.connected){session.showPanel();return;}
-  session.showPanel();$('room-title').textContent='Join a friend';
-  $('room-status').textContent='Enter your friend’s room code or paste their invitation link.';
-  $('room-settings').hidden=$('room-create').hidden=$('room-output').hidden=$('room-copy').hidden=true;
-  $('room-join-form').hidden=false;$('room-dialog').showModal();$('room-input').focus();
-}
-$('join-friend').onclick=openJoin;
-async function joinRoom(input) {
-  let room,turn;
-  if(normalizeRoomCode(input)) {room=await resolveRoomCode(input);turn=room.turn;}
-  else {
-    room=hostedInvitation(input,'friends');
-    if(!room)throw new Error('Enter the eight-character room code or paste a complete invitation link.');
-    turn=new URLSearchParams(new URL(input,location.href).hash.slice(1)).get('turn');
-  }
-  const existing=readFriendRoom();
-  const details=existing?.room===room.room?existing:await roomDetails(room,1);
-  const credential=await claimRoomResume(details);session.resumeCredentials={...credential,page:'collection',setup:{},shared:false,independent:Boolean(turn)};session.isHost=credential.role==='host';attachRoomChat();persistRoom();
-  if(turn){session.independent=true;await openTurnGame(turn);await refreshInbox();$('room-dialog').close();}
-  else{const config=await roomConfig(credential,{iceServers:[{urls:'stun:stun.l.google.com:19302'}]});await session.connectFriendRoom(credential,credential.role,config,{game:'collection',restoring:true});}
-}
-$('room-join-form').onsubmit=async event=>{
-  event.preventDefault();$('room-join').disabled=true;$('room-status').textContent='Connecting to your friend…';
-  try{await joinRoom($('room-input').value);}catch(error){$('room-status').textContent=error.message;}
-  finally{$('room-join').disabled=false;}
-};
-$('room-copy').onclick=async()=>{
-  try{await navigator.clipboard.writeText($('room-link').value);$('room-copy').textContent='Copied';}
-  catch{$('room-link-details').open=true;$('room-link').select();$('room-status').textContent='Select and copy the invitation link.';}
-};
-$('room-close').onclick=()=>$('room-dialog').close();
-$('accept-switch').onclick=()=>{if(dialog.dataset.kind==='leave'){manualOffline=true;clearTimeout(reconnectTimer);reconnectTimer=null;frame.contentWindow?.__gameCheckpoint?.save();if(session.screen?.active){session.sharedResume=true;session.screen.suspend();}session.disconnect();persistRoom();dialog.close();}else session.accept();};
-$('decline-switch').onclick=()=>{if(dialog.dataset.kind==='leave')dialog.close();else if(session.proposal?.outgoing)session.cancel();else session.decline();};
-dialog.addEventListener('cancel',event=>{
-  if(dialog.dataset.kind!=='switch')return;event.preventDefault();
-  if(session.proposal?.accepted||session.proposal?.cancelled)return;
-  if(session.proposal?.outgoing)session.cancel();else session.decline();
+for (const name of ['play', 'games', 'chat']) $('tab-' + name).onclick = () => selectTab(name);
+$('view-room').querySelector('[role=tablist]').addEventListener('keydown', event => {
+  const order = ['play', 'games', 'chat'], index = order.indexOf(tab);
+  const next = {ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: order.length - 1}[event.key];
+  if (next === undefined) return;
+  event.preventDefault(); selectTab(order[(next + order.length) % order.length]); $('tab-' + tab).focus();
 });
-$('disconnect').onclick=()=>{
-  dialog.dataset.kind='leave';$('dialog-title').textContent='Go offline?';$('dialog-copy').textContent='Your room, chat and saved games stay available. Reconnect whenever you want to play live again.';
-  $('accept-switch').textContent='Go offline';$('accept-switch').hidden=false;$('accept-switch').disabled=false;
-  $('decline-switch').textContent='Stay together';$('decline-switch').disabled=false;dialog.showModal();
+
+function statusText() {
+  const friend = session.friend;
+  if (session.status === 'rejected') return 'Room unavailable';
+  if (session.status !== 'open') return 'Connecting…';
+  if (!friend.online) return 'Offline · they’ll see your moves later';
+  const where = friend.game && friend.game === session.asyncGame?.record.id ? 'In this game with you'
+    : friend.page && friend.page !== 'collection' ? 'In ' + gameTitle(friend.page) : 'Browsing games';
+  return (friend.visible ? 'Online · ' : 'Away · ') + where;
+}
+function renderPlay() {
+  const list = $('play-list'), joined = session.friend.joined, signature = JSON.stringify([joined, session.friend.name]);
+  if (list.dataset.signature !== signature) {
+    list.dataset.signature = signature; list.replaceChildren();
+    for (const [game, title] of Object.entries(ROOM_GAMES)) {
+      const button = document.createElement('button'), text = document.createElement('span'), heading = document.createElement('strong'), about = document.createElement('small');
+      button.type = 'button'; button.className = 'play-item'; button.dataset.game = game;
+      heading.textContent = title; about.textContent = ABOUT[game]; text.append(heading, about);
+      const arrow = document.createElement('span'); arrow.className = 'play-arrow'; arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '→';
+      button.append(text, arrow); button.onclick = () => openGameSetup(game);
+      list.append(button);
+    }
+  }
+  const pages = [...new Set([...(SHAREABLE.includes(session.game) || isRoomGame(session.game) || session.game === 'collection' ? [] : [session.game]), ...SHAREABLE])];
+  const online = session.friend.online && session.status === 'open', shareList = $('share-list'), shareSignature = JSON.stringify([pages, online, session.screen.busy, Boolean(outgoingCursors)]);
+  if (shareList.dataset.signature !== shareSignature) {
+    shareList.dataset.signature = shareSignature; shareList.replaceChildren();
+    for (const page of pages) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.textContent = gameTitle(page); button.dataset.page = page;
+      button.disabled = !online || session.screen.busy || Boolean(outgoingCursors);
+      button.onclick = () => inviteCursors(page);
+      shareList.append(button);
+    }
+  }
+  $('share-note').textContent = online ? 'Play a solo game on one screen. You both control it with your own cursor.' : 'Available when ' + (session.friend.name || 'your friend') + ' is online.';
+}
+function gameRow(record) {
+  const row = document.createElement('div'), open = document.createElement('button'), title = document.createElement('strong'), detail = document.createElement('small');
+  row.className = 'game-row' + (record.myTurn ? ' your-turn' : '') + (record.finished ? ' finished' : '') + (session.asyncGame?.record.id === record.id ? ' current' : '');
+  open.type = 'button'; open.className = 'game-open';
+  title.textContent = gameTitle(record.game);
+  const state = record.abandoned ? 'Ended by ' + (record.abandoned === session.role ? 'you' : session.friend.name || 'your friend')
+    : record.finished ? 'Finished' : record.myTurn ? 'Your turn' : (session.friend.name || 'Friend') + '’s turn';
+  detail.textContent = state + (record.game === 'flip-it' && !record.finished ? ' · Round ' + (record.round + 1) : '');
+  open.append(title, detail);
+  open.onclick = () => openRoomGame(record.id);
+  row.append(open);
+  if (!record.finished) {
+    const end = document.createElement('button');
+    end.type = 'button'; end.className = 'game-end'; end.textContent = 'End'; end.setAttribute('aria-label', 'End ' + gameTitle(record.game));
+    end.onclick = async () => {
+      if (!await confirmAction('End this game?', 'It moves to finished games for both of you.', 'End game')) return;
+      try {
+        if (session.asyncGame?.record.id === record.id) await session.asyncGame.end();
+        else await import('../../shared/turn-client.js').then(({roomRequest}) => roomRequest(session.credential, 'turns/' + record.id, {method: 'DELETE'}));
+      } catch (error) { showError(error.message); }
+    };
+    row.append(end);
+  }
+  return row;
+}
+function renderGames() {
+  const list = $('turn-games-list'), games = session.games;
+  const signature = JSON.stringify([games, session.friend.name, session.asyncGame?.record.id]);
+  if (list.dataset.signature !== signature) {
+    list.dataset.signature = signature; list.replaceChildren();
+    const groups = [['Your turn', games.filter(g => g.myTurn)], ['Waiting for ' + (session.friend.name || 'your friend'), games.filter(g => !g.myTurn && !g.finished)], ['Finished', games.filter(g => g.finished).slice(0, 12)]];
+    for (const [label, items] of groups) {
+      if (!items.length) continue;
+      const heading = document.createElement('h3'); heading.textContent = label; list.append(heading);
+      for (const record of items.sort((a, b) => b.updatedAt - a.updatedAt)) list.append(gameRow(record));
+    }
+    if (!games.length) { const empty = document.createElement('p'); empty.className = 'setup-note'; empty.textContent = 'No games yet. Start one from Play.'; list.append(empty); }
+  }
+}
+// Solo progress saved in this browser, listed with or without a room.
+function renderSaves() {
+  const checkpoints = Object.keys(FRIEND_PAGES).map(game => readCheckpoint(game)).filter(Boolean);
+  const signature = JSON.stringify(checkpoints.map(c => [c.game, Math.floor(c.updatedAt / 60000)]));
+  for (const [list, details] of [['saved-games-list', 'saved-games'], ['start-saves-list', 'start-saves']]) {
+    const saves = $(list);
+    if (saves.dataset.signature === signature) continue;
+    saves.dataset.signature = signature; saves.replaceChildren();
+    for (const checkpoint of checkpoints) {
+      const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Resume ' + FRIEND_PAGES[checkpoint.game];
+      button.onclick = () => resumeSavedGame(checkpoint); saves.append(button);
+    }
+    $(details).hidden = !checkpoints.length;
+  }
+}
+function renderInvite() {
+  const credential = session.credential, code = credential?.inviteCode;
+  const current = code && code.expiresAt > Date.now();
+  $('room-code').textContent = current ? code.code : '····-····';
+  $('room-code-copy').disabled = !current; $('room-code-copy').textContent = 'Copy code';
+  $('room-copy').disabled = $('invite-share').disabled = !credential?.inviteLink;
+  $('room-copy').textContent = 'Copy link'; $('invite-share').textContent = navigator.share ? 'Share link' : 'Copy invitation';
+  if (current && !$('room-code-status').textContent) $('room-code-status').textContent = 'Expires ' + new Date(code.expiresAt).toLocaleString(undefined, {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'});
+}
+function setLauncher(pending) {
+  const launcher = $('show-friend-panel'), joined = session.inRoom && session.friend.joined;
+  const avatar = launcher.querySelector('.avatar'), dot = launcher.querySelector('.presence-dot');
+  avatar.hidden = !joined; launcher.querySelector('svg').style.display = joined ? 'none' : '';
+  avatar.textContent = (session.friend.name || '?').charAt(0).toUpperCase() || '?';
+  dot.hidden = !joined; dot.classList.toggle('online', session.friend.online && session.status === 'open'); dot.classList.toggle('away', session.friend.online && !session.friend.visible);
+  launcher.querySelector('.launcher-label').textContent = joined ? (session.friend.name || 'Friend') : session.inRoom ? 'Invite' : 'Friends';
+  session.panel?.badge(pending, pending === 1 ? 'thing needs you' : 'things need you');
+  launcher.classList.toggle('attention', pending > 0);
+}
+function render() {
+  const inRoom = session.inRoom, waiting = inRoom && session.isHost && !session.friend.joined;
+  $('view-start').hidden = inRoom; $('view-invite').hidden = !waiting; $('view-room').hidden = !inRoom || waiting;
+  $('open-settings').hidden = !inRoom;
+  $('invite-friend').disabled = roomBusy;
+  if (!inRoom && !$('my-name').value && document.activeElement !== $('my-name')) $('my-name').value = loadPlayerName();
+  if (waiting) renderInvite();
+  const name = session.friend.name || 'Your friend';
+  $('friend-name').textContent = name;
+  $('friend-avatar').textContent = name.charAt(0).toUpperCase();
+  $('friend-avatar').classList.toggle('online', session.friend.online && session.status === 'open');
+  $('friend-status').textContent = statusText();
+  renderChat(); renderScreen();
+  if (inRoom && !waiting) { renderPlay(); renderGames(); }
+  renderSaves();
+  const turns = session.games.filter(g => g.myTurn).length, unread = session.unread || 0;
+  for (const [id, count] of [['tab-games', turns], ['tab-chat', unread]]) {
+    const badge = $(id).querySelector('.tab-badge'); badge.textContent = count; badge.hidden = !count;
+  }
+  setLauncher(inRoom ? turns + unread : 0);
+  for (const listener of session.listeners) { try { listener(); } catch { /* A closing page. */ } }
+  persist();
+  if (pendingAction) { const action = pendingAction; pendingAction = null; queueMicrotask(() => action === 'join' ? openJoin() : openInvitation(session.game)); }
+}
+
+// Settings ------------------------------------------------------------------------------
+$('open-settings').onclick = () => {
+  $('settings-name').value = session.me.name || loadPlayerName();
+  const prefs = notifier.prefs;
+  $('setting-sound').checked = prefs.sound;
+  $('setting-system').checked = prefs.system && notifier.systemAvailable && Notification.permission === 'granted';
+  $('setting-system').disabled = !notifier.systemAvailable;
+  $('settings-status').textContent = '';
+  $('show-invitation').hidden = !(session.isHost && !session.friend.joined);
+  $('settings-dialog').showModal();
 };
-$('collection-link').onclick=event=>{event.preventDefault();navigate('collection');};
-window.addEventListener('pagehide',()=>{clearTimeout(reconnectTimer);frame.contentWindow?.__gameCheckpoint?.save();persistRoom();leaving=true;if(session.screen?.active){session.sharedResume=true;session.screen.suspend();}session.disconnect();});
-loadGame(initialGame);render();if(savedRoom&&!invitation)$('chat-input').value=savedRoom.draft||'';
-if(invitation){
-  try {await joinRoom(location.origin+'/'+invitation);}
-  catch(error){showError(error.message);}
-}
+$('name-form').onsubmit = async event => {
+  event.preventDefault();
+  try { const name = chosenName($('settings-name')); await session.saveName(name); $('settings-status').textContent = 'Saved. ' + (session.friend.name || 'Your friend') + ' now sees you as ' + name + '.'; }
+  catch (error) { $('settings-status').textContent = error.message; }
+};
+$('setting-sound').onchange = () => { notifier.setPref('sound', $('setting-sound').checked); if ($('setting-sound').checked) notifier.chime('turn'); };
+$('setting-system').onchange = async () => {
+  try { await notifier.setPref('system', $('setting-system').checked); $('settings-status').textContent = $('setting-system').checked ? 'You’ll be notified while this tab is in the background.' : ''; }
+  catch (error) { $('setting-system').checked = false; $('settings-status').textContent = error.message; }
+};
+$('show-invitation').onclick = () => { $('settings-dialog').close(); session.showPanel(); };
+$('settings-close').onclick = () => $('settings-dialog').close();
 
-function persistRoom() {
-  if(!session.resumeCredentials||leaving)return;
-  const old=session.resumeCredentials;
-  let setup=old.setup||{};
-  if(session.supports(session.game)&&session.adapter?.setup&&!session.loading){try{setup=currentSetup(session.game);}catch{}}
-  session.resumeCredentials={...old,page:session.game,setup,shared:Boolean(session.screen?.active||session.sharedResume),manualOffline,independent:Boolean(session.independent),asyncId:session.asyncGame?.record.id||null,chat:session.chat.snapshot(),draft:$('chat-input').value};
-  saveFriendRoom(session.resumeCredentials);
+// Start ----------------------------------------------------------------------------------
+window.addEventListener('pagehide', () => { frame.contentWindow?.__gameCheckpoint?.save(); persist(); leaving = true; stopCursors(); session.link?.close(); });
+setInterval(() => { if (!document.hidden) { renderGames(); renderSaves(); } }, 30000);
+// Reloading a solo game resumes its browser checkpoint; room games come from the room.
+const reopening = saved && !invitation && saved.asyncId && isRoomGame(initialGame);
+session.resumeGame = !reopening && initialGame !== 'collection' && Boolean(readCheckpoint(initialGame));
+loadGame(initialGame);
+if (saved && !invitation) {
+  session.chat.restore(saved.chat);
+  adopt({game: 'friends', room: saved.room, key: saved.key, role: saved.role, expiresAt: saved.expiresAt, inviteLink: saved.inviteLink, inviteCode: saved.inviteCode});
+  $('chat-input').value = saved.draft || '';
+  if (reopening) openRoomGame(saved.asyncId);
 }
-$('chat-input').addEventListener('input',persistRoom);
-function renderSavedGames() {
-  const checkpoints=Object.keys(FRIEND_PAGES).map(game=>readCheckpoint(game)).filter(Boolean);
-  const signature=JSON.stringify(checkpoints.map(c=>[c.game,Math.floor(c.updatedAt/60000)]))+Boolean(session.connected);
-  const list=$('saved-games-list');if(list.dataset.signature===signature)return;list.dataset.signature=signature;list.replaceChildren();
-  if(!checkpoints.length){const empty=document.createElement('p');empty.className='setup-note';empty.textContent='Your games are saved here as you play.';list.append(empty);return;}
-  for(const checkpoint of checkpoints){
-    const button=document.createElement('button');button.type='button';button.textContent='Resume '+FRIEND_PAGES[checkpoint.game];
-    button.onclick=()=>resumeSavedGame(checkpoint);list.append(button);
-  }
+selectTab('play');
+render();
+if (invitation) {
+  session.showPanel();
+  const name = loadPlayerName();
+  if (name) joinRoom(location.origin + '/' + invitation).catch(error => { $('start-status').textContent = error.message; });
+  else { $('join-input').value = location.origin + '/' + invitation; $('start-status').textContent = 'Enter your name, then join your friend.'; $('my-name').focus(); }
 }
-function resumeSavedGame(checkpoint) {
-  const {game,data}=checkpoint;
-  if(session.connected){
-    if(session.independent){session.asyncGame=null;session.game=game;session.adapter=null;session.resumeGame=session.resumeSharedPage=true;loadGame(game);render();}
-    else if(session.screen?.active){session.resumeSharedPage=true;session.screen.navigate(game);}
-    else if(session.supports(game)&&data.setup){session.requestGame(game,data.setup,true);}
-    else session.screen.request(game,true);
-  }else{
-    session.disconnect();session.game=game;session.adapter=null;session.resumeGame=session.resumeSharedPage=true;loadGame(game);render();
-  }
-}
-async function reconnectRoom() {
-  if(resumeBusy||session.connected||leaving||!session.resumeCredentials)return;
-  clearTimeout(reconnectTimer);reconnectTimer=null;resumeBusy=true;render();
-  try {
-    frame.contentWindow?.__gameCheckpoint?.save();
-    const saved=session.resumeCredentials,credential=await claimRoomResume(saved);
-    session.resumeCredentials={...saved,...credential};persistRoom();
-    const config=await roomConfig(credential,{iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
-    await session.connectFriendRoom(credential,credential.role,config,{game:saved.page,metadata:saved.setup||{},resume:true,shared:saved.shared,restoring:true,independent:saved.independent});
-    reconnectAttempt=0;
-  }catch(error){showError('Your progress is saved. '+error.message);}
-  finally{resumeBusy=false;render();}
-}
-function scheduleReconnect() {
-  if(manualOffline||leaving||resumeBusy||reconnectTimer||!session.resumeCredentials||session.independent)return;
-  const delay=[1000,3000,8000,15000][Math.min(reconnectAttempt++,3)];
-  reconnectTimer=setTimeout(()=>{reconnectTimer=null;reconnectRoom();},delay);render();
-}
-session.onReconnect=scheduleReconnect;
-$('reconnect-friend').onclick=()=>{manualOffline=false;reconnectRoom();};
-window.addEventListener('online',scheduleReconnect);
-setInterval(()=>{persistRoom();renderSavedGames();},5000);
-if(savedRoom&&!invitation){attachRoomChat();if(savedRoom.independent){if(savedRoom.asyncId)openTurnGame(savedRoom.asyncId).catch(error=>showError(error.message));refreshInbox();}else if(!manualOffline)reconnectRoom();}
-
-function attachRoomChat(){
-  if(!session.chat.persistent){const history=session.chat.snapshot();session.chat=new RoomChat(session);session.chat.restore(history);}
-  session.chat.refresh().catch(error=>showError(error.message));
-}
-async function startTurnGame(game,setup){
-  if(!session.resumeCredentials)throw Error('Invite a friend first.');
-  const record=await roomRequest(session.resumeCredentials,'turns',{method:'POST',body:{game,setup}});
-  await openTurnGame(record.id,record);session.send({type:'friend-turns-updated'});refreshInbox();
-}
-async function openTurnGame(id,initial){
-  const record=initial||await roomRequest(session.resumeCredentials,'turns/'+id);
-  frame.contentWindow?.__gameCheckpoint?.save();session.link?.close(true);session.link=null;
-  if(session.screen?.active)session.screen.stop();
-  session.asyncGame=new TurnClient(session,record);session.independent=true;session.game=record.game;session.adapter=null;session.resumeGame=session.resumeSharedPage=false;session.loading=false;
-  loadGame(record.game);render();
-}
-async function refreshInbox(){
-  if(inboxBusy||!session.resumeCredentials||leaving)return;inboxBusy=true;
-  try{const data=await roomRequest(session.resumeCredentials,'turns');inbox=data.games;inboxError='';if(session.asyncGame)await session.asyncGame.refresh();}
-  catch(error){inboxError=error.message;}finally{inboxBusy=false;renderInbox();}
-}
-function renderInbox(){
-  $('turn-inbox').hidden=!session.resumeCredentials;
-  $('new-turn-game').disabled=session.loading||Boolean(session.proposal);
-  const list=$('turn-games-list'),signature=JSON.stringify(inbox);
-  if(list.dataset.signature!==signature){list.dataset.signature=signature;list.replaceChildren();
-    for(const item of inbox){const button=document.createElement('button');button.type='button';button.textContent=FRIEND_PAGES[item.game]+' · '+(item.finished?'Finished':item.myTurn?'Your turn':'Waiting for friend')+' · Round '+(item.round+1);button.classList.toggle('your-turn',item.myTurn);button.onclick=()=>openTurnGame(item.id).catch(error=>showError(error.message));list.append(button);}
-  }
-  $('turn-status').textContent=inboxError||(!inbox.length?'Choose Cluance or Flip It and invite your friend to take turns.':'Moves save automatically. You can leave anytime.');
-  const pending=inbox.filter(item=>item.myTurn).length;
-  session.setFriendBadge?.(pending);
-}
-session.refreshInbox=refreshInbox;
-setInterval(()=>{if(!document.hidden&&session.resumeCredentials){refreshInbox();session.chat.refresh?.().catch(error=>{$('chat-status').textContent=error.message;});}},10000);
-window.addEventListener('focus',refreshInbox);
-$('room-play-mode').onchange=()=>configurePlayMode('room',inviteGame);
-$('game-play-mode').onchange=()=>configurePlayMode('game',nextGame);
-function configurePlayMode(scope,game){
-  const asyncMode=$(scope+'-play-mode').value==='async',container=$(scope==='room'?'room-setup':'game-setup-fields');
-  if(scope==='room'&&asyncMode){$('room-resume').checked=false;container.querySelectorAll('input,select').forEach(input=>input.disabled=false);}
-  if(game==='flip-it'){
-    const team=container.querySelector('[id$="-team"]'),count=container.querySelector('[id$="-count"]');
-    if(asyncMode){team.checked=false;count.value='0';count.dispatchEvent(new Event('change'));}
-    team.disabled=count.disabled=asyncMode||scope==='room'&&$('room-resume').checked;
-  }
-}
-$('new-turn-game').onclick=()=>{const game=['cluance','flip-it'].includes(session.game)?session.game:'flip-it';openGameSetup(game);$('game-play-mode').value='async';configurePlayMode('game',game);};

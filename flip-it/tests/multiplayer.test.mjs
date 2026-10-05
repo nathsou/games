@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createMatch,applyAction,playerView,legalActions,assertState,makeDeck,valueOf} from '../src/rules.js';
-import {validateView,FlipSession} from '../src/session.js';
+import {validateView} from '../src/session.js';
 import {botAction} from '../src/bot.js';
 import {describeTurn} from '../src/ai.js';
 test('2–5 seats conserve cards and hide every other hand through all option combinations',()=>{
@@ -39,16 +39,8 @@ test('a counter from a later seat closes the pending window and returns public r
   state=applyAction(state,2,{kind:'play',lane:0,cards:state.hands[2].filter(c=>valueOf(c)===5).map(c=>c.id)});
   assert.equal(state.pending,null);assert.equal(state.hands[0].length,2);assertState(state);
 });
-test('mixed online tables send only public controller types and the guest hand',()=>{
-  let host,guest;const errors=[];
-  host=new FlipSession({aiPlayers:['model','dealer','model'],onError:e=>errors.push(e.message)});guest=new FlipSession({seat:1,onError:e=>errors.push(e.message)});
-  host.setPeer({connected:true,send:m=>guest.receive(structuredClone(m))});guest.setPeer({connected:true,send:m=>host.receive(structuredClone(m))});guest.opened();
-  let seed=1;while(createMatch({},seed,0,5).turn!==0)seed++;host.start({},seed);
-  assert.equal(guest.view.hands.length,5);assert.equal(guest.controllers.length,5);
-  assert(guest.view.hands.filter((_,p)=>p!==1).flat().every(c=>c.hidden));
-  host.choose(botAction(host.view,0));guest.choose(botAction(guest.view,1));
-  for(let seat=2;seat<5;seat++)host.botMove(seat,botAction(playerView(host.state,seat),seat));
-  assert.equal(host.state.turn,0);assert.equal(host.state.revision,5);assert.deepEqual(errors,[]);
-  assert.equal(JSON.stringify(guest.view).includes('keys'),false);
-  const bad=structuredClone(guest.view);bad.repliesRemaining=2;assert.throws(()=>validateView(bad,1));
+test('room AI seats describe the same choices from their delivered private view',()=>{
+  const state=createMatch({},9,0,3),seat=state.turn,view=playerView(state,seat);
+  assert.deepEqual(describeTurn(view,seat).candidates,describeTurn(state,seat).candidates);
+  assert(describeTurn(view,seat).observation.hands.filter((_,p)=>p!==seat).flat().every(card=>card.hidden));
 });

@@ -15,70 +15,40 @@ export class SharedPlay {
     Object.assign(this, {session, frame, onChange, onGeometry, onCursor});
     this.input = new ScreenInput(frame);
     this.phase = 'off';
+    this.sharer = false;
   }
   get active() { return ['connecting', 'sharing', 'viewing'].includes(this.phase); }
   get busy() { return this.phase !== 'off'; }
   send(type, data = {}) { this.session.send({type: 'friend-screen-' + type, id: this.id, ...data}); }
   changed() { this.onChange(); }
-  async request(page = this.session.game, resume = false) {
-    if (!this.session.connected || this.busy || this.session.loading || this.session.proposal) return;
-    this.id = id();
-    this.targetPage=isFriendPage(page)?page:this.session.game;
-    this.resumePage=resume;
-    this.phase = this.session.isHost ? 'confirm' : 'waiting';
-    if (!this.session.isHost) this.send('ask', {version: 2,page:this.targetPage,resume});
-    this.deadline(); this.changed();
-  }
-  async accept() {
-    if (['asked', 'confirm'].includes(this.phase) && this.session.isHost) {
-      this.phase = 'offering'; this.send('request', {version: 2,page:this.targetPage,resume:this.resumePage}); this.deadline(); this.changed();
-    } else if (this.phase === 'requested' && !this.session.isHost) {
-      this.activate(); this.send('accept', {version: 2}); this.changed();
+  // The invitation travels through the room; this starts once the direct
+  // connection is open. The sharer runs the game; the viewer renders it.
+  start({sharer, id, page}) {
+    this.stop(false);
+    Object.assign(this, {sharer: Boolean(sharer), id, phase: 'connecting'});
+    this.deadline();
+    if (this.sharer) {
+      this.pageEpoch = crypto.randomUUID();
+      this.pageReady = false;
+      this.session.resumeSharedPage = true;
+      this.session.game = isFriendPage(page) ? page : this.session.game;
+      this.session.onSwitch(this.session.game);
+      this.geometry();
+      this.ticker = setInterval(() => this.publish(), 50);
     }
+    this.changed();
   }
   deadline() {
     clearTimeout(this.timer);
     this.timer = setTimeout(() => {
-      this.stop(); this.session.onError('Shared play timed out. Your friend room stays connected.');
+      this.stop(); this.session.onError('Shared cursors could not start. Try again when your friend is online.');
     }, 30000);
-  }
-  activate() {
-    this.phase = 'connecting';
-    this.session.clearProposal();
-    const multiplayer = Boolean(this.session.link);
-    this.session.pause(false);
-    this.session.link?.close(true);
-    this.session.link = null;
-    this.deadline();
-    if (this.session.isHost) {
-      this.pageEpoch = id();
-      this.pageReady = !multiplayer && this.frame.contentDocument?.readyState === 'complete';
-      this.session.resumeSharedPage=Boolean(this.resumePage);
-      if (this.targetPage && this.targetPage !== this.session.game) {this.session.game=this.targetPage;this.pageReady=false;this.session.onSwitch(this.targetPage);}
-      else if (multiplayer) this.session.onSwitch(this.session.game);
-      this.geometry();
-      this.ticker = setInterval(() => this.publish(), 50);
-    }
   }
   receive(message) {
     const type = message.type.slice('friend-screen-'.length);
-    if (type === 'ask' || type === 'request') {
-      if (!validID(message.id) || (type === 'ask') !== this.session.isHost) return;
-      const expected = type === 'request' && this.phase === 'waiting' && message.id === this.id;
-      if (message.version !== 2 || this.busy && !expected || this.session.loading || this.session.proposal) {
-        this.session.send({type: 'friend-screen-end', id: message.id});
-        if (message.version !== 2) this.session.onError('Both friends need to reload the updated page to use virtual cursors.');
-        return;
-      }
-      this.id = message.id; this.phase = type === 'ask' ? 'asked' : 'requested';
-      this.targetPage=isFriendPage(message.page)?message.page:this.session.game;this.resumePage=Boolean(message.resume);
-      this.deadline(); this.changed(); return;
-    }
     if (!this.busy || message.id !== this.id) return;
     if (type === 'end') { this.stop(false); return; }
-    if (type === 'accept' && this.session.isHost && this.phase === 'offering' && message.version === 2) {
-      this.activate(); this.changed();
-    } else if (type === 'page' && !this.session.isHost && this.active && validID(message.epoch) && isFriendPage(message.page) && sizeOK(message.size)) {
+    if (type === 'page' && !this.sharer && this.active && validID(message.epoch) && isFriendPage(message.page) && sizeOK(message.size)) {
       const newPage = message.epoch !== this.remoteEpoch;
       this.remoteEpoch = message.epoch;
       this.remoteGeometry = {width: message.size[0], height: message.size[1]};
@@ -89,15 +59,15 @@ export class SharedPlay {
         this.session.onSwitch(message.page);
         this.deadline(); this.changed();
       }
-    } else if (type === 'ready' && this.session.isHost && this.active && message.epoch === this.pageEpoch) {
+    } else if (type === 'ready' && this.sharer && this.active && message.epoch === this.pageEpoch) {
       this.guestReady = true; this.lastState = null; this.publish();
-    } else if (type === 'state' && !this.session.isHost && this.active && message.epoch === this.remoteEpoch) {
+    } else if (type === 'state' && !this.sharer && this.active && message.epoch === this.remoteEpoch) {
       this.receiveState(message);
-    } else if (type === 'cursor' && this.active && message.epoch === (this.session.isHost ? this.pageEpoch : this.remoteEpoch) && point(message.x) && point(message.y)) {
+    } else if (type === 'cursor' && this.active && message.epoch === (this.sharer ? this.pageEpoch : this.remoteEpoch) && point(message.x) && point(message.y)) {
       this.onCursor(message.x, message.y);
-    } else if (type === 'input' && this.session.isHost && this.active && this.pageReady && this.guestReady && message.epoch === this.pageEpoch) {
+    } else if (type === 'input' && this.sharer && this.active && this.pageReady && this.guestReady && message.epoch === this.pageEpoch) {
       this.input.receive(message.input);
-    } else if (type === 'navigate' && this.session.isHost && this.active && message.epoch === this.pageEpoch) this.navigate(message.page);
+    } else if (type === 'navigate' && this.sharer && this.active && message.epoch === this.pageEpoch) this.navigate(message.page);
   }
   handle(message) {
     try { this.receive(message); }
@@ -105,7 +75,7 @@ export class SharedPlay {
   }
   loaded() {
     if (!this.active) return;
-    if (this.session.isHost) { this.pageReady = true; this.geometry(); }
+    if (this.sharer) { this.pageReady = true; this.geometry(); }
     else {
       const epoch = this.remoteEpoch, doc = this.frame.contentDocument;
       clearInterval(this.readyPoll);
@@ -118,7 +88,7 @@ export class SharedPlay {
   }
   navigate(page) {
     if (!this.active || !isFriendPage(page)) return;
-    if (!this.session.isHost) { this.send('navigate', {page, epoch: this.remoteEpoch}); return; }
+    if (!this.sharer) { this.send('navigate', {page, epoch: this.remoteEpoch}); return; }
     this.input.reset();
     this.pageEpoch = id(); this.pageReady = this.guestReady = false;
     this.outgoing = null; this.lastState = null;
@@ -127,12 +97,12 @@ export class SharedPlay {
     this.deadline(); this.geometry(); this.changed();
   }
   geometry() {
-    if (!this.active || !this.session.isHost) return;
+    if (!this.active || !this.sharer) return;
     this.send('page', {page: this.session.game, epoch: this.pageEpoch,
       size: [this.frame.clientWidth, this.frame.clientHeight]});
   }
   publish() {
-    if (!this.active || !this.session.isHost || !this.pageReady || !this.guestReady) return;
+    if (!this.active || !this.sharer || !this.pageReady || !this.guestReady) return;
     try {
       const channel = this.session.peer?.channel;
       if (channel?.bufferedAmount > 64000) return;
@@ -181,28 +151,16 @@ export class SharedPlay {
   }
   stop(notify = true) {
     const wasActive = this.active;
-    if (this.busy && notify && this.session.connected) { try { this.send('end'); } catch { /* Closed channel. */ } }
+    if (this.busy && notify) { try { this.send('end'); } catch { /* Closed channel. */ } }
+    const wasViewing = this.active && !this.sharer;
     this.phase = 'off'; this.id = null;
     clearTimeout(this.timer); clearInterval(this.ticker); clearInterval(this.readyPoll);
     this.incoming = this.outgoing = this.lastState = this.renderState = null;
     this.remoteGeometry = null; this.remoteEpoch = this.pageEpoch = null;
     this.remoteReady = this.pageReady = this.guestReady = false;
     this.input.reset(); this.onCursor(null, null);
-    if (wasActive) {
-      this.session.game = 'collection'; this.session.paused = false; this.session.adapter = null;
-      this.session.onSwitch('collection');
-    }
+    // The sharer keeps playing locally; the viewer returns to the collection.
+    if (wasActive) { this.session.resumeSharedPage = false; this.onStop?.(wasViewing); }
     this.changed();
-  }
-  suspend() {
-    // Keep the authoritative engine and its local checkpoint in place.
-    this.phase='off';clearTimeout(this.timer);clearInterval(this.ticker);clearInterval(this.readyPoll);
-    this.incoming=this.outgoing=this.lastState=this.renderState=null;
-    this.remoteReady=this.pageReady=this.guestReady=false;
-    this.input.reset();this.onCursor(null,null);this.changed();
-  }
-  restoreConnection(roomEpoch) {
-    this.id=roomEpoch;this.targetPage=this.session.game;this.resumePage=true;
-    this.session.loading=false;this.activate();this.changed();
   }
 }

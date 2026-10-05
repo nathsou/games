@@ -1,4 +1,5 @@
 import {SharedPlay} from './shared-play.js';
+import {FRIEND_PAGES} from './friend-pages.js';
 
 export function installSharedPlay(session, render) {
   const $ = id => document.getElementById(id);
@@ -16,11 +17,11 @@ export function installSharedPlay(session, render) {
   function showCursor(x, y) {
     clearTimeout(cursorTimer);
     if (x === null || !screen.active) { cursor.hidden = true; return; }
-    const rect = session.isHost ? frame.getBoundingClientRect() : surface.getBoundingClientRect();
+    const rect = screen.sharer ? frame.getBoundingClientRect() : surface.getBoundingClientRect();
     const base = stage.getBoundingClientRect();
     cursor.style.left = rect.left - base.left + x * rect.width + 'px';
     cursor.style.top = rect.top - base.top + y * rect.height + 'px';
-    cursor.querySelector('small').textContent = session.isHost ? 'Friend' : 'Host';
+    cursor.querySelector('small').textContent = session.friend.name || 'Friend';
     cursor.hidden = false;
     cursorTimer = setTimeout(() => { cursor.hidden = true; }, 2000);
   }
@@ -28,11 +29,11 @@ export function installSharedPlay(session, render) {
     frame, onChange: render, onGeometry: layout, onCursor: showCursor,
   });
   function sendInput(input) {
-    if (!screen.active || session.isHost || !screen.remoteEpoch || !screen.remoteReady) return;
+    if (!screen.active || screen.sharer || !screen.remoteEpoch || !screen.remoteReady) return;
     try { screen.send('input', {input, epoch: screen.remoteEpoch}); } catch { /* Drop input while the channel is congested. */ }
   }
   function pointer(event) {
-    if (!screen.active || session.isHost) return;
+    if (!screen.active || screen.sharer) return;
     const rect = surface.getBoundingClientRect();
     const x = (event.clientX - rect.left) / rect.width, y = (event.clientY - rect.top) / rect.height;
     if (x < 0 || x > 1 || y < 0 || y > 1) {
@@ -84,7 +85,7 @@ export function installSharedPlay(session, render) {
     const doc = frame.contentDocument;
     let last = 0;
     doc?.addEventListener('pointermove', event => {
-      if (!event.isTrusted || !screen.active || !session.isHost || performance.now() - last < 33) return;
+      if (!event.isTrusted || !screen.active || !screen.sharer || performance.now() - last < 33) return;
       last = performance.now();
       try { screen.send('cursor', {x: event.clientX / frame.contentWindow.innerWidth, y: event.clientY / frame.contentWindow.innerHeight, epoch: screen.pageEpoch}); } catch { /* Drop stale moves. */ }
     });
@@ -92,40 +93,19 @@ export function installSharedPlay(session, render) {
   });
   new ResizeObserver(() => {
     layout();
-    if (screen.active && session.isHost) screen.geometry();
+    if (screen.active && screen.sharer) screen.geometry();
   }).observe(stage);
-  $('screen-toggle').onclick = () => {
-    if (screen.busy) screen.stop();
-    else screen.request().catch(error => session.onError(error.message));
-  };
-  $('screen-accept').onclick = () => screen.accept().catch(error => session.onError(error.message));
-  $('screen-decline').onclick = () => screen.stop();
-  $('screen-dialog').addEventListener('cancel', event => { event.preventDefault(); screen.stop(); });
+  $('screen-toggle').onclick = () => session.stopCursors();
   return function renderScreen() {
-    $('screen-toggle').hidden = !session.connected;
-    $('screen-toggle').disabled = Boolean(session.proposal || session.loading);
-    $('screen-toggle').textContent = screen.active ? 'Stop' : screen.busy ? 'Cancel' : 'Cursors';
-    $('screen-toggle').setAttribute('aria-label', screen.busy ? 'Stop virtual cursors' : 'Virtual cursors');
-    const viewing = screen.active && !session.isHost;
+    const viewing = screen.active && !screen.sharer;
     frame.hidden = false;
     if (!viewing) frame.removeAttribute('style');
     $('shared-view').hidden = !viewing;
     $('screen-wait').hidden = !viewing || screen.remoteReady;
-    const dialog = $('screen-dialog');
-    const show = ['confirm', 'asked', 'requested', 'offering', 'waiting'].includes(screen.phase);
-    if (show) {
-      const incoming = screen.phase === 'requested', host = session.isHost;
-      $('screen-title').textContent = incoming ? 'Play together with cursors?' : host && screen.phase !== 'offering' ? 'Share this game state?' : 'Waiting for your friend';
-      $('screen-copy').textContent = incoming
-        ? 'Both of you can control the shared game with virtual cursors. You see the same screen, including visible cards and notes. This ends the current multiplayer table. Chat stays open.'
-        : host && screen.phase !== 'offering'
-          ? 'Both of you will control this game and see the same cards and notes. This ends the current multiplayer table. Only game data and cursor positions are shared; your screen is not recorded. Stop cursors at any time to return to your room.'
-          : 'Your friend can accept or decline. Your friend room stays connected.';
-      $('screen-accept').hidden = !['confirm', 'asked', 'requested'].includes(screen.phase);
-      $('screen-accept').textContent = host ? 'Share game state' : 'Play together';
-      $('screen-decline').textContent = incoming || screen.phase === 'asked' ? 'Keep playing' : 'Cancel';
-      if (!dialog.open) dialog.showModal();
-    } else if (dialog.open) dialog.close();
+    const name = session.friend.name || 'your friend', title = FRIEND_PAGES[session.game] || 'this game';
+    $('cursors-bar').hidden = !screen.active;
+    $('cursors-text').textContent = screen.phase === 'connecting' ? 'Connecting to ' + name + '…' : screen.sharer ? 'Sharing ' + title + ' with ' + name : 'Playing ' + name + '’s ' + title;
+    $('screen-toggle').textContent = screen.sharer ? 'Stop sharing' : 'Leave';
     layout();
   };
 }

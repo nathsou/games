@@ -1,6 +1,7 @@
 import {legalActions,previewMove,playerView,valueOf,reverseOf} from './rules.js';
 export function describeTurn(state,seat,previous=[]) {
-  const observation=playerView(state,seat);
+  // Room games already deliver this seat's private view.
+  const observation=state.discard?playerView(state,seat):structuredClone(state);
   // Identical faces are interchangeable for strategy; keep one representative
   // for each distinct combination of reverse ranks, reducing prompt size.
   const seen=new Set(), candidates=[];

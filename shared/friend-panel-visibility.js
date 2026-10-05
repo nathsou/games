@@ -4,15 +4,10 @@ export function installPanelVisibility(session) {
   const $=id=>document.getElementById(id),windows=installFloatingWindows(),media=matchMedia('(prefers-color-scheme: dark)');
   function theme(){const value=loadTheme();document.documentElement.dataset.colorTheme=value==='system'?(media.matches?'dark':'light'):value;}
   media.addEventListener('change',theme);window.addEventListener('storage',e=>{if(e.key===THEME_KEY)theme();});window.addEventListener('games-theme-change',theme);theme();
-  const friends=windows.create({id:'Friends',element:$('friend-header'),launcher:$('show-friend-panel'),close:$('hide-friend-panel'),title:$('friends-titlebar'),
-    defaults:v=>({x:v.x+v.width-432,y:v.y+Math.max(16,v.height-448),width:352,height:360}),
-    launcherDefaults:v=>({x:v.x+v.width-80,y:v.y+v.height*.25,width:64,height:60}),onVisibility:()=>session.onChange()});
-  const chat=windows.create({id:'Chat',element:$('friend-chat'),launcher:$('chat-toggle'),close:$('chat-close'),title:$('chat-titlebar'),
-    defaults:v=>({x:v.x+(v.width>820?v.width-804:16),y:v.y+Math.max(16,v.height-520),width:352,height:432}),
-    launcherDefaults:v=>({x:v.x+v.width-80,y:v.y+v.height*.25+68,width:64,height:60}),onVisibility:open=>session.onChatVisibility?.(open),
-    returnFocus:()=>$('friend-header').hidden?$('show-friend-panel'):$('open-friend-chat')});
-  $('show-chat-icon').checked=!chat.launcherHidden;
-  $('show-chat-icon').onchange=()=>chat.showLauncher($('show-chat-icon').checked);
-  $('open-friend-chat').onclick=()=>chat.setOpen(true);
-  session.showPanel=()=>friends.setOpen(true);session.chatWindow=chat;session.setFriendBadge=count=>friends.badge(count,'games need your turn');
+  const panel=windows.create({id:'Play together',element:$('friend-header'),launcher:$('show-friend-panel'),close:$('hide-friend-panel'),title:$('friends-titlebar'),
+    defaults:v=>({x:v.x+v.width-Math.min(392,v.width-16)-72,y:v.y+Math.max(16,v.height-560),width:Math.min(380,v.width-16),height:Math.min(520,v.height-32)}),
+    launcherDefaults:v=>({x:v.x+v.width-80,y:v.y+v.height*.25,width:64,height:64}),onVisibility:open=>{session.onPanelVisibility?.(open);session.onChange();}});
+  session.panel=panel;
+  session.showPanel=(tab)=>{if(tab)session.selectTab?.(tab);panel.setOpen(true);};
+  session.openChat=()=>session.showPanel('chat');
 }

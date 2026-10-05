@@ -1,5 +1,6 @@
 import {registerCheckpoint} from '../../shared/game-checkpoint.js';
-import {sharedPlayActive, registerFriendGame, inviteFriendGame, joinFriendRoom, showFriendPanel} from '../../shared/friend-context.js';
+import {friendSession, registerFriendGame, inviteFriendGame, joinFriendRoom, openFriendChat} from '../../shared/friend-context.js';
+import {loadPlayerName, savePlayerName} from '../../shared/player-name.js';
 import {trackArcadeGame} from '../../shared/ai/usage.js';
 import {installThemeControls} from '../../shared/theme.js';
 import {loadAI} from '../../shared/ai/config.js';
@@ -8,9 +9,7 @@ import {openAISettings,aiStatusHtml} from '../../shared/ai/panel.js';
 import {describeTurn} from './ai.js';
 import {GAMES, createGame, applyAction, playerView, reserve, winner} from './rules.js';
 import {botAction} from './bot.js';
-import {PeerLink, decodePairing, makeLink, iceConfig} from './peer.js';
-import {TableSession,validateView} from './session.js';
-import {drawQR} from './qr.js';
+import {validateView} from './session.js';
 import {setSound, sound} from './sound.js';
 
 const app = document.querySelector('#app'), modal = document.querySelector('#modal'), modalContent = document.querySelector('#modal-content');
@@ -22,11 +21,8 @@ if (!Object.hasOwn(GAMES, selectedGame)) selectedGame = 'backhand';
 let aiController=null,aiBusy=false,aiError='',aiMemory=[],matchId='',selectedOpponent='dealer';
 let scene = 'menu', mode = 'solo', game = null, seat = 0, chosen = null, source = null, handoff = false;
 let botTimer = null, botPrepared = null, botContext = '', generation = 0;
-let offlineSeries = [0, 0], countedGame = null, session = null, peer = null, linkStatus = 'idle', lastViewKey = '';
-let pairKind = 'host', pairBusy = false, pairOut = '', pairError = '', pairMessage = '', pairingOpen = false;
-let scanStream = null, scanTimer = null, scanGeneration = 0;
-let toastTimer, canScan = false;
-const bus = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('midnight-table-pairing') : null;
+let offlineSeries = [0, 0], countedGame = null, asyncClient = null, lastViewKey = '';
+let toastTimer;
 const esc = text => String(text ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const sprite = kind => '<span class="sprite ' + kind + '" aria-hidden="true"></span>';
 function button(label, action, className = '', disabled = false, attributes = '') {
@@ -38,26 +34,33 @@ function notify(message) {
   toast.textContent = message; toast.classList.add('visible');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('visible'), 4200);
 }
-function name() { return typeof prefs.name === 'string' ? prefs.name.slice(0, 24) || 'You' : 'You'; }
+function name() { return loadPlayerName() || (typeof prefs.name === 'string' ? prefs.name.slice(0, 24) || 'You' : 'You'); }
 function opponentHtml(){return '<label class="label" for="ai-opponent">OPPONENT</label><select id="ai-opponent"><option value="dealer" '+(prefs.opponent!=='model'?'selected':'')+'>Dealer · offline, no API calls</option><option value="model" '+(prefs.opponent==='model'?'selected':'')+'>AI · shared provider & model</option></select>'+button('AI SETTINGS ↗','ai-settings','outline compact');}
 function stopAI(message=''){aiController?.abort();aiController=null;aiBusy=false;aiError=message;}
-function names() { return mode === 'online' ? session?.names || ['You', 'Partner'] : mode === 'solo' ? [name(), selectedOpponent==='model'?'AI opponent':'The Dealer'] : [name(), 'Partner']; }
-function mySeat() { return mode === 'online' ? session.team ? 0 : session.seat : seat; }
-function view() { return mode === 'online' ? session?.view : game ? playerView(game, seat) : null; }
-function connected() { return Boolean(peer?.connected && session?.readyForPlay); }
-function blocked() { return mode === 'online' && (!connected() || session.movePending); }
+// Room seats: 'host' and 'guest', or 'team' (both people) against the dealer or AI.
+function team() { return mode === 'async' && asyncClient.record.controllers[0] === 'team'; }
+function names() {
+  if (mode === 'async') {
+    const {me, friend} = asyncClient.names, seats = asyncClient.record.controllers;
+    if (team()) return [(me + ' & ' + friend).slice(0, 24), seats[1] === 'model' ? 'AI opponent' : 'The Dealer'];
+    return [0, 1].map(i => i === mySeat() ? me : friend);
+  }
+  return mode === 'solo' ? [name(), selectedOpponent==='model'?'AI opponent':'The Dealer'] : [name(), 'Partner'];
+}
+function mySeat() { return mode === 'async' ? asyncClient.record.seat : seat; }
+function view() { return mode === 'async' ? asyncClient.record.view : game ? playerView(game, seat) : null; }
+function blocked() { return mode === 'async' && asyncClient.busy; }
+function roomIndex() { return asyncClient?.session.role === 'host' ? 0 : 1; }
 function locked() {
   const v = view(), p = mySeat();
-  if (mode === 'online' && !session.team) return session.locked();
   return v.type === 'backhand' ? Boolean(v.pending[p]) : v.phase === 'guard' ? Boolean(v.guards[p]) : Boolean(v.raids[p]);
 }
 function otherLocked() {
   const v = view(), p = 1 - mySeat();
-  if (mode === 'online' && !session.team) return session.locked(p);
   return v.type === 'backhand' ? Boolean(v.pending[p]) : v.phase === 'guard' ? Boolean(v.guards[p]) : Boolean(v.raids[p]);
 }
 function tag() {
-  const label = mode === 'solo' ? (selectedOpponent==='model'?'VS AI':'VS THE DEALER') : mode === 'local' ? 'PASS & PLAY' : connected() ? session.team ? 'TEAM CONNECTED' : 'PEER CONNECTED' : linkStatus === 'idle' ? 'PRIVATE TABLE' : 'PARTNER OFFLINE';
+  const label = mode === 'solo' ? (selectedOpponent==='model'?'VS AI':'VS THE DEALER') : mode === 'local' ? 'PASS & PLAY' : asyncClient.friendHere ? 'WITH ' + esc(asyncClient.names.friend).toUpperCase() : esc(asyncClient.names.friend).toUpperCase() + ' IS AWAY';
   return '<span class="tag"><span class="dot"></span>' + label + '</span>';
 }
 function render() {
@@ -71,17 +74,15 @@ function render() {
   }
 }
 function renderMenu() {
-  const online = mode === 'online' && connected();
-  const host = online && session.seat === 0;
+  const room = friendSession(), friend = room?.friend?.joined ? room.friend.name || 'your friend' : '';
   let html = '<section class="menu-intro"><div><p class="eyebrow">THREE GAMES. TWO SEATS. ONE MORE ROUND.</p><h1>A little<br>friendly <em>rivalry.</em></h1></div><p class="intro-note">Small rules. Big “I knew you’d do that” energy.<br>Pick your game, pull up a chair, and keep the good times rolling.</p></section><div class="menu-layout"><div><section class="collection" aria-label="Choose a game">';
   Object.entries(GAMES).forEach(([id, g], i) => {
     html += '<button class="game-tile ' + (selectedGame === id ? 'selected' : '') + '" data-action="select-game" data-game="' + id + '" aria-pressed="' + (selectedGame === id) + '" aria-label="Select ' + g.name + '"><div class="tile-art ' + g.accent + '"><span class="tile-number">NO. 0' + (i + 1) + '</span>' + sprite(g.sprite) + '</div><div class="tile-body"><h2>' + g.name + '</h2><p>' + g.subtitle + '</p><div class="tile-meta"><span>' + g.time + '</span><b aria-hidden="true">' + (selectedGame === id ? '✦' : '↗') + '</b></div></div></button>';
   });
-  html += '</section><p class="collection-note"><b>One table. Three ways to outsmart each other.</b><br>No accounts, no downloads. Just cards, coins, and suspiciously good timing.</p></div><aside class="panel join-panel" aria-label="Play options"><div><p class="eyebrow">TAKE A SEAT</p><h2 class="panel-title">' + GAMES[selectedGame].name + '</h2><p class="small">' + (online ? 'Your partner is at the table. ' + (host ? 'Choose a game and deal.' : 'The host will deal the next game.') : 'Learn the ropes with our dealer, or share a screen with someone.') + '</p>';
-  if (online) html += button(host ? 'DEAL THE CARDS →' : 'WAITING FOR HOST', 'deal-online', 'gold', !host) + button('LEAVE TABLE', 'leave-online', 'outline');
-  else html += opponentHtml() + button((prefs.opponent==='model'?'PLAY THE AI →':'PLAY THE DEALER →'), 'start-solo') + button('PASS & PLAY', 'start-local', 'dark');
+  html += '</section><p class="collection-note"><b>One table. Three ways to outsmart each other.</b><br>No accounts, no downloads. Just cards, coins, and suspiciously good timing.</p></div><aside class="panel join-panel" aria-label="Play options"><div><p class="eyebrow">TAKE A SEAT</p><h2 class="panel-title">' + GAMES[selectedGame].name + '</h2><p class="small">Learn the ropes with our dealer, or share a screen with someone.</p>';
+  html += opponentHtml() + button((prefs.opponent==='model'?'PLAY THE AI →':'PLAY THE DEALER →'), 'start-solo') + button('PASS & PLAY', 'start-local', 'dark');
   if (view() && view().phase !== 'over') html += button('RESUME CURRENT GAME', 'resume', 'outline');
-  html += '</div><hr class="divider"><div><label class="label" for="player-name">YOUR NAME</label><input id="player-name" maxlength="24" value="' + esc(name()) + '" autocomplete="nickname" aria-label="Your name"><p class="small">Different screens? Meet at a private table. Your moves travel straight between you.</p>' + button(online ? 'CONNECTION DETAILS' : 'INVITE A FRIEND ↗', 'host', 'gold') + (online ? '' : button('JOIN A TABLE', 'join', 'outline')) + '</div><div class="menu-session">' + (online ? tag() : '<span class="dot"></span> No sign-in. No lobby server.') + '</div></aside></div>';
+  html += '</div><hr class="divider"><div><label class="label" for="player-name">YOUR NAME</label><input id="player-name" maxlength="24" value="' + esc(name()) + '" autocomplete="nickname" aria-label="Your name"><p class="small">' + (friend ? 'Play ' + GAMES[selectedGame].name + ' with ' + esc(friend) + '. Your game is saved, so either of you can take a break.' : 'Different screens? Invite a friend with a room code. Games are saved for both of you.') + '</p>' + button(friend ? 'PLAY WITH ' + esc(friend).toUpperCase() + ' ↗' : 'PLAY A FRIEND ↗', 'host', 'gold') + (friend ? '' : button('JOIN A FRIEND', 'join', 'outline')) + '</div><div class="menu-session"><span class="dot"></span> No sign-in. Just a room code.</div></aside></div>';
   return html;
 }
 function roundDots(v) {
@@ -90,19 +91,18 @@ function roundDots(v) {
 }
 function renderGame() {
   const v = view(), p = mySeat(), ns = names(), g = GAMES[v.type];
-  const series = mode === 'online' ? session.series : offlineSeries;
+  const series = mode === 'async' ? null : offlineSeries;
   const tips = {
     backhand: '<strong>Win now. Arm them for later.</strong><br>Every bid goes into your opponent’s hand. Losing a small prize can buy you a big opportunity.',
     closing: '<strong>Watch the other clocks.</strong><br>Invest in one auction, then advance a different one. First bidder wins tied bids—even after moving their cube.',
     heist: '<strong>Every defense gets spent.</strong><br>A safe choice still burns their defense. Watch the discarded alarms; they only started with three.'
   };
-  let html = aiStatusHtml({busy:aiBusy,error:aiError,controller:mode!=='online'||session?.seat===0})+'<section class="table-heading"><div><p class="eyebrow">MIDNIGHT TABLE / NO. 0' + (Object.keys(GAMES).indexOf(v.type) + 1) + '</p><h1>' + g.name + '</h1></div><div class="heading-actions">' + tag() + button('RULES ?', 'rules', 'outline compact') + button('TABLE MENU', 'table-menu', 'outline compact') + '</div></section>';
-  if (mode === 'online' && !connected()) html += '<div class="disconnected" role="status">Your partner’s connection is paused. Your table is saved in this tab.' + button(session.seat === 0 ? 'RECONNECT' : 'JOIN AGAIN', session.seat === 0 ? 'host' : 'join', 'compact gold') + '</div>';
+  let html = (mode === 'async' ? aiStatusHtml({busy:asyncClient.aiBusy,error:asyncClient.aiError,controller:asyncClient.record.creator===asyncClient.session.role}) : aiStatusHtml({busy:aiBusy,error:aiError,controller:true}))+'<section class="table-heading"><div><p class="eyebrow">MIDNIGHT TABLE / NO. 0' + (Object.keys(GAMES).indexOf(v.type) + 1) + '</p><h1>' + g.name + '</h1></div><div class="heading-actions">' + tag() + button('RULES ?', 'rules', 'outline compact') + button('TABLE MENU', 'table-menu', 'outline compact') + '</div></section>';
   html += '<div class="table-layout"><aside class="sidebar"><div class="panel"><p class="eyebrow">THE SCORE</p><div class="scoreboard">';
   for (let i = 0; i < 2; i++) {
     html += '<div class="score-seat ' + (i === p ? 'you ' : '') + (v.type === 'closing' && v.turn === i && v.phase !== 'over' ? 'active' : '') + '"><div class="score-name"><b>' + esc(ns[i]) + '</b><span aria-hidden="true">' + (i ? '◆' : '✦') + '</span></div><div class="score-value">' + v.scores[i] + '<small> ' + (v.type === 'heist' ? 'COINS' : 'PTS') + '</small></div></div>';
   }
-  html += '</div><p class="series">GAMES WON &nbsp; ' + series[0] + ' : ' + series[1] + '</p></div><div class="panel tips-panel"><p class="eyebrow">A LITTLE ADVICE</p><p class="sidebar-tip">' + tips[v.type] + '</p><hr class="divider"><p class="sidebar-tip">' + (v.type === 'closing' ? 'Gold cubes: ' + esc(ns[0]) + '<br>Coral cubes: ' + esc(ns[1]) : 'Choose first. Lock it in.<br>Then see what they were thinking.') + '</p></div><p class="sidebar-note">' + (mode === 'online' ? (session.team ? 'You share a hand and a score against the dealer. Either teammate can make the next move.' : 'Hands stay hidden during play. Simultaneous choices are locked before either is revealed.') : mode === 'local' ? 'Pass the screen when prompted. All choices are hidden until both players have locked in.' : 'The dealer chooses without peeking at your move. Keyboard: 1–5 selects a card; Enter locks it.') + '</p></aside><section class="felt-table" aria-label="' + g.name + ' game table"><div class="table-meta"><span>' + (v.type === 'closing' ? 'AUCTIONS ' + v.closed + ' / 9' : 'ROUND ' + String(v.round + 1).padStart(2, '0') + ' / ' + g.rounds) + '</span>' + roundDots(v) + '</div>';
+  html += '</div>' + (series ? '<p class="series">GAMES WON &nbsp; ' + series[0] + ' : ' + series[1] + '</p>' : button('CHAT WITH ' + esc(asyncClient.names.friend).toUpperCase(), 'table-chat', 'outline compact')) + '</div><div class="panel tips-panel"><p class="eyebrow">A LITTLE ADVICE</p><p class="sidebar-tip">' + tips[v.type] + '</p><hr class="divider"><p class="sidebar-tip">' + (v.type === 'closing' ? 'Gold cubes: ' + esc(ns[0]) + '<br>Coral cubes: ' + esc(ns[1]) : 'Choose first. Lock it in.<br>Then see what they were thinking.') + '</p></div><p class="sidebar-note">' + (mode === 'async' ? (team() ? 'You share a hand and a score against ' + esc(names()[1]) + '. Either of you can make the next move.' : 'Hands stay hidden. Simultaneous choices are locked before either is revealed. The game is saved, so either of you can take a break.') : mode === 'local' ? 'Pass the screen when prompted. All choices are hidden until both players have locked in.' : 'The dealer chooses without peeking at your move. Keyboard: 1–5 selects a card; Enter locks it.') + '</p></aside><section class="felt-table" aria-label="' + g.name + ' game table"><div class="table-meta"><span>' + (v.type === 'closing' ? 'AUCTIONS ' + v.closed + ' / 9' : 'ROUND ' + String(v.round + 1).padStart(2, '0') + ' / ' + g.rounds) + '</span>' + roundDots(v) + '</div>';
   if (handoff && mode === 'local') { /* No private cards are rendered behind the handoff. */ }
   else if (v.phase === 'over') html += renderEnd(v);
   else if (v.type === 'backhand') html += renderBackhand(v);
@@ -174,13 +174,13 @@ function renderHeist(v) {
   return html;
 }
 function nextControl() {
-  const ready = mode === 'online' && !session.team && session.ready[mySeat()];
-  return '<div class="table-controls">' + button(ready ? 'WAITING FOR PARTNER ✓' : 'NEXT ROUND →', 'next', 'gold', ready || blocked()) + '</div>';
+  const ready = mode === 'async' && asyncClient.record.ready.includes(roomIndex());
+  return '<div class="table-controls">' + button(ready ? 'WAITING FOR ' + esc(asyncClient.names.friend).toUpperCase() + ' ✓' : 'NEXT ROUND →', 'next', 'gold', ready || blocked()) + '</div>';
 }
 function renderEnd(v) {
-  const win = winner(v), p = mySeat(), ns = names(), isHost = mode !== 'online' || session.seat === 0;
+  const win = winner(v), p = mySeat(), ns = names();
   const title = win === null ? 'An even match.' : mode === 'local' ? ns[win] + ' takes the table.' : win === p ? 'The table is yours.' : ns[win] + ' takes the table.';
-  return '<div class="end-display pop">' + sprite('prize') + '<p class="eyebrow">A GOOD NIGHT FOR A REMATCH</p><h2>' + esc(title) + '</h2><div class="end-score">' + v.scores[0] + ' : ' + v.scores[1] + '</div><p>' + (v.type === 'backhand' && v.result?.discarded ? 'The final tied pot of ' + v.result.discarded + ' points was discarded.<br>' : '') + 'Same rivalry. Fresh shuffle?</p><div class="button-row">' + button(isHost ? 'ONE MORE ROUND ↻' : 'HOST DEALS THE REMATCH', 'rematch', 'gold', !isHost || blocked()) + button('CHOOSE A GAME', 'table-menu', 'dark') + '</div></div>';
+  return '<div class="end-display pop">' + sprite('prize') + '<p class="eyebrow">A GOOD NIGHT FOR A REMATCH</p><h2>' + esc(title) + '</h2><div class="end-score">' + v.scores[0] + ' : ' + v.scores[1] + '</div><p>' + (v.type === 'backhand' && v.result?.discarded ? 'The final tied pot of ' + v.result.discarded + ' points was discarded.<br>' : '') + 'Same rivalry. Fresh shuffle?</p><div class="button-row">' + button('ONE MORE ROUND ↻', 'rematch', 'gold', blocked()) + button('CHOOSE A GAME', 'table-menu', 'dark') + '</div></div>';
 }
 function eventText(r) {
   const ns = names();
@@ -195,7 +195,7 @@ async function decideBot(state,player) {
   if(aiError)throw new Error(aiError);
   const controller=new AbortController();aiController=controller;aiBusy=true;render();
   try {
-    const result=await chooseTurn(describeTurn(state,player,aiMemory),{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(90000)]),gameId:mode==='online'?session?.epoch||matchId:matchId,role:'seat-'+player,round:state.round});
+    const result=await chooseTurn(describeTurn(state,player,aiMemory),{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(90000)]),gameId:matchId,role:'seat-'+player,round:state.round});
     if(controller.signal.aborted)throw new DOMException('Cancelled','AbortError');
     aiMemory.push({round:state.round,phase:state.phase,action:result.action,rationale:result.rationale});aiMemory=aiMemory.slice(-6);
     return result.action;
@@ -251,8 +251,8 @@ function afterOfflineMove(previousPhase) {
 }
 function startOffline(type, selectedMode) {
   clearTimeout(botTimer); generation++;stopAI();aiMemory=[];matchId=crypto.randomUUID();selectedOpponent=prefs.opponent==='model'?'model':'dealer';
-  if (peer) { const old = peer; peer = null; old.close(); }
-  session = null; linkStatus = 'idle';
+  if (mode === 'async') friendSession()?.leaveRoomGame?.();
+  asyncClient = null;
   mode = selectedMode; seat = 0; scene = 'game';
   game = createGame(type, crypto.getRandomValues(new Uint32Array(1))[0]);
   botContext = ''; botPrepared = null; countedGame = null; chosen = null; source = null;
@@ -262,183 +262,22 @@ function startOffline(type, selectedMode) {
 async function act(action) {
   if (handoff || blocked()) return;
   sound('tap');
-  if (mode === 'online') { await session.choose(action); return; }
+  if (mode === 'async') { await asyncClient.move(action); return; }
   const previousPhase = game.phase;
   game = applyAction(game, action.kind === 'next' ? 0 : seat, action);
   afterOfflineMove(previousPhase);
   scheduleBot();
 }
-function updateOnline() {
-  if (!session?.view) return render();
-  if(session.seat===0)trackArcadeGame(session.epoch,'midnight-'+session.state.type,session.state,session.team?'Online team':'Online duel');
-  const v = session.view;
-  const key = session.epoch + '/' + v.type + '/' + v.round + '/' + v.phase;
-  if (lastViewKey !== key) {
-    chosen = null; source = null;
-    if (v.phase === 'over') sound('win'); else if (v.phase === 'reveal') sound('reveal'); else sound('deal');
-    lastViewKey = key;
-  }
-  scene = 'game'; selectedGame = v.type; handoff = false;
-  if (pairingOpen && connected()) { modal.close(); pairingOpen = false; }
-  render();
-}
-function networkError(error) {
-  notify('Table paused: ' + error.message);
-  if (peer) peer.close();
-  render();
-}
-function makePeer(role, config) {
-  const preserved = role === 0 && mode === 'online' && session?.seat === 0 && session.state;
-  if (peer) { const old = peer; peer = null; old.close(); }
-  clearTimeout(botTimer); generation++;stopAI();aiMemory=[];matchId=crypto.randomUUID();selectedOpponent=prefs.opponent==='model'?'model':'dealer';
-  mode = 'online'; chosen = null; source = null; handoff = false;
-  if (!preserved) {
-    session = new TableSession({seat: role, name: name(), team: role === 0 && Boolean(prefs.team), chooseBot:decideBot,onUpdate: updateOnline, onError: networkError});
-    scene = 'menu';
-  }
-  session.initialGame = selectedGame;
-  const link = new PeerLink({
-    config,
-    onMessage: message => peer === link ? session.receive(message) : undefined,
-    onStatus: status => {
-      if (peer !== link) return;
-      linkStatus = status;
-      if ((status === 'open' || status === 'connected') && link.connected && !link.helloSent) { link.helloSent = true; pairMessage = 'Connected. Pulling up your chair…'; session.opened(); }
-      if (status === 'invalid-message') { notify('An invalid update was received. The table is paused.'); link.close(); }
-      if (pairingOpen) renderPair();
-      render();
-    }
-  });
-  peer = link; session.setPeer(link); linkStatus = 'connecting';
-  return link;
-}
-function readConfig() {
-  if (!window.isSecureContext || !crypto.subtle) throw new Error('Online play needs HTTPS or localhost. Open the hosted game page, then create an invitation.');
-  const stun = modal.querySelector('#stun')?.value ?? (Object.hasOwn(prefs, 'stun') ? prefs.stun : 'stun:stun.l.google.com:19302');
-  const turn = modal.querySelector('#turn')?.value || '';
-  const username = modal.querySelector('#turn-name')?.value || '';
-  const credential = modal.querySelector('#turn-password')?.value || '';
-  const config = iceConfig(stun, turn, username, credential);
-  prefs.stun = stun; savePrefs();
-  return config;
+// Room games: the AI seat's view arrives only on the creator's page.
+async function chooseRoomAI({seat: actor, view: observation, record}, {signal}) {
+  const result = await chooseTurn(describeTurn(observation, actor, aiMemory), {signal, gameId: record.id, role: 'seat-' + actor, round: observation.round});
+  aiMemory.push({round: observation.round, phase: observation.phase, action: result.action, rationale: result.rationale}); aiMemory = aiMemory.slice(-6);
+  return result.action;
 }
 function modalHead(title, eyebrow = 'MIDNIGHT TABLE') {
   return '<div class="modal-head"><div><p class="eyebrow">' + eyebrow + '</p><h2 id="modal-title">' + title + '</h2></div><button class="close-button" data-action="close-modal" aria-label="Close dialog">×</button></div>';
 }
-function settingsHtml() {
-  return '<details class="connection-settings"><summary>Connection settings</summary><p>For different networks, STUN helps the browsers find each other. Some networks need a TURN relay. Leave STUN blank for a local-network connection. These settings add no scripts or libraries.</p><label class="label" for="stun">STUN ADDRESS</label><input id="stun" spellcheck="false" value="' + esc(Object.hasOwn(prefs, 'stun') ? prefs.stun : 'stun:stun.l.google.com:19302') + '"><label class="label" for="turn">OPTIONAL TURN RELAY</label><input id="turn" placeholder="turn:your-relay.example:3478" spellcheck="false"><label class="label" for="turn-name">RELAY USERNAME</label><input id="turn-name" autocomplete="off"><label class="label" for="turn-password">RELAY PASSWORD (THIS SESSION ONLY)</label><input id="turn-password" type="password" autocomplete="off"></details>';
-}
-function openPair(kind) {if(kind==='join')joinFriendRoom('midnight');else inviteFriendGame('midnight',friendSetup());}
-function renderPair() {
-  if (!pairingOpen) return;
-  let html = modalHead(pairKind === 'return' ? 'Back to your table.' : pairKind === 'connected' ? 'Two seats, connected.' : pairKind === 'host' ? 'Invite your favorite rival.' : 'Pull up a chair.', 'PRIVATE TABLE / PEER-TO-PEER');
-  if (pairKind === 'connected') {
-    html += '<p class="modal-copy">You are connected directly to ' + esc(session.members[1 - session.seat]) + '. Keep both game tabs open while you play.</p>' + button('BACK TO THE TABLE →', 'close-modal', 'gold');
-  } else if (pairKind === 'return') {
-    html += '<p class="modal-copy">' + esc(pairMessage || 'Looking for your original hosting tab…') + '</p><p class="modal-copy">Keep the hosting tab open. If it cannot be found, paste the reply there or create a fresh invitation.</p><label class="label" for="pair-output">REPLY LINK</label><textarea id="pair-output" class="link-output" readonly>' + esc(pairOut) + '</textarea>' + button('COPY REPLY LINK', 'copy', 'gold') + button('BACK TO GAMES', 'close-modal', 'outline');
-  } else {
-    html += '<div class="pair-steps"><div class="pair-step ' + (!pairOut ? 'active' : '') + '">01<br>HOST SHARES AN INVITE</div><div class="pair-step ' + (pairOut ? 'active' : '') + '">02<br>GUEST SHARES A REPLY</div><div class="pair-step">03<br>HOST ACCEPTS. PLAY.</div></div>';
-    if (pairKind === 'host') {
-      if (pairOut) {
-        html += '<p class="modal-copy">Send this invitation to your friend, or let them scan the QR code. Keep this tab open.</p><label class="label" for="pair-output">YOUR INVITATION</label><textarea id="pair-output" class="link-output" readonly spellcheck="false">' + esc(pairOut) + '</textarea><div class="button-row">' + button('COPY INVITE ↗', 'copy', 'gold') + button('SHARE', 'share', 'dark') + '</div><div class="qr-wrap"><canvas id="pair-qr" aria-label="Scan this invitation QR code"></canvas></div><p class="qr-note">Scan with your phone’s camera to open the invite.</p><hr class="divider"><label class="label" for="pair-input">PASTE YOUR FRIEND’S REPLY LINK</label><textarea id="pair-input" placeholder="Their reply link goes here…" spellcheck="false"></textarea>' + button(pairBusy ? 'CONNECTING…' : 'ACCEPT REPLY →', 'accept-reply', '', pairBusy) + (canScan ? button('SCAN REPLY QR', 'scan-reply', 'outline', pairBusy) : '');
-      } else {
-        html += '<p class="modal-copy">Choose a game, create an invitation, and send it to your friend. They’ll send one reply link back. Then your browsers connect directly.</p><p class="modal-copy"><strong>On the table:</strong> ' + GAMES[selectedGame].name + '</p><label class="team-choice"><input type="checkbox" id="team" ' + (prefs.team ? 'checked' : '') + '> <span>Play together against the dealer<small>Share a hand, discuss the move, win as a team.</small></span></label>' + opponentHtml() + settingsHtml() + button(pairBusy ? 'PREPARING INVITATION…' : 'CREATE INVITATION ↗', 'create-invite', 'gold', pairBusy);
-      }
-    } else {
-      if (pairOut) {
-        html += '<p class="modal-copy">Your chair is ready. Send this reply to the host. They can open it beside their hosting tab, paste it, or scan it.</p><label class="label" for="pair-output">YOUR REPLY LINK</label><textarea id="pair-output" class="link-output" readonly spellcheck="false">' + esc(pairOut) + '</textarea><div class="button-row">' + button('COPY REPLY ↗', 'copy', 'gold') + button('SHARE', 'share', 'dark') + '</div><div class="qr-wrap"><canvas id="pair-qr" aria-label="Scan this reply QR code"></canvas></div><p class="qr-note">Waiting for the host to accept. Keep this tab open.</p>';
-      } else {
-        html += '<p class="modal-copy">Open your friend’s invitation link, paste it below, or scan their invitation. No account needed.</p><label class="label" for="pair-input">INVITATION LINK</label><textarea id="pair-input" placeholder="Paste the invitation link here…" spellcheck="false"></textarea>' + settingsHtml() + button(pairBusy ? 'PREPARING YOUR REPLY…' : 'JOIN THIS TABLE →', 'join-invite', 'gold', pairBusy) + (canScan ? button('SCAN INVITATION QR', 'scan-invite', 'outline', pairBusy) : '');
-      }
-    }
-    if (pairMessage) html += '<p class="modal-copy" role="status">' + esc(pairMessage) + '</p>';
-    html += button('CANCEL SETUP', 'cancel-pair', 'outline');
-  }
-  if (pairError) html += '<p class="pair-error" role="alert">' + esc(pairError) + '</p>';
-  modalContent.innerHTML = html;
-  if (pairOut && modal.querySelector('#pair-qr')) {
-    try { drawQR(modal.querySelector('#pair-qr'), pairOut); }
-    catch (error) { modal.querySelector('.qr-wrap').remove(); const p = document.createElement('p'); p.className = 'qr-note'; p.textContent = error.message; modalContent.append(p); }
-  }
-}
-async function createInvitation() {
-  prefs.team = Boolean(modal.querySelector('#team')?.checked); savePrefs();
-  const config = readConfig();
-  pairBusy = true; pairError = ''; pairMessage = 'Finding a direct route. This can take a few seconds.';
-  const link = makePeer(0, config);
-  renderPair();
-  try {
-    const token = await link.invite();
-    if (peer !== link) return;
-    pairOut = makeLink(token, 'offer');
-    pairMessage = 'Invitation ready. Share it, then accept the reply here.';
-  } catch (error) { pairError = error.message; }
-  pairBusy = false; renderPair(); render();
-}
-async function joinInvitation(input) {
-  const config = readConfig();
-  await decodePairing(input, 'offer'); // Validate before replacing any live connection.
-  pairBusy = true; pairError = ''; pairMessage = 'Preparing your reply. This can take a few seconds.';
-  const link = makePeer(1, config); renderPair();
-  try {
-    const token = await link.join(input);
-    if (peer !== link) return;
-    pairOut = makeLink(token, 'answer'); pairMessage = 'Send your reply to the host to finish connecting.';
-  } catch (error) { pairError = error.message; }
-  pairBusy = false; renderPair(); render();
-}
-async function acceptReply(input) {
-  if (!peer || session?.seat !== 0) throw new Error('Open your hosting tab first, then paste the reply there.');
-  pairBusy = true; pairError = ''; pairMessage = 'Connecting to your partner…'; renderPair();
-  try { await peer.accept(input); }
-  catch (error) { pairError = error.message; }
-  pairBusy = false; renderPair();
-}
-async function copyOutput() {
-  if (!pairOut) return;
-  try { await navigator.clipboard.writeText(pairOut); }
-  catch {
-    const field = modal.querySelector('#pair-output');
-    if (field) { field.focus(); field.select(); if (!document.execCommand('copy')) throw new Error('Select and copy the link above.'); }
-    else throw new Error('Clipboard access is unavailable. Copy the reply from your address bar.');
-  }
-  notify(pairKind === 'host' ? 'Invitation copied. Send it to your friend.' : 'Reply copied. Send it back to the host.');
-}
-function stopScan() {
-  scanGeneration++; clearTimeout(scanTimer);
-  scanStream?.getTracks().forEach(track => track.stop()); scanStream = null;
-  modal.querySelector('.scan-video')?.remove();
-  modal.querySelector('[data-action="stop-scan"]')?.remove();
-}
-async function scanCode(target) {
-  stopScan();
-  if (!canScan) throw new Error('Use your phone camera to scan, or paste the link here.');
-  const current = scanGeneration;
-  const stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: {ideal: 'environment'}}, audio: false});
-  if (current !== scanGeneration || !modal.open) { stream.getTracks().forEach(t => t.stop()); return; }
-  scanStream = stream;
-  const video = document.createElement('video'); video.className = 'scan-video'; video.muted = true; video.playsInline = true; video.srcObject = scanStream;
-  modalContent.append(video); modalContent.insertAdjacentHTML('beforeend', button('STOP CAMERA', 'stop-scan', 'outline'));
-  await video.play();
-  const detector = new BarcodeDetector({formats: ['qr_code']});
-  async function detect() {
-    if (current !== scanGeneration || !modal.open) return;
-    try {
-      const codes = await detector.detect(video);
-      const code = codes.find(c => c.rawValue.includes('MT1'));
-      if (code) {
-        stopScan();
-        if (target === 'offer') await joinInvitation(code.rawValue);
-        else await acceptReply(code.rawValue);
-        return;
-      }
-    } catch (error) { if (current === scanGeneration) { stopScan(); pairError = error.message; renderPair(); } return; }
-    scanTimer = setTimeout(detect, 300);
-  }
-  detect();
-}
 function showRules() {
-  stopScan(); pairingOpen = false;
   const type = view()?.type || selectedGame, g = GAMES[type];
   const rules = {
     backhand: [
@@ -476,9 +315,10 @@ document.addEventListener('click', async event => {
   if (!target || target.disabled) return;
   const action = target.dataset.action;
   try {
-    if(action==='ai-settings')openAISettings(()=>{generation++;stopAI();botContext='';if(session)session.botKey='';prepareBot();session?.prepareBot();render();scheduleBot();session?.scheduleBot();});
-    else if(action==='cancel-ai'){generation++;stopAI('AI paused. Retry when ready.');render();}
-    else if(action==='retry-ai'){stopAI();botContext='';if(session)session.botKey='';prepareBot();session?.prepareBot();render();scheduleBot();session?.scheduleBot();}
+    if(action==='ai-settings')openAISettings(()=>{if(mode==='async'){asyncClient.retryAI();return;}generation++;stopAI();botContext='';prepareBot();render();scheduleBot();});
+    else if(action==='cancel-ai'){if(mode==='async'){asyncClient.aiController?.abort();return;}generation++;stopAI('AI paused. Retry when ready.');render();}
+    else if(action==='retry-ai'){if(mode==='async'){asyncClient.retryAI();return;}stopAI();botContext='';prepareBot();render();scheduleBot();}
+    else if(action==='table-chat')openFriendChat();
     else if (action === 'select-game') { selectedGame = target.dataset.game; sound('tap'); render(); }
     else if (action === 'start-solo') startOffline(selectedGame, 'solo');
     else if (action === 'start-local') startOffline(selectedGame, 'local');
@@ -496,45 +336,20 @@ document.addEventListener('click', async event => {
     else if (action === 'tick') { source = null; await act({kind: 'tick', lot: target.dataset.lot}); }
     else if (action === 'uncover') { handoff = false; chosen = null; render(); }
     else if (action === 'rules') showRules();
-    else if (action === 'table-menu') { scene = 'menu'; selectedGame = view().type;generation++;stopAI();botContext='';if(session){clearTimeout(session.botTimer);session.botKey='';}render(); }
-    else if (action === 'resume') { scene = 'game';prepareBot();session?.prepareBot();render();scheduleBot();session?.scheduleBot(); }
+    else if (action === 'table-menu') { scene = 'menu'; selectedGame = view().type;generation++;stopAI();botContext='';render(); }
+    else if (action === 'resume') { scene = 'game';prepareBot();render();scheduleBot(); }
     else if (action === 'rematch') {
-      if (mode === 'online') session.start(view().type);
+      if (mode === 'async') friendSession()?.openGameSetup('midnight', asyncClient.record.setup);
       else startOffline(view().type, mode);
-    } else if (action === 'deal-online') session.start(selectedGame);
-    else if (action === 'leave-online') {
-      const old = peer; peer = null; old?.close(); session = null; mode = 'solo'; scene = 'menu'; game = null; render();
-    } else if (action === 'host' || action === 'join') {if(action==='join')joinFriendRoom('midnight');else if(friendSessionConnected())showFriendPanel();else inviteFriendGame('midnight',friendSetup());}
-    else if (action === 'create-invite') await createInvitation();
-    else if (action === 'join-invite') await joinInvitation(modal.querySelector('#pair-input').value);
-    else if (action === 'accept-reply') await acceptReply(modal.querySelector('#pair-input').value);
-    else if (action === 'copy') await copyOutput();
-    else if (action === 'share') {
-      if (navigator.share) { try { await navigator.share({title: 'Midnight Table', text: pairKind === 'host' ? 'Your seat is waiting.' : 'Here’s my reply. Meet you at the table.', url: pairOut}); } catch (e) { if (e.name !== 'AbortError') await copyOutput(); } }
-      else await copyOutput();
-    } else if (action === 'close-modal') modal.close();
-    else if (action === 'cancel-pair') {
-      stopScan();
-      const old = peer; peer = null; old?.close();
-      pairOut = ''; pairBusy = false; pairError = ''; pairMessage = ''; linkStatus = 'idle';
-      if (!session?.view) { mode = 'solo'; session = null; }
-      modal.close(); render();
-    } else if (action === 'scan-invite') await scanCode('offer');
-    else if (action === 'scan-reply') await scanCode('answer');
-    else if (action === 'stop-scan') stopScan();
-  } catch (error) {
-    if (pairingOpen) { pairError = error.message; pairBusy = false; renderPair(); }
-    else notify(error.message);
-  }
+    } else if (action === 'host') inviteFriendGame('midnight', friendSetup());
+    else if (action === 'join') joinFriendRoom('midnight');
+    else if (action === 'close-modal') modal.close();
+  } catch (error) { notify(error.message); }
 });
 document.addEventListener('change', event => {
   if(event.target.id==='ai-opponent'){prefs.opponent=event.target.value;savePrefs();return;}
   if (event.target.id === 'player-name') {
-    prefs.name = event.target.value.trim().slice(0, 24) || 'You'; savePrefs();
-    if (mode === 'online' && session) {
-      session.members[session.seat] = name();
-      if (connected()) { peer.send({type: 'hello', name: name()}); if (session.seat === 0) session.sync(); }
-    }
+    prefs.name = savePlayerName(event.target.value) || 'You'; savePrefs();
   }
 });
 document.addEventListener('keydown', event => {
@@ -551,7 +366,6 @@ document.addEventListener('keydown', event => {
     event.preventDefault();
   }
 });
-modal.addEventListener('close', () => { stopScan(); pairingOpen = false; });
 modal.addEventListener('click', event => {
   if (event.target === modal) {
     const rect = modal.getBoundingClientRect();
@@ -575,60 +389,48 @@ document.querySelector('#fullscreen').addEventListener('click', async () => {
     else notify('Use your browser’s fullscreen control.');
   } catch { notify('Fullscreen is unavailable in this browser.'); }
 });
-bus?.addEventListener('message', async event => {
-  const message = event.data;
-  if (!message || typeof message !== 'object') return;
-  if (message.type === 'reply' && session?.seat === 0 && peer && message.room === peer.room && !peer.connected) {
-    try {
-      await peer.accept(message.token);
-      bus.postMessage({type: 'reply-accepted', room: message.room});
-      pairMessage = 'Reply accepted. Connecting…'; if (pairingOpen) renderPair();
-    } catch (error) { notify(error.message); }
-  } else if (message.type === 'reply-accepted' && pairKind === 'return') {
-    pairMessage = 'Reply delivered. Your game is connecting in the original hosting tab. You can close this tab.'; renderPair();
-  }
-});
-async function handleHash() {}
-window.addEventListener('hashchange', () => handleHash());
-window.addEventListener('pagehide', () => {stopAI(); stopScan(); clearTimeout(botTimer); peer?.close(); bus?.close(); });
-if (typeof BarcodeDetector !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
-  BarcodeDetector.getSupportedFormats().then(formats => { canScan = formats.includes('qr_code'); if (pairingOpen) renderPair(); }).catch(() => {});
-}
-applySettings(); render(); handleHash();
+window.addEventListener('pagehide', () => { stopAI(); clearTimeout(botTimer); });
+applySettings(); render();
 
 // Read-only diagnostics for browser playtests; no method can alter a game.
 Object.defineProperty(window, '__midnight', {value: {
   get state() { return view() ? structuredClone(view()) : null; },
   get mode() { return mode; },
-  get seat() { return mySeat(); },
-  get connected() { return connected(); }
+  get seat() { return mySeat(); }
 }});
 
 installThemeControls(document.querySelector('.top-actions'));
 
-function friendSessionConnected(){return connected();}
-function friendSetup(){return {type:view()?.type||selectedGame,team:session?.team??false,opponent:prefs.opponent==='model'?'model':'dealer'};}
+function friendSetup(){return mode==='async'?asyncClient.record.setup:{type:selectedGame,team:Boolean(prefs.team),opponent:prefs.opponent==='model'?'model':'dealer'};}
 registerCheckpoint('midnight',{
-  capture:()=>view()?{mode,seat:mySeat(),state:mode==='online'?session.state:game,view:view(),team:session?.team||false,members:session?.members||[],series:session?.series||offlineSeries,setup:friendSetup()}:null,
+  capture:()=>mode!=='async'&&game?{mode,seat:mySeat(),state:game,view:view(),team:false,members:[],series:offlineSeries,setup:friendSetup()}:null,
   restore(data){
     if(!data||!['solo','local','online'].includes(data.mode)||![0,1].includes(data.seat))throw new Error('Invalid saved table.');
     validateView(data.view);
-    if(data.state){validateView(playerView(data.state,0));validateView(playerView(data.state,1));}
+    // Games with a friend now live in the room rather than in this browser.
+    if(data.mode==='online'||!data.state)return;
+    validateView(playerView(data.state,0));validateView(playerView(data.state,1));
     mode=data.mode;seat=data.seat;selectedGame=data.setup.type;
-    if(mode==='online'){
-      session=new TableSession({seat,name:name(),team:data.team,chooseBot:decideBot,onUpdate:updateOnline,onError:networkError});
-      Object.assign(session,{state:data.state,view:data.view,members:data.members,series:data.series});
-    }else{game=data.state;offlineSeries=data.series;}
+    game=data.state;offlineSeries=data.series;
     scene='game';chosen=null;source=null;handoff=mode==='local';render();
   },
 });
 registerFriendGame('midnight',{
   setup:friendSetup,
-  canResume:()=>Boolean(session?.seat===0&&session.state),
-  start({host,metadata,resume}){
-    clearTimeout(botTimer);generation++;stopAI();
-    selectedGame=metadata.type;prefs.team=metadata.team;prefs.opponent=metadata.opponent;savePrefs();
-    if(!(resume&&host&&session?.state)){session=null;game=null;}
-    pairingOpen=false;modal.close();makePeer(host?0:1);
+  startAsync(client){
+    clearTimeout(botTimer);generation++;stopAI();game=null;asyncClient=client;mode='async';scene='game';handoff=false;lastViewKey='';chosen=null;source=null;
+    const unsubscribe=client.subscribe(record=>{
+      if(mode!=='async'||asyncClient!==client)return;
+      const v=record.view,key=record.id+'/'+v.round+'/'+v.phase+'/'+v.revision;
+      selectedGame=v.type;
+      if(lastViewKey&&lastViewKey!==key){
+        const phase=lastViewKey.split('/')[2];
+        if(phase!==v.phase){chosen=null;source=null;}
+        sound(v.phase==='over'?'win':v.phase==='reveal'?'reveal':phase!==v.phase?'deal':'tap');
+      }
+      lastViewKey=key;render();
+    });
+    window.addEventListener('pagehide',unsubscribe,{once:true});
   },
+  chooseAI:chooseRoomAI,
 });

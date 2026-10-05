@@ -1,361 +1,160 @@
 import {createPeerTransport} from './peer.js';
-import {FriendChat} from './friend-chat.js';
-import {defaultGameSetup, validateGameSetup} from './friend-setup.js';
-import {isFriendPage} from './friend-pages.js';
+import {RoomLink} from './room-client.js';
+import {RoomChat} from './room-chat.js';
+import {TurnClient, roomRequest} from './turn-client.js';
+import {roomConfig} from './signaling.js';
+import {validateGameSetup} from './friend-setup.js';
 
-export const FRIEND_GAMES = Object.freeze({
-  collection: {title: 'Games', protocol: 1, wireKey: 'v'},
-  'flip-it': {title: 'Flip It', protocol: 6, wireKey: 'v'},
-  cluance: {title: 'Cluance', protocol: 1, wireKey: 'version'},
-  midnight: {title: 'Midnight Table', protocol: 1, wireKey: 'v'},
-});
+// Games whose rules run in the room. Both players see the same saved game,
+// whether they play at the same time or come back later.
+export const ROOM_GAMES = Object.freeze({'flip-it': 'Flip It', cluance: 'Cluance', midnight: 'Midnight Table'});
+export const isRoomGame = game => Object.hasOwn(ROOM_GAMES, game);
 const ROOM_TRANSPORT = {protocol: 1, prefix: 'fr1', gameName: 'Friend room', channelName: 'friends'};
-const supported = game => Object.hasOwn(FRIEND_GAMES, game);
-const randomID = () => [...crypto.getRandomValues(new Uint8Array(16))]
-  .map(byte => byte.toString(16).padStart(2, '0')).join('');
+const STUN = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]};
 
-// One physical PeerLink survives every game document. Its initial wire protocol
-// remains fixed; envelopes carry the active game's protocol and generation.
+// The outer page owns the room connection, chat, saved games and the optional
+// peer connection used by shared cursors. Game documents come and go beneath it.
 export class FriendSession {
-  constructor({game, onChange, onSwitch, onError, onPicker}) {
-    this.game = game;
-    this.epoch = 'initial';
-    this.onChange = onChange;
-    this.onSwitch = onSwitch;
-    this.onError = onError;
-    this.openPicker = onPicker;
-    this.paused = false;
-    this.loading = false;
-    this.chat = new FriendChat(this);
+  constructor({game, onChange, onSwitch, onError, onEvent, onPicker}) {
+    Object.assign(this, {game, onChange, onSwitch, onError, onEvent: onEvent || (() => {}), openPicker: onPicker});
+    this.credential = null;
+    this.me = {name: ''};
+    this.friend = {name: '', joined: false, online: false, visible: false, page: null, game: null};
+    this.games = [];
+    this.status = 'none';
+    this.chat = new RoomChat(this);
+    this.asyncGame = null;
+    this.adapter = null;
+    this.listeners = new Set();
   }
+  get role() { return this.credential?.role || null; }
+  get isHost() { return this.role === 'host'; }
+  get inRoom() { return Boolean(this.credential); }
+  get friendName() { return this.friend.name || 'your friend'; }
+  // Legacy game pages ask whether a live table is connected; room games never are.
+  get connected() { return false; }
+  supports() { return false; }
 
-  get connected() { return Boolean(this.peer?.connected); }
-  get connecting() {
-    return Boolean(this.peer && !this.peer.closed && !this.connected &&
-      !['closed', 'failed', 'disconnected'].includes(this.peer.pc.connectionState));
-  }
-  supports(game) { return supported(game); }
-
-  createPeer(game, transport, options) {
-    if (game !== this.game || !supported(game)) throw new Error('This game is no longer active.');
-    const expected = FRIEND_GAMES[game];
-    if (transport.protocol !== expected.protocol || transport.wireKey !== expected.wireKey) {
-      throw new Error('Update both game pages before playing together.');
-    }
-    this.link?.close(true);
-    if (!this.connected) {
-      this.replacePeer(transport, options);
-    }
-    const link = new GamePeer(this, game, options);
-    this.link = link;
-    if (this.connected) queueMicrotask(() => link.notify('open'));
-    this.onChange();
-    return link;
-  }
-
-  replacePeer(transport, options = {}) {
-    this.screen?.stop(false);
-    const old = this.peer;
-    this.peer = null;
-    old?.close();
-    this.epoch = 'initial';
-    this.paused = false;
-    this.friendInvitation = null;
-    if(!this.chat.persistent)this.chat = new FriendChat(this);
-    const {PeerLink} = createPeerTransport(transport);
-    const peer = new PeerLink({
-      ...options,
-      onMessage: message => { if (this.peer === peer) this.receive(message); },
+  attach(credential) {
+    this.link?.close();
+    this.credential = credential;
+    this.status = 'connecting';
+    const link = this.link = new RoomLink(credential, {
+      onMessage: message => { if (this.link === link) this.receive(message); },
       onStatus: status => {
-        if (this.peer !== peer) return;
-        if (['closed', 'failed', 'disconnected'].includes(status)) {
-          this.clearProposal();
-          clearTimeout(this.loadTimer);
-          this.loading = false;
-          if (this.screen?.active) { this.sharedResume=true;this.screen.suspend(); }
-        }
-        this.link?.notify(status);
-        if (status === 'open' && !this.roomReadySent) {
-          this.roomReadySent = true;
-          if (!this.isHost) this.send({type:'friend-room-ready'});
-        }
+        if (this.link !== link) return;
+        this.status = status;
+        if (status === 'rejected') this.onEvent({kind: 'rejected'});
+        else if (status === 'offline' && this.link?.attempt >= 3) this.probe(credential);
         this.onChange();
-        if (['closed','failed','disconnected'].includes(status)) this.onReconnect?.();
       },
     });
-    this.peer = peer;
+    this.link.update({page: this.game, game: this.asyncGame?.record.id || null});
+    this.link.connect();
+  }
+  // A page that keeps failing to connect checks whether the room still exists.
+  async probe(credential) {
+    if (this.probing) return;
+    this.probing = true;
+    try { await roomRequest(credential, 'chat'); }
+    catch (error) {
+      if (this.credential === credential && [401, 403, 404, 410].includes(error.status)) {
+        this.link?.close(); this.status = 'rejected'; this.onEvent({kind: 'rejected'}); this.onChange();
+      }
+    } finally { this.probing = false; }
+  }
+  leave() {
+    this.stopCursors?.();
+    this.asyncGame?.close();
+    const link = this.link;
+    this.link = null; this.credential = null;
+    link?.close(); this.status = 'none'; this.games = []; this.asyncGame = null;
+    this.me = {name: this.me.name};
+    this.friend = {name: '', joined: false, online: false, visible: false, page: null, game: null};
+    this.chat = new RoomChat(this);
+    this.onChange();
+  }
+  setPage(game) {
+    this.game = game;
+    this.link?.update({page: game, game: this.asyncGame?.record.id || null});
   }
 
-  async connectFriendRoom(invitation, role, config, initial = {game:'collection', metadata:{}}) {
-    const previousChat=initial.restoring?this.chat:null;
-    this.disconnect();
-    this.link?.close(true);
-    this.link = null;
-    this.isHost = role === 'host';
-    this.replacePeer(ROOM_TRANSPORT, {config});
-    this.roomReadySent = false;
-    if (previousChat) this.chat=previousChat;
-    if (!isFriendPage(initial.game)) throw new Error('The saved game is unavailable. Choose a new game.');
-    this.sharedResume=Boolean(initial.shared);
-    this.invitationSetup = this.isHost ? {game:initial.game, metadata:initial.shared||initial.independent?{}:validateGameSetup(initial.game,initial.metadata), resume:Boolean(initial.resume),shared:Boolean(initial.shared),independent:Boolean(initial.independent)} : null;
-    this.friendInvitation = role === 'host' ? invitation : null;
+  receive(message) {
+    if (message.type === 'welcome' || message.type === 'presence') {
+      const before = this.friend;
+      this.me = {name: message.you?.name || this.me.name};
+      this.friend = {...this.friend, ...message.friend};
+      if (message.type === 'welcome') {
+        this.chat.apply(message.chat);
+        this.games = Array.isArray(message.games) ? message.games : [];
+        if (this.asyncGame) this.asyncGame.refresh().catch(() => {});
+        this.onEvent({kind: 'welcome', previous: before});
+      } else {
+        if (!before.joined && this.friend.joined) this.onEvent({kind: 'friend-joined'});
+        else if (!before.online && this.friend.online) this.onEvent({kind: 'friend-online'});
+        else if (before.online && !this.friend.online) this.onEvent({kind: 'friend-offline'});
+        if (this.friend.game !== before.game || this.friend.page !== before.page) this.onEvent({kind: 'friend-moved', previous: before});
+      }
+      this.asyncGame?.publish(this.asyncGame.record);
+    } else if (message.type === 'chat') {
+      const before = this.chat.sequence;
+      this.chat.apply(message.history);
+      if (message.by !== this.role) for (const entry of this.chat.entries) if (entry.sequence > before) this.onEvent({kind: 'chat', entry});
+    } else if (message.type === 'game' && message.game?.id) {
+      const record = message.game;
+      const {view, ...summary} = record;
+      this.games = [summary, ...this.games.filter(game => game.id !== record.id)];
+      this.asyncGame?.apply(record);
+      this.onEvent({kind: 'game', record, cause: message.cause || {}, mine: message.cause?.by === this.role});
+    } else if (message.type === 'relay' && message.data) {
+      this.onEvent({kind: 'relay', data: message.data});
+    }
     this.onChange();
-    await this.peer.connectRoom(invitation, role);
+  }
+  relay(data) { return Boolean(this.link?.relay(data)); }
+
+  async saveName(name) {
+    if (!this.credential) { this.me = {name}; return name; }
+    const data = await roomRequest(this.credential, 'profile', {method: 'POST', body: {name}});
+    this.me = {name: data.name};
+    this.onChange();
+    return data.name;
+  }
+  async createGame(game, setup) {
+    if (!this.credential) throw Error('Invite a friend first.');
+    const record = await roomRequest(this.credential, 'turns', {method: 'POST', body: {game, setup: validateGameSetup(game, setup)}});
+    const {view, ...summary} = record;
+    this.games = [summary, ...this.games.filter(item => item.id !== record.id)];
+    return record;
+  }
+  fetchGame(id) { return roomRequest(this.credential, 'turns/' + id); }
+  useGame(record) {
+    this.asyncGame?.close();
+    this.asyncGame = record ? new TurnClient(this, record) : null;
+    this.link?.update({game: record?.id || null});
   }
 
   registerGame(game, adapter) {
-    if (game !== this.game) throw new Error('This game is no longer active.');
+    if (game !== this.game) return;
     this.adapter = adapter;
-    if(this.asyncGame&&this.asyncGame.record.game===game){adapter.startAsync?.(this.asyncGame);this.onChange();return;}
-    if (this.loading) {
-      this.localReady = true;
-      this.send({type: 'friend-ready', epoch: this.epoch});
-      this.maybeStart();
-    }
+    if (this.asyncGame?.record.game === game) { adapter.startAsync?.(this.asyncGame); this.asyncGame.schedule(); }
     this.onChange();
   }
 
-  send(message) { if(this.connected)this.peer.send(message); }
-
-  receive(message) {
-    if (this.chat.receive(message)) return;
-    if(message.type==='friend-turns-updated'){this.refreshInbox?.();return;}
-    if (message.type.startsWith('friend-screen-')) { this.screen?.handle(message); return; }
-    if (message.type === 'friend-room-ready') {
-      if (!this.isHost || !this.invitationSetup) return;
-      const {game,metadata,resume,shared,independent} = this.invitationSetup, epoch = randomID();
-      this.invitationSetup = null;
-      this.send({type:'friend-room-start',game,metadata,resume,shared,independent,epoch,history:this.chat.snapshot()});
-      if(independent){this.independent=true;return;}
-      if (shared) {this.game=game;this.resumeSharedPage=true;this.screen.restoreConnection(epoch);}
-      else this.loadGame(game,epoch,metadata,resume);
-      return;
-    }
-    if (message.type === 'friend-room-start') {
-      if (this.isHost || this.loading || !isFriendPage(message.game) || !/^[a-f0-9]{32}$/.test(message.epoch)) return;
-      if(!this.chat.persistent)this.chat.restore(message.history);
-      if(message.independent){this.independent=true;return;}
-      if (message.shared && this.sharedResume) {
-        this.game=message.game;this.resumeSharedPage=true;this.screen.restoreConnection(message.epoch);
-        this.onSwitch(message.game);
-      } else if (supported(message.game) && !message.shared) this.loadGame(message.game,message.epoch,validateGameSetup(message.game,message.metadata),Boolean(message.resume));
-      else this.onError('Your friend’s shared game is ready. Use Cursors to agree to share it.');
-      return;
-    }
-    if (message.type === 'friend-game') {
-      if (message.game !== this.game || message.epoch !== this.epoch || this.paused) return;
-      const payload = message.message, game = FRIEND_GAMES[this.game];
-      if (!payload || payload[game.wireKey] !== game.protocol || typeof payload.type !== 'string') {
-        this.onError('An incompatible game message arrived. Update both pages and invite again.');
-        return;
-      }
-      this.link?.receive(payload);
-      return;
-    }
-    if (message.type === 'friend-request') {
-      if (!supported(message.game) || !/^[a-f0-9]{32}$/.test(message.id)) return;
-      if (this.proposal || this.loading || this.screen?.busy) {
-        this.send({type: 'friend-decline', id: message.id});
-        return;
-      }
-      this.proposal = {id: message.id, game: message.game, metadata:validateGameSetup(message.game,message.metadata), resume:Boolean(message.resume), outgoing: false};
-      this.proposalTimer = setTimeout(() => this.decline(), 30000);
-    } else if (message.type === 'friend-accept') {
-      if (this.isHost && this.proposal?.outgoing && message.id === this.proposal.id) this.commit();
-    } else if (message.type === 'friend-decline' || message.type === 'friend-cancel') {
-      if (message.id !== this.proposal?.id) return;
-      if (message.type === 'friend-cancel') this.send({type: 'friend-decline', id: message.id});
-      this.clearProposal();
-    } else if (message.type === 'friend-switch') {
-      if (this.isHost || !this.proposal || message.id !== this.proposal.id || message.game !== this.proposal.game ||
-          !this.proposal.outgoing && !this.proposal.accepted ||
-          !/^[a-f0-9]{32}$/.test(message.epoch)) return;
-      this.loadGame(message.game, message.epoch, validateGameSetup(message.game,message.metadata),Boolean(message.resume));
-    } else if (message.type === 'friend-ready') {
-      if (!this.loading || message.epoch !== this.epoch) return;
-      this.remoteReady = true;
-      this.maybeStart();
-    } else if (message.type === 'friend-start') {
-      if (this.isHost || !this.loading || !this.localReady || message.epoch !== this.epoch) return;
-      this.startGame(message.metadata);
-    } else if (message.type === 'friend-pause') {
-      if (message.epoch !== this.epoch) return;
-      this.pause(false);
-    } else {
-      this.onError('Update both game pages and create a fresh invitation to play together.');
-    }
-    this.onChange();
+  // Shared cursors use one direct browser connection, opened only while sharing.
+  async connectPeer() {
+    this.closePeer();
+    const credential = this.credential;
+    const config = await roomConfig(credential, STUN).catch(() => STUN);
+    if (this.credential !== credential) throw Error('You left the room.');
+    const {PeerLink} = createPeerTransport(ROOM_TRANSPORT);
+    const peer = new PeerLink({config, onMessage: message => { if (this.peer === peer) this.screen?.handle(message); },
+      onStatus: status => { if (this.peer === peer) this.onPeerStatus?.(status); }});
+    this.peer = peer;
+    await peer.connectRoom(credential, credential.role);
+    return peer;
   }
-
-  requestGame(game, settings, resume = false) {
-    if (this.screen?.active) { this.screen.navigate(game); return; }
-    if (this.screen?.busy) return;
-    if (!supported(game)) return;
-    if (!this.connected) {
-      this.disconnect();
-      this.game = game;
-      this.adapter = null;
-      this.onSwitch(game);
-    } else if (!this.proposal && !this.loading) {
-      const metadata = validateGameSetup(game,settings ?? defaultGameSetup(game));
-      // The setup role describes the original inviter on the wire.
-      if (game === 'cluance' && !this.isHost) metadata.role = metadata.role === 'giver' ? 'guesser' : 'giver';
-      this.proposal = {id: randomID(), game, metadata, resume, outgoing: true};
-      this.send({type: 'friend-request', id: this.proposal.id, game, metadata, resume});
-      this.proposalTimer = setTimeout(() => this.cancel(), 30000);
-    }
-    this.onChange();
-  }
-
-  accept() {
-    if (!this.proposal || this.proposal.outgoing || this.proposal.accepted) return;
-    clearTimeout(this.proposalTimer);
-    this.proposal.accepted = true;
-    if (this.isHost) this.commit();
-    else this.send({type: 'friend-accept', id: this.proposal.id});
-    this.onChange();
-  }
-
-  decline() {
-    if (!this.proposal) return;
-    if (this.connected) this.send({type: 'friend-decline', id: this.proposal.id});
-    this.clearProposal();
-    this.onChange();
-  }
-
-  cancel() {
-    if (!this.proposal || this.proposal.cancelled) return;
-    if (this.connected) this.send({type: 'friend-cancel', id: this.proposal.id});
-    // The original inviter coordinates switches. Wait for its cancellation
-    // reply so an acceptance already in flight cannot split the two games.
-    if (!this.isHost && this.proposal.outgoing && this.connected) this.proposal.cancelled = true;
-    else this.clearProposal();
-    this.onChange();
-  }
-
-  commit() {
-    const {id, game, metadata, resume} = this.proposal, epoch = randomID();
-    this.send({type: 'friend-switch', id, game, epoch, metadata, resume});
-    this.loadGame(game, epoch, metadata, resume);
-  }
-
-  loadGame(game, epoch, metadata, resume = false) {
-    this.clearProposal();
-    this.loading = true;
-    this.paused = true;
-    this.link?.close(true);
-    this.link = null;
-    this.adapter = null;
-    this.localReady = this.remoteReady = false;
-    this.game = game;
-    this.epoch = epoch;
-    this.asyncGame=null;this.independent=false;
-    this.gameSetup = metadata;
-    this.resumeGame = resume;
-    this.sharedResume = this.resumeSharedPage = false;
-    clearTimeout(this.loadTimer);
-    this.loadTimer = setTimeout(() => {
-      this.pause();
-      this.onError('The game did not finish loading. Choose it again to retry.');
-    }, 15000);
-    this.onSwitch(game);
-    this.onChange();
-  }
-
-  maybeStart() {
-    if (!this.isHost || !this.loading || !this.localReady || !this.remoteReady) return;
-    const metadata = this.gameSetup ?? this.adapter.setup();
-    this.send({type: 'friend-start', epoch: this.epoch, metadata, resume:this.resumeGame});
-    this.startGame(metadata);
-  }
-
-  startGame(metadata) {
-    clearTimeout(this.loadTimer);
-    this.loading = false;
-    this.paused = false;
-    try {
-      this.adapter.start({host: this.isHost, metadata, resume:this.resumeGame});
-    } catch (error) {
-      this.pause();
-      this.onError(error.message);
-    }
-    this.onChange();
-  }
-
-  pause(notify = true) {
-    clearTimeout(this.loadTimer);
-    this.loading = false;
-    this.paused = true;
-    if (notify && this.connected) this.send({type: 'friend-pause', epoch: this.epoch});
-    this.link?.notify('closed');
-    this.onChange();
-  }
-
-  clearProposal() {
-    clearTimeout(this.proposalTimer);
-    this.proposal = null;
-  }
-
-  disconnect() {
-    this.screen?.stop();
-    this.clearProposal();
-    clearTimeout(this.loadTimer);
-    this.loading = false;
-    this.paused = false;
-    this.peer?.close();
-    this.onChange();
-  }
-}
-
-// Game callbacks belong to an iframe lifetime; close detaches them after play
-// begins instead of closing the session's data channel or RTCPeerConnection.
-class GamePeer {
-  constructor(session, game, {onMessage, onStatus}) {
-    this.session = session;
-    this.game = game;
-    this.epoch = session.epoch;
-    this.onMessage = onMessage;
-    this.onStatus = onStatus;
-  }
-  get pc() { return this.session.peer.pc; }
-  get room() { return this.session.peer.room; }
-  get hosted() { return this.session.peer.hosted; }
-  get signalingError() { return this.session.peer.signalingError; }
-  get connected() { return !this.closed && !this.session.paused && this.session.connected; }
-
-  connectRoom(invitation, role) {
-    if (this.session.connected) throw new Error('You are already connected. Use Next game, or disconnect to invite someone else.');
-    this.session.isHost = role === 'host';
-    this.session.onChange();
-    return this.session.peer.connectRoom(invitation, role);
-  }
-  invite() {
-    this.session.isHost = true;
-    this.session.onChange();
-    return this.session.peer.invite();
-  }
-  join(input) {
-    this.session.isHost = false;
-    this.session.onChange();
-    return this.session.peer.join(input);
-  }
-  accept(input) { return this.session.peer.accept(input); }
-  send(message) {
-    if (!this.connected || this.epoch !== this.session.epoch) throw new Error('Wait for your friend before playing.');
-    const {protocol, wireKey} = FRIEND_GAMES[this.game];
-    this.session.send({type: 'friend-game', game: this.game, epoch: this.epoch,
-      message: {...message, [wireKey]: protocol}});
-  }
-  receive(message) {
-    if (!this.closed) Promise.resolve(this.onMessage(message)).catch(error => this.session.onError(error.message));
-  }
-  notify(status) { if (!this.closed) this.onStatus(status); }
-  close(detach = false) {
-    if (this.closed) return;
-    this.closed = true;
-    if (this.session.link !== this) return;
-    this.session.link = null;
-    if (!this.session.connected) this.session.peer.close();
-    else if (!detach && !this.session.loading) this.session.pause();
-  }
+  closePeer() { const peer = this.peer; this.peer = null; peer?.close(); }
+  get peerConnected() { return Boolean(this.peer?.connected); }
+  send(message) { if (this.peerConnected) this.peer.send(message); }
 }

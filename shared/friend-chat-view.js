@@ -9,19 +9,19 @@ export function installFriendChat(session) {
   let current, rendered = 0, readSequence = 0, sending = false;
   function markRead() {
     readSequence=current.sequence;
-    const room=session.resumeCredentials?.room;
+    const room=session.credential?.room;
     if(!room || readMarkers[room]===readSequence)return;
     readMarkers[room]=readSequence;
     readMarkers=Object.fromEntries(Object.entries(readMarkers).slice(-20));
     try {localStorage.setItem(READ_KEY,JSON.stringify(readMarkers));} catch { /* Optional storage. */ }
   }
   function seen() {
-    return !$('friend-chat').hidden && !document.hidden;
+    return !$('friend-chat').hidden && !$('friend-header').hidden && !document.hidden;
   }
   session.onChatVisibility = open => {
     if (open) {
       $('chat-log').scrollTop = $('chat-log').scrollHeight;
-      if (!$('chat-input').disabled) $('chat-input').focus({preventScroll:true});
+      if (!$('chat-input').disabled && matchMedia('(pointer:fine)').matches) $('chat-input').focus({preventScroll:true});
     }
     render();
   };
@@ -64,7 +64,7 @@ export function installFriendChat(session) {
     if (current !== session.chat) {
       current = session.chat;
       rendered = 0;
-      const read=readMarkers[session.resumeCredentials?.room];
+      const read=readMarkers[session.credential?.room];
       readSequence=Number.isSafeInteger(read)&&read>=0&&read<=current.sequence?read:0;
       $('chat-log').replaceChildren();
       $('chat-input').value = '';
@@ -75,8 +75,8 @@ export function installFriendChat(session) {
       if (entry.sequence <= rendered) continue;
       const own = entry.seat === (session.isHost ? 0 : 1);
       const row = document.createElement('li'), author = document.createElement('strong'), content = document.createElement('span');
-      row.className = own ? 'own-message' : 'friend-message';
-      author.textContent = own ? 'You' : 'Friend';
+      row.className = (own ? 'own-message' : 'friend-message') + (entry.kind === 'reaction' ? ' reaction' : '');
+      author.textContent = own ? 'You' : session.friend.name || 'Friend';
       content.textContent = entry.value;
       if (entry.kind === 'reaction') content.setAttribute('aria-label', REACTIONS[entry.value]);
       row.append(author, content);
@@ -87,13 +87,12 @@ export function installFriendChat(session) {
     if (nearBottom) log.scrollTop = log.scrollHeight;
     if (seen()) markRead();
     const unread=current.entries.filter(entry=>entry.sequence>readSequence && entry.seat!==(session.isHost?0:1)).length;
-    session.chatWindow?.badge(unread, 'unread messages');
-    $('open-friend-chat').textContent=unread ? `Chat (${unread})` : 'Chat';
+    session.unread = unread;
     $('chat-empty').hidden = Boolean(current.entries.length);
-    const available = Boolean(session.resumeCredentials || session.connected);
-    $('chat-status').textContent = session.resumeCredentials ? 'Saved in your room · reply whenever.' : session.connected
-      ? 'One conversation, across every game.' : 'Invite or join a friend to chat.';
-    $('chat-empty').textContent = available ? 'Say hello! Your conversation stays with you as you switch games.' : 'Connect with a friend from the Friends window. Your messages will appear here.';
+    const available = session.inRoom;
+    $('chat-status').textContent = 'Saved in your room · reply whenever.';
+    $('chat-empty').textContent = 'Say hello! Your conversation stays with you in every game.';
+    $('chat-input').placeholder = 'Message ' + (session.friend.name || 'your friend') + '…';
     for (const input of $('friend-chat').querySelectorAll('input, #chat-reactions button')) input.disabled = !available;
     $('chat-send').disabled = !available || sending || !$('chat-input').value.trim();
   }

@@ -31,3 +31,4 @@ export function signalMessage(value,role){
   if(value.type==='connected')return {type:'connected'};
   throw new Error('Only connection metadata is allowed.');
 }
+export {displayName} from '../shared/player-name.js';

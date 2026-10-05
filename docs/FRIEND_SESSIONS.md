@@ -1,37 +1,71 @@
-# Persistent friend rooms
+# Playing with a friend
 
-Friends and Chat have separate floating launchers and modeless windows above the game. Both start closed. Drag either launcher or a window title bar to move it; resize from the right/bottom edges or corner, and close with × or Escape. Placement, size and visibility are remembered in this browser across games and reloads. Reset a window with ↺. On a focused launcher/title bar, arrow keys move and Home resets; Shift + arrows on a title bar resize. The focused resize corner also accepts arrow keys. Windows stay within the visible screen, including when the phone keyboard opens. Dragging keeps the pointer anchored and does not reposition other launchers. Interrupted gestures retain the latest placement; Escape explicitly restores the starting placement.
+Every game page has one **Play together** launcher. Before you join a room it shows a people icon. Once a friend joins, it shows their initial, an online dot (green when here, amber when their tab is in the background) and a red badge counting what needs you: your turns and unread messages. The launcher opens one movable window with three tabs: **Play**, **Games** and **Chat**.
 
-Invitations, connection controls, settings and saved games live in Friends. Under **Window options**, uncheck **Show floating chat icon** to hide only the launcher. This choice persists; the **Chat** button in Friends still opens the conversation. Chat opens independently, and its launcher shows unread messages, retaining read status across reloads. The Friends launcher shows games awaiting your turn. Game invite and chat buttons open the corresponding window without changing the other window. Window placement follows the shared light/dark appearance and stays local to this browser; it is never sent to a friend.
+## Invite and join
 
-## One invitation, two ways to play
+1. Enter your name once. It is saved in this browser and is what your friend sees in games, chat and notifications. Change it under **Settings** (the gear in the window).
+2. Choose **Invite a friend**. The room is created immediately, with an eight-character code such as **K7QM-4XPN**, a **Share link** button (the system share sheet where available, otherwise copy), **Copy link** and a QR code.
+3. Your friend enters the code under **Join a friend**, or opens the link. Lowercase, spaces and dashes are accepted.
 
-Invite a friend, choose a game and its settings, then create an invitation. Read or copy its eight-character room code, such as **K7QM-4XPN**, and have your friend enter it in **Friends → Join a friend**. Lowercase, spaces and dashes are accepted. The invitation link remains available as an alternative. Both paths join the same room with the selected settings; async codes open the selected saved turn game. There is no reply link or second pairing dialog.
+You don't pick a game before inviting. Keep playing while you wait; a toast tells you when your friend joins.
 
-Codes expire after 24 hours and stop admitting browsers once the guest seat is claimed through either the code or link. Returning players use their private browser credential. Only the room creator can issue codes; guessing is limited to 30 attempts per hour per IP, and codes are scoped to the original site. The code registry uses the existing InviteLimiter binding and expiring records; no deployment migration or new secret is required. Cluance offers roles, board/clue decks and hand variant. Flip It offers action count, deck size, last chance, match goal and live bot/team options. Midnight Table offers its game and opponent/team settings. Provider keys stay in the game's settings and never enter an invitation.
+Codes expire after 24 hours and admit one friend. Once the guest seat is claimed through either the code or the link, neither works again. Returning players use the private browser credential saved on claim. Only the room creator can issue codes; guessing is limited to 30 attempts per hour per IP, and codes are scoped to the original site. The game list page shows the same invite and join actions. Once a friend has joined, it shows quick buttons for the room games and how many turns are waiting.
 
-**Live** connects the two browsers through one WebRTC connection. Either player can propose another native game with settings; the other accepts or declines. Flip It, Cluance and Midnight Table support native multiplayer. **Cursors**, with both players' consent, shares any collection game using one authoritative room creator and locally rendered guest views. It sends game state and input over the same data channel, without browser screen capture, video or a second connection.
+## Room games
 
-**Take turns** is available for Cluance and two-human Flip It games. Start a game, submit your move, then leave or play something else. The other browser need not be online. The inbox shows **Your turn**, **Waiting for friend** or **Finished**; the closed-panel button shows pending turns. Use **Start a turn game** to keep several games going at once. Opening a turn game or browsing locally does not move your friend's page. Flip It waits for both players to request the next round. Rematches create a separate game, preserving the previous result.
+Flip It, Cluance and Midnight Table are **room games**. Their rules run on the room's server, so both players always see the same table:
+
+- When you're both there, it plays live: moves arrive within a moment over the room connection.
+- When one of you leaves, nothing pauses. Make your move and close the tab; your friend plays when they're back.
+- There is no "Live" or "Take turns" mode to choose, and no reconnect button.
+
+Start one from **Play**: choose a game, adjust its settings and **Start game**. You go straight to the table and your friend gets a request. You can keep several games going; **Games** lists them under **Your turn**, **Waiting for …** and **Finished**. **End** finishes a game for both players. Rematches create a new game and keep the old result.
+
+- **Flip It** supports two people against each other or as a team sharing one hand, plus up to four bots or AI players. The rules bot plays in the room, paced by whichever player's page is open. AI players use the game creator's provider settings and run only while the creator has that game open; their seat's view is sent only to the creator, and only while the AI is choosing. Between rounds both people confirm.
+- **Cluance**: one gives clues, the other guesses. The giver's secret and hand stay on the giver's side, and both players' reasoning stays sealed until the reveal.
+- **Midnight Table**: all three games as a duel or as a team against the dealer or an AI. Simultaneous choices stay hidden until both are locked.
+
+Inside a game, names replace "You/Friend", a note shows whether your friend is at the table, and the other player's moves play a sound.
+
+## Notifications
+
+| What happens | You see |
+| --- | --- |
+| Your friend starts a game | A request card at the top of the screen with their name, the game and its settings, and **Play now** / **Later**. It plays a chime and stays until you answer. Requests you missed while away appear when you return. |
+| Your friend wants to share cursors | A request card with **Join** / **Not now**. |
+| Your friend moves and it's your turn | A toast with **Open** if you're elsewhere. At the table, a chime is enough. |
+| A message arrives while Chat is closed | A toast with the message and **Reply**, plus a badge. |
+| Your friend joins, comes online or enters your game, or a game ends | A short toast. |
+
+When the tab is in the background, its title flashes with the latest event and the tab icon shows a red dot. Optionally (**Settings → Notify me when this tab is in the background**), the browser shows a system notification; clicking it returns to the game. Sounds can be turned off in the same settings. These alerts need the page to be open. Notifications while the site is closed are planned as a later step.
+
+## Shared cursors
+
+Spacegolf, Nonocube, Pawn Quest and any other game can be shared from **Play → Share any game** while your friend is online. They get a request; when they join, your browser runs the game and theirs renders it. Both of you control it with your own cursor; game state and input travel over a direct browser connection opened only for sharing. A bar at the top shows who is sharing. **Stop sharing** or **Leave** ends it for both.
 
 ## Persistence and privacy
 
-A turn game's authoritative state is stored in the room's Cloudflare Durable Object. The server validates actions, acting player and revision. Duplicate/stale moves cannot advance the game twice. Flip It returns only your hand and hidden placeholders for the other hand; Cluance's secret/hand belong only to the giver, with reasoning sealed until the final reveal. Native live games retain their existing host-authoritative privacy model.
+Each open page keeps one connection to the room's Durable Object, which hibernates while idle. The room sends each player their own presence information, chat and role-private game views. Every move is validated against the current revision, so a duplicate or stale move cannot apply twice.
 
-Each seat gets a private browser resume credential after claiming the invitation once. Reloading reconnects live play and restores the saved table instead of dealing again. **Go offline** retains the room and progress; **Reconnect** restores live play. Return in the same browser. Clearing site storage or changing device loses that browser's credential; account-based or cross-device recovery is not provided. Keep invitation links private. An invitation cannot claim a seat a second time in another browser.
+The room, chat and games are kept for **90 days after the most recent visit**. At most 20 unfinished and 40 finished games are kept. Chat keeps the latest 60 messages and reactions, with 280-character text and a per-seat send limit. Your draft and read position stay in this browser.
 
-The room, chat and turn games are retained for **90 days after the most recent authenticated visit**. At most 20 unfinished turn games and 40 completed games are retained. Games and conversation use the existing Durable Object bindings, with no new service or secrets.
+**Settings → Leave room** removes the room from this browser only; your friend keeps their copy. Clearing site storage or changing device loses that browser's seat credential. Account-based or cross-device recovery is not provided. Keep invitation links private.
 
-The single **Chat** works during live, shared and turn play, including when your friend is offline. Its latest 60 messages/reactions are saved on the server, with 280-character text and a per-seat send limit. The draft and cached conversation survive game switches and reloads in the browser. Chat never enters game actions or AI prompts. Turn lists and chat refresh while the visible page is open, with immediate refresh on focus and live peer notifications.
+## Solo progress
 
-## Local and shared checkpoints
-
-The Saved games list restores each game's latest browser checkpoint. Flip It, Cluance and Midnight Table save table state. Spacegolf saves the current campaign/custom/endless hole, ball physics, shots, undo history and endless run counters. Nonocube saves the active puzzle, mask and progress. Pawn Quest saves arena and battle moves and lesson progress; a partly played drill puzzle restarts that puzzle while retaining completed drills. Cluance resumes shared-device play behind its handoff curtain.
-
-Shared play resumes the original creator's engine. The other player remains a follower, avoiding divergent copies. A shared guest must reconnect to that creator to continue. Checkpoints belong to the browser, not the turn-game server. Storage denial can prevent local recovery; completed server moves remain saved independently.
+Solo games keep their own checkpoints in the browser. Reloading a game resumes it, and **Continue on this device** (or **Games → On this device** in a room) lists every saved solo game. Spacegolf saves the current hole, ball physics, shots, undo history and endless run counters; Nonocube the active puzzle and progress; Pawn Quest arena and battle moves and lesson progress.
 
 ## Implementation and verification
 
-The outer collection/together page owns `FriendSession`, one physical `PeerLink`, `RoomChat`, the turn inbox and iframe navigation. Game adapters declare setup, resume and async entry points. `game-checkpoint.js` owns browser checkpoints. `turn-games.js` applies the existing pure rule engines on the server; role-filtered views are the only game state sent to turn clients.
+The outer page (`together/`) owns `FriendSession` (`shared/friend-session.js`): the live room link (`shared/room-client.js`), room chat, the list of room games, the current game's `TurnClient` and, while sharing, a `PeerLink`. `together/src/app.js` renders the window, invitations, requests and notifications (`shared/together-notify.js`). Game adapters register `startAsync(client)` to play a room game and `chooseAI` to choose for the creator's AI seats. `cloudflare/turn-games.js` runs the pure rule engines of all three games on the server.
 
-Run `npm run test:windows` for viewport bounds and `npm run test:windows:ui` (with Wrangler running) for mouse/touch/keyboard gestures, window persistence, focus, independent chat, phone/landscape layouts, theme and optional storage. Run `npm run test:cloudflare` for code authority, expiry, origin, code/link claim races, authorization, signaling, private views, idempotent seat recovery, stale/concurrent moves and durable chat. With Wrangler running, `npm run test:cloudflare:ui` exercises live and async code joining, separate offline browsers, closed-tab recovery, multiple saved games, background play, native live reloads, shared recovery and phone layout. The native gameplay tests use a deterministic RTC substitute and real Worker signaling; cross-network native WebRTC still requires deployed relay/network verification.
+Run `npm run test:cloudflare` for live room presence, names, pushed role-private views, relays, ending games, room bots and AI seats, team play, Midnight's hidden choices, code authority, expiry, origin checks, claim races, seat recovery, stale/concurrent moves and chat. Run `npm run test:windows` for viewport bounds.
+
+With Wrangler running (`npm run build:assets` then `npm run dev`):
+
+- `npm run test:windows:ui` covers mouse/touch/keyboard gestures, window persistence, focus, phone/landscape layouts, theme and optional storage.
+- `npm run test:cloudflare:ui` covers two separate browsers: room-code join with names, persistent request cards, pushed moves without refresh, hidden-tab alerts, closed-tab play, chat toasts/badges/drafts, room bots, postponed requests, notifications while browsing, phone layout, leaving, and shared cursors.
+- `npm run test:checkpoints:ui` covers solo checkpoints.
+
+Shared cursors use a deterministic RTC substitute in the audit; cross-network WebRTC still needs deployed relay/network verification.
