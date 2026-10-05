@@ -601,7 +601,9 @@ export class PlayScreen implements Screen {
   private renderFocus(): void {
     const s = this.session;
     const i = this.hover;
-    if (i < 0 || s.solved) {
+    // Mouse: the numbers are already on the cube's faces, so only fill in for cubes buried
+    // with no clue showing. Touch: a finger hides the cube, so always show the readout.
+    if (i < 0 || s.solved || (FINE_POINTER && this.clueShown(i))) {
       this.ui.focus.classList.remove('show');
       return;
     }
@@ -621,6 +623,24 @@ export class PlayScreen implements Screen {
     });
     this.ui.focus.replaceChildren(...chips);
     this.ui.focus.classList.add('show');
+  }
+
+  /** Whether a clue for this cube's rows is printed on one of its exposed faces. */
+  private clueShown(i: number): boolean {
+    const s = this.session;
+    const g = s.grid;
+    const xyz = g.coords(i);
+    for (let a = 0; a < 3; a++) {
+      if (!s.mask[g.cellLines[i * 3 + a]]) continue;
+      for (const d of [-1, 1]) {
+        const n = [...xyz];
+        n[a] += d;
+        if (n[a] < 0 || n[a] >= g.dims[a]) return true;
+        const j = g.idx(n[0], n[1], n[2]);
+        if (s.state[j] === BROKEN || !this.visible(j)) return true;
+      }
+    }
+    return false;
   }
 
   private beginStroke(x: number, y: number, alt: boolean): void {
