@@ -299,6 +299,7 @@ function cancelCursors(expired) {
 }
 async function startCursors({sharer, id, page}) {
   session.useGame(null);
+  session.panel?.setOpen(false, false);
   session.screen.start({sharer, id, page});
   render();
   try { await session.connectPeer(); }
@@ -395,7 +396,7 @@ function handleEvent(event) {
     notifier.toast({key: 'chat', name: session.friend.name, title: name, body: entry.value, sound: 'message', action: {label: 'Reply', run: () => session.openChat()}});
   } else if (event.kind === 'game') handleGame(event);
   else if (event.kind === 'relay') handleRelay(event.data);
-  else if (event.kind === 'rejected') showError('This room is no longer available. Invite your friend again to keep playing.');
+  else if (event.kind === 'rejected') showError('This room has expired. Open Play together → Settings → Leave room, then invite your friend again.');
 }
 
 // Panel ------------------------------------------------------------------------------
@@ -540,6 +541,7 @@ function render() {
     const badge = $(id).querySelector('.tab-badge'); badge.textContent = count; badge.hidden = !count;
   }
   setLauncher(inRoom ? turns + unread : 0);
+  for (const listener of session.listeners) { try { listener(); } catch { /* A closing page. */ } }
   persist();
   if (pendingAction) { const action = pendingAction; pendingAction = null; queueMicrotask(() => action === 'join' ? openJoin() : openInvitation(session.game)); }
 }

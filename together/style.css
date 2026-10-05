@@ -194,3 +194,11 @@ fieldset { border:0; padding:0; margin:0; min-width:0; }
   .request-card,.toast { transition:none; }
   .request-card .avatar::before,.pulse { animation:none; }
 }
+@media(max-width:600px) {
+  /* The open panel covers most of a phone screen; its × closes it. */
+  .social-launcher[aria-expanded=true] { display:none; }
+  .request-card { padding:14px; gap:4px 12px; }
+  .request-card .avatar { width:38px; height:38px; font-size:17px; }
+  .request-actions { grid-column:1/-1; }
+  .request-actions button { flex:1; }
+}

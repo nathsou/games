@@ -25,6 +25,7 @@ export class FriendSession {
     this.chat = new RoomChat(this);
     this.asyncGame = null;
     this.adapter = null;
+    this.listeners = new Set();
   }
   get role() { return this.credential?.role || null; }
   get isHost() { return this.role === 'host'; }
@@ -40,10 +41,26 @@ export class FriendSession {
     this.status = 'connecting';
     this.link = new RoomLink(credential, {
       onMessage: message => this.receive(message),
-      onStatus: status => { this.status = status; if (status === 'rejected') this.onEvent({kind: 'rejected'}); this.onChange(); },
+      onStatus: status => {
+        this.status = status;
+        if (status === 'rejected') this.onEvent({kind: 'rejected'});
+        else if (status === 'offline' && this.link?.attempt >= 3) this.probe(credential);
+        this.onChange();
+      },
     });
     this.link.update({page: this.game, game: this.asyncGame?.record.id || null});
     this.link.connect();
+  }
+  // A page that keeps failing to connect checks whether the room still exists.
+  async probe(credential) {
+    if (this.probing) return;
+    this.probing = true;
+    try { await roomRequest(credential, 'chat'); }
+    catch (error) {
+      if (this.credential === credential && [401, 403, 404, 410].includes(error.status)) {
+        this.link?.close(); this.status = 'rejected'; this.onEvent({kind: 'rejected'}); this.onChange();
+      }
+    } finally { this.probing = false; }
   }
   leave() {
     this.stopCursors?.();
