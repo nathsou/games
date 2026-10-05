@@ -48,8 +48,8 @@ const LESSONS: Lesson[] = [
       {
         title: 'Look around',
         text: say(
-          'Drag the background to turn the block. Scroll to zoom.',
-          'Drag the background to turn the block. Pinch to zoom.',
+          'With no tool active, dragging anywhere turns the block. Scroll to zoom.',
+          'With no tool active, dragging anywhere turns the block. Pinch to zoom.',
         ),
         until: (_p, ev) => ev === 'orbit',
         next: 'Skip',
@@ -259,8 +259,6 @@ export class Tutorial implements PlayHooks {
     const steps = LESSONS[this.lesson].steps;
     const s = steps[this.step];
     this.clearSpot();
-    if (s.spot === 'brush') p.setTool('paint');
-    else if (s.spot === 'hammer') p.setTool('break');
     if (s.spot && p.ui[s.spot]) {
       this.spotted = p.ui[s.spot];
       this.spotted.classList.add('spot');

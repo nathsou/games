@@ -1992,6 +1992,24 @@ button.puzzle-tile:hover {
     display: none;
   }
 }
+/* nudge the tool switch when a cube is clicked with no tool active */
+.toolswitch.nudge,
+.tools4.nudge {
+  animation: nudge 0.7s ease;
+}
+@keyframes nudge {
+  15% {
+    transform: translateY(-5px);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 35%, transparent);
+  }
+  35% {
+    transform: none;
+  }
+  55% {
+    transform: translateY(-2px);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 20%, transparent);
+  }
+}
 @media (max-width: 480px) {
   .play .key-hint {
     display: none;
@@ -2362,6 +2380,8 @@ h1, h2, h3, .puzzle-name, .plaque-title, .coll-name, .gallery-title h1, .menu-he
 .toolswitch .tool.active, .toolswitch .tool.active:first-child, .toolswitch .tool.active:last-child { color: var(--accent-ink); background: var(--accent); box-shadow: none; }
 .tool .ico { height: 18px; width: 18px; }
 .tool .key-hint { display: none; }
+/* selecting a tool should feel instant */
+.tool, .toolswitch { transition: none; }
 .toolswitch.temporary .tool.active { color: var(--accent-ink); }
 .pill { border-radius: 3px; border: 2px solid var(--ink); }
 .play .viewpad { display: none; }
@@ -2378,6 +2398,7 @@ h1, h2, h3, .puzzle-name, .plaque-title, .coll-name, .gallery-title h1, .menu-he
 .clue-legend small { margin-top: 4px; color: var(--ink-2); }
 .knob { --axis: var(--ink) !important; border-radius: 3px; border: 2px solid var(--ink); background: var(--bg); color: var(--ink); }
 .knob-arrow { color: var(--ink); }
+.knob.active .knob-arrow, .knob.grabbed .knob-arrow { color: var(--bg); }
 .knob-badge { background: var(--ink); color: var(--bg); }
 .axis-btn { color: var(--ink); min-height: 44px; width: 44px; }
 .axis-btn.active { color: var(--bg); background: var(--ink); border-color: var(--ink); }
@@ -2511,7 +2532,9 @@ h1, h2, h3, .puzzle-name, .plaque-title, .coll-name, .gallery-title h1, .menu-he
 
 .home { flex-direction: row; }
 .modal h2 { padding-right: 52px; }
-.empty-hint { background: var(--bg); color: var(--ink-2); border: 0; top: 45%; left: calc(50% + 150px); max-width: 320px; border-radius: 3px; }
+.empty-hint { background: var(--bg); color: var(--ink-2); border: 0; top: 45%; left: 50%; max-width: 320px; border-radius: 3px; }
+/* the Mono editor panel sits on the left, so center the hint in the free space to its right */
+@media (min-width: 761px) { .editor:not(.panel-closed) .empty-hint { left: calc(50% + 190px); } }
 @media (max-width: 900px) { .home { flex-direction: column; } }
 @media (max-width: 760px) { .empty-hint { left: 50%; top: 30%; max-width: 80%; } }
 
