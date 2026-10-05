@@ -80,11 +80,9 @@ try {
   assert.equal(await page.evaluate((i) => window.__nono.app.screen.session.state[i], idle), 0, 'A click with no tool must not touch cubes');
   await current(page).locator('.tool').first().click();
   assert.equal(await page.evaluate(() => window.__nono.app.screen.activeTool), 'break');
-  const before = await page.evaluate(() => window.__nono.app.screen.draw().clues.scene.count);
   const broken = await clickCube(page, false);
   assert.equal(await page.evaluate((i) => window.__nono.app.screen.session.state[i], broken), 2);
   await capture(page, '13-play-progress-light-desktop');
-  assert.equal(await page.evaluate(() => window.__nono.app.screen.draw().clues.scene.count), before, 'Face clues must survive a broken cube');
   await current(page).getByRole('button', { name: 'Undo', exact: true }).click();
   assert.equal(await page.evaluate((i) => window.__nono.app.screen.session.state[i], broken), 0);
   await current(page).locator('.tool').last().click();
@@ -113,7 +111,6 @@ try {
   await page.keyboard.press('r'); await settle(page, 600);
   await page.keyboard.press('x');
   assert.equal(await page.evaluate(() => window.__nono.app.screen.slicer.peel), 1);
-  assert.ok(await page.evaluate(() => window.__nono.app.screen.draw().clues.scene.count > 0));
   await page.evaluate(() => window.__nono.app.screen.slicer.reset());
   await current(page).getByRole('button', { name: 'Settings', exact: true }).click();
   await settle(page);
@@ -179,7 +176,7 @@ try {
   assert.equal(await page.evaluate(() => window.__nono.store.user.length), 1);
   await page.evaluate(() => window.__nono.nav.editor()); await settle(page);
   assert.equal(await page.evaluate(() => window.__nono.app.screen.cells.filter(Boolean).length), 5, 'Editor draft survives reload');
-  console.log('Desktop: appearance, tools, orbit, persistent clues, slicing, undo, persistence, solving, tutorial, editor and solver passed.');
+  console.log('Desktop: appearance, tools, orbit, slicing, undo, persistence, solving, tutorial, editor and solver passed.');
 
   const phone = await start({ viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true, colorScheme: 'light' });
   await capture(phone, '10-home-light-phone');

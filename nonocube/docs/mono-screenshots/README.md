@@ -20,4 +20,4 @@ Generated PNGs are excluded from Git. To regenerate, start `npm run dev`, then r
 | `10-home-light-phone.png` | Phone home |
 | `11-play-light-phone.png` | Phone play |
 | `12-gallery-room-light-phone.png` | Phone gallery |
-| `13-play-progress-light-desktop.png` | Broken cube with a persistent ghost clue |
+| `13-play-progress-light-desktop.png` | Play with a broken cube |

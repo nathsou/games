@@ -48,7 +48,7 @@ Tool keys can be rebound in **Settings → Advanced**. Row drags lock to the gri
 - **Level editor**: edit a top-down layer grid with live solver validation, or build with add / remove / paint / pick tools, mirror symmetry, resize, shift, rotate and crop. Auto-generate clues at a chosen difficulty, or tap faces to show and hide individual clues while a live solver badge reports whether the puzzle still has a unique solution and highlights ambiguous cubes. Playtest, save to *My Puzzles*, and share as a link (`#p=<code>`).
 - **Clue generator** thins out zero-clues first (they're giveaways, and the game can clear them in one click), then hides further clues while keeping the puzzle uniquely solvable at the chosen difficulty.
 - **Solver**: line solver over all three axes with contradiction probing and a backtracking uniqueness check. It powers hints, difficulty rating, clue generation and editor validation, and runs in a web worker for editor-sized puzzles.
-- **Mono appearance**: black and white, locally hosted Manrope, crisp outlines and neutral sculptures. Light, Dark and System appearances share tokens with the WebGL scene; System follows device changes live. Clues stay on the outer block planes after cubes break and follow peeled layers.
+- **Mono appearance**: black and white, locally hosted Manrope, crisp outlines and neutral sculptures. Light, Dark and System appearances share tokens with the WebGL scene; System follows device changes live. Clues sit on the cubes like in Picross 3D: breaking a cube removes its numbers, and the cubes it exposes show theirs.
 - Progress, stars, best times and in-progress games are saved in `localStorage`. There are light and dark themes, a left-handed layout, a reduced-motion option and synthesized sound effects.
 
 ## Layout
@@ -75,4 +75,4 @@ npm run test:ui
 npm run test:ui -- --screenshots
 ```
 
-`CHROMIUM_PATH=/usr/bin/chromium` selects an existing browser. `NONOCUBE_URL` selects a different dev-server address. The checks exercise desktop and touch layouts (1160×700, 390×800, and 320×568), tool clicks, protection, held keys, orbit, slicing, persistent clues, undo, appearance changes, saved progress, solving, tutorial skipping, and editor symmetry/save/solver behavior. Screenshot mode captures the running app into `docs/mono-screenshots/`; the supplied prototype screenshots are not used.
+`CHROMIUM_PATH=/usr/bin/chromium` selects an existing browser. `NONOCUBE_URL` selects a different dev-server address. The checks exercise desktop and touch layouts (1160×700, 390×800, and 320×568), tool clicks, protection, held keys, orbit, slicing, undo, appearance changes, saved progress, solving, tutorial skipping, and editor symmetry/save/solver behavior. Screenshot mode captures the running app into `docs/mono-screenshots/`; the supplied prototype screenshots are not used.

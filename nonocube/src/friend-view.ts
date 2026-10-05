@@ -14,7 +14,7 @@ interface CanvasView {
   style: RenderStyle;
 }
 function blockView(scene: BlockScene): BlockScene {
-  // Only visible cubes/clues go to the other browser; no solution, grid or save data.
+  // Only visible cubes and their clues go to the other browser; no solution, grid or save data.
   return {dims: scene.dims, count: scene.count, glyphAlpha: scene.glyphAlpha,
     inst: scene.inst.subarray(0, scene.count * 7), glyph: scene.glyph.subarray(0, scene.count),
     ao: scene.ao.subarray(0, scene.count * 2)} as BlockScene;
@@ -22,7 +22,6 @@ function blockView(scene: BlockScene): BlockScene {
 function drawView(list: DrawList): DrawList {
   return {...list,
     block: list.block && blockView(list.block),
-    clues: list.clues && {...list.clues, scene: blockView(list.clues.scene)},
     placed: list.placed?.map(item => ({...item, scene: blockView(item.scene)})),
   };
 }

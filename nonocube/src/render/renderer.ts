@@ -75,10 +75,6 @@ flat in float vFade;
 flat in uint vFlags;
 flat in int vFace;
 in vec3 vObj;
-uniform bool uClues;
-uniform vec3 uClueMin;
-uniform vec3 uClueMax;
-uniform vec3 uCluePaper;
 uniform int uCutFace;
 uniform float uCutPos;
 uniform vec3 uCutColor;
@@ -99,20 +95,6 @@ uniform vec3 uHoverColor;
 uniform float uHoverWidth;
 out vec4 outColor;
 void main() {
-  if (uClues) {
-    int axis = vFace / 2;
-    float plane = (vFace % 2 == 0) ? uClueMax[axis] + 0.5 : uClueMin[axis] - 0.5;
-    if (vGlyph == 127 || abs(vObj[axis] - plane) > 0.01) discard;
-    vec2 cell = vec2(float(vGlyph % ${ATLAS_COLS}), float(vGlyph / ${ATLAS_COLS}));
-    float sd = texture(uAtlas, (cell + clamp(vGlyphUV, 0.02, 0.98)) / ${ATLAS_COLS}.0).r;
-    float w = clamp(fwidth(sd) * 0.7, 0.004, 0.25);
-    float a = smoothstep(0.5 - w, 0.5 + w, sd);
-    float halo = smoothstep(0.33 - w, 0.33 + w, sd);
-    float opacity = vFade > 0.5 ? 0.28 : 1.0;
-    if (halo < 0.01) discard;
-    outColor = vec4(mix(uCluePaper, uInk, a) * halo * opacity, halo * opacity);
-    return;
-  }
   vec3 n0 = normalize(vNormal);
   // rounded bevel: bend the normal outward near the face edges
   vec2 p = vUV * 2.0 - 1.0;
@@ -275,8 +257,6 @@ export interface CutCap {
 }
 
 export interface DrawList {
-  /** Persistent glyphs on the outer planes, independent of cube occupancy. */
-  clues?: { scene: BlockScene; min: number[]; max: number[] };
   block?: BlockScene;
   placed?: PlacedBlock[];
   cut?: CutCap | null;
@@ -371,7 +351,7 @@ export class Renderer {
     this.partProg = compile(gl, PART_VS, PART_FS);
     this.lineProg = compile(gl, LINE_VS, LINE_FS);
     this.shadowProg = compile(gl, SHADOW_VS, SHADOW_FS);
-    this.cu = uniforms(gl, this.cubeProg, ['uClues', 'uClueMin', 'uClueMax', 'uCluePaper', 'uViewProj', 'uModel', 'uOrigin', 'uFaceUp', 'uAtlas', 'uLightDir', 'uInk', 'uGlyphAlpha', 'uTime', 'uGreyDone', 'uCutFace', 'uCutPos', 'uCutColor', 'uBevel', 'uEdge', 'uEdgeColor', 'uEdgeWidth', 'uFlat', 'uAoAmt', 'uSpec', 'uHoverColor', 'uHoverWidth']);
+    this.cu = uniforms(gl, this.cubeProg, ['uViewProj', 'uModel', 'uOrigin', 'uFaceUp', 'uAtlas', 'uLightDir', 'uInk', 'uGlyphAlpha', 'uTime', 'uGreyDone', 'uCutFace', 'uCutPos', 'uCutColor', 'uBevel', 'uEdge', 'uEdgeColor', 'uEdgeWidth', 'uFlat', 'uAoAmt', 'uSpec', 'uHoverColor', 'uHoverWidth']);
     this.pu = uniforms(gl, this.partProg, ['uViewProj', 'uOrigin', 'uLightDir']);
     this.lu = uniforms(gl, this.lineProg, ['uViewProj', 'uColor']);
     this.su = uniforms(gl, this.shadowProg, ['uViewProj', 'uCenter', 'uSize', 'uAlpha', 'uTint']);
@@ -489,11 +469,6 @@ export class Renderer {
     gl.uniformMatrix4fv(this.cu.uViewProj, false, cam.viewProj);
     gl.uniformMatrix4fv(this.cu.uModel, false, model);
     gl.uniform3f(this.cu.uOrigin, -(dims[0] - 1) / 2, -(dims[1] - 1) / 2, -(dims[2] - 1) / 2);
-    const clues = list.clues;
-    gl.uniform1i(this.cu.uClues, clues?.scene === b ? 1 : 0);
-    gl.uniform3fv(this.cu.uClueMin, clues?.min ?? [0, 0, 0]);
-    gl.uniform3fv(this.cu.uClueMax, clues?.max ?? [0, 0, 0]);
-    gl.uniform3fv(this.cu.uCluePaper, (list.ink ?? [0, 0, 0]).map((v) => 1 - v));
     gl.uniform3fv(this.cu.uFaceUp, this.faceUps(cam, yaw));
     gl.uniform3fv(this.cu.uLightDir, LIGHT);
     gl.uniform3fv(this.cu.uInk, list.ink ?? [0.13, 0.15, 0.23]);
@@ -577,11 +552,6 @@ export class Renderer {
 
     const b = list.block;
     if (b && b.count > 0) this.drawBlock(cam, list, b, IDENTITY, b.glyphAlpha, list.cut ?? null);
-    if (list.clues?.scene.count) {
-      gl.depthMask(false);
-      this.drawBlock(cam, list, list.clues.scene, IDENTITY, 1, null);
-      gl.depthMask(true);
-    }
     for (const pb of list.placed ?? []) {
       if (!pb.scene.count) continue;
       const sc = pb.scale ?? 1;

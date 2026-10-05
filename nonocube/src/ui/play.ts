@@ -95,7 +95,6 @@ export class PlayScreen implements Screen {
   readonly ui: Record<string, HTMLElement> = {};
 
   private scene = new BlockScene();
-  private clueScene = new BlockScene();
   private particles = new Particles();
   private hover = -1;
   private hoverLift = 0;
@@ -494,7 +493,9 @@ export class PlayScreen implements Screen {
         for (let c = 0; c < 3; c++) col[c] += (sc[c] - col[c]) * e;
         popScale = 1 + 0.14 * Math.sin(Math.PI * t);
       }
-      const packed = packGlyphs(GLYPH_NONE, GLYPH_NONE, GLYPH_NONE) | flags;
+      const glyph = (l: number) => (s.mask[l] ? s.clues[l] : GLYPH_NONE);
+      const done = (l: number) => fade && s.mask[l] === 1 && s.lineDone[l] === 1;
+      const packed = packGlyphs(glyph(lx), glyph(ly), glyph(lz), done(lx), done(ly), done(lz)) | flags;
       let ox = 0;
       if (this.shake[i] > 0) ox = Math.sin(this.time * 70) * 0.09 * (this.shake[i] / 0.35);
       let scale = revealing ? popScale : 1 - 0.04 * Math.max(0, 1 - Math.abs(pt - 0.5) * 2);
@@ -514,32 +515,13 @@ export class PlayScreen implements Screen {
     scene.computeAO();
     scene.glyphAlpha = clamp(1 - rt * 2.2, 0, 1);
 
-    const clues = this.clueScene;
-    clues.reset(g.dims);
-    const min = [0, 0, 0];
-    const max = g.dims.map((n) => n - 1);
-    if (this.slicer.peel) {
-      if (this.slicer.sign > 0) max[this.slicer.axis] -= this.slicer.peel;
-      else min[this.slicer.axis] += this.slicer.peel;
-    }
-    if (!revealing && !intro) for (let i = 0; i < g.size; i++) {
-      if (!this.visible(i)) continue;
-      const xyz = g.coords(i);
-      const glyphs = [0, 1, 2].map((axis) => {
-        const l = g.cellLines[i * 3 + axis];
-        return s.mask[l] && (xyz[axis] === min[axis] || xyz[axis] === max[axis]) ? s.clues[l] : GLYPH_NONE;
-      });
-      if (glyphs.every((v) => v === GLYPH_NONE)) continue;
-      const done = [0, 1, 2].map((axis) => fade && s.lineDone[g.cellLines[i * 3 + axis]] === 1);
-      clues.add(xyz[0], xyz[1], xyz[2], 1.004, BASE, packGlyphs(glyphs[0], glyphs[1], glyphs[2], done[0], done[1], done[2]));
-    }
     const lines: LineBatch[] = [];
     const [W, , D] = g.dims;
     if (!revealing) {
       lines.push({ points: boxEdges([-W / 2, -H / 2, -D / 2], [W / 2, H / 2, D / 2]), color: [...sceneColors.ink, 0.22] });
       lines.push(...this.slicer.lines(!this.slicer.pill.offsetParent));
     }
-    return { block: scene, clues: { scene: clues, min, max }, particles: this.particles, lines, shadow: { dims: g.dims, alpha: 0.22 }, time: this.time, ink: sceneColors.ink, greyDone: store.settings.greyDone, cut: revealing ? null : this.slicer.cap() };
+    return { block: scene, particles: this.particles, lines, shadow: { dims: g.dims, alpha: 0.22 }, time: this.time, ink: sceneColors.ink, greyDone: store.settings.greyDone, cut: revealing ? null : this.slicer.cap() };
   }
 
   visible(i: number): boolean {
