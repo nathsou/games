@@ -84,8 +84,8 @@ export class SignalConnection {
   close(){if(this.closed)return;this.closed=true;this.reject?.(new Error('The invitation was cancelled.'));this.reject=null;this.socket?.close(1000);}
 }
 
-export async function claimRoomResume(invitation) {
-  const details=await request('/api/rooms/friends/'+invitation.room+'/resume',{key:invitation.key,method:'POST'});
+export async function claimRoomResume(invitation,name='') {
+  const details=await request('/api/rooms/friends/'+invitation.room+'/resume',{key:invitation.key,method:'POST',...(name?{body:{name}}:{})});
   if(!KEY.test(details.key)||!['host','guest'].includes(details.role))throw new Error('The room could not be restored. Create a fresh invitation.');
   return {game:'friends',room:invitation.room,key:details.key,role:details.role,expiresAt:details.expiresAt};
 }

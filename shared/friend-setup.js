@@ -44,7 +44,7 @@ export function defaultGameSetup(game) {
 export function setupSummary(game, setup, host = true) {
   if (game === 'collection') return 'A room for chatting and choosing games together.';
   const value=validateGameSetup(game,setup);
-  if (game === 'flip-it') return `${value.options.quickTurns?'One':'Two'} actions per turn · ${value.options.compactDeck?'24':'40'} cards · first to ${value.options.target} · ${value.options.lastChance?'last chance':'immediate win'} · ${value.team?'shared hand': 'opponents'}${value.aiPlayers.length?' · '+value.aiPlayers.length+' bot / AI players':''}`;
+  if (game === 'flip-it') return `${value.options.quickTurns?'One action':'Two actions'} per turn · ${value.options.compactDeck?'24':'40'} cards · first to ${value.options.target} · ${value.options.lastChance?'last chance':'immediate win'} · ${value.team?'shared hand': 'opponents'}${value.aiPlayers.length?' · '+value.aiPlayers.length+' bot / AI players':''}`;
   if (game === 'cluance') return `${DECKS[value.options.theme].name} · clues from ${DECKS[value.options.clueTheme].name} · ${value.options.variant==='fixed'?'fixed five':'draw replacements'} · you ${((value.role==='giver')===host)?'give clues':'guess'}`;
   return `${MIDNIGHT[value.type]} · ${value.team?'shared hand against '+(value.opponent==='model'?'AI':'the dealer'):'play against each other'}`;
 }

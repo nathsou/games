@@ -117,6 +117,8 @@ export class SignalRoom extends DurableObject {
     if(!role)return json({error:'Invalid invitation.'},401);
     if(meta.game==='friends'&&(meta.claimed||meta[role+'Claimed'])&&!resume)return json({error:'This invitation was already used. Reconnect from your saved room or ask for a fresh invitation.'},410);
     if(action==='resume'&&request.method==='POST'&&meta.game==='friends'){
+      let name='';
+      try{if(request.headers.get('Content-Type')?.startsWith('application/json'))name=displayName(JSON.parse(await roomBody(request,512)).name);}catch{/* The name is optional. */}
       return this.ctx.blockConcurrencyWhile(async()=>{
         const latest=await this.ctx.storage.get('meta');
         const privateSeat=hash===latest[role+'ResumeHash'];
@@ -125,6 +127,7 @@ export class SignalRoom extends DurableObject {
         // Reusing a private seat is idempotent: losing a reconnect response must
         // not revoke the browser's only recovery credential.
         const resumeKey=privateSeat?key:hex(32);latest[role+'ResumeHash']=await digest(resumeKey);latest[role+'Claimed']=true;latest.expiresAt=Date.now()+FRIEND_TTL;
+        if(name)latest.names={...latest.names,[role]:name};
         await this.ctx.storage.put('meta',latest);await this.ctx.storage.setAlarm(latest.expiresAt);
         if(!privateSeat)this.publish(other(role),this.presence(latest,other(role)));
         return json({key:resumeKey,role,expiresAt:latest.expiresAt});
@@ -247,6 +250,8 @@ export class SignalRoom extends DurableObject {
       await this.ctx.storage.delete(['pending-host','pending-guest']);
       await this.ctx.storage.put('meta',meta);
     }
+    // A fresh signaling page replaces anything its seat left behind.
+    if(meta.game==='friends')await this.ctx.storage.delete('pending-'+role);
     const pair=new WebSocketPair(),[client,server]=Object.values(pair);
     this.ctx.acceptWebSocket(server,[role]);
     server.serializeAttachment({role,count:0,window:Date.now(),description:false});

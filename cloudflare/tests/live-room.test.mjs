@@ -17,7 +17,7 @@ async function friendRoom(mf){
   const room=await created.json(),base=origin+'/api/rooms/friends/'+room.room;
   const call=async(key,path,body,method)=>{const response=await mf.dispatchFetch(base+'/'+path,{method:method||(body===undefined?'GET':'POST'),headers:{Origin:origin,Authorization:'Bearer '+key,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});return {status:response.status,data:await response.json().catch(()=>null)};};
   const host=(await call(room.hostKey,'resume',{})).data;
-  return {room,base,call,host,claimGuest:async()=>(await call(room.guestKey,'resume',{})).data};
+  return {room,base,call,host,claimGuest:async(name)=>(await call(room.guestKey,'resume',name?{name}:{})).data};
 }
 async function live(mf,room,key){
   const response=await mf.dispatchFetch(origin+'/api/rooms/friends/'+room+'/live',{headers:{Origin:origin,Upgrade:'websocket','Sec-WebSocket-Protocol':'games.v1, auth.'+key}});
@@ -105,5 +105,15 @@ test('relayed requests reach only the friend and invalid messages close the page
     second.send({type:'relay',data:{kind:'<bad>'}});
     await until(()=>closed,'invalid relay close');
     assert(hostPage.ws.readyState===1);
+  }finally{await mf.dispose();}
+});
+
+test('a name sent while claiming a seat reaches the friend with the join',async()=>{
+  const mf=runtime();try{
+    const {room,host,claimGuest}=await friendRoom(mf);
+    const hostPage=await live(mf,room.room,host.key);await until(()=>hostPage.last('welcome'));
+    await claimGuest('  Grace\u0007 ');
+    await until(()=>hostPage.last('presence')?.friend.joined,'join');
+    assert.equal(hostPage.last('presence').friend.name,'Grace');
   }finally{await mf.dispose();}
 });
