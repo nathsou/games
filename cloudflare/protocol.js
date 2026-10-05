@@ -31,3 +31,8 @@ export function signalMessage(value,role){
   if(value.type==='connected')return {type:'connected'};
   throw new Error('Only connection metadata is allowed.');
 }
+// Display names are public to the friend; control characters never reach their page.
+export function displayName(value){
+  if(typeof value!=='string')return '';
+  return value.normalize('NFC').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069]/g,'').replace(/\s+/g,' ').trim().slice(0,24);
+}

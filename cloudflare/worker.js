@@ -1,12 +1,13 @@
-import {createTurnGame,turnSummary,turnView,advanceTurn,chatEntry} from './turn-games.js';
+import {createTurnGame,turnSummary,turnView,advanceTurn,abandonTurn,chatEntry} from './turn-games.js';
 import {normalizeRoomCode,formatRoomCode,ROOM_CODE_ALPHABET} from '../shared/room-code.js';
 import {DurableObject} from 'cloudflare:workers';
-import {GAMES,ROOM,TOKEN,ROOM_TTL,FRIEND_TTL,validMetadata,signalMessage} from './protocol.js';
+import {GAMES,ROOM,TOKEN,ROOM_TTL,FRIEND_TTL,validMetadata,signalMessage,displayName} from './protocol.js';
 
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff'}});
 const hex=bytes=>[...crypto.getRandomValues(new Uint8Array(bytes))].map(n=>n.toString(16).padStart(2,'0')).join('');
 const digest=async value=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(n=>n.toString(16).padStart(2,'0')).join('');
-const CODE_TTL=24*60*60*1000;
+const CODE_TTL=24*60*60*1000,LIVE_STALE=100*1000,MAX_LIVE=8;
+const other=role=>role==='host'?'guest':'host';
 const bearer=request=>request.headers.get('Authorization')?.replace(/^Bearer /,'')||'';
 async function roomBody(request,limit=2048){
   if(!request.body)throw Error();
@@ -60,7 +61,7 @@ export default {
       await env.SIGNAL_ROOMS.getByName(options.game+':'+room).fetch('https://internal/create',{method:'POST',body:JSON.stringify({game:options.game,protocol:options.protocol,metadata:options.metadata,origin:url.origin,expiresAt,hostHash:await digest(hostKey),guestHash:await digest(guestKey)})});
       return json({room,hostKey,guestKey,expiresAt},201);
     }
-    const match=url.pathname.match(/^\/api\/rooms\/([a-z-]+)\/([a-f0-9]+)\/(info|ice|socket|resume|code|chat|turns(?:\/[a-f0-9-]{36}(?:\/moves)?)?)$/);
+    const match=url.pathname.match(/^\/api\/rooms\/([a-z-]+)\/([a-f0-9]+)\/(info|ice|socket|live|resume|code|chat|profile|turns(?:\/[a-f0-9-]{36}(?:\/moves)?)?)$/);
     if(!match||!Object.hasOwn(GAMES,match[1])||!ROOM.test(match[2]))return json({error:'Invitation not found.'},404);
     return env.SIGNAL_ROOMS.getByName(match[1]+':'+match[2]).fetch(request);
   }
@@ -104,7 +105,7 @@ export class SignalRoom extends DurableObject {
     if(new URL(request.url).origin!==meta.origin||request.headers.get('Origin')&&request.headers.get('Origin')!==meta.origin)
       return json({error:'Open this invitation on its original site.'},403);
     let key=bearer(request);
-    if(action==='socket'){
+    if(action==='socket'||action==='live'){
       if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return json({error:'A WebSocket connection is required.'},400);
       const protocols=(request.headers.get('Sec-WebSocket-Protocol')||'').split(',').map(s=>s.trim());
       if(!protocols.includes('games.v1'))return json({error:'Update the game page.'},400);
@@ -125,6 +126,7 @@ export class SignalRoom extends DurableObject {
         // not revoke the browser's only recovery credential.
         const resumeKey=privateSeat?key:hex(32);latest[role+'ResumeHash']=await digest(resumeKey);latest[role+'Claimed']=true;latest.expiresAt=Date.now()+FRIEND_TTL;
         await this.ctx.storage.put('meta',latest);await this.ctx.storage.setAlarm(latest.expiresAt);
+        if(!privateSeat)this.publish(other(role),this.presence(latest,other(role)));
         return json({key:resumeKey,role,expiresAt:latest.expiresAt});
       });
     }
@@ -155,7 +157,23 @@ export class SignalRoom extends DurableObject {
         return json({error:'Could not generate a room code. Try again.'},503);
       });
     }
-    if(meta.game==='friends'&&(action==='chat'||url.pathname.includes('/turns'))) {
+    if(meta.game==='friends'&&action==='live') {
+      if(!resume)return json({error:'Claim your private room seat first.'},403);
+      if(this.liveSockets(role).length>=MAX_LIVE)return json({error:'Too many open pages for this room. Close one and try again.'},429);
+      return this.ctx.blockConcurrencyWhile(async()=>{
+        const latest=await this.ctx.storage.get('meta');
+        if(hash!==latest[role+'ResumeHash'])return json({error:'Reconnect from your saved room.'},401);
+        latest.expiresAt=Date.now()+FRIEND_TTL;await this.ctx.storage.put('meta',latest);await this.ctx.storage.setAlarm(latest.expiresAt);
+        const pair=new WebSocketPair(),[client,server]=Object.values(pair),now=Date.now();
+        this.ctx.acceptWebSocket(server,['live','live-'+role]);
+        server.serializeAttachment({kind:'live',role,seen:now,changed:now,page:null,game:null,visible:true,count:0,window:now});
+        const chat=await this.ctx.storage.get('chat')||{sequence:0,entries:[]},index=await this.ctx.storage.get('turn-index')||[];
+        server.send(JSON.stringify({...this.presence(latest,role),type:'welcome',chat,games:index.map(entry=>entry[role]).reverse()}));
+        this.publish(other(role),this.presence(latest,other(role)));
+        return new Response(null,{status:101,webSocket:client,headers:{'Sec-WebSocket-Protocol':'games.v1'}});
+      });
+    }
+    if(meta.game==='friends'&&(action==='chat'||action==='profile'||url.pathname.includes('/turns'))) {
       if(!resume)return json({error:'Claim your private room seat first.'},403);
       return this.ctx.blockConcurrencyWhile(async()=>{
         try {
@@ -164,6 +182,14 @@ export class SignalRoom extends DurableObject {
           latest.expiresAt=Date.now()+FRIEND_TTL;await this.ctx.storage.put('meta',latest);await this.ctx.storage.setAlarm(latest.expiresAt);
           let body;
           if(request.method==='POST')body=JSON.parse(await roomBody(request,8192));
+          if(action==='profile') {
+            if(request.method!=='POST')return json({error:'Method not allowed.'},405);
+            const name=displayName(body?.name);
+            if(!name)return json({error:'Choose a name of up to 24 characters.'},400);
+            latest.names={...latest.names,[role]:name};await this.ctx.storage.put('meta',latest);
+            for(const seat of ['host','guest'])this.publish(seat,this.presence(latest,seat));
+            return json({name});
+          }
           if(action==='chat') {
             const history=await this.ctx.storage.get('chat')||{sequence:0,entries:[]};
             if(request.method==='POST') {
@@ -171,16 +197,18 @@ export class SignalRoom extends DurableObject {
               if(Date.now()-last<500)return json({error:'Wait a moment before sending again.'},429);
               history.entries.push(chatEntry(body,role,++history.sequence));history.entries=history.entries.slice(-60);
               await this.ctx.storage.put('chat',history);await this.ctx.storage.put('chat-rate-'+role,Date.now());
+              for(const seat of ['host','guest'])this.publish(seat,{type:'chat',history,by:role});
             }else if(request.method!=='GET')return json({error:'Method not allowed.'},405);
             return json(history);
           }
           const parts=url.pathname.split('/turns')[1].split('/').filter(Boolean);
           let index=await this.ctx.storage.get('turn-index')||[];
+          const announce=(record,kind)=>{for(const seat of ['host','guest'])this.publish(seat,{type:'game',game:turnView(record,seat),cause:{by:role,kind}});};
           const save=async record=>{const entry={id:record.id,host:turnSummary(record,'host'),guest:turnSummary(record,'guest')};index=index.filter(e=>e.id!==record.id);index.push(entry);const retained=index.filter(e=>!e.host.finished).concat(index.filter(e=>e.host.finished).slice(-40)).sort((a,b)=>a.host.updatedAt-b.host.updatedAt);for(const entry of index)if(!retained.some(e=>e.id===entry.id))await this.ctx.storage.delete('turn-'+entry.id);index=retained;await this.ctx.storage.put({['turn-'+record.id]:record,'turn-index':index});};
           if(!parts.length) {
             if(request.method==='POST') {
               if(index.filter(e=>!e.host.finished).length>=20)return json({error:'Finish a saved game before starting another.'},409);
-              const record=createTurnGame(body.game,body.setup,role);await save(record);return json(turnView(record,role),201);
+              const record=createTurnGame(body.game,body.setup,role);await save(record);announce(record,'created');return json(turnView(record,role),201);
             }
             if(request.method!=='GET')return json({error:'Method not allowed.'},405);
             return json({games:index.map(entry=>entry[role]).reverse()});
@@ -188,7 +216,9 @@ export class SignalRoom extends DurableObject {
           const record=index.some(entry=>entry.id===parts[0])?await this.ctx.storage.get('turn-'+parts[0]):null;
           if(!record)return json({error:'Saved game not found.'},404);
           if(parts[1]==='moves'&&request.method==='POST') {
-            advanceTurn(record,role,body.revision,body.action);await save(record);
+            const kind=advanceTurn(record,role,body.revision,body.action);await save(record);announce(record,kind);
+          }else if(parts.length===1&&request.method==='DELETE') {
+            abandonTurn(record,role);await save(record);announce(record,'abandoned');
           }else if(parts.length!==1||request.method!=='GET')return json({error:'Method not allowed.'},405);
           return json(turnView(record,role));
         }catch(error){return json({error:error.message||'Choose valid game settings.'},error.status||400);}
@@ -226,7 +256,53 @@ export class SignalRoom extends DurableObject {
     await this.ctx.storage.delete('pending-'+(role==='host'?'guest':'host'));
     return new Response(null,{status:101,webSocket:client,headers:{'Sec-WebSocket-Protocol':'games.v1'}});
   }
-  async webSocketMessage(ws,data){return this.ctx.blockConcurrencyWhile(()=>this.handleSocketMessage(ws,data));}
+  signalSockets(){return [...this.ctx.getWebSockets('host'),...this.ctx.getWebSockets('guest')];}
+  liveSockets(role,exclude){return this.ctx.getWebSockets('live-'+role).filter(ws=>ws!==exclude&&ws.readyState===1);}
+  // Presence describes the friend's open pages. Heartbeats refresh "seen"; a
+  // page that vanished without a close frame expires after LIVE_STALE.
+  presence(meta,role,exclude){
+    const friend=other(role),now=Date.now();
+    const pages=this.liveSockets(friend,exclude).map(ws=>ws.deserializeAttachment()).filter(state=>now-state.seen<LIVE_STALE).sort((a,b)=>b.changed-a.changed);
+    return {type:'presence',role,you:{name:meta.names?.[role]||''},
+      friend:{name:meta.names?.[friend]||'',joined:Boolean(meta[friend+'Claimed']),online:pages.length>0,visible:pages.some(state=>state.visible),page:pages[0]?.page||null,game:pages[0]?.game||null}};
+  }
+  publish(role,message,exclude){
+    const data=JSON.stringify(message);
+    for(const ws of this.liveSockets(role,exclude)){try{ws.send(data);}catch{/* The page is closing. */}}
+  }
+  async webSocketMessage(ws,data){
+    if(ws.deserializeAttachment()?.kind==='live')return this.handleLiveMessage(ws,data);
+    return this.ctx.blockConcurrencyWhile(()=>this.handleSocketMessage(ws,data));
+  }
+  async handleLiveMessage(ws,data){
+    const state=ws.deserializeAttachment(),now=Date.now();
+    if(now-state.window>60000){state.count=0;state.window=now;}
+    let message;
+    try{
+      if(typeof data!=='string'||data.length>4096||++state.count>240)throw Error();
+      message=JSON.parse(data);if(!message||typeof message!=='object')throw Error();
+    }catch{ws.close(1008,'Room message limit exceeded.');return;}
+    const meta=await this.ctx.storage.get('meta');
+    if(!meta||meta.expiresAt<=now){ws.close(1008,'This room expired.');return;}
+    state.seen=now;
+    if(message.type==='presence'){
+      const page=typeof message.page==='string'&&/^[a-z-]{1,24}$/.test(message.page)?message.page:null;
+      const game=typeof message.game==='string'&&/^[a-f0-9-]{36}$/.test(message.game)?message.game:null;
+      const visible=message.visible!==false,changed=page!==state.page||game!==state.game||visible!==state.visible;
+      Object.assign(state,{page,game,visible});if(changed)state.changed=now;
+      ws.serializeAttachment(state);
+      if(changed)this.publish(other(state.role),this.presence(meta,other(state.role)));
+      ws.send(JSON.stringify(this.presence(meta,state.role)));
+      return;
+    }
+    // Relayed requests (shared cursors) are short, typed and never stored.
+    if(message.type==='relay'&&message.data&&typeof message.data==='object'&&!Array.isArray(message.data)&&typeof message.data.kind==='string'&&/^[a-z-]{1,32}$/.test(message.data.kind)){
+      ws.serializeAttachment(state);
+      this.publish(other(state.role),{type:'relay',data:message.data});
+      return;
+    }
+    ws.close(1008,'Invalid room message.');
+  }
   async handleSocketMessage(ws,data){
     const meta=await this.ctx.storage.get('meta');
     if(!meta||meta.expiresAt<=Date.now()||meta.finished){ws.close(1008,'Invitation expired.');return;}
@@ -251,7 +327,7 @@ export class SignalRoom extends DurableObject {
         }
         await this.ctx.storage.put('meta',meta);
         await this.ctx.storage.delete(['pending-host','pending-guest']);
-        for(const socket of this.ctx.getWebSockets())socket.close(1000,'Connection ready.');
+        for(const socket of this.signalSockets())socket.close(1000,'Connection ready.');
       }else await this.ctx.storage.put('meta',meta);
       return;
     }
@@ -263,7 +339,13 @@ export class SignalRoom extends DurableObject {
       pending.push(message);await this.ctx.storage.put(key,pending);
     }
   }
-  async webSocketClose(ws,code,reason){ws.close(code===1005||code===1006?1000:code,reason);}
+  async webSocketClose(ws,code,reason){
+    try{ws.close(code===1005||code===1006?1000:code,reason);}catch{/* Already closed. */}
+    const state=ws.deserializeAttachment();
+    if(state?.kind!=='live')return;
+    const meta=await this.ctx.storage.get('meta');
+    if(meta)this.publish(other(state.role),this.presence(meta,other(state.role),ws));
+  }
   async webSocketError(ws){ws.close(1011,'Connection interrupted.');}
   async alarm(){for(const ws of this.ctx.getWebSockets())ws.close(1008,'Invitation expired.');await this.ctx.storage.deleteAll();}
 }
