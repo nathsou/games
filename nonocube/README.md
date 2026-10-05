@@ -22,14 +22,14 @@ npm run build      # type-check + production build into dist/
 
 ## Controls
 
-Break is selected by default. Click or drag on cubes to apply the selected **Break / Paint** tool; drag the background or right-drag to turn the block. **Hold a key** to use a tool temporarily. The dock always shows both tools, and clicking the active one keeps it selected.
+With no tool active, clicking and dragging just turns the block. To act on cubes, **hold a key** while clicking, or **lock a tool** by clicking it in the dock (click it again or press Esc to go back to rotating).
 
 | | Mouse / keyboard | Touch |
 |---|---|---|
-| Turn the block | Drag the background, right-drag, ← → ↑ ↓ | Drag the background, or two fingers |
+| Turn the block | Drag anywhere (no tool active), right-drag, ← → ↑ ↓ | Drag anywhere, or two fingers |
 | Break | Hold **A** + click / drag | Turn on the hammer, tap / drag |
 | Paint (protect) | Hold **D** + click / drag | Turn on the brush, tap / drag |
-| Select a tool | Click Break / Paint in the dock | Tap Break / Paint |
+| Lock a tool | Click Break / Paint in the dock · Esc releases | Tap Break / Paint |
 | Temporarily swap tools | Hold Shift | Long-press |
 | Zoom | Wheel / trackpad pinch | Pinch |
 | Peel layers | Drag the axis knobs by the block, `[` `]`, or X / Y / Z | Slider |

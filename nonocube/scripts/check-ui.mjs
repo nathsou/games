@@ -75,6 +75,10 @@ try {
   await settle(page, 1600);
   await assertControlsFit(page);
   await capture(page, '04-play-light-desktop');
+  assert.equal(await page.evaluate(() => window.__nono.app.screen.activeTool), null, 'No tool is active by default');
+  const idle = await clickCube(page, false);
+  assert.equal(await page.evaluate((i) => window.__nono.app.screen.session.state[i], idle), 0, 'A click with no tool must not touch cubes');
+  await current(page).locator('.tool').first().click();
   assert.equal(await page.evaluate(() => window.__nono.app.screen.activeTool), 'break');
   const before = await page.evaluate(() => window.__nono.app.screen.draw().clues.scene.count);
   const broken = await clickCube(page, false);
@@ -87,8 +91,13 @@ try {
   const painted = await clickCube(page, true);
   assert.equal(await page.evaluate((i) => window.__nono.app.screen.session.state[i], painted), 1);
   await current(page).locator('.tool').first().click();
+  assert.equal(await page.evaluate(() => window.__nono.app.screen.activeTool), 'break');
   await current(page).locator('.tool').first().click();
-  assert.equal(await page.evaluate(() => window.__nono.app.screen.activeTool), 'break', 'Clicking the active tool must not deselect it');
+  assert.equal(await page.evaluate(() => window.__nono.app.screen.activeTool), null, 'Clicking the active tool releases it');
+  await current(page).locator('.tool').first().click();
+  await page.keyboard.press('Escape');
+  assert.equal(await page.evaluate(() => window.__nono.app.screen.activeTool), null, 'Esc releases a locked tool');
+  await current(page).locator('.tool').first().click();
   await clickCube(page, true);
   assert.equal(await page.evaluate((i) => window.__nono.app.screen.session.state[i], painted), 1, 'Paint protects shape cubes');
   assert.equal(await page.evaluate(() => window.__nono.app.screen.session.strikes), 0);
@@ -100,7 +109,7 @@ try {
   await page.keyboard.up('Shift');
   const yaw = await page.evaluate(() => window.__nono.app.camera.yaw);
   await page.mouse.move(60, 230); await page.mouse.down(); await page.mouse.move(200, 240, { steps: 10 }); await page.mouse.up();
-  assert.notEqual(await page.evaluate(() => window.__nono.app.camera.yaw), yaw, 'Background drags must orbit with Break selected');
+  assert.notEqual(await page.evaluate(() => window.__nono.app.camera.yaw), yaw, 'Background drags must orbit with a tool locked');
   await page.keyboard.press('r'); await settle(page, 600);
   await page.keyboard.press('x');
   assert.equal(await page.evaluate(() => window.__nono.app.screen.slicer.peel), 1);
@@ -181,6 +190,7 @@ try {
   await current(phone).getByRole('button', { name: 'Play', exact: true }).click(); await settle(phone, 1600);
   await assertControlsFit(phone);
   await capture(phone, '11-play-light-phone');
+  assert.equal(await phone.evaluate(() => window.__nono.app.screen.activeTool), null);
   assert.ok(await current(phone).locator('.tool').first().getByText('Break', { exact: true }).isVisible());
   assert.ok(await current(phone).locator('.tool').last().getByText('Paint', { exact: true }).isVisible());
   await current(phone).locator('.tool').last().tap();
