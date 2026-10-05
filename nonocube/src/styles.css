@@ -2380,6 +2380,8 @@ h1, h2, h3, .puzzle-name, .plaque-title, .coll-name, .gallery-title h1, .menu-he
 .toolswitch .tool.active, .toolswitch .tool.active:first-child, .toolswitch .tool.active:last-child { color: var(--accent-ink); background: var(--accent); box-shadow: none; }
 .tool .ico { height: 18px; width: 18px; }
 .tool .key-hint { display: none; }
+/* selecting a tool should feel instant */
+.tool, .toolswitch { transition: none; }
 .toolswitch.temporary .tool.active { color: var(--accent-ink); }
 .pill { border-radius: 3px; border: 2px solid var(--ink); }
 .play .viewpad { display: none; }
