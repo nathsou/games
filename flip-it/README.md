@@ -2,7 +2,7 @@
 
 A two-to-five-player shedding game with a pixel HUD, diagonal double-number cards, a compact laptop table and configurable house rules. Vanilla HTML, CSS and JavaScript: no build, npm dependencies, CDN scripts, remote images or external fonts.
 
-Run `npm start` from this folder and open `http://localhost:8080/flip-it/`. Run `npm test` for deterministic rule, privacy, peer session and QR tests, or `npm run playtest` for 400 reproducible dealer rounds. The server serves the collection root too. The collection’s Cloudflare build publishes this folder's index, stylesheet, src, assets and preview together with the shared runtime; see [hosting setup](../docs/CLOUDFLARE.md).
+Run `npm start` from this folder and open `http://localhost:8080/flip-it/`. Run `npm test` for deterministic rule, privacy, view validation, replay and QR tests, or `npm run playtest` for 400 reproducible dealer rounds. The server serves the collection root too. The collection’s Cloudflare build publishes this folder's index, stylesheet, src, assets and preview together with the shared runtime; see [hosting setup](../docs/CLOUDFLARE.md).
 
 ## Match options
 
@@ -39,22 +39,20 @@ For N ranks (6 or 10), each rank is paired with its next neighbour and the rank 
 
 - One player against offline bots or AI opponents that receives only its own hand and public table information.
 - Pass and play: private cards do not exist in the DOM behind the handoff curtain.
-- Two browser peers in a duel, with each opponent's hand redacted.
-- Team play: two peers share one hand against bots or AI opponents. Either teammate can act. Host revision checks reject stale competing moves.
+- With a friend in a duel, each opponent's hand redacted, plus optional bots or AI players.
+- Team play: two friends share one hand against bots or AI opponents. Either teammate can act; revision checks reject a stale competing move.
 
-## Friend rooms and take turns
+## Playing with a friend
 
-Invite and Join open the global Friends side panel. Choose game parameters before sharing one direct-connection link. There is one room and one chat across games; no reply-link flow or separate game invitation dialog. Live tables use reliable ordered WebRTC and preserve the original host's authoritative state, with redacted opponent views. Reloading reconnects using the private browser room credential and resumes the saved match. HTTPS or localhost is required for live play; restrictive networks may need the site's managed TURN relay.
+**Play with …** (or **Play a friend** before anyone has joined your room) opens the Play together window's setup sheet: target, house rules, team play and extra bot/AI players. The match runs on the room's server, so it plays live when you're both at the table and waits when one of you leaves. The server returns only your hand and public information and validates every move against the current revision. Both people confirm before the next round. Rules bots play in the room; AI players use the creator's provider settings and choose only while the creator has the game open. Names appear on the scoreboard and in the move log, a note shows whether your friend is at the table, and their moves play a sound. **Play again** starts a fresh match with the same settings.
 
-**Take turns** starts a two-human match stored on the server. Play your move and leave; your friend can play while your browser is closed. The server returns only your hand and public information and validates every move against the current revision. Both players choose next round before a new deal. Several turn games can wait in the inbox while you browse or play other games. Current native protocol is v6.
-
-See [friend sessions and recovery limits](../docs/FRIEND_SESSIONS.md) and [hosting](../docs/CLOUDFLARE.md).
+See [playing with a friend](../docs/FRIEND_SESSIONS.md) and [hosting](../docs/CLOUDFLARE.md).
 
 ## Table talk and motion
 
 Exposed opponent cards sit side by side with both numbers visible. Click or tap their cards to inspect the whole set at a larger size, with upright Top and Flips to labels for each physical card. Crowded strips scroll horizontally; the inspection view follows changes to the public set and never displays hidden hands.
 
-The table Chat button opens the room's shared conversation. Its latest 60 messages/reactions (280-character text) are saved on the server and remain available across games and when either friend is offline. Chat stays separate from game actions and AI prompts.
+The table's **Chat with …** button opens the room's shared conversation. Its latest 60 messages/reactions (280-character text) are saved on the server and remain available across games and when either friend is offline. Chat stays separate from game actions and AI prompts.
 
 Visible card flights show plays, bank deposits, takes and cards returning flipped. Your hand flips face by face; an opponent’s anonymous card backs flip without exposing their ranks. Controls pause during movement, so the dealer and player do not outrun the animation. The last-move strip also explains the action and changed ranks.
 
@@ -66,7 +64,7 @@ Generated assets and exact prompt: [assets/README.md](assets/README.md). Browser
 
 ## AI opponents and shared appearance
 
-Choose zero to four bot/AI opponents in table settings, up to five total players. Zero is selectable even with one player on this device: invite a friend or switch to two players on the device before dealing. A solo deal needs an opponent and asks you to choose rather than silently adding a bot. A WebRTC duel has two human seats and room for three additional opponents; team play shares one human seat and can face four opponents. Each opponent can use the configured model or the free offline dealer. The host runs every AI move, including during a human duel; guests never receive the host's key or any other hand. Lobby changes apply to a new match.
+Choose zero to four bot/AI opponents in table settings, up to five total players. Zero is selectable even with one player on this device: play a friend or switch to two players on the device before dealing. A solo deal needs an opponent and asks you to choose rather than silently adding a bot. A game with a friend has two human seats and room for three additional opponents; team play shares one human seat and can face four opponents. Each opponent can use the configured model or the free offline dealer. In a friend's game, the creator's browser chooses for AI seats; the friend never receives the creator's key or any other hand. Lobby changes apply to a new match.
 
 AI settings are shared with Similo and Midnight Table: provider, per-provider model and reasoning effort, output budget, pricing, and opt-in remembered credentials. Unremembered keys stay in tab memory. OpenAI uses Responses with a strict candidate-index schema. One invalid response gets one correction attempt. Pause, retry, timeout and settings controls preserve the game. Other players' names and logs are data, not instructions. AI memory contains only its own previous short explanations; other players' sealed notes remain private.
 
@@ -76,19 +74,19 @@ Prompt evaluations and live browser checks are documented in [shared AI notes](.
 
 ## Saved highlights and replay
 
-Every observed action is recorded locally across rounds. Open **Log & replay** for a visual and textual timeline, scrub or play through the recorded table and hand, or filter to highlights (returns, big sets, banks, last chances and round results). **Saved games** in the lobby opens the last eight recordings after a reload. Online recordings contain only the browser’s visible hand and public table; pass-and-play replay displays only the public table. Storage pressure removes entire older recordings, keeping the current one; denied storage keeps a replay in memory and displays a notice. A recording started midway or with missed updates is labelled incomplete. No chat, deal seeds, credentials or hidden opponent cards enter recordings.
+Every observed action is recorded locally across rounds. Open **Log & replay** for a visual and textual timeline, scrub or play through the recorded table and hand, or filter to highlights (returns, big sets, banks, last chances and round results). **Saved games** in the lobby opens the last eight recordings after a reload. Recordings of games with a friend contain only the browser’s visible hand and public table; pass-and-play replay displays only the public table. Storage pressure removes entire older recordings, keeping the current one; denied storage keeps a replay in memory and displays a notice. A recording started midway or with missed updates is labelled incomplete. No chat, deal seeds, credentials or hidden opponent cards enter recordings.
 
-Live connection controls are shared through `shared/friend-session.js` and `shared/peer.js`. Existing quick-turn saves return any cards in the retired second space to their owner flipped without losing cards. Older invitation tokens must be regenerated.
+Games with a friend go through `shared/friend-session.js` and `shared/turn-client.js`; the server rules live in `cloudflare/turn-games.js`.
 
 The lobby has one **Deal the cards** button. **Table settings** chooses one or two players on the same device and optional bot seats. These choices determine who is at the table; the dealt starred card determines who opens. Old unfinished saves keep their current turn, gain the visible card marker, and use starred-card starts on the next deal.
 
 ## Felt design
 
-The HUD, cards, dialogs and arrow logo follow the supplied Felt mockups. **House rules** opens the turn/deck/ending and match-length controls; **Table settings** retains human, bot and AI seats plus online team play. Felt/Wood is saved per browser; Day/Night uses the shared Light/Dark/System appearance preference. Sound, FX and the game collection remain available below the HUD. Reduced motion and FX off disable the CRT overlay and decorative motion as well as card flights.
+The HUD, cards, dialogs and arrow logo follow the supplied Felt mockups. **House rules** opens the turn/deck/ending and match-length controls; **Table settings** chooses the people and bot or AI seats on this device. Felt/Wood is saved per browser; Day/Night uses the shared Light/Dark/System appearance preference. Sound, FX and the game collection remain available below the HUD. Reduced motion and FX off disable the CRT overlay and decorative motion as well as card flights.
 
 Jersey 10/15 fonts are self-hosted in `assets/fonts/` with their SIL OFL licenses. The supplied procedural art was rendered to static PNGs in `assets/table/`; neither the mockup runtime nor its stand-in rules engine ships. The bank stack represents cards removed from play, not a draw pile. Drag matching cards onto your space, a single card onto a rival set to Add, or a rival set into your hand to Take; all use the same rule validation as buttons.
 
-The desktop table fits common laptop viewports, including 1280×720 and 1440×900, with larger hand cards on taller screens. Opponent sets open Add/Grab controls on tap; recent moves stay compact, and Chat opens the global Friends side panel. Card drags support mouse and touch.
+The desktop table fits common laptop viewports, including 1280×720 and 1440×900, with larger hand cards on taller screens. Opponent sets open Add/Grab controls on tap; recent moves stay compact, and Chat opens the Play together window. Card drags support mouse and touch.
 
 ## Browser UI regression checks
 

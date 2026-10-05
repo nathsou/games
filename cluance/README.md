@@ -1,6 +1,6 @@
 # Cluance
 
-A cooperative visual deduction game with original retro pixel art. Play with a friend through link-based WebRTC pairing, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. The browser game needs no packages, CDNs, frameworks or compilation. Martian Mono and DM Mono are self-hosted with their SIL OFL licences. The collection’s Cloudflare Worker provides automatic friend-invite signaling.
+A cooperative visual deduction game with original retro pixel art. Play with a friend through a shared room, or with a vision-language-model partner in either role. Built with native browser APIs and Canvas 2D. The browser game needs no packages, CDNs, frameworks or compilation. Martian Mono and DM Mono are self-hosted with their SIL OFL licences. The collection’s Cloudflare Worker provides automatic friend-invite signaling.
 
 The interface follows the supplied [UX/UI redesign](UX_REDESIGN.md), with paper tones, full-bleed artwork and self-hosted mono typography.
 
@@ -16,17 +16,16 @@ Open <http://127.0.0.1:4173>. Optionally set `PORT` to use another port. The pre
 
 ## Cloudflare hosting
 
-The collection builds a clean `_site` directory for Cloudflare Workers Static Assets, with the game's files and the shared runtime. See [Cloudflare setup](../docs/CLOUDFLARE.md) for Git build settings and optional managed TURN credentials. From the repository root, run `npm run build` and `npm run dev` for automatic invitations locally.
+The collection builds a clean `_site` directory for Cloudflare Workers Static Assets, with the game's files and the shared runtime. See [Cloudflare setup](../docs/CLOUDFLARE.md) for Git build settings. From the repository root, run `npm run build` and `npm run dev` to play with a friend locally.
 
-AI mode makes browser requests directly to the selected provider. Multiplayer gameplay and private cards use browser-to-browser WebRTC. The Worker exchanges only connection metadata and public table settings. The game also supports manual pairing on an ordinary static host and the original preview server.
+AI mode makes browser requests directly to the selected provider. Games with a friend run in the room's Durable Object, which sends the clue giver's secret and hand only to the clue giver and keeps both players' reasoning sealed until the reveal. On an ordinary static host or the preview server, solo and one-screen play work without the Worker.
 
 ## Play
 
-- **Play with a friend:** Invite opens the global Friends panel. Choose your role, decks, hand variant and Live or Take turns, then create one direct-connection link. Your friend takes the opposite role. Take turns saves server-validated moves while either browser is closed; several games can wait in the inbox. Reloading restores the room from your private browser credential. See [friend rooms and limits](../docs/FRIEND_SESSIONS.md).
+- **Play with a friend:** **Invite a friend** opens the Play together window's setup sheet: your role, decks and hand variant. Your friend takes the opposite role and gets a request to join. The game runs on the room's server, so it plays live when you're both at the table and waits when one of you leaves. See [playing with a friend](../docs/FRIEND_SESSIONS.md).
 - **Guess the AI's card:** the AI knows the secret and chooses one clue card and its direction each round.
 - **Give clues to AI:** you know the secret and play clues; the AI chooses cards to eliminate.
-- **Choose the next game:** use the Friends side panel to propose Flip It or a fresh Cluance table. Your friend accepts or declines. Both players keep the same connection, with no new invitation. See [friend sessions](../docs/FRIEND_SESSIONS.md).
-- **Swap online roles:** open the table’s **…** menu and choose **Swap roles & deal**, or use that button after a game. Your friend must accept. The same connection stays open, with a fresh secret and hand, the same decks and the same hand variant. The new clue giver creates the private deal locally.
+- **Play again or swap roles:** after a game with a friend, **Play again** or **Swap roles** opens a new game's setup with the same decks; the finished game keeps its result.
 - **Play on one screen:** the guesser's public view opens immediately after a clue. Hold to reveal the clue giver's secret and hand when switching back. No provider key is required.
 
 The board has twelve illustrated people or places. The clue giver starts with five cards and plays one as **Similar** (upright) or **Different** (sideways). The guesser eliminates **1, 2, 3, 4, 1** cards across five rounds. Removing the secret loses immediately; leaving it alone wins. Clues accumulate and remain relevant.
@@ -101,8 +100,7 @@ These are cooperative games between trusted players. A local browser that runs a
 - `src/artwork.js`: subject-based redraw mappings shared across overlapping themes.
 - `src/context.js`: shared dates and descriptions for all card subjects.
 - `src/art.js`: full-bleed Canvas artwork, captions, atlas loading and labelled AI observation images.
-- `src/app.js`: accessible native controls, game flow, pairing, local saving, replay and settings.
-- `src/peer.js`: Cluance configuration for the shared invitation tokens and WebRTC transport.
+- `src/app.js`: accessible native controls, game flow, room games, local saving, replay and settings.
 - `src/ai.js`: image requests and provider-specific authentication, models and reasoning controls.
 - `src/storage.js`, `src/sound.js`: local persistence, audio controls and synthesized arcade sounds.
 - `src/usage.js`: local request ledger, provider usage normalization, captured pricing and spending summaries.
@@ -128,6 +126,6 @@ AI provider/model preferences, reasoning effort, output budget, opt-in remembere
 
 New exports use the `cluance-replay` format and `cluance-…json` filenames. Previous `similo-arcade-replay` files still import, and their optional sealed-note fields remain compatible. The former browser storage keys are retained as migration inputs; shared settings also clear remembered keys from both namespaces when remembering is disabled or keys are forgotten. The game is hosted only at `cluance/`; the former `similo/` redirect has been removed. Credits continue to identify the original game that inspired Cluance.
 
-## Shared invitations
+## Playing with a friend
 
-The collection has one global invitation and conversation for all games. Cluance's Invite/Join controls open that panel, and Next game proposes live settings for your friend to accept. Take-turn games enter the persistent inbox immediately. See [friend sessions](../docs/FRIEND_SESSIONS.md).
+The collection has one room and conversation for all games. Cluance's **Invite a friend** and **Join a friend** controls open the Play together window; requests, turns and messages raise notifications. See [playing with a friend](../docs/FRIEND_SESSIONS.md).

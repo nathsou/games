@@ -1,6 +1,6 @@
 # Cloudflare hosting and friend invitations
 
-The collection runs on a Cloudflare Worker with Static Assets. Flip It and Cluance use the same origin for automatic WebRTC signaling. Game state, private hands and AI keys stay in the existing peer session; the server only exchanges connection metadata.
+The collection runs on a Cloudflare Worker with Static Assets. Friend rooms, their chat and their games run in the `SignalRoom` Durable Object on the same origin. AI keys never leave the browser that configured them.
 
 ## Account setup
 
@@ -37,7 +37,7 @@ No Cloudflare credentials are needed for local tests or `npm run deploy:check`.
 
 ## Optional managed TURN relay
 
-Signaling works without a TURN account. Configure the managed relay for players on networks that block direct WebRTC connections:
+Room games and chat never need a relay. Shared cursors open a direct WebRTC connection; configure the managed relay for players on networks that block it:
 
 1. Open Cloudflare **Realtime → TURN**, and create a TURN key.
 2. In **Workers & Pages → games → Settings → Variables and Secrets**, add `TURN_KEY_ID` with the key's ID and add **secret** `TURN_API_TOKEN` with that TURN key's API token. This is the token issued for the TURN key, not the general Cloudflare account API token.
@@ -49,11 +49,13 @@ The `SignalRoom` and `InviteLimiter` Durable Object bindings are created automat
 
 ## Friend rooms and saved games
 
-All invitations use the global Friends window. Choose settings, then share an eight-character room code or invitation link; the guest joins directly without a reply link. Codes expire after 24 hours, admit only the unclaimed guest seat, and retain the selected async game. Code lookups are origin-scoped and limited to 30 attempts per hour per IP. The expiring code registry uses the existing InviteLimiter namespace, so deployment requires no new binding or migration. An unclaimed room initially expires after 15 minutes. Claiming a private browser seat extends room retention to 90 days after the most recent authenticated visit. The shared link claims the guest seat once; returning players use their saved private credential. Reconnection retains the same room.
+Each open page keeps one WebSocket to its room's `SignalRoom` Durable Object, using the WebSocket Hibernation API, so idle pages cost no duration. The room pushes friend presence and display names, chat, and role-private game views; moves, chat and names are sent as ordinary HTTP requests and validated in the object. Each socket message counts as a twentieth of a request, and a page sends a presence heartbeat every 45 seconds, well within the Workers Free plan for two friends.
 
-Live game traffic uses encrypted WebRTC. Take-turn Cluance and Flip It use server-authoritative game state in the existing SignalRoom Durable Object, so either browser can be offline. Every move is validated and responses contain only that player's allowed view. Chat's latest 60 entries are also persisted in the room. No new bindings or secrets are required. See [friend room behavior and recovery limits](FRIEND_SESSIONS.md).
+Invitations come from the Play together window: the room is created first, then shared as an eight-character code or link. Codes expire after 24 hours, admit only the unclaimed guest seat and are origin-scoped; lookups are limited to 30 attempts per hour per IP. The expiring code registry uses the existing InviteLimiter namespace. An unclaimed room initially expires after 15 minutes. Claiming a private browser seat extends retention to 90 days after the most recent authenticated visit.
 
-Native multiplayer covers Cluance, Flip It and Midnight Table. With mutual consent, Cursors shares all collection games using state and input on the same connection, without screen capture. The Friends panel provides one chat and saved-game list across these modes. Clearing browser storage loses that seat's private resume credential.
+Flip It, Cluance and Midnight Table run on the server (`cloudflare/turn-games.js`), so either browser can be offline. Every move is validated and responses contain only that player's allowed view. Rules bots play in the room; AI players are chosen in the creator's browser. Chat's latest 60 entries are also kept in the room. No new bindings, migrations or secrets are required. See [playing with a friend](FRIEND_SESSIONS.md).
+
+Shared cursors are offered to the friend through the room and then use a direct WebRTC connection, signaled through the same Durable Object, for game state and input. Clearing browser storage loses that seat's private resume credential.
 
 ## Branch previews
 
@@ -74,6 +76,6 @@ Use Wrangler 4.135.0 or newer; the repository pins a compatible release.
 
 ## Verification
 
-`npm run test:cloudflare` checks permissions, origin isolation, expiry, signaling, TURN, idempotent seat recovery, durable private game views, stale/concurrent moves and chat. `npm run build` and `npm run deploy:check` validate assets and Worker bindings.
+`npm run test:cloudflare` checks permissions, origin isolation, expiry, signaling, TURN, live room presence and pushes, idempotent seat recovery, durable private game views, room bots and AI seats, stale/concurrent moves and chat. `npm run build` and `npm run deploy:check` validate assets and Worker bindings.
 
-With Wrangler running locally, `npm run test:cloudflare:ui` checks the unified invitation/settings/chat panel, independent offline browsers, closed-tab recovery, concurrent turn games, background games, live reconnects, shared physics recovery and phone layout. Install Playwright separately or set `PLAYWRIGHT_MODULE` to its module path; `CHROMIUM_PATH` chooses a system browser. `GAMES_URL` overrides `http://127.0.0.1:8787`. Native gameplay uses a deterministic RTC substitute and real Worker signaling; deployed native data-channel and cross-network connectivity need relay/network verification.
+With Wrangler running locally, `npm run test:cloudflare:ui` checks two independent browsers: room-code join with names, persistent game requests, pushed moves, hidden-tab alerts, closed-tab play, chat, room bots, phone layout, leaving and shared cursors. Install Playwright separately or set `PLAYWRIGHT_MODULE` to its module path; `CHROMIUM_PATH` chooses a system browser. `GAMES_URL` overrides `http://127.0.0.1:8787`. Shared cursors use a deterministic RTC substitute with real Worker signaling; deployed cross-network connectivity needs relay/network verification.
