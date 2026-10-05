@@ -37,8 +37,10 @@ button:disabled,select:disabled { opacity:.55; cursor:default; }
 .friends-content { display:flex; flex-direction:column; gap:16px; overflow-y:auto; scrollbar-width:thin; }
 #saved-games { border-top:1px solid var(--edge); padding-top:12px; margin-top:16px; }
 #saved-games summary,#invite-qr-details summary { cursor:pointer; font-size:13px; font-weight:600; }
-#saved-games-list { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
-#saved-games-list button { text-align:left; font-size:12px; line-height:1.5; }
+#saved-games-list,.saves-list { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+.saves-list button { text-align:left; font-size:12px; line-height:1.5; }
+#start-saves { border-top:1px solid var(--edge); padding-top:12px; }
+#start-saves summary { cursor:pointer; font-size:13px; font-weight:600; }
 .chat-content { display:flex; flex-direction:column; gap:10px; padding:12px 14px 16px; }
 #chat-status,#chat-error { font-size:11px; color:var(--muted); margin:0; line-height:1.5; }
 #chat-empty { flex:1; min-height:0; overflow:auto; display:grid; place-content:center; margin:0; padding:16px; text-align:center; font-size:13px; color:var(--muted); }

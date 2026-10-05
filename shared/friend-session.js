@@ -39,9 +39,10 @@ export class FriendSession {
     this.link?.close();
     this.credential = credential;
     this.status = 'connecting';
-    this.link = new RoomLink(credential, {
-      onMessage: message => this.receive(message),
+    const link = this.link = new RoomLink(credential, {
+      onMessage: message => { if (this.link === link) this.receive(message); },
       onStatus: status => {
+        if (this.link !== link) return;
         this.status = status;
         if (status === 'rejected') this.onEvent({kind: 'rejected'});
         else if (status === 'offline' && this.link?.attempt >= 3) this.probe(credential);
@@ -65,8 +66,9 @@ export class FriendSession {
   leave() {
     this.stopCursors?.();
     this.asyncGame?.close();
-    this.link?.close(); this.link = null;
-    this.credential = null; this.status = 'none'; this.games = []; this.asyncGame = null;
+    const link = this.link;
+    this.link = null; this.credential = null;
+    link?.close(); this.status = 'none'; this.games = []; this.asyncGame = null;
     this.me = {name: this.me.name};
     this.friend = {name: '', joined: false, online: false, visible: false, page: null, game: null};
     this.chat = new RoomChat(this);

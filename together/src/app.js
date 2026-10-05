@@ -213,8 +213,8 @@ $('join-form').onsubmit = async event => {
 function leaveRoom(confirmFirst = true) {
   const run = () => {
     stopCursors();
-    forgetFriendRoom();
     session.leave();
+    forgetFriendRoom();
     notifier.dismiss('cursors'); for (const element of $('together-alerts').children) element.remove();
     if (isRoomGame(session.game)) navigate('collection');
     $('settings-dialog').close();
@@ -492,15 +492,20 @@ function renderGames() {
     }
     if (!games.length) { const empty = document.createElement('p'); empty.className = 'setup-note'; empty.textContent = 'No games yet. Start one from Play.'; list.append(empty); }
   }
+}
+// Solo progress saved in this browser, listed with or without a room.
+function renderSaves() {
   const checkpoints = Object.keys(FRIEND_PAGES).map(game => readCheckpoint(game)).filter(Boolean);
-  const saves = $('saved-games-list'), saveSignature = JSON.stringify(checkpoints.map(c => [c.game, Math.floor(c.updatedAt / 60000)]));
-  if (saves.dataset.signature !== saveSignature) {
-    saves.dataset.signature = saveSignature; saves.replaceChildren();
+  const signature = JSON.stringify(checkpoints.map(c => [c.game, Math.floor(c.updatedAt / 60000)]));
+  for (const [list, details] of [['saved-games-list', 'saved-games'], ['start-saves-list', 'start-saves']]) {
+    const saves = $(list);
+    if (saves.dataset.signature === signature) continue;
+    saves.dataset.signature = signature; saves.replaceChildren();
     for (const checkpoint of checkpoints) {
       const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Resume ' + FRIEND_PAGES[checkpoint.game];
       button.onclick = () => resumeSavedGame(checkpoint); saves.append(button);
     }
-    $('saved-games').hidden = !checkpoints.length;
+    $(details).hidden = !checkpoints.length;
   }
 }
 function renderInvite() {
@@ -536,6 +541,7 @@ function render() {
   $('friend-status').textContent = statusText();
   renderChat(); renderScreen();
   if (inRoom && !waiting) { renderPlay(); renderGames(); }
+  renderSaves();
   const turns = session.games.filter(g => g.myTurn).length, unread = session.unread || 0;
   for (const [id, count] of [['tab-games', turns], ['tab-chat', unread]]) {
     const badge = $(id).querySelector('.tab-badge'); badge.textContent = count; badge.hidden = !count;
@@ -572,13 +578,16 @@ $('settings-close').onclick = () => $('settings-dialog').close();
 
 // Start ----------------------------------------------------------------------------------
 window.addEventListener('pagehide', () => { frame.contentWindow?.__gameCheckpoint?.save(); persist(); leaving = true; stopCursors(); session.link?.close(); });
-setInterval(() => { if (!document.hidden) renderGames(); }, 30000);
+setInterval(() => { if (!document.hidden) { renderGames(); renderSaves(); } }, 30000);
+// Reloading a solo game resumes its browser checkpoint; room games come from the room.
+const reopening = saved && !invitation && saved.asyncId && isRoomGame(initialGame);
+session.resumeGame = !reopening && initialGame !== 'collection' && Boolean(readCheckpoint(initialGame));
 loadGame(initialGame);
 if (saved && !invitation) {
   session.chat.restore(saved.chat);
   adopt({game: 'friends', room: saved.room, key: saved.key, role: saved.role, expiresAt: saved.expiresAt, inviteLink: saved.inviteLink, inviteCode: saved.inviteCode});
   $('chat-input').value = saved.draft || '';
-  if (saved.asyncId && isRoomGame(initialGame)) openRoomGame(saved.asyncId);
+  if (reopening) openRoomGame(saved.asyncId);
 }
 selectTab('play');
 render();

@@ -19,6 +19,7 @@ export const friendPanel = `
         <p class="divider"><span>or join a friend</span></p>
         <form id="join-form"><label class="visually-hidden" for="join-input">Room code or invitation link</label><input id="join-input" type="text" placeholder="Room code, e.g. K7QM-4XPN" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="2048" required><button id="join-friend" type="submit">Join</button></form>
         <p id="start-status" class="form-status" role="status"></p>
+        <details id="start-saves" hidden><summary>Continue on this device</summary><div id="start-saves-list" class="saves-list"></div></details>
       </section>
       <section id="view-invite" class="panel-view" hidden>
         <h2>Invite your friend</h2>
@@ -47,7 +48,7 @@ export const friendPanel = `
         </div>
         <div id="panel-games" class="tab-panel" role="tabpanel" aria-labelledby="tab-games" hidden>
           <div id="turn-games-list"></div>
-          <details id="saved-games"><summary>On this device</summary><p class="setup-note">Solo progress saved in this browser.</p><div id="saved-games-list"></div></details>
+          <details id="saved-games"><summary>On this device</summary><p class="setup-note">Solo progress saved in this browser.</p><div id="saved-games-list" class="saves-list"></div></details>
         </div>
         <div id="friend-chat" class="tab-panel chat-content" role="tabpanel" aria-labelledby="tab-chat" hidden>
           <p id="chat-status" class="visually-hidden">Messages stay with your room.</p>
