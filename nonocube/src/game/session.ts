@@ -1,4 +1,5 @@
 import { computeClues, lineSatisfies } from '../core/clues.ts';
+import { encodePuzzle } from '../core/codec.ts';
 import { gridFor, type Grid } from '../core/grid.ts';
 import type { PuzzleDef } from '../core/types.ts';
 import { solveLine } from '../solver/line.ts';
@@ -17,6 +18,7 @@ interface Change {
 }
 
 export interface SavedProgress {
+  puzzleCode?: string;
   state: string;
   strikes: number;
   hints: number;
@@ -209,6 +211,7 @@ export class PlaySession {
 
   serialize(): SavedProgress {
     return {
+      puzzleCode: encodePuzzle({ ...this.def, mask: this.mask }),
       state: Array.from(this.state).join(''),
       strikes: this.strikes,
       hints: this.hints,
@@ -218,6 +221,7 @@ export class PlaySession {
   }
 
   restore(p: SavedProgress): void {
+    if (p.puzzleCode && p.puzzleCode !== encodePuzzle({ ...this.def, mask: this.mask })) return;
     if (p.state.length !== this.grid.size) return;
     for (let i = 0; i < this.grid.size; i++) this.state[i] = Number(p.state[i]) || 0;
     this.strikes = p.strikes;

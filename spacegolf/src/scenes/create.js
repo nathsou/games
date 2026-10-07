@@ -10,6 +10,7 @@ export function playCustom(app, entry, fromList = true) {
   const cfg = {
     level,
     kind: 'custom',
+    customId: entry.id,
     title: level.name,
     subtitle: 'Custom level',
     paletteSalt: 3,

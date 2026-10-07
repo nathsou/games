@@ -59,5 +59,26 @@ jobs:
       - run: npm ci
       - run: npm run test:cloudflare
       - run: npm run test:windows
+      - run: npm run test:shared
       - run: npm run build
       - run: npm run deploy:check
+      - name: Install browser for security and persistence regressions
+        run: nonocube/node_modules/.bin/playwright install --with-deps chromium
+      - name: Browser security and persistence regressions
+        run: |
+          npm run dev -- --ip 127.0.0.1 --port 8787 > "$RUNNER_TEMP/review-wrangler.log" 2>&1 &
+          wrangler_pid=$!
+          npm --prefix nonocube run dev -- --host 127.0.0.1 --port 8788 > "$RUNNER_TEMP/review-vite.log" 2>&1 &
+          vite_pid=$!
+          trap 'kill "$wrangler_pid" "$vite_pid" 2>/dev/null || true' EXIT
+          node --input-type=module <<'JS'
+          const deadline = Date.now() + 60000;
+          for (const url of ['http://127.0.0.1:8787/', 'http://127.0.0.1:8788/']) {
+            while (true) {
+              try { if ((await fetch(url)).ok) break; } catch {}
+              if (Date.now() > deadline) throw new Error('Server did not start: ' + url);
+              await new Promise(resolve => setTimeout(resolve, 250));
+            }
+          }
+          JS
+          npm run test:review:ui

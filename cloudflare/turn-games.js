@@ -29,7 +29,7 @@ export function createTurnGame(game, settings, role) {
   if(game==='cluance'&&role==='guest')setup.role=setup.role==='giver'?'guesser':'giver';
   const seats=controllersFor(game,setup);
   const state=game==='flip-it'?createMatch(setup.options,seed(),0,seats.length):game==='cluance'?createGame(setup.options):midnightGame(setup.type,seed());
-  return {id:crypto.randomUUID(),game,setup,creator:role,controllers:seats,updatedAt:Date.now(),state,ready:[]};
+  return {id:crypto.randomUUID(),game,setup,creator:role,controllers:seats,version:state.revision,updatedAt:Date.now(),state,ready:[]};
 }
 export function turnRole(record,role) { return role==='host'?record.setup.role:record.setup.role==='giver'?'guesser':'giver'; }
 function finished(record){
@@ -58,7 +58,7 @@ export function turnSummary(record,role) {
     else if(record.game==='cluance')myTurn=(state.phase==='clue')===(turnRole(record,role)==='giver');
     else myTurn=actingSeats(record).includes(seatOf(record,role));
   }
-  return {id:record.id,game:record.game,setup:record.setup,revision:state.revision,updatedAt:record.updatedAt,phase:state.phase,round:state.round,myTurn,finished:done,ready:record.ready,
+  return {id:record.id,game:record.game,setup:record.setup,revision:state.revision,version:record.version??state.revision,updatedAt:record.updatedAt,phase:state.phase,round:state.round,myTurn,finished:done,ready:[...record.ready],
     creator:record.creator||'host',abandoned:record.abandoned?.by||null,controllers:controllers(record),waiting:done?[]:waitingAI(record)};
 }
 function seatView(record,seat){return record.game==='flip-it'?flipView(record.state,seat):midnightView(record.state,seat);}
@@ -78,6 +78,7 @@ function apply(record,seat,action){
 // Returns the kind of change for notifications: move, ready, round, bot or ai.
 export function advanceTurn(record,role,body) {
   const {revision,action}=body||{};
+  const version=record.version??record.state.revision;
   if(record.abandoned)throw Error('This game has ended.');
   if(revision!==record.state.revision) throw failure('The game changed. Refresh before playing.',409);
   let kind='move';
@@ -110,11 +111,12 @@ export function advanceTurn(record,role,body) {
       apply(record,seat,action);
     }
   }
-  record.updatedAt=Date.now();return kind;
+  record.version=version+1;record.updatedAt=Date.now();return kind;
 }
 // Either player may end a game; it stays in both lists as finished.
 export function abandonTurn(record,role) {
   if(finished(record))throw Error('This game has already ended.');
+  record.version=(record.version??record.state.revision)+1;
   record.abandoned={by:role,at:Date.now()};record.updatedAt=Date.now();
 }
 export function chatEntry(body,role,sequence) {

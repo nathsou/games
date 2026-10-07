@@ -52,6 +52,11 @@ export function encodePuzzle(p: PuzzleDef): string {
   return toB64url(Uint8Array.from(out));
 }
 
+/** The complete canonical code gives shared puzzles a collision-free storage key. */
+export function sharedPuzzleId(p: PuzzleDef): string {
+  return `shared-${encodePuzzle(p)}`;
+}
+
 export function decodePuzzle(code: string, id = 'shared'): PuzzleDef {
   const b = fromB64url(code.trim());
   let o = 0;
