@@ -82,6 +82,7 @@ export class EditorScreen implements Screen {
   private ui: Record<string, HTMLElement> = {};
   private dirtySinceSave = false;
   private analyzeTimer = 0;
+  private onPageHide = () => this.saveDraft(true);
   private layer = 0;
 
   constructor(app: App, nav: Nav, puzzle?: PuzzleDef, userId?: string) {
@@ -90,7 +91,7 @@ export class EditorScreen implements Screen {
     if (puzzle) this.load(puzzle, userId ?? null);
     else if (store.editorDraft) {
       try {
-        const d = JSON.parse(store.editorDraft) as { dims: Dims; cells: number[]; palette: string[]; name: string; difficulty: Difficulty; userId: string | null };
+        const d = JSON.parse(store.editorDraft) as { dims: Dims; cells: number[]; palette: string[]; name: string; difficulty: Difficulty; userId: string | null; mask?: number[] | null };
         this.dims = d.dims;
         this.grid = gridFor(d.dims);
         this.cells = Uint8Array.from(d.cells);
@@ -98,6 +99,7 @@ export class EditorScreen implements Screen {
         this.name = d.name;
         this.difficulty = d.difficulty;
         this.userId = d.userId;
+        if (Array.isArray(d.mask) && d.mask.length === this.grid.lineCount && d.mask.every(v => v === 0 || v === 1)) this.mask = Uint8Array.from(d.mask);
       } catch {
         this.starter();
       }
@@ -657,9 +659,9 @@ export class EditorScreen implements Screen {
     await shareCode(encodePuzzle(this.toPuzzle()));
   }
 
-  private saveDraft(): void {
-    store.editorDraft = JSON.stringify({ dims: this.dims, cells: Array.from(this.cells), palette: this.palette, name: this.name, difficulty: this.difficulty, userId: this.userId });
-    save();
+  private saveDraft(immediate = false): void {
+    store.editorDraft = JSON.stringify({ dims: this.dims, cells: Array.from(this.cells), palette: this.palette, name: this.name, difficulty: this.difficulty, userId: this.userId, mask: this.mask ? Array.from(this.mask) : null });
+    save(immediate);
   }
 
   private async leave(): Promise<void> {
@@ -675,6 +677,7 @@ export class EditorScreen implements Screen {
   // ------------------------------------------------------------ view / interaction
 
   enter(): void {
+    window.addEventListener('pagehide', this.onPageHide);
     this.offSettings = onSettingsChange(() => this.applyKeys());
     const cam = this.app.camera;
     cam.fit(this.dims, 1.15);
@@ -685,6 +688,7 @@ export class EditorScreen implements Screen {
   }
 
   exit(): void {
+    window.removeEventListener('pagehide', this.onPageHide);
     this.reqId++;
     this.offSettings();
     this.app.canvas.style.cursor = '';

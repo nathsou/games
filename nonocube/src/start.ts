@@ -2,7 +2,7 @@ import {registerCheckpoint} from '../../shared/game-checkpoint.js';
 import {allCollections} from './data/collections.ts';
 import {installHostView} from './friend-view.ts';
 import { App } from './app.ts';
-import { encodePuzzle, decodePuzzle } from './core/codec.ts';
+import { encodePuzzle, decodePuzzle, sharedPuzzleId } from './core/codec.ts';
 import type { Collection, PuzzleDef } from './core/types.ts';
 import { randomSculpture, todayKey } from './data/daily.ts';
 import { EditorScreen } from './editor/editor.ts';
@@ -103,7 +103,8 @@ function openFromHash(): boolean {
   const m = location.hash.match(/^#p=([A-Za-z0-9_-]+)/);
   if (!m) return false;
   try {
-    const p = decodePuzzle(m[1], `shared-${m[1].slice(0, 24)}`);
+    const p = decodePuzzle(m[1]);
+    p.id = sharedPuzzleId(p);
     nav.playCustom(p, () => nav.home(), p.id);
     return true;
   } catch {
@@ -122,15 +123,19 @@ registerCheckpoint('nonocube',{
   capture(){
     const screen=app.screen;
     if(!(screen instanceof PlayScreen)||screen.opts.hooks||screen.opts.saveKey===null)return null;
-    return {id:screen.opts.puzzle.id,code:encodePuzzle({...screen.opts.puzzle,mask:screen.opts.mask}),saveKey:screen.opts.saveKey,subtitle:screen.opts.subtitle,progress:screen.session.serialize()};
+    return {id:screen.opts.puzzle.id,code:encodePuzzle({...screen.opts.puzzle,mask:screen.opts.mask}),identityCode:encodePuzzle(screen.opts.puzzle),saveKey:screen.opts.saveKey,subtitle:screen.opts.subtitle,progress:screen.session.serialize()};
   },
   restore(data){
     if(!data||typeof data.code!=='string'||typeof data.id!=='string')throw Error('Invalid saved puzzle.');
-    const puzzle=decodePuzzle(data.code,data.id),size=puzzle.cells.length,progress=data.progress;
+    const captured=decodePuzzle(data.code,data.id),puzzle=data.identityCode?decodePuzzle(data.identityCode,data.id):captured,size=puzzle.cells.length,progress=data.progress;
+    // Older shared checkpoints contain the full puzzle even though their IDs
+    // were truncated. Keep their progress under the corrected identity.
+    const shared=data.id.startsWith('shared-');
+    if(shared)puzzle.id=sharedPuzzleId(puzzle);
     if(!progress||typeof progress.state!=='string'||progress.state.length!==size||!/^[0-3]*$/.test(progress.state)||![progress.strikes,progress.hints,progress.elapsed].every(v=>Number.isFinite(v)&&v>=0))throw Error('Invalid saved puzzle progress.');
     const collection=allCollections.find(c=>c.puzzles.some(p=>p.id===data.id));
     if(collection)nav.play(collection,collection.puzzles.findIndex(p=>p.id===data.id));
-    else app.go(new PlayScreen(app,{puzzle,mask:puzzle.mask!,saveKey:data.saveKey,subtitle:data.subtitle,onExit:()=>nav.collections()}));
+    else app.go(new PlayScreen(app,{puzzle,mask:captured.mask!,saveKey:shared?puzzle.id:data.saveKey,subtitle:data.subtitle,onExit:()=>nav.collections()}));
     const screen=app.screen;
     if(screen instanceof PlayScreen){screen.session.restore(progress);screen.refreshHud();}
   },

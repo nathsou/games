@@ -9,9 +9,11 @@
     "deploy": "wrangler deploy",
     "deploy:check": "wrangler deploy --dry-run",
     "test:cloudflare": "node --test cloudflare/tests/*.test.mjs",
+    "test:shared": "node --test shared/tests/*.test.mjs",
     "test:cloudflare:ui": "node tools/cloudflare-audit.mjs",
     "preview": "wrangler preview",
     "test:checkpoints:ui": "node tools/checkpoint-audit.mjs",
+    "test:review:ui": "node tools/review-regressions-audit.mjs",
     "test:windows": "node --test shared/tests/floating-windows.test.mjs",
     "test:windows:ui": "node tools/floating-windows-audit.mjs"
   },

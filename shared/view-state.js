@@ -2,6 +2,18 @@
 // Stable node IDs preserve canvas contexts and local CSS/font assets on updates.
 const tags = new Set(('body main header footer nav section article aside div span p small strong b i em h1 h2 h3 h4 h5 h6 kbd code pre mark s sub sup figure figcaption time output ol ul li dl dt dd button label input textarea select option optgroup form fieldset legend details summary dialog a img canvas br hr table tbody thead tr td th progress meter svg g path rect circle ellipse line polyline polygon text tspan defs symbol use linearGradient radialGradient stop clipPath mask filter feGaussianBlur feOffset feBlend feColorMatrix').split(' '));
 const secrets = /password|secret|token|api.?key|invite|join|pair|credential/i;
+const commonAttrs = new Set('id class title role dir lang hidden inert tabindex accesskey draggable spellcheck translate style'.split(' '));
+const elementAttrs = {
+  a: 'href', img: 'src alt width height loading decoding', canvas: 'width height',
+  button: 'type disabled name', label: 'for', input: 'type name placeholder disabled readonly required checked min max step minlength maxlength pattern size multiple autocomplete inputmode',
+  textarea: 'name placeholder disabled readonly required rows cols minlength maxlength autocomplete',
+  select: 'name disabled required multiple size', option: 'disabled selected label', optgroup: 'disabled label',
+  form: 'name', fieldset: 'disabled name', details: 'open', dialog: 'open',
+  ol: 'start reversed type', li: 'value', time: 'datetime', output: 'for name',
+  td: 'colspan rowspan headers', th: 'colspan rowspan headers scope abbr',
+  progress: 'max', meter: 'min max low high optimum',
+};
+const svgAttrs = new Set(('viewbox preserveaspectratio width height x y x1 y1 x2 y2 cx cy r rx ry d points transform fill fill-rule fill-opacity stroke stroke-width stroke-linecap stroke-linejoin stroke-dasharray stroke-dashoffset stroke-opacity opacity vector-effect clip-path clip-rule mask filter color font-size font-family font-weight text-anchor dominant-baseline dx dy offset stop-color stop-opacity gradientunits gradienttransform spreadmethod patternunits marker-start marker-mid marker-end stddeviation in in2 result mode type values').split(' '));
 // The bundled Nonocube adapter and outer shell share IDs through the document.
 const nodeKey = Symbol.for('games.friend-view-node'), counterKey = Symbol.for('games.friend-view-counter');
 function nodeID(node) {
@@ -18,8 +30,14 @@ function asset(value, doc) {
   } catch { /* Ignore invalid asset URLs. */ }
   return null;
 }
-function attribute(name, value, doc) {
+function attribute(name, value, doc, tag, svg = false) {
+  // HTML folds attribute names to lowercase. Validate the same spelling the
+  // browser sees, while retaining SVG's case-sensitive attribute names.
+  name = name.toLowerCase();
   if (/^on|secret|api.?key|credential|(?:invite|room|auth|access)[-_]?token/i.test(name) || ['value', 'srcdoc', 'action', 'formaction', 'autofocus', 'srcset', 'target', 'download'].includes(name)) return null;
+  const allowed = commonAttrs.has(name) || /^(aria|data)-[\w-]+$/.test(name)
+    || (svg ? svgAttrs.has(name) || tag === 'use' && ['href', 'xlink:href'].includes(name) : (elementAttrs[tag] || '').split(' ').includes(name));
+  if (!allowed) return null;
   if (name === 'src' || name === 'href' || name === 'xlink:href') return asset(value, doc);
   if (name === 'style' && /url\s*\(|@import|expression\s*\(/i.test(value)) return null;
   return value;
@@ -31,7 +49,7 @@ export function captureView(doc) {
     const attrs = {};
     for (const {name, value} of node.attributes) {
       if (node.localName === 'canvas' && ['width', 'height'].includes(name)) continue;
-      const safe = attribute(name, value, doc);
+      const safe = attribute(name, value, doc, node.localName, node.namespaceURI.includes('svg'));
       if (safe !== null) attrs[name] = safe;
     }
     const sensitive = node.matches('input,textarea') && (node.type === 'password' || node.type === 'file' || node.readOnly || secrets.test(node.id + ' ' + node.name));
@@ -59,14 +77,18 @@ export function applyView(doc, view, cache) {
       if (!tags.has(data.tag) || !Array.isArray(data.children) || !data.attrs || typeof data.attrs !== 'object') throw new Error('Invalid shared element.');
       if (!node || node.localName !== data.tag) node = data.tag === 'body' ? doc.body : data.svg
         ? doc.createElementNS('http://www.w3.org/2000/svg', data.tag) : doc.createElement(data.tag);
-      for (const {name} of [...node.attributes]) {
-        if (node.localName === 'canvas' && ['width', 'height'].includes(name)) continue;
-        if (!(name in data.attrs)) node.removeAttribute(name);
-      }
+      const safeAttrs = new Map();
       for (const [name, value] of Object.entries(data.attrs)) {
         if (!/^[a-zA-Z][\w:.-]*$/.test(name) || typeof value !== 'string') continue;
-        const safe = attribute(name, value, doc);
-        if (safe !== null && node.getAttribute(name) !== safe) node.setAttribute(name, safe);
+        const safe = attribute(name, value, doc, data.tag, Boolean(data.svg));
+        if (safe !== null) safeAttrs.set(data.svg ? name : name.toLowerCase(), safe);
+      }
+      for (const {name} of [...node.attributes]) {
+        if (node.localName === 'canvas' && ['width', 'height'].includes(name)) continue;
+        if (!safeAttrs.has(name)) node.removeAttribute(name);
+      }
+      for (const [name, value] of safeAttrs) {
+        if (node.getAttribute(name) !== value) node.setAttribute(name, value);
       }
       const children = data.children.map(visit);
       // Move only changed nodes, retaining focus and WebGL/2D contexts.

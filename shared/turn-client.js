@@ -5,14 +5,16 @@ export async function roomRequest(credential,path,{method='GET',body}={}) {
   return data;
 }
 // A saved game shared with the friend. The room pushes every change; requests
-// return the same role-private view, so whichever arrives first wins.
+// return the same role-private view. Record versions order moves, readiness and
+// ending a game; the rules revision is still used to submit moves.
+const turnVersion=record=>record.version??record.revision;
 export class TurnClient {
   constructor(session,record){this.session=session;this.record=record;this.busy=false;this.aiBusy=false;this.aiError='';this.listeners=new Set();}
   get names(){return {me:this.session.me?.name||'You',friend:this.session.friend?.name||'Friend'};}
   get friendHere(){const friend=this.session.friend;return Boolean(friend?.online&&friend.game===this.record.id);}
   subscribe(callback){this.listeners.add(callback);callback(this.record);return ()=>this.listeners.delete(callback);}
   publish(record){this.record=record;for(const callback of this.listeners)callback(record);this.session.onChange();this.schedule();}
-  newer(record){return record.id===this.record.id&&(record.revision>this.record.revision||record.revision===this.record.revision&&JSON.stringify(record)!==JSON.stringify(this.record));}
+  newer(record){return record.id===this.record.id&&turnVersion(record)>turnVersion(this.record);}
   apply(record){if(this.newer(record))this.publish(record);}
   async refresh(){const record=await roomRequest(this.session.credential,'turns/'+this.record.id);if(!this.busy)this.apply(record);}
   async request(body){
