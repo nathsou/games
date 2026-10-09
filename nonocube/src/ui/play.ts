@@ -395,6 +395,26 @@ export class PlayScreen implements Screen {
     }
   }
 
+  tick(dt: number): void {
+    const s = this.session;
+    if (!s.solved && document.visibilityState === 'visible' && !document.querySelector('.modal-back') && !this.opts.hooks) {
+      s.elapsed += dt;
+      const label = formatTime(s.elapsed);
+      if (this.ui.timer.textContent !== label) this.ui.timer.textContent = label;
+    }
+    this.updateFocusMode();
+  }
+
+  isAnimating(): boolean {
+    if (this.introT < 1.5 || this.hover >= 0 || this.hoverLift > 0.001 || this.stroke || this.sweep.length ||
+        this.particles.list.length || this.lineFlash.size || this.highlightLines.length || this.highlightCells.size ||
+        (this.session.solved && (this.revealT < 1 || !this.cardShown))) return true;
+    for (let i = 0; i < this.paintT.length; i++) {
+      if (this.paintT[i] !== (this.session.state[i] === PAINTED ? 1 : 0) || this.shake[i] > 0 || this.flash[i] > 0) return true;
+    }
+    return false;
+  }
+
   update(dt: number, time: number): void {
     this.time = time;
     this.introT += dt;
@@ -418,10 +438,6 @@ export class PlayScreen implements Screen {
     this.firstFrame = false;
     this.slicer.update(!s.solved);
 
-    if (!s.solved && document.visibilityState === 'visible' && !document.querySelector('.modal-back') && !this.opts.hooks) {
-      s.elapsed += dt;
-      this.ui.timer.textContent = formatTime(s.elapsed);
-    }
     this.runSweep(dt);
     this.particles.update(dt);
     this.hoverLift += ((this.hover >= 0 ? 1 : 0) - this.hoverLift) * damp(22, dt);

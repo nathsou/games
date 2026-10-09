@@ -1,32 +1,31 @@
 import { CARDS, DECKS } from "./decks.js";
 
 const atlases = new Map();
-export async function loadArt() {
-  const sources = new Map(
-    Object.values(CARDS).map((card) => [
-      card.atlas || DECKS[card.deck].atlas,
-      DECKS[card.deck].name,
-    ]),
-  );
-  await Promise.all(
-    [...sources].map(
-      ([source, name]) =>
-        new Promise((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => {
-            atlases.set(source, img);
-            resolve();
-          };
-          img.onerror = () =>
-            reject(
-              new Error(
-                `Could not load ${name} artwork. Reload the page to try again.`,
-              ),
-            );
-          img.src = source;
-        }),
-    ),
-  );
+const pending = new Map();
+function loadAtlas(source, name) {
+  if (atlases.has(source)) return Promise.resolve();
+  if (pending.has(source)) return pending.get(source);
+  const promise = new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = async () => {
+      try {
+        await img.decode();
+        atlases.set(source, img);
+        resolve();
+      } catch { reject(new Error(`Could not decode ${name} artwork. Please try again.`)); }
+    };
+    img.onerror = () => reject(new Error(`Could not load ${name} artwork. Please try again.`));
+    img.src = source;
+  }).finally(() => pending.delete(source));
+  pending.set(source, promise);
+  return promise;
+}
+export async function loadArt(ids) {
+  const sources = new Map(ids.map(id => {
+    const card = CARDS[id], deck = DECKS[card.deck];
+    return [card.atlas || deck.atlas, deck.name];
+  }));
+  await Promise.all([...sources].map(([source, name]) => loadAtlas(source, name)));
 }
 function fitText(ctx, text, maxWidth, size) {
   ctx.font = `bold ${size}px "Courier New", monospace`;
@@ -107,6 +106,7 @@ export function drawCard(canvas, id, { label = "", secret = false } = {}) {
 // The UI uses unframed art; observationImage keeps its explicit, labelled AI view.
 export function drawArt(canvas, id) {
   canvas.__friendCard = id;
+  canvas.onclick = null;
   const card = CARDS[id],
     deck = DECKS[card.deck],
     atlas = atlases.get(card.atlas || deck.atlas);
@@ -116,7 +116,29 @@ export function drawArt(canvas, id) {
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = deck.color;
   ctx.fillRect(0, 0, 300, 400);
-  if (!atlas) return;
+  if (!atlas) {
+    // The canvas reserves its final dimensions while only its atlas downloads.
+    // A recycled follower canvas must never be repainted with an older card.
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '16px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Loading artwork…', 150, 200);
+    loadArt([id]).then(() => {
+      if (canvas.__friendCard === id) {
+        canvas.onclick = null;
+        drawArt(canvas, id);
+      }
+    }).catch(() => {
+      if (canvas.__friendCard !== id) return;
+      ctx.fillStyle = deck.color;
+      ctx.fillRect(0, 0, 300, 400);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('Artwork unavailable', 150, 185);
+      ctx.fillText('Tap to retry', 150, 215);
+      canvas.onclick = event => { event.stopPropagation(); drawArt(canvas, id); };
+    });
+    return;
+  }
   const columns = card.columns || deck.columns,
     rows = card.rows || deck.rows,
     index = card.atlasIndex ?? card.index;
@@ -221,7 +243,10 @@ export function cardElement(
   if (onClick) el.addEventListener("click", onClick);
   return el;
 }
-export function observationImage(game, role) {
+export async function observationImage(game, role) {
+  // Do not send placeholder cards to the vision model, or load private hand
+  // artwork into a guesser's observation.
+  await loadArt([...game.board, ...game.history.map(turn => turn.card), ...(role === 'giver' ? game.hand : [])]);
   const canvas = document.createElement("canvas");
   const hasHand = role === "giver";
   const finalists = game.board.filter((id) => !game.eliminated.includes(id));

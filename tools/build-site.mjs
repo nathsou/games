@@ -1,6 +1,7 @@
-import {cp, mkdir, readdir, rm, stat} from 'node:fs/promises';
+import {cp, mkdir, readdir, readFile, writeFile, rm, stat} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {friendPanel} from '../shared/friend-panel.js';
 
 const root=fileURLToPath(new URL('..',import.meta.url)), output=resolve(root,'_site');
 // Only ship each game's runtime files, not credentials, developer tests or docs.
@@ -20,6 +21,13 @@ for(const game of games){
     if(['src','assets'].includes(file)||/\.(?:html|js|css|svg|wasm|webmanifest)$/.test(file)||/^preview\.(png|jpg)$/.test(file))
       await cp(resolve(root,game,file),resolve(dest,file),{recursive:true});
   }
+}
+// Ship usable initial shell markup before the room module graph loads. The iframe
+// gets its URL only after FriendSession exists, preserving checkpoint/room routing.
+for (const file of ['index.html', 'together/index.html']) {
+  const path = resolve(output, file);
+  const html = await readFile(path, 'utf8');
+  await writeFile(path, html.replace('<body>', '<body data-shell-loading>\n' + friendPanel));
 }
 const built=resolve(root,'nonocube/dist');
 if(!(await stat(resolve(built,'index.html')).catch(()=>null)))throw new Error('Build Nonocube before assembling the site: npm --prefix nonocube run build');

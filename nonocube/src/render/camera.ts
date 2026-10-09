@@ -38,6 +38,7 @@ export class OrbitCamera {
   private dragging = false;
   private anim: { yaw0: number; pitch0: number; yaw1: number; pitch1: number; t: number; dur: number } | null = null;
   private zoomTarget = 1;
+  private framing = false;
 
   readonly view = mat4();
   readonly proj = mat4();
@@ -100,8 +101,10 @@ export class OrbitCamera {
     const oy = (top - bottom) / 2;
     const k = dt > 0 ? 1 - Math.exp(-10 * dt) : 1;
     if (!this.avail) this.avail = [w, h];
-    this.avail = [this.avail[0] + (w - this.avail[0]) * k, this.avail[1] + (h - this.avail[1]) * k];
-    this.offset = [this.offset[0] + (ox - this.offset[0]) * k, this.offset[1] + (oy - this.offset[1]) * k];
+    const ease = (from: number, to: number) => Math.abs(to - from) < 0.1 ? to : from + (to - from) * k;
+    this.avail = [ease(this.avail[0], w), ease(this.avail[1], h)];
+    this.offset = [ease(this.offset[0], ox), ease(this.offset[1], oy)];
+    this.framing = this.avail[0] !== w || this.avail[1] !== h || this.offset[0] !== ox || this.offset[1] !== oy;
   }
 
   /** Free viewport area (CSS px) the model should fit in; null = whole viewport. */
@@ -180,6 +183,7 @@ export class OrbitCamera {
       this.yaw += this.autoSpin * dt;
     }
     this.zoom += (this.zoomTarget - this.zoom) * damp(14, dt);
+    if (Math.abs(this.zoomTarget - this.zoom) < 0.0001) this.zoom = this.zoomTarget;
     this.updateMatrices();
   }
 
@@ -218,6 +222,6 @@ export class OrbitCamera {
   }
 
   get isMoving(): boolean {
-    return this.dragging || !!this.anim || this.velYaw !== 0 || this.velPitch !== 0 || this.autoSpin !== 0;
+    return this.framing || this.zoom !== this.zoomTarget || this.dragging || !!this.anim || this.velYaw !== 0 || this.velPitch !== 0 || this.autoSpin !== 0;
   }
 }

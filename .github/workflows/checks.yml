@@ -82,3 +82,6 @@ jobs:
           }
           JS
           npm run test:review:ui
+          GAMES_URL=http://127.0.0.1:8787 npm run test:rendering:ui
+          GAMES_URL=http://127.0.0.1:8787 NONOCUBE_URL=http://127.0.0.1:8788 npm run test:performance:ui
+          GAMES_URL=http://127.0.0.1:8787 npm run test:startup:ui

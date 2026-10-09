@@ -486,7 +486,7 @@ textarea {
 
 .sprite {
   display:inline-block;
-  background-image:url(assets/sprites.png);
+  background-image:url(assets/sprites.webp);
   background-size:200% 200%;
   background-repeat:no-repeat;
   image-rendering:pixelated;
@@ -707,7 +707,7 @@ textarea {
   width:44px;
   height:62px;
   border-radius:4px;
-  background:#173e39 url(assets/sprites.png) no-repeat 0 0;
+  background:#173e39 url(assets/sprites.webp) no-repeat 0 0;
   background-size:200% 200%;
   box-shadow:2px 3px 0 #08241e
 }

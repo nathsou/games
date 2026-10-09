@@ -54,12 +54,27 @@ export function startSky(canvas) {
     });
   }
 
-  let last = 0;
-  function loop(t) {
-    if (t - last > 90) { draw(t); last = t; }
-    requestAnimationFrame(loop);
+  let timer;
+  const motion = matchMedia('(prefers-reduced-motion: reduce)');
+  function stop() { clearTimeout(timer); timer = null; }
+  function loop() {
+    stop();
+    if (!canvas.isConnected) {
+      removeEventListener('resize', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+      motion.removeEventListener('change', refresh);
+      themeObserver.disconnect();
+      return;
+    }
+    if (document.hidden) return;
+    draw(performance.now());
+    if (!motion.matches) timer = setTimeout(loop, 90);
   }
-  addEventListener('resize', resize);
-  resize();
-  requestAnimationFrame(loop);
+  function refresh() { resize(); loop(); }
+  const themeObserver = new MutationObserver(loop);
+  themeObserver.observe(document.documentElement, {attributes: true, attributeFilter: ['data-color-theme']});
+  addEventListener('resize', refresh);
+  document.addEventListener('visibilitychange', refresh);
+  motion.addEventListener('change', refresh);
+  refresh();
 }

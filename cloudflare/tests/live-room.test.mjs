@@ -73,7 +73,7 @@ test('chat, game creation, moves and endings are pushed with role-private views'
     await until(()=>hostPage.last('chat'),'chat push');
     assert.equal(hostPage.last('chat').history.entries[0].value,'Ready when you are');assert.equal(hostPage.last('chat').by,'guest');
     const created=await call(host.key,'turns',{game:'flip-it',setup:{}});assert.equal(created.status,201);
-    await until(()=>guestPage.last('game'),'game push');
+    await until(()=>guestPage.last('game')&&hostPage.last('game'),'game push to both seats');
     const pushed=guestPage.last('game');
     assert.deepEqual(pushed.cause,{by:'host',kind:'created'});assert.equal(pushed.game.creator,'host');
     assert(pushed.game.view.hands[0].every(card=>card.hidden),'The guest never receives the host hand');
@@ -83,7 +83,9 @@ test('chat, game creation, moves and endings are pushed with role-private views'
     assert.equal((await call(mover.key,'turns/'+created.data.id+'/moves',{revision:0,action:{kind:'flip',lane:0}})).status,200);
     await until(()=>waitingPage.messages.length>count&&waitingPage.last('game').game.revision===1,'move push');
     assert.equal(waitingPage.last('game').cause.kind,'move');assert(waitingPage.last('game').game.myTurn);
-    assert(moverPage.last('game').game.revision===1||await until(()=>moverPage.last('game').game.revision===1));
+    // Each socket receives its push independently; a successful wait returns no value.
+    await until(()=>moverPage.last('game').game.revision===1,'move push to mover');
+    assert.equal(moverPage.last('game').game.revision,1);
     assert.equal((await call(guest.key,'turns/'+created.data.id,undefined,'DELETE')).status,200);
     await until(()=>hostPage.last('game').cause.kind==='abandoned','ending push');
     const ended=hostPage.last('game').game;assert(ended.finished);assert.equal(ended.abandoned,'guest');assert(!ended.myTurn);

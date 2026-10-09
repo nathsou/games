@@ -15,7 +15,7 @@ import {
   REMOVALS,
   PROTOCOL,
 } from "./game.js";
-import { loadArt, cardElement, observationImage } from "./art.js";
+import { cardElement, observationImage } from "./art.js";
 import { PROVIDERS, chooseMove, listModels } from "./ai.js";
 import { loadSettings, read, write, erase } from "./storage.js";
 import { chime, setMusic, unlockAudio } from "./sound.js";
@@ -1038,7 +1038,8 @@ async function runAI() {
   renderGame();
   const timeout = setTimeout(() => controller.abort(), 180000);
   try {
-    const image = observationImage(game, role);
+    const image = await observationImage(game, role);
+    if (controller.signal.aborted || generation !== aiGeneration) return;
     let next;
     let correction = "";
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -1930,14 +1931,7 @@ window.addEventListener("pagehide", () => {
   cancelAI();
 });
 applyPreferences();
-app.innerHTML = `<section class="hero"><div><p class="eyebrow">Setting the table</p><h1>${Object.keys(DECKS).length} worlds.<br>One <em>connection.</em></h1><p>Shuffling the illustrated decks…</p></div></section>`;
-try {
-  await Promise.all([loadArt(), document.fonts.ready]);
-  renderHome();
-} catch (error) {
-  app.innerHTML = `<p class="inline-error">${esc(error.message)}</p><button class="button" id="reload">Reload artwork</button>`;
-  $("reload").onclick = () => location.reload();
-}
+renderHome();
 
 window.addEventListener("storage", (event) => {
   if (event.key === CONFIG_KEY) {

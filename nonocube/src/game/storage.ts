@@ -8,6 +8,8 @@ export interface Settings {
   lefty: boolean;
   reducedMotion: boolean;
   theme: 'auto' | 'light' | 'dark';
+  pixelDensity: 'auto' | '1' | '1.5' | '2';
+  antialias: boolean;
   momentum: 'off' | 'light' | 'strong';
   /** Grey out rows whose clue is satisfied (Picross 3D Round 2 style). */
   greyDone: boolean;
@@ -65,6 +67,8 @@ const defaults = (): Store => ({
     lefty: false,
     reducedMotion: typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches,
     theme: 'auto',
+    pixelDensity: 'auto',
+    antialias: true,
     momentum: 'light',
     greyDone: true,
     autoHideHud: false,

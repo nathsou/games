@@ -60,12 +60,14 @@ class ShowcaseScreen {
   protected model: ModelDef | null = null;
   protected app: App;
   protected spinT = 0;
+  private finishedTheme: string | undefined;
   constructor(app: App) {
     this.app = app;
   }
   protected plinth = plinthScene();
   protected setModel(m: ModelDef): void {
     this.model = m;
+    this.finishedTheme = undefined;
     modelScene(this.scene, m);
     const cam = this.app.camera;
     this.fitCamera();
@@ -82,11 +84,18 @@ class ShowcaseScreen {
   }
   update(dt: number): void {
     this.spinT += dt;
+    this.app.camera.autoSpin = store.settings.reducedMotion ? 0 : 0.22;
   }
+  isAnimating(): boolean { return !store.settings.reducedMotion; }
   draw(): DrawList | null {
     if (!this.model) return null;
-    if (this.spinT < 2.5 && !store.settings.reducedMotion) modelScene(this.scene, this.model, this.spinT);
-    else modelScene(this.scene, this.model);
+    if (this.spinT < 2.5 && !store.settings.reducedMotion) {
+      modelScene(this.scene, this.model, this.spinT);
+      this.finishedTheme = undefined;
+    } else if (this.finishedTheme !== document.documentElement.dataset.theme) {
+      modelScene(this.scene, this.model);
+      this.finishedTheme = document.documentElement.dataset.theme;
+    }
     return { placed: exhibit(this.scene, this.model.dims, 0, 0, this.plinth) };
   }
 }
@@ -217,6 +226,7 @@ export class CollectionsScreen implements Screen {
       h('div', { class: 'menu-scroll' }, h('div', { class: 'coll-grid' }, ...cards, daily, mine)),
     );
   }
+  isAnimating(): boolean { return false; }
   update(): void {}
   draw(): null {
     return null;
@@ -272,6 +282,7 @@ export class MyPuzzlesScreen implements Screen {
         h('div', { class: 'tile-grid' }, newTile, ...tiles.filter((t): t is HTMLDivElement => !!t))),
     );
   }
+  isAnimating(): boolean { return false; }
   update(): void {}
   draw(): null {
     return null;

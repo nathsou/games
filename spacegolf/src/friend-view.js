@@ -13,7 +13,7 @@ const scenes = {TitleScene, CampaignScene, EndlessScene, GeneratingScene, Create
 const noop = () => {};
 function sceneState(scene) {
   return JSON.parse(JSON.stringify(scene, (key, value) => {
-    if (['app', 'run', 'promise'].includes(key) || key === 'world' && typeof value === 'object') return undefined;
+    if (['app', 'run', 'promise', 'previewCache'].includes(key) || key === 'world' && typeof value === 'object') return undefined;
     if (typeof value === 'function') return {$callback: true};
     if (key === 'history') return value.map(() => null); // Rendering needs only the undo count.
     return value;

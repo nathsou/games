@@ -16,6 +16,10 @@ export interface Screen {
   exit?(): void;
   update(dt: number, time: number): void;
   draw(time: number): DrawList | null;
+  /** Whether the scene needs continuous frames; missing means always animate. */
+  isAnimating?(): boolean;
+  /** Real elapsed time, including idle periods, but excluding hidden tabs. */
+  tick?(dt: number): void;
   /** Color theme name (see ui/theme.ts); defaults to "sunset". */
   theme?: string;
   onKey?(e: KeyboardEvent): void;
@@ -61,14 +65,31 @@ export class App {
   freshSolve: string | null = null;
   private last = performance.now();
   private thumbs = new Map<string, string>();
+  private dirty = true;
+  private frame: number | null = null;
+  private idleTimer: number | null = null;
+  private observer: MutationObserver;
+
+  invalidate = (): void => {
+    this.dirty = true;
+    if (document.hidden || this.frame !== null) return;
+    if (this.idleTimer !== null) { clearTimeout(this.idleTimer); this.idleTimer = null; }
+    this.frame = requestAnimationFrame(this.loop);
+  };
   readonly gestures: Gestures;
 
   constructor(canvas: HTMLCanvasElement, root: HTMLElement) {
     this.canvas = canvas;
     this.root = root;
     this.renderer = new Renderer(canvas);
-    onThemeChange(() => this.thumbs.clear());
-    const syncMomentum = () => (this.camera.momentum = store.settings.reducedMotion ? 'off' : store.settings.momentum);
+    onThemeChange(() => { this.thumbs.clear(); this.invalidate(); });
+    const syncMomentum = () => {
+      this.camera.momentum = store.settings.reducedMotion ? 'off' : store.settings.momentum;
+      this.renderer.pixelDensity = store.settings.pixelDensity;
+      this.renderer.antialias = store.settings.antialias;
+      if (store.settings.reducedMotion) this.camera.autoSpin = 0;
+      this.invalidate();
+    };
     syncMomentum();
     onSettingsChange(syncMomentum);
     const proxy: GestureTarget = {
@@ -93,7 +114,20 @@ export class App {
     });
     window.addEventListener('keyup', (e) => this.screen?.onKeyUp?.(e));
     window.addEventListener('blur', () => this.screen?.onBlur?.());
-    requestAnimationFrame(this.loop);
+    // Input and asynchronous UI changes wake an idle scene immediately.
+    for (const event of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'wheel', 'keydown', 'keyup', 'click', 'input', 'change', 'resize', 'blur']) {
+      window.addEventListener(event, this.invalidate, { capture: true, passive: true });
+    }
+    this.observer = new MutationObserver(this.invalidate);
+    this.observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden'] });
+    document.addEventListener('visibilitychange', () => {
+      if (this.frame !== null) cancelAnimationFrame(this.frame);
+      if (this.idleTimer !== null) clearTimeout(this.idleTimer);
+      this.frame = this.idleTimer = null;
+      this.last = performance.now();
+      if (!document.hidden) this.invalidate();
+    });
+    this.invalidate();
   }
 
   go(screen: Screen): void {
@@ -104,6 +138,7 @@ export class App {
       setTimeout(() => old.el.remove(), 250);
     }
     this.screen = screen;
+    this.last = performance.now();
     applyTheme(screen.theme ?? 'sunset');
     screen.el.classList.add('screen', 'entering');
     this.root.append(screen.el);
@@ -114,23 +149,37 @@ export class App {
     this.camera.avail = null;
     this.camera.autoSpin = 0;
     screen.enter?.();
+    this.invalidate();
   }
 
   private loop = (now: number) => {
-    const dt = Math.min(0.05, (now - this.last) / 1000);
+    this.frame = null;
+    if (document.hidden) return;
+    const elapsed = Math.max(0, (now - this.last) / 1000);
+    const dt = Math.min(0.05, elapsed);
     this.last = now;
-    const { w, h } = this.renderer.resize();
-    this.camera.setSize(w, h);
     const s = this.screen;
-    if (s) {
+    s?.tick?.(elapsed);
+    // Timer labels do not invalidate the 3D scene.
+    this.observer.takeRecords();
+    const active = this.dirty || this.camera.isMoving || (s?.isAnimating?.() ?? true);
+    if (s && active) {
+      this.dirty = false;
+      const { w, h } = this.renderer.resize();
+      this.camera.setSize(w, h);
       s.update(dt, now / 1000);
       this.camera.update(dt);
-      const list = s.draw(now / 1000);
-      this.sharedView = list || {};
-      if (list) this.renderer.render(this.camera, list);
-      else this.renderer.render(this.camera, {});
+      this.sharedView = s.draw(now / 1000) || {};
+      this.renderer.render(this.camera, this.sharedView);
+      // Ignore our own per-frame HUD writes, while observing later async changes.
+      this.observer.takeRecords();
     }
-    requestAnimationFrame(this.loop);
+    if (this.dirty || this.camera.isMoving || (s?.isAnimating?.() ?? true)) {
+      this.frame = requestAnimationFrame(this.loop);
+    } else {
+      // Keep clocks accurate without layout, geometry uploads or GPU work.
+      this.idleTimer = window.setTimeout(() => { this.idleTimer = null; this.loop(performance.now()); }, 250);
+    }
   };
 
   /** Mono thumbnail of a model (cached). */

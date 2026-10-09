@@ -1,3 +1,4 @@
+import {store} from './game/storage.ts';
 import {installGameView} from '../../shared/game-view.js';
 import {viewNodeID} from '../../shared/view-state.js';
 import type {App} from './app.ts';
@@ -41,6 +42,8 @@ export async function installFollower(): Promise<void> {
     const canvas = nodes.get(view.id);
     if (!(canvas instanceof HTMLCanvasElement) || !ArrayBuffer.isView(view.matrix) || view.matrix.length !== 16 || !view.up?.every(Number.isFinite)) throw new Error('Invalid Nonocube view.');
     if (!renderer || renderer.canvas !== canvas) renderer = new Renderer(canvas);
+    renderer.pixelDensity = store.settings.pixelDensity;
+    renderer.antialias = store.settings.antialias;
     renderer.resize();
     camera.viewProj.set(view.matrix); camera.up = view.up;
     for (const key of Object.keys(renderStyle) as (keyof RenderStyle)[]) {
