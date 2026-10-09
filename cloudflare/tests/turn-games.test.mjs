@@ -122,3 +122,21 @@ test('Yesteryear races with bots and plays a co-op streak from one shared hand',
   assert(turnSummary(streak,'host').myTurn&&turnSummary(streak,'guest').myTurn,'Either person can play the shared hand');
   playOut(streak,choose);
 });
+
+test('Cover Story keeps keys from operatives, runs room bots and lets the creator play AI seats',()=>{
+  const guess=view=>view.phase==='clue'?{kind:'clue',word:'zzzzq',number:1}:{kind:'guess',index:view.revealed.findIndex((r,i)=>r===null&&!(view.mode==='duo'&&view.bystanders[view.giver][i]))};
+  const duo=createTurnGame('cover-story',{mode:'duo',lang:'fr',pack:'all',turns:9},'host');
+  assert.deepEqual(turnSummary(duo,'host').controllers,['host','guest']);
+  assert.deepEqual(turnView(duo,'host').view.myKey,duo.state.keys[0]);
+  assert(!JSON.stringify(turnView(duo,'guest').view).includes('"keys"'));
+  playOut(duo,guess);
+  const together=createTurnGame('cover-story',{mode:'teams',lang:'en',pack:'all',lineup:'together',role:'op',others:'dealer'},'guest');
+  assert.deepEqual(turnSummary(together,'host').controllers,['host','guest','dealer','dealer'],'The guest creator guesses; the host gives clues');
+  assert(turnView(together,'host').view.key);assert(!turnView(together,'guest').view.key);
+  playOut(together,guess);
+  const rivals=createTurnGame('cover-story',{mode:'teams',lang:'en',pack:'all',lineup:'operatives',others:'model'},'host');
+  const ai=turnView(rivals,'host').aiTurn;
+  assert(ai&&ai.view.key,'The creator plays the AI spymaster with its key');
+  assert(!turnView(rivals,'guest').aiTurn);
+  playOut(rivals,guess);
+});

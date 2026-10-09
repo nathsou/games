@@ -4,10 +4,11 @@ import cluance from '../cluance/src/room-setup.js';
 import midnight from '../midnight/src/room-setup.js';
 import thrice from '../thrice/src/room-setup.js';
 import yesteryear from '../yesteryear/src/room-setup.js';
+import coverStory from '../cover-story/src/room-setup.js';
 
 // Each room game describes its public settings: validation (shared by the page
 // and the room), saved preferences, a one-line summary and the setup form.
-const SETUPS = {'flip-it': flipIt, cluance, midnight, thrice, yesteryear};
+const SETUPS = {'flip-it': flipIt, cluance, midnight, thrice, yesteryear, 'cover-story': coverStory};
 export const SETUP_GAMES = Object.freeze({collection:'Just a room', ...ROOM_GAMES});
 export function validateGameSetup(game, value = {}) {
   if (game === 'collection') return {};
