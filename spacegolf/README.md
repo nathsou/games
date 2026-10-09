@@ -64,6 +64,15 @@ costs +1 stroke and returns the ball to its last resting place.
 
 ## Rendering
 
+Settings → Graphics offers Auto, High, Medium and Low presets, a 30/60 FPS
+limit, Stars/Nebula backgrounds, glow and frosted-glass switches. Auto starts
+at Medium and reduces detail when it cannot sustain the selected frame rate.
+Low caps scene pixel density, skips bump mapping, bloom and glass blur, and
+uses stars only. Text and controls retain native resolution (up to 2× pixel
+density) in every preset. Preferences persist in this browser; physics and
+recordings use the same deterministic simulation at every graphics setting.
+Rendering pauses in hidden tabs.
+
 * The world is drawn into a half-float (HDR) target, so suns, lava and the hole's
   rim can exceed 1.0. A five-level bloom pyramid, black-hole lensing, a filmic
   highlight shoulder, a touch of grading, vignette and film grain finish the frame.
@@ -73,7 +82,7 @@ costs +1 stroke and returns the ball to its last resting place.
   clouds, city lights on the night side, atmospheric rim scattering, and light that
   comes from the level's sun when it has one.
 * The backdrop is a domain-warped nebula with dust lanes and sparse, colour-tempered
-  stars.
+  stars, shaded at reduced resolution and upscaled before the world sprites.
 * The UI pass blurs the finished frame into two small textures; panels and
   buttons sample them (`ui.glass`) for the frosted look, with drop shadows and
   a light-catching edge. Text uses a three-weight glyph atlas.

@@ -5,6 +5,7 @@
 // rim...) and the composite pass blooms them and rolls them off filmically.
 
 const NOISE = /* glsl */ `
+float sq(float x){ return x*x; }
 float hash21(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
 vec2 hash22(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*vec3(.1031,.1030,.0973)); p3 += dot(p3, p3.yzx+33.33); return fract((p3.xx+p3.yz)*p3.zy); }
 vec3 hash33(vec3 p3){ p3 = fract(p3*vec3(.1031,.1030,.0973)); p3 += dot(p3, p3.yxz+33.33); return fract((p3.xxy+p3.yxx)*p3.zyx); }
@@ -26,9 +27,9 @@ float gnoise(vec3 p){
 }
 const mat2 R2 = mat2(0.8,0.6,-0.6,0.8);
 const mat3 R3 = mat3(0.00,0.80,0.60,-0.80,0.36,-0.48,-0.60,-0.48,0.64);
-float fbm2(vec2 p){ float a=0.5,s=0.0; for(int i=0;i<5;i++){ s+=a*gnoise2(p); p=R2*p*2.03+vec2(5.3,1.7); a*=0.5; } return s*0.9+0.5; }
+float fbm2(vec2 p){ float a=0.5,s=0.0; for(int i=0;i<5;i++){ s+=a*gnoise2(p); p=R2*p*2.03+vec2(5.3,1.7); a*=0.5; } return clamp(s*0.9+0.5, 0.0, 1.0); }
 float gDetail = 5.0; // octaves worth evaluating at the current on-screen size (avoids aliasing speckle)
-float fbm3(vec3 p){ float a=0.5,s=0.0; for(int i=0;i<5;i++){ s+=a*clamp(gDetail-float(i),0.0,1.0)*gnoise(p); p=R3*p*2.02+vec3(1.7,9.2,3.1); a*=0.5; } return s*0.9+0.5; }
+float fbm3(vec3 p){ float a=0.5,s=0.0; for(int i=0;i<5;i++){ if(float(i)>=gDetail) break; s+=a*clamp(gDetail-float(i),0.0,1.0)*gnoise(p); p=R3*p*2.02+vec3(1.7,9.2,3.1); a*=0.5; } return clamp(s*0.9+0.5, 0.0, 1.0); }
 float sdStar5(vec2 p, float r, float rf){
   const vec2 k1 = vec2(0.809016994375, -0.587785252292);
   const vec2 k2 = vec2(-k1.x, k1.y);
@@ -41,7 +42,7 @@ float sdStar5(vec2 p, float r, float rf){
   float h = clamp(dot(p,ba)/dot(ba,ba), 0.0, r);
   return length(p-ba*h) * sign(p.y*ba.x-p.x*ba.y);
 }
-float sdSeg(vec2 p, vec2 a, vec2 b){ vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0); return length(pa-ba*h); }
+float sdSeg(vec2 p, vec2 a, vec2 b){ vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/max(dot(ba,ba),1e-8),0.0,1.0); return length(pa-ba*h); }
 `;
 
 // ---------------------------------------------------------------------------
@@ -76,6 +77,7 @@ flat in vec4 vC;
 uniform float uTime;
 uniform vec3 uCam;
 uniform vec3 uLight;
+uniform float uDetail;
 uniform vec3 uSun; // world x, y, active
 out vec4 o;
 ${NOISE}
@@ -100,8 +102,8 @@ vec2 vor(vec3 p){
 }
 float crater(vec2 v){
   float r = 0.13 + 0.17*fract(v.y*7.13);
-  float bowl = smoothstep(r, r*0.1, v.x);
-  float rim = exp(-pow((v.x-r)/(r*0.2), 2.0));
+  float bowl = (1.0-smoothstep(r*0.1, r, v.x));
+  float rim = exp(-sq((v.x-r)/(r*0.2)));
   return rim*0.55 - bowl*0.9;
 }
 
@@ -114,7 +116,7 @@ float heightOf(int look, vec3 sp, float seed){
   if (look==2) { float f=sp.y*3.0+fbm3(sp*2.0+so)*2.2; float d=1.0-abs(gnoise(vec3(sp.x*3.0,f*3.5,sp.z*3.0)+so)*2.0); return d*0.5+fbm3(sp*8.0+so)*0.2; }
   if (look==3) { float f=fbm3(sp*3.0+so); float r=abs(gnoise(sp*4.5+so+3.0)+gnoise(sp*9.0+so)*0.4); return f*0.5-(1.0-smoothstep(0.0,0.07,r))*0.4; }
   if (look==4) { float f=fbm3(sp*3.0+so); return f*0.3-(1.0-smoothstep(0.0,0.05,abs(gnoise(sp*5.5+so+9.0))))*0.3; }
-  if (look==5) { float f=fbm3(sp*3.4+so); vec2 v=vor(sp*7.0+so); return f*0.4+smoothstep(0.28,0.2,v.x)*0.5; }
+  if (look==5) { float f=fbm3(sp*3.4+so); vec2 v=vor(sp*7.0+so); return f*0.4+(1.0-smoothstep(0.2,0.28,v.x))*0.5; }
   if (look==6) { vec2 v=vor(sp*5.0+so); return (1.0-smoothstep(0.0,0.35,v.x))*0.4; }
   return 0.0;
 }
@@ -186,7 +188,7 @@ Surf surfaceOf(int look, vec3 sp, float seed, float t){
   } else if (look==5) { // goo
     float f=fbm3(sp*3.4+so+vec3(0.0,t*0.05,0.0));
     vec2 v=vor(sp*7.0+so);
-    float bub=smoothstep(0.28,0.2,v.x)*step(0.5,fract(v.y*13.7))*gHi;
+    float bub=(1.0-smoothstep(0.2,0.28,v.x))*step(0.5,fract(v.y*13.7))*gHi;
     vec3 a = mix(vec3(0.10,0.48,0.14), vec3(0.45,0.92,0.22), f);
     a = mix(a, vec3(0.04,0.28,0.08), bub*0.6);
     s.alb=a; s.gloss=1.0; s.bump=1.1; s.emisDay=vec3(0.1,0.42,0.05)*0.3*f; s.atm=vec3(0.4,1.0,0.4); s.atmK=0.9;
@@ -215,7 +217,7 @@ Surf surfaceOf(int look, vec3 sp, float seed, float t){
 vec4 planet(){
   float R = vA.w, d = length(vP);
   float Rpx = R*uCam.z;
-  gDetail = clamp(log2(max(Rpx,1.0)/9.0)+1.0, 1.0, 5.0);
+  gDetail = clamp(log2(max(Rpx,1.0)/9.0)+1.0, 1.0, uDetail);
   gHi = smoothstep(26.0, 64.0, Rpx);
   int look = int(vB.z+0.5);
   float atmo = vB.w;
@@ -245,7 +247,7 @@ vec4 planet(){
     Surf s = surfaceOf(look, sp, vB.y, uTime);
     vec3 N = n;
     s.bump *= smoothstep(14.0, 44.0, Rpx);
-    if (s.bump > 0.0) {
+    if (s.bump > 0.0 && uDetail > 2.0) {
       vec3 t1 = normalize(cross(n, vec3(0.0,1.0,0.001)));
       vec3 t2 = cross(n, t1);
       float e = 0.012;
@@ -258,7 +260,7 @@ vec4 planet(){
     float gdl = dot(n, L);
     float diff = clamp((ndl+0.14)/1.14, 0.0, 1.0);
     diff = diff*diff*(3.0-2.0*diff);
-    float terminator = exp(-pow(gdl*3.2, 2.0));
+    float terminator = exp(-sq(gdl*3.2));
     vec3 ambient = s.atm*0.05 + vec3(0.010,0.014,0.028);
     vec3 lit = s.alb*(ambient + diff*vec3(1.0,0.97,0.92)*1.18);
     lit += s.atm*terminator*0.16*s.atmK*(0.4+diff);
@@ -270,7 +272,7 @@ vec4 planet(){
     lit += vec3(1.0,0.98,0.95)*spec + vec3(0.9,0.95,1.0)*s.gloss*fres*0.25*diff;
     lit += s.atm*fres*(0.15+0.95*clamp(gdl*0.6+0.5,0.0,1.0))*s.atmK*1.1;
     lit += s.emisDay;
-    lit += s.emisNight*pow(1.0-diff, 2.0);
+    lit += s.emisNight*sq(1.0-diff);
     lit *= mix(0.72, 1.0, pow(nv, 0.35));
     float edge = 1.0-smoothstep(R-aa, R+aa, d);
     col = mix(col, vec4(lit,1.0), edge);
@@ -321,9 +323,9 @@ vec4 blackhole(){
   float front = step(0.0, pr.y) ;                   // lower half passes in front of the hole
   col.rgb = hot*dens*disc*doppler*1.15; col.a = disc*0.95;
   // light bent over the top of the hole
-  float arc = exp(-pow((dn-1.45)*4.2, 2.0))*smoothstep(0.1,-0.9,pr.y/R)*0.9;
+  float arc = exp(-sq((dn-1.45)*4.2))*(1.0-smoothstep(-0.9,0.1,pr.y/R))*0.9;
   col.rgb += vec3(1.0,0.7,0.45)*arc*0.85; col.a = max(col.a, arc*0.8);
-  float ph = exp(-pow((dn-1.06)*11.0, 2.0));
+  float ph = exp(-sq((dn-1.06)*11.0));
   col.rgb += vec3(1.0,0.92,0.8)*ph*0.95; col.a = max(col.a, ph);
   float glow = exp(-max(dn-1.0,0.0)*1.4)*0.22;
   col.rgb += vec3(0.6,0.3,1.0)*glow; col.a = max(col.a, glow*0.6);
@@ -347,7 +349,7 @@ vec4 repulsor(){
     vec3 sp = vec3(q*1.0, z)*3.0 + vec3(0.0,0.0,uTime*0.25);
     vec2 v = vor(sp+vB.y);
     float cell = 1.0-smoothstep(0.0,0.14,v.x-0.18);
-    float edgeLines = exp(-pow((v.x-0.38)/0.05, 2.0));
+    float edgeLines = exp(-sq((v.x-0.38)/0.05));
     vec3 base = mix(vec3(0.03,0.12,0.30), vec3(0.06,0.4,0.7), fbm3(sp*0.8)*1.2);
     vec3 L = normalize(uLight);
     vec3 c = base*(0.5+0.9*max(dot(n,L),0.0));
@@ -369,7 +371,7 @@ vec4 wormhole(){
   float mask = 1.0-smoothstep(0.92, 1.0, dn);
   vec3 c = mix(tint*0.08, tint*1.4, tunnel*smoothstep(0.08,0.95,dn));
   c = mix(c, vec3(0.0), 1.0-smoothstep(0.0,0.4,dn));
-  float rim = exp(-pow((dn-0.95)*9.0,2.0));
+  float rim = exp(-sq((dn-0.95)*9.0));
   c += tint*rim*1.25 + vec3(rim*0.25);
   float glow = exp(-max(dn-1.0,0.0)*2.2)*0.85*(1.0-smoothstep(2.4,3.6,dn));
   vec4 col = vec4(tint*glow*1.2, glow*0.7);
@@ -381,7 +383,7 @@ vec4 holeCup(){
   float aa = aaw();
   float pulse = fract(uTime*0.7+vB.z);
   float pr = R*(1.1+pulse*2.6);
-  float pa = (1.0-pulse)*(1.0-pulse)*0.9*exp(-pow((d-pr)/(R*0.18),2.0));
+  float pa = (1.0-pulse)*(1.0-pulse)*0.9*exp(-sq((d-pr)/(R*0.18)));
   vec3 gold = vec3(1.0,0.82,0.35);
   vec4 col = vec4(gold*pa*1.3, pa);
   float glow = exp(-max(d-R,0.0)/(R*0.5))*0.7;
@@ -390,7 +392,7 @@ vec4 holeCup(){
     float inner = smoothstep(0.0, R, d);
     vec3 pit = mix(vec3(0.0,0.0,0.015), vec3(0.04,0.03,0.07), inner*inner);
     pit += vec3(0.5,0.35,0.15)*pow(inner,5.0)*0.4;
-    float rim = exp(-pow((d-R*0.88)/(R*0.1),2.0));
+    float rim = exp(-sq((d-R*0.88)/(R*0.1)));
     vec3 c = pit + gold*rim*2.2;
     float edge = 1.0-smoothstep(R-aa, R+aa, d);
     col = mix(col, vec4(c,1.0), edge);
@@ -404,17 +406,17 @@ vec4 flag(){
   float u = dot(vP, dir), v = dot(vP, perp);
   float L = vA.w;
   float aa = aaw();
-  float pole = (1.0-smoothstep(0.9-aa, 0.9+aa, abs(v))) * smoothstep(-aa,aa,u) * smoothstep(L+aa,L-aa,u);
+  float pole = (1.0-smoothstep(0.9-aa, 0.9+aa, abs(v))) * smoothstep(-aa,aa,u) * (1.0-smoothstep(L-aa,L+aa,u));
   float H = L*0.38, W = L*0.46;
   float mid = L - H*0.5;
   float w = W*(1.0 - abs((u-mid)/(H*0.5)));
   float vv = v - sin(uTime*3.2 + v*0.18)*1.6*clamp(v/W,0.0,1.0);
-  float inside = smoothstep(-aa*1.5,aa*1.5, vv) * smoothstep(aa*1.5,-aa*1.5, vv - w) * step(L-H, u) * step(u, L) * step(0.0,w);
+  float inside = smoothstep(-aa*1.5,aa*1.5, vv) * (1.0-smoothstep(-aa*1.5,aa*1.5, vv - w)) * step(L-H, u) * step(u, L) * step(0.0,w);
   vec3 pen = mix(vec3(1.0,0.28,0.38), vec3(1.0,0.55,0.35), clamp(vv/W,0.0,1.0));
   vec3 c = vec3(0.0); float a = 0.0;
   c = mix(c, vec3(0.92,0.94,1.0), pole); a = max(a, pole);
   c = mix(c, pen*1.15, inside); a = max(a, inside);
-  float tip = exp(-pow(length(vec2(u-L, v))/(1.6),2.0))*0.0;
+  float tip = exp(-sq(length(vec2(u-L, v))/(1.6)))*0.0;
   return vec4(c*a, a);
 }
 
@@ -467,10 +469,10 @@ vec4 windZone(){
   float lane = floor(v*0.045);
   float lr = hash21(vec2(lane, vB.y));
   float pos = fract(u*0.0035 - uTime*sp*0.0035*(0.6+lr*0.8) + lr*5.0);
-  float streak = smoothstep(0.0,0.5,pos)*smoothstep(1.0,0.5,pos);
+  float streak = smoothstep(0.0,0.5,pos)*(1.0-smoothstep(0.5,1.0,pos));
   float lw = 1.0-smoothstep(0.0,0.5,abs(fract(v*0.045)-0.5)*2.0);
   float line = streak*lw*step(0.45, lr);
-  float edge = exp(-pow((d-R*0.97)/2.5, 2.0))*0.55;
+  float edge = exp(-sq((d-R*0.97)/2.5))*0.55;
   float fill = mask*0.07;
   vec3 c = vec3(0.55,0.82,1.0);
   float a = line*mask*0.55 + fill + edge;
@@ -494,7 +496,7 @@ vec4 dot_(){
 vec4 ring(){
   float d = length(vP);
   float w = vB.z;
-  float a = exp(-pow((d-vA.w)/max(w,0.5), 2.0));
+  float a = exp(-sq((d-vA.w)/max(w,0.5)));
   return vec4(vC.rgb*a*vC.a, 0.0);
 }
 
@@ -504,7 +506,7 @@ vec4 capsule(){
   float w = vA.w;
   float dash = 1.0;
   if (vB.y > 0.5) {
-    float t = dot(vP, normalize(h));
+    float t = dot(vP, h/max(length(h),1e-4));
     dash = smoothstep(0.35,0.55, abs(fract(t/vB.y - uTime*0.8)-0.5)*2.0);
   }
   float a = (1.0-smoothstep(w-aaw(), w+aaw(), d))*dash;
@@ -514,6 +516,7 @@ vec4 capsule(){
 
 void main(){
   int type = int(vB.x+0.5);
+  gDetail = uDetail;
   vec4 c;
   if (type==0) c = planet();
   else if (type==1) c = sun();
@@ -556,6 +559,7 @@ uniform vec3 uCol1;
 uniform vec3 uCol2;
 uniform float uSeed;
 uniform vec2 uBounds;
+uniform bool uStarsOnly;
 out vec4 o;
 ${NOISE}
 // one layer of stars: sparse, mostly dim, a few bright with soft halos
@@ -566,7 +570,7 @@ vec3 starLayer(vec2 uv, float scale, float seed, float size){
   float d = length(f-off);
   float bright = pow(h, 14.0)*3.2 + 0.05;
   float tw = 0.8+0.2*sin(uTime*(0.6+h*2.4)+h*40.0);
-  float core = smoothstep(size, 0.0, d);
+  float core = (1.0-smoothstep(0.0, size, d));
   float halo = exp(-d*d/(size*size*9.0))*0.28*bright;
   vec3 tint = mix(vec3(0.62,0.76,1.0), vec3(1.0,0.82,0.62), hash21(id+seed+9.7));
   tint = mix(tint, vec3(1.0), 0.4);
@@ -577,19 +581,21 @@ void main(){
   vec2 px = vUv*uRes;
   vec2 world = (px - uRes*0.5)/uCam.z + uCam.xy;
   vec2 uv = world*0.0008;
-  float t = uTime*0.004;
-  vec2 q = vec2(fbm2(uv*1.3+uSeed+vec2(t,0.0)+uPar*0.03), fbm2(uv*1.3+vec2(5.2,1.3)-uSeed-vec2(0.0,t)+uPar*0.03));
-  float r = fbm2(uv*1.5 + 2.4*q + uPar*0.05);
   vec3 c = vec3(0.006,0.008,0.022);
-  c += mix(uCol1, uCol2, q.x) * smoothstep(0.32,0.95,r) * 0.85;
-  c += uCol1 * pow(q.y, 3.0) * 0.55;
-  c += uCol2 * pow(fbm2(uv*2.6 - uSeed*0.7 + 3.0*q), 3.2) * 0.6;
-  // dust lanes
-  float dust = fbm2(uv*3.6 + q*2.0 + 11.0);
-  c *= 1.0 - smoothstep(0.52,0.78,dust)*0.55;
-  // soft galactic band
-  float band = exp(-pow((uv.y*1.1 + uv.x*0.5 + 0.08*sin(uSeed))/0.3, 2.0));
-  c += mix(uCol1,uCol2,0.5)*band*0.07*fbm2(uv*6.0+uSeed);
+  if (!uStarsOnly) {
+    float t = uTime*0.004;
+    vec2 q = vec2(fbm2(uv*1.3+uSeed+vec2(t,0.0)+uPar*0.03), fbm2(uv*1.3+vec2(5.2,1.3)-uSeed-vec2(0.0,t)+uPar*0.03));
+    float r = fbm2(uv*1.5 + 2.4*q + uPar*0.05);
+    c += mix(uCol1, uCol2, q.x) * smoothstep(0.32,0.95,r) * 0.85;
+    c += uCol1 * pow(q.y, 3.0) * 0.55;
+    c += uCol2 * pow(fbm2(uv*2.6 - uSeed*0.7 + 3.0*q), 3.2) * 0.6;
+    // dust lanes
+    float dust = fbm2(uv*3.6 + q*2.0 + 11.0);
+    c *= 1.0 - smoothstep(0.52,0.78,dust)*0.55;
+    // soft galactic band
+    float band = exp(-sq((uv.y*1.1 + uv.x*0.5 + 0.08*sin(uSeed))/0.3));
+    c += mix(uCol1,uCol2,0.5)*band*0.07*fbm2(uv*6.0+uSeed);
+  }
   vec2 sq = world*0.01;
   vec3 st = vec3(0.0);
   st += starLayer(sq + uPar*0.003, 6.0, 1.0, 0.07);
@@ -705,6 +711,7 @@ uniform vec2 uRes;
 uniform vec3 uHoles[4]; // pixel x, pixel y (top-left origin), radius px
 uniform int uHoleCount;
 uniform float uBloomAmt;
+uniform int uBloomLevels;
 uniform vec2 uShake;
 uniform float uTime;
 out vec4 o;
@@ -730,8 +737,11 @@ void main(){
   col.r = texture(uScene, uv-off).r;
   col.g = texture(uScene, uv).g;
   col.b = texture(uScene, uv+off).b;
-  vec3 bl = texture(uB0, uv).rgb*0.42 + texture(uB1, uv).rgb*0.5 + texture(uB2, uv).rgb*0.55 + texture(uB3, uv).rgb*0.5 + texture(uB4, uv).rgb*0.42;
-  col += bl*uBloomAmt;
+  if (uBloomAmt > 0.0) {
+    vec3 bl = texture(uB0, uv).rgb*0.42 + texture(uB1, uv).rgb*0.5 + texture(uB2, uv).rgb*0.55;
+    if (uBloomLevels > 3) bl += texture(uB3, uv).rgb*0.5 + texture(uB4, uv).rgb*0.42;
+    col += bl*uBloomAmt;
+  }
   // filmic shoulder: linear below 0.8, smooth roll-off above, highlights bleed to white
   col = max(col, 0.0);
   vec3 hi = 0.8 + 0.2*tanh((col-0.8)/0.2);
@@ -927,8 +937,8 @@ void main(){
     vec3 g = texture(uGlass, guv).rgb;
     g = g*1.12 + 0.012;
     vec3 rgb = mix(g, vCol.rgb, vCol.a);
-    rgb += vec3(1.0)*smoothstep(0.7, 0.0, vN.y)*vPar.w;                   // top sheen
-    rgb += vCol2.rgb*vCol2.a*smoothstep(1.0, 0.0, length(vN-vec2(0.5,0.0))*1.1); // coloured glow from the top edge
+    rgb += vec3(1.0)*(1.0-smoothstep(0.0, 0.7, vN.y))*vPar.w;                   // top sheen
+    rgb += vCol2.rgb*vCol2.a*(1.0-smoothstep(0.0, 1.0, length(vN-vec2(0.5,0.0))*1.1)); // coloured glow from the top edge
     rgb += (hash21(gl_FragCoord.xy)-0.5)*0.012;
     col = vec4(rgb*cvg, cvg);
   } else if (type==9) { // mini shaded sphere (level thumbnails, icons)

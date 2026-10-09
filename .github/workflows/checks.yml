@@ -82,3 +82,4 @@ jobs:
           }
           JS
           npm run test:review:ui
+          GAMES_URL=http://127.0.0.1:8787 npm run test:rendering:ui

@@ -6,6 +6,7 @@ import { TextAtlas } from './text.js';
 import { UI } from './ui.js';
 import { Sound } from './audio.js';
 import { Store } from './storage.js';
+import { graphicsOptions, frameDue } from './graphics.js';
 
 export class App {
   constructor(canvas) {
@@ -37,6 +38,15 @@ export class App {
     const syncFocus = () => {
       this.sound.setFocused(document.visibilityState === 'visible' && document.hasFocus());
       this.last = performance.now();
+      this.nextTick = this.last;
+      if (document.hidden) {
+        cancelAnimationFrame(this.raf);
+        this.raf = null;
+        Object.assign(this.ui.ptr, { down: false, pressed: false, released: false });
+        this.ui.keys.length = 0;
+      } else if (this.loop && this.raf === null) {
+        this.raf = requestAnimationFrame(this.loop);
+      }
     };
     document.addEventListener('visibilitychange', syncFocus);
     window.addEventListener('blur', syncFocus);
@@ -45,24 +55,26 @@ export class App {
     this.sound.focused = document.visibilityState === 'visible' && document.hasFocus();
   }
 
-  // 'auto' lowers the render resolution if the device can't hold ~30 fps; 'high' never does; 'low' starts reduced.
+  // Changes requested by a canvas button take effect before the NEXT frame.
+  // Reallocating targets halfway through drawing would erase the current scene.
   applyQuality() {
-    const q = this.store.settings.quality || 'auto';
-    this.r.quality = q === 'low' ? 0.7 : 1;
+    this.autoLevel = 0;
+    this.graphicsPending = true;
     this.slowFrames = 0;
-    this.r.resize();
+    this.ema = 1 / 60;
   }
 
   watchPerformance(real) {
     if (real > 0.3) return; // tab was in the background
     this.ema += (real - this.ema) * 0.05;
     if ((this.store.settings.quality || 'auto') !== 'auto') return;
-    this.slowFrames = this.ema > 0.036 ? this.slowFrames + 1 : 0;
-    if (this.slowFrames > 90 && this.r.quality > 0.55) {
-      this.r.quality = Math.max(0.5, this.r.quality * 0.8);
+    const budget = 1 / (this.store.settings.fps === 30 ? 30 : 60);
+    this.slowFrames = this.ema > budget * 1.35 ? this.slowFrames + 1 : 0;
+    if (this.slowFrames > 90 && this.autoLevel < 2) {
+      this.autoLevel++;
+      this.graphicsPending = true;
       this.slowFrames = 0;
       this.ema = 1 / 60;
-      this.r.resize();
     }
   }
 
@@ -78,18 +90,28 @@ export class App {
   }
 
   start() {
-    const loop = (now) => {
+    this.nextTick = this.last;
+    this.loop = (now) => {
+      this.raf = null;
+      if (document.hidden) return;
+      this.raf = requestAnimationFrame(this.loop);
+      const due = frameDue(now, this.nextTick, this.store.settings.fps === 30 ? 30 : 60);
+      if (due === null) return;
+      this.nextTick = due;
       const real = Math.max(0.0001, (now - this.last) / 1000);
       this.last = now;
       this.watchPerformance(real);
       this.frame(Math.min(0.05, real), Math.min(0.25, real));
-      requestAnimationFrame(loop);
     };
-    requestAnimationFrame(loop);
+    this.raf = requestAnimationFrame(this.loop);
   }
 
   frame(dt, real = dt) {
     const r = this.r;
+    if (this.graphicsPending) {
+      r.configure(graphicsOptions(this.store.settings, this.autoLevel));
+      this.graphicsPending = false;
+    }
     this.time += dt;
     r.resize();
     this.fade += this.fadeDir * real * 5;

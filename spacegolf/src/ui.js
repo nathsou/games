@@ -210,7 +210,12 @@ export class UI {
     const r = o.radius ?? 18 * u;
     if (o.shadow !== false) this.shadow(x, y, w, h, { radius: r, alpha: o.shadowAlpha ?? 0.4, blur: o.shadowBlur ?? 16 * u, offset: o.shadowOffset ?? 8 * u });
     if (o.glow) this.glow(x + w / 2, y + h / 2, w * 1.35 + 40 * u, h * 1.9 + 40 * u, o.glow, 2.2);
-    this.r.uiPush(x, y, w, h, o.tint || COL.glassTint, o.topGlow || COL.clear, 8, r, 0, o.sheen ?? 0.07);
+    if (this.r.graphics.glass) {
+      this.r.uiPush(x, y, w, h, o.tint || COL.glassTint, o.topGlow || COL.clear, 8, r, 0, o.sheen ?? 0.07);
+    } else {
+      const tint = o.tint || COL.glassTint;
+      this.rect(x, y, w, h, { radius: r, fill: [tint[0], tint[1], tint[2], Math.max(0.92, tint[3])] });
+    }
     this.r.uiPush(x, y, w, h, o.edge || [0.84, 0.91, 1.0, 0.3], o.edge2 || [0.55, 0.7, 1.0, 0.07], 6, r, o.border ?? 1.2, 0);
   }
 
