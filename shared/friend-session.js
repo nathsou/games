@@ -7,8 +7,7 @@ import {validateGameSetup} from './friend-setup.js';
 
 // Games whose rules run in the room. Both players see the same saved game,
 // whether they play at the same time or come back later.
-export const ROOM_GAMES = Object.freeze({'flip-it': 'Flip It', cluance: 'Cluance', midnight: 'Midnight Table'});
-export const isRoomGame = game => Object.hasOwn(ROOM_GAMES, game);
+export {ROOM_GAMES, isRoomGame} from './room-games.js';
 const ROOM_TRANSPORT = {protocol: 1, prefix: 'fr1', gameName: 'Friend room', channelName: 'friends'};
 const STUN = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]};
 

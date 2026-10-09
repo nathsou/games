@@ -1,4 +1,5 @@
 import {FriendSession, ROOM_GAMES, isRoomGame} from '../../shared/friend-session.js';
+import {ROOM_GAME_INFO} from '../../shared/room-games.js';
 import {friendPanel} from '../../shared/friend-panel.js';
 import {installFriendChat} from '../../shared/friend-chat-view.js';
 import {installSharedPlay} from '../../shared/shared-play-view.js';
@@ -13,7 +14,6 @@ import {readCheckpoint} from '../../shared/game-checkpoint.js';
 import {loadPlayerName, savePlayerName} from '../../shared/player-name.js';
 import {drawQR} from '../../shared/qr.js';
 
-const ABOUT = {'flip-it': 'Card duel · bots and teams optional', cluance: 'Co-op clues · one gives, one guesses', midnight: 'Three quick card games'};
 const SHAREABLE = ['spacegolf', 'nonocube', 'pawn-quest'];
 const SEEN_KEY = 'games.together-seen.v1', SETUP_KEY = 'games.room-setup.v1';
 function lastSetup(game) { try { return JSON.parse(localStorage.getItem(SETUP_KEY))?.[game]; } catch { return undefined; } }
@@ -443,7 +443,7 @@ function renderPlay() {
     for (const [game, title] of Object.entries(ROOM_GAMES)) {
       const button = document.createElement('button'), text = document.createElement('span'), heading = document.createElement('strong'), about = document.createElement('small');
       button.type = 'button'; button.className = 'play-item'; button.dataset.game = game;
-      heading.textContent = title; about.textContent = ABOUT[game]; text.append(heading, about);
+      heading.textContent = title; about.textContent = ROOM_GAME_INFO[game].about; text.append(heading, about);
       const arrow = document.createElement('span'); arrow.className = 'play-arrow'; arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '→';
       button.append(text, arrow); button.onclick = () => openGameSetup(game);
       list.append(button);
