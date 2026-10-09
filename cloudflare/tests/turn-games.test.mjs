@@ -140,3 +140,32 @@ test('Cover Story keeps keys from operatives, runs room bots and lets the creato
   assert(!turnView(rivals,'guest').aiTurn);
   playOut(rivals,guess);
 });
+
+test('Ripples shares one board together and races on two boards',()=>{
+  const together=createTurnGame('ripples',{puzzle:'manor-3',mode:'together',assist:'guided'},'guest');
+  assert.deepEqual(turnSummary(together,'host').controllers,['team']);
+  assert(turnSummary(together,'host').myTurn&&turnSummary(together,'guest').myTurn);
+  assert(!('solution' in turnView(together,'host').view));
+  advanceTurn(together,'host',{revision:together.state.revision,action:{kind:'hint'}});
+  assert.equal(turnView(together,'guest').view.board.hints,1,'Both people see the shared board');
+  advanceTurn(together,'guest',{revision:together.state.revision,action:{kind:'giveup'}});
+  assert(turnSummary(together,'host').finished);
+  const race=createTurnGame('ripples',{puzzle:'gang-2',mode:'race',assist:'classic'},'host');
+  advanceTurn(race,'host',{revision:race.state.revision,action:{kind:'giveup'}});
+  assert(!turnSummary(race,'host').finished&&!turnSummary(race,'host').myTurn&&turnSummary(race,'guest').myTurn);
+  assert(turnView(race,'host').view.solution&&!turnView(race,'guest').view.solution,'Only the finished player sees the path');
+  advanceTurn(race,'guest',{revision:race.state.revision,action:{kind:'giveup'}});
+  assert(turnSummary(race,'guest').finished);
+});
+
+test('a Ripples race accepts each player’s move while the other keeps playing',()=>{
+  const race=createTurnGame('ripples',{puzzle:'kitchen-2',mode:'race',assist:'guided'},'host');
+  const seen=race.state.revision;
+  advanceTurn(race,'host',{revision:seen,action:{kind:'hint'}});
+  assert.equal(advanceTurn(race,'guest',{revision:seen,action:{kind:'hint'}}),'move','The guest’s board did not change, so their move is current');
+  assert.throws(()=>advanceTurn(race,'host',{revision:seen,action:{kind:'hint'}}),/changed/,'A stale move on your own board is still refused');
+  const together=createTurnGame('ripples',{puzzle:'kitchen-2',mode:'together',assist:'guided'},'host');
+  const shared=together.state.revision;
+  advanceTurn(together,'host',{revision:shared,action:{kind:'hint'}});
+  assert.throws(()=>advanceTurn(together,'guest',{revision:shared,action:{kind:'hint'}}),/changed/,'One shared board keeps the strict check');
+});

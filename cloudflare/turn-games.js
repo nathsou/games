@@ -4,6 +4,7 @@ import midnight from '../midnight/src/room.js';
 import thrice from '../thrice/src/room.js';
 import yesteryear from '../yesteryear/src/room.js';
 import coverStory from '../cover-story/src/room.js';
+import ripples from '../ripples/src/room.js';
 import {validateGameSetup} from '../shared/friend-setup.js';
 import {REACTIONS} from '../shared/friend-chat.js';
 
@@ -11,7 +12,7 @@ import {REACTIONS} from '../shared/friend-chat.js';
 // controlled by a person ('host', 'guest', or 'team' for both), a rules bot
 // ('dealer') or the creator's AI provider ('model'), which never runs here.
 // Each game supplies an engine: its pure rules seen through numbered seats.
-export const ENGINES=Object.freeze({'flip-it':flipIt,cluance,midnight,thrice,yesteryear,'cover-story':coverStory});
+export const ENGINES=Object.freeze({'flip-it':flipIt,cluance,midnight,thrice,yesteryear,'cover-story':coverStory,ripples});
 export const ROOM_GAMES=Object.keys(ENGINES);
 const AI=['dealer','model'];
 const roleIndex=role=>role==='host'?0:1;
@@ -69,7 +70,9 @@ export function advanceTurn(record,role,body) {
   const {revision,action}=body||{};
   const version=record.version??record.state.revision;
   if(record.abandoned)throw Error('This game has ended.');
-  if(revision!==record.state.revision) throw failure('The game changed. Refresh before playing.',409);
+  // Engines whose seats act on separate boards only need the mover's own board to be current.
+  const current=revision===record.state.revision||Number.isInteger(revision)&&!body.bot&&body.seat===undefined&&Boolean(engine(record).fresh?.(record.state,seatOf(record,role),revision));
+  if(!current) throw failure('The game changed. Refresh before playing.',409);
   let kind='move';
   if(body.bot===true) {
     const dealer=waitingAI(record).find(entry=>entry.kind==='dealer');
