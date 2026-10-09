@@ -37,6 +37,10 @@ export class BlockScene {
   solid = new Uint8Array(0);
   /** Global glyph opacity (fades during the reveal). */
   glyphAlpha = 1;
+  private aoDims = '';
+  private aoSolid = new Uint8Array(0);
+  private aoPositions = new Int32Array(0);
+  private aoCache = new Uint32Array(0);
 
   reset(dims: Dims): void {
     if (this.dims.join() !== dims.join()) {
@@ -73,6 +77,13 @@ export class BlockScene {
 
   /** Compute per-corner ambient occlusion for every instance at integer cell positions. */
   computeAO(): void {
+    const dimsKey = this.dims.join();
+    let same = this.aoDims === dimsKey && this.aoCache.length === this.count * 2;
+    if (same) for (let i = 0; i < this.solid.length; i++) if (this.solid[i] !== this.aoSolid[i]) { same = false; break; }
+    if (same) for (let k = 0; k < this.count && same; k++) for (let a = 0; a < 3; a++) {
+      if (Math.round(this.inst[k * INST_FLOATS + a]) !== this.aoPositions[k * 3 + a]) { same = false; break; }
+    }
+    if (same) { this.ao.set(this.aoCache); return; }
     const [W, H, D] = this.dims;
     const solid = this.solid;
     const s = (x: number, y: number, z: number) =>
@@ -104,6 +115,11 @@ export class BlockScene {
       this.ao[k * 2] = lo >>> 0;
       this.ao[k * 2 + 1] = hi >>> 0;
     }
+    this.aoDims = dimsKey;
+    this.aoSolid = this.solid.slice();
+    this.aoCache = this.ao.slice(0, this.count * 2);
+    if (this.aoPositions.length !== this.count * 3) this.aoPositions = new Int32Array(this.count * 3);
+    for (let k = 0; k < this.count; k++) for (let a = 0; a < 3; a++) this.aoPositions[k * 3 + a] = Math.round(this.inst[k * INST_FLOATS + a]);
   }
 }
 

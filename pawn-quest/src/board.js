@@ -27,12 +27,35 @@ globalThis.__sharedCanvas = {snapshot: () => ({
   boards: [...boards].filter(b => b.canvas.isConnected && b.pos).map(boardSnapshot),
   decorations: [...document.querySelectorAll('canvas')].filter(c => c.__friendDraw).map(c => ({id: viewNodeID(c), draw: c.__friendDraw})),
 })};
-let ticking = false;
-function tick(t) {
-  for (const b of boards) { if (!b.canvas.isConnected) { boards.delete(b); continue; } b.frame(t); }
-  if (boards.size) requestAnimationFrame(tick); else ticking = false;
+let frameRequest = null;
+function schedule() {
+  if (frameRequest === null && !document.hidden && boards.size) frameRequest = requestAnimationFrame(tick);
 }
-function register(b) { boards.add(b); if (!ticking) { ticking = true; requestAnimationFrame(tick); } }
+function tick(t) {
+  frameRequest = null;
+  if (document.hidden) return;
+  let active = false;
+  for (const b of boards) {
+    if (!b.canvas.isConnected) { b.destroy(); continue; }
+    // Paint the first settled frame too, so a timed shake cannot leave its offset behind.
+    if (b.dirty || b.wasAnimating || b.isAnimating(t)) b.frame(t);
+    b.wasAnimating = b.isAnimating(t);
+    active ||= b.dirty || b.wasAnimating;
+  }
+  if (active) schedule();
+}
+function register(b) { boards.add(b); b.invalidate(); }
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { cancelAnimationFrame(frameRequest); frameRequest = null; }
+  else for (const b of boards) b.invalidate();
+});
+
+class RenderMap extends Map {
+  constructor(entries, change) { super(entries); this.change = change; }
+  set(key, value) { const changed = !this.has(key) || this.get(key) !== value; super.set(key, value); if (changed) this.change?.(); return this; }
+  delete(key) { const changed = super.delete(key); if (changed) this.change?.(); return changed; }
+  clear() { const changed = this.size > 0; super.clear(); if (changed) this.change?.(); }
+}
 
 const tileCache = new Map();
 function squareTile(theme, light) {
@@ -129,6 +152,19 @@ export class BoardView {
     this.ro.observe(container);
     this.bindInput();
     this.resize();
+    // Existing callers assign view properties directly. Observe those writes so
+    // idle boards sleep without requiring a polling loop or fragile call-site rules.
+    for (const key of ['pos', 'flipped', 'themeId', 'setOverride', 'coords', 'interactive', 'movable',
+      'selected', 'hover', 'cursor', 'lastMove', 'threat', 'arrows', 'hanging', 'opportunities',
+      'dim', 'showLegal', 'hoverChip', 'drag', 'legalFor', 'marks', 'highlights']) {
+      const wrap = value => ['marks', 'highlights'].includes(key) ? new RenderMap(value, () => this.invalidate()) : value;
+      let value = wrap(this[key]);
+      Object.defineProperty(this, key, { enumerable: true, get: () => value, set: next => {
+        if (next === value) return;
+        value = wrap(next);
+        this.invalidate();
+      }});
+    }
     register(this);
     globalThis.__board = this; // handy for debugging from the console
   }
@@ -142,16 +178,28 @@ export class BoardView {
     const r = this.container.getBoundingClientRect();
     const size = Math.min(r.width, r.height || r.width);
     if (size <= 0) return;
-    this.dpr = window.devicePixelRatio || 1;
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     const dev = Math.floor(size * this.dpr);
     this.P = Math.max(1, Math.floor(dev / ART));
     const px = this.P * ART;
-    this.canvas.width = px; this.canvas.height = px;
+    if (this.canvas.width !== px || this.canvas.height !== px) {
+      this.canvas.width = px; this.canvas.height = px;
+      this.invalidate();
+    }
     this.canvas.style.width = px / this.dpr + 'px';
     this.canvas.style.height = px / this.dpr + 'px';
   }
 
-  setPosition(pos) { this.pos = pos; this.selected = -1; }
+  setPosition(pos) { this.pos = pos; this.selected = -1; this.invalidate(); }
+
+  invalidate() { this.dirty = true; schedule(); }
+
+  isAnimating(t) {
+    return !!(this.anims.length || this.particles.length || this.texts.length || t < this.shakeUntil ||
+      this.selected >= 0 || this.cursor >= 0 && this.interactive || this._inCheck ||
+      this.hanging.length || this.opportunities.length ||
+      [...this.marks.values()].some(kind => ['star', 'target', 'goal', 'q'].includes(kind)));
+  }
 
   // Art-space top-left of a square.
   sqXY(sq) {
@@ -247,6 +295,7 @@ export class BoardView {
     if (this.drag) {
       if (!this.drag.active && Math.hypot(e.clientX - this.drag.x, e.clientY - this.drag.y) > 6) this.drag.active = true;
       this.drag.cx = e.clientX; this.drag.cy = e.clientY;
+      this.invalidate();
     }
     this.canvas.style.cursor = (this.interactive === 'move' && (this.canMove(sq) || (this.selected >= 0 && this.targets(this.selected).some(m => mTo(m) === sq)))) || this.interactive === 'tap' ? 'pointer' : 'default';
   }
@@ -278,6 +327,7 @@ export class BoardView {
 
   // Animate a move on the current position (call before pos.make).
   animateMove(m, { duration } = {}) {
+    this.invalidate();
     const pos = this.pos;
     const from = mFrom(m), to = mTo(m), fl = mFlags(m);
     const p = pos.b[from];
@@ -312,6 +362,7 @@ export class BoardView {
 
   // Animate a piece sprite between two squares without a move (e.g. "capture" in lessons).
   animateSlide(from, to, piece, dur = 260) {
+    this.invalidate();
     return new Promise(resolve => {
       this.hidden.add(from);
       const a = this.sqXY(from), b = this.sqXY(to);
@@ -332,6 +383,7 @@ export class BoardView {
   }
 
   burst(sq, colors = ['#ffd23f', '#ffffff'], n = 18) {
+    this.invalidate();
     const { x, y } = this.sqXY(sq);
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, v = 0.6 + Math.random() * 1.6;
@@ -340,11 +392,12 @@ export class BoardView {
   }
 
   floatText(sq, text, color = '#ffd23f') {
+    this.invalidate();
     const { x, y } = this.sqXY(sq);
     this.texts.push({ x: x + S / 2, y: y + 2, text, color, t0: performance.now(), dur: 1100 });
   }
 
-  shake(amp = 2, ms = 250) { this.shakeAmp = amp; this.shakeUntil = performance.now() + ms; }
+  shake(amp = 2, ms = 250) { this.shakeAmp = amp; this.shakeUntil = performance.now() + ms; this.invalidate(); }
 
   flash(sq, color = 'good', ms = 600) {
     this.highlights.set(sq, color);
@@ -356,9 +409,12 @@ export class BoardView {
   // ------------------------------------------------------------ rendering
 
   frame(t) {
+    this.dirty = false;
+    this.frameDt = Math.min(0.05, Math.max(0, (t - this.time) / 1000));
     this.time = t;
     const ctx = this.ctx, P = this.P;
     if (!this.pos || !this.canvas.width) return;
+    this._inCheck = (this.pos.usesChecks?.() || this.pos.rules.variant === 'standard') && this.pos.king[this.pos.turn] >= 0 && this.pos.inCheck(this.pos.turn);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.imageSmoothingEnabled = false;
@@ -367,8 +423,16 @@ export class BoardView {
       ctx.translate(Math.round((Math.random() - 0.5) * this.shakeAmp * P * k), Math.round((Math.random() - 0.5) * this.shakeAmp * P * k));
     }
     ctx.scale(P, P);
-    this.drawFrame(ctx);
-    this.drawSquares(ctx);
+    const baseKey = `${this.themeId}:${this.flipped}:${this.coords}`;
+    if (this.baseKey !== baseKey) {
+      this.baseLayer ||= document.createElement('canvas');
+      this.baseLayer.width = this.baseLayer.height = ART;
+      const base = this.baseLayer.getContext('2d');
+      this.drawFrame(base);
+      this.drawSquares(base);
+      this.baseKey = baseKey;
+    }
+    ctx.drawImage(this.baseLayer, 0, 0);
     this.drawOverlays(ctx, t);
     this.drawPieces(ctx, t);
     this.drawAnims(ctx, t);
@@ -594,9 +658,9 @@ export class BoardView {
   }
 
   drawParticles(ctx) {
-    const dt = 1;
+    const dt = this.frameDt * 60;
     this.particles = this.particles.filter(p => {
-      p.age += 1 / 60;
+      p.age += this.frameDt;
       if (p.age > p.life) return false;
       p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt;
       ctx.globalAlpha = Math.max(0, 1 - p.age / p.life);

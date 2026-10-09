@@ -66,6 +66,7 @@ export const friendPanel = `
   <div id="together-alerts" aria-label="Requests"></div>
   <div id="together-toasts" aria-label="Notifications"></div>
   <main id="game-stage">
+    <p id="game-loading" role="status">Loading your game…</p>
     <iframe id="game-frame" title="Current game" allow="clipboard-read; clipboard-write; camera; autoplay"></iframe>
     <div id="shared-view" hidden>
       <div id="screen-surface" tabindex="0" aria-label="Shared game. Click, drag or use the keyboard to play."></div>

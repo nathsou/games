@@ -696,6 +696,10 @@ export class EditorScreen implements Screen {
     this.saveDraft();
   }
 
+  isAnimating(): boolean {
+    return !!this.stroke || !!this.hover.cell || !!this.hover.target || (this.mode === 'clues' && this.analysis?.status === 'multiple');
+  }
+
   update(dt: number, time: number): void {
     this.time = time;
     const cam = this.app.camera;

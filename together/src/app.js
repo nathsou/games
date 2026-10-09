@@ -22,7 +22,10 @@ function rememberSetup(game, setup) {
 }
 const $ = id => document.getElementById(id);
 
-document.body.innerHTML = friendPanel;
+if (!$('game-frame')) {
+  document.body.setAttribute('data-shell-loading', '');
+  document.body.insertAdjacentHTML('afterbegin', friendPanel);
+}
 const frame = $('game-frame');
 const saved = readFriendRoom();
 const url = new URL(location.href);
@@ -45,6 +48,7 @@ window.__friendSession = session;
 Object.assign(session, {openInvitation, openJoin, openGameSetup, requestGame: game => openGameSetup(game), stopCursors, selectTab, leaveRoomGame: () => { session.useGame(null); render(); }});
 const renderChat = installFriendChat(session), renderScreen = installSharedPlay(session, render);
 installPanelVisibility(session);
+document.body.removeAttribute('data-shell-loading');
 const notifier = installNotifier({alerts: $('together-alerts'), toasts: $('together-toasts'), onOpen: () => session.showPanel()});
 session.notifier = notifier;
 session.screen.onStop = viewing => { session.closePeer(); if (viewing) navigate('collection'); render(); };
@@ -76,6 +80,7 @@ function loadGame(game) {
   frame.contentWindow?.__gameCheckpoint?.save();
   session.adapter = null;
   const target = new URL('../../' + game + '/', import.meta.url);
+  $('game-loading').hidden = false;
   frame.title = FRIEND_PAGES[game]; frame.src = target.href;
   const page = new URL(game === 'collection' ? '/' : '/together/', location.origin);
   if (game !== 'collection') page.searchParams.set('game', game);
@@ -92,6 +97,7 @@ function navigate(game) {
   session.game = game; loadGame(game); render();
 }
 frame.addEventListener('load', () => {
+  if (frame.getAttribute('src')) $('game-loading').hidden = true;
   frame.contentDocument?.addEventListener('click', event => {
     const link = event.target.closest('a[href]');
     if (!link || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;

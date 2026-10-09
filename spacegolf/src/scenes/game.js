@@ -79,6 +79,7 @@ export class GameScene {
     this.win = null;
     this.lastShot = null;
     this.hintT = 0;
+    this.previewCache = null;
     this.pal = paletteFor(this.level, this.cfg.paletteSalt || 0);
     this.fieldAlpha = 0;
     this.aimPulse = 0;
@@ -687,7 +688,14 @@ export class GameScene {
     // marks where the ball ends up, so the player still has to work out the rest.
     const secs = previewSeconds(this.level, app.store.settings.assist);
     if (secs > 0.05) {
-      const sim = simulateShot(w, S, aim.angle, power, { maxTime: secs, collect: true, stride: 7 });
+      const key = [aim.angle, power, secs, b.x, b.y, b.body, b.angle, S.shots].join(':');
+      let cached = this.previewCache;
+      // Static levels give the same hint until the shot changes. Orbiting
+      // levels still simulate every frame so the preview follows live timing.
+      if (this.moving || !cached || cached.state !== S || cached.key !== key) {
+        cached = this.previewCache = { state: S, key, sim: simulateShot(w, S, aim.angle, power, { maxTime: secs, collect: true, stride: 7 }) };
+      }
+      const sim = cached.sim;
       const pts = sim.pts;
       const n = pts.length / 2;
       for (let i = 1; i < n; i++) {

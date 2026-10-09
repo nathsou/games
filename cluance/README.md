@@ -4,6 +4,13 @@ A cooperative visual deduction game with original retro pixel art. Play with a f
 
 The interface follows the supplied [UX/UI redesign](UX_REDESIGN.md), with paper tones, full-bleed artwork and self-hosted mono typography.
 
+Startup applies the saved appearance before the first styled paint and includes a
+small HTML loading layout. Card artwork loads and decodes on demand, with shared
+requests for cards in the same atlas. Opening the default home screen downloads
+two atlases (about 1.4 MB), rather than every deck (about 34.3 MB). A failed atlas
+can be retried on its card without blocking the rest of the interface. AI
+observation images wait for all artwork visible to that role before rendering.
+
 ## Run
 
 From this directory:

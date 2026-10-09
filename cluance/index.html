@@ -13,6 +13,10 @@
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://openrouter.ai https://api.openai.com https://api.anthropic.com; font-src 'self'; object-src 'none'; base-uri 'self'"
     />
     <title>Cluance — Same cards. Different minds.</title>
+    <script src="../shared/game-route.js"></script>
+    <script src="../shared/theme-init.js"></script>
+    <link rel="preload" href="assets/fonts/dm-mono-400.ttf" as="font" type="font/ttf" crossorigin />
+    <link rel="preload" href="assets/fonts/martian-mono-500.ttf" as="font" type="font/ttf" crossorigin />
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <script type="module" src="../shared/game-entry.js"></script>
@@ -46,7 +50,7 @@
         <div id="resume-slot"></div>
       </div>
     </header>
-    <main id="app" tabindex="-1"></main>
+    <main id="app" tabindex="-1"><section class="home-hero" aria-busy="true"><div class="home-copy"><p class="eyebrow">SAME CARDS. DIFFERENT MINDS.</p><h1 class="setup-sentence">One secret card.<br>Five rounds.</h1><p class="secondary-clause" role="status">Setting the table…</p></div><div class="hero-art" aria-hidden="true"></div></section></main>
     <aside
       id="card-drawer"
       class="card-drawer"

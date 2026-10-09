@@ -260,7 +260,7 @@ async function playCollect(ctx, L) {
     board.arrows = [];
     const cap = mFlags(m) & F_CAPTURE;
     await board.animateMove(m);
-    pos.make(m); pos.turn = WHITE;
+    pos.make(m); pos.turn = WHITE; board.invalidate();
     moves++;
     if (mFlags(m) & F_PROMO) { sfx.promote(); board.burst(mTo(m), ['#ffd23f', '#fff', '#ff9ad5'], 30); board.floatText(mTo(m), 'QUEEN!', '#ffd23f'); }
     else if (cap) sfx.capture(); else sfx.move();

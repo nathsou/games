@@ -340,10 +340,49 @@ export class Renderer {
   private lineBuf: WebGLBuffer;
   private atlas: WebGLTexture;
   private partData = new Float32Array(0);
+  pixelDensity = 'auto';
+  antialias = true;
+  private multisample: { fbo: WebGLFramebuffer; color: WebGLRenderbuffer; depth: WebGLRenderbuffer; w: number; h: number } | null = null;
+
+  private screenTarget(): WebGLFramebuffer | null {
+    const gl = this.gl;
+    const w = this.canvas.width, h = this.canvas.height;
+    const old = this.multisample;
+    if (old && (!this.antialias || old.w !== w || old.h !== h)) {
+      gl.deleteFramebuffer(old.fbo);
+      gl.deleteRenderbuffer(old.color);
+      gl.deleteRenderbuffer(old.depth);
+      this.multisample = null;
+    }
+    if (!this.antialias) return null;
+    if (!this.multisample) {
+      // Use a sample count supported by both attachments.
+      const colorSamples = gl.getInternalformatParameter(gl.RENDERBUFFER, gl.RGBA8, gl.SAMPLES) as Int32Array;
+      const depthSamples = gl.getInternalformatParameter(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, gl.SAMPLES) as Int32Array;
+      const samples = Array.from(colorSamples).find(n => n > 0 && n <= 4 && depthSamples.includes(n));
+      if (!samples) return null;
+      const fbo = gl.createFramebuffer()!, color = gl.createRenderbuffer()!, depth = gl.createRenderbuffer()!;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.bindRenderbuffer(gl.RENDERBUFFER, color);
+      gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.RGBA8, w, h);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, color);
+      gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
+      gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.DEPTH_COMPONENT24, w, h);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth);
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+        gl.deleteFramebuffer(fbo); gl.deleteRenderbuffer(color); gl.deleteRenderbuffer(depth);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        this.antialias = false;
+        return null;
+      }
+      this.multisample = { fbo, color, depth, w, h };
+    }
+    return this.multisample.fbo;
+  }
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
-    const gl = canvas.getContext('webgl2', { antialias: true, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: false });
+    const gl = canvas.getContext('webgl2', { antialias: false, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: false });
     if (!gl) throw new Error('WebGL 2 is not available');
     this.gl = gl;
 
@@ -452,7 +491,8 @@ export class Renderer {
   /** Sync the drawing buffer with the canvas CSS size. */
   resize(): { w: number; h: number } {
     const rect = this.canvas.getBoundingClientRect();
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const cap = ['1', '1.5', '2'].includes(this.pixelDensity) ? Number(this.pixelDensity) : 2;
+    this.dpr = Math.min(window.devicePixelRatio || 1, cap);
     const w = Math.max(1, Math.round(rect.width * this.dpr));
     const h = Math.max(1, Math.round(rect.height * this.dpr));
     if (this.canvas.width !== w || this.canvas.height !== h) {
@@ -530,7 +570,8 @@ export class Renderer {
     const gl = this.gl;
     const w = target ? target.w : this.canvas.width;
     const h = target ? target.h : this.canvas.height;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.fbo : null);
+    const screenFbo = target ? null : this.screenTarget();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.fbo : screenFbo);
     gl.viewport(0, 0, w, h);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -631,6 +672,12 @@ export class Renderer {
     }
     gl.bindVertexArray(null);
     gl.disable(gl.CULL_FACE);
+    if (screenFbo) {
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, screenFbo);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.blitFramebuffer(0, 0, w, h, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
   }
 
   /** Render a draw list offscreen and return a PNG data URL (for collection thumbnails). */
