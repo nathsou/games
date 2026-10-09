@@ -193,4 +193,6 @@ registerFriendGame('thrice', {
     window.addEventListener('pagehide', unsubscribe, {once: true});
   },
 });
+// Read-only hooks for the browser audits.
+Object.defineProperty(window, '__thrice', {value: {get mode() { return mode; }, get view() { return view(); }}});
 render();

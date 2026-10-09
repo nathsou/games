@@ -27,7 +27,7 @@ const years = id => formatYear(CARDS[id].year, lang());
 
 function card(id, {open = false, extra = '', attrs = '', tag = 'div'} = {}) {
   const c = CARDS[id];
-  return '<' + tag + ' class="tl-card ' + c.theme + ' ' + extra + '" ' + attrs + '><span class="icon" aria-hidden="true">' + THEMES[c.theme].icon + '</span><span class="title">' + esc(title(id)) + '</span>'
+  return '<' + tag + ' class="tl-card ' + c.theme + ' ' + extra + '" lang="' + lang() + '" ' + attrs + '><span class="icon" aria-hidden="true">' + THEMES[c.theme].icon + '</span><span class="title">' + esc(title(id)) + '</span>'
     + (open ? '<span class="year">' + years(id) + '</span>' : '<span class="year hidden" aria-hidden="true">?</span>') + '</' + tag + '>';
 }
 
@@ -181,4 +181,6 @@ registerFriendGame('yesteryear', {
     window.addEventListener('pagehide', unsubscribe, {once: true});
   },
 });
+// Read-only hooks for the browser audits.
+Object.defineProperty(window, '__yesteryear', {value: {get mode() { return mode; }, get view() { return view(); }}});
 render();

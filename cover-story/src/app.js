@@ -276,4 +276,6 @@ registerFriendGame('cover-story', {
   },
   chooseAI: chooseRoomAI,
 });
+// Read-only hooks for the browser audits.
+Object.defineProperty(window, '__coverStory', {value: {get mode() { return mode; }, get view() { return view(); }}});
 render();

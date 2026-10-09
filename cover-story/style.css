@@ -35,7 +35,8 @@ hr{border:0;border-top:1px solid var(--line);width:100%}
 .marks{position:absolute;bottom:3px;right:4px;display:flex;gap:3px}
 .mark{font-style:normal;font-size:9px;text-transform:none;background:#6b6153;color:#fff;border-radius:6px;padding:0 4px}
 .mark.mine{background:#3b3324}
-.side{position:sticky;top:10px}
+.side{position:sticky;top:10px;min-width:0}
+.side>*{min-width:0}
 .teams{gap:8px}
 .team{padding:6px 12px;border-radius:999px;font-weight:800;color:#fff}
 .team.red{background:var(--red)}.team.blue{background:var(--blue)}
@@ -47,7 +48,9 @@ hr{border:0;border-top:1px solid var(--line);width:100%}
 .clue-banner{display:flex;align-items:baseline;gap:10px;padding:10px 12px;border-radius:12px;background:var(--bg-2)}
 .clue-banner strong{font-size:24px;letter-spacing:.04em}
 .clue-banner b{font-size:22px;color:var(--accent)}
-.clue-form{display:grid;grid-template-columns:1fr 80px;gap:8px;align-items:end}
+.clue-form{display:grid;grid-template-columns:minmax(0,1fr) 76px;gap:8px;align-items:end}
+.clue-form .field{min-width:0}
+.clue-form input,.clue-form select{width:100%;min-width:0}
 .clue-form .btn{grid-column:1/-1}
 .error{color:var(--danger);min-height:1em;margin:0;font-size:14px}
 .log{margin-top:14px}

@@ -18,7 +18,7 @@ hr{border:0;border-top:1px solid var(--line);width:100%}
 .tl{display:flex;flex-wrap:wrap;align-items:stretch;gap:4px}
 .tl-card{--tone:#7fc4e8;display:grid;grid-template-rows:auto 1fr auto;gap:4px;width:132px;min-height:150px;padding:10px;border-radius:14px;background:linear-gradient(170deg,color-mix(in srgb,var(--tone) 22%,var(--card)),var(--card));border:2px solid color-mix(in srgb,var(--tone) 60%,transparent);text-align:left;color:var(--text);box-shadow:0 3px 0 var(--shadow)}
 .tl-card .icon{font-size:20px}
-.tl-card .title{font-size:14px;font-weight:650;line-height:1.25}
+.tl-card .title{font-size:14px;font-weight:650;line-height:1.25;hyphens:auto;overflow-wrap:break-word}
 .tl-card .year{font-size:22px;font-weight:850;color:var(--tone);letter-spacing:.01em}
 .tl-card .year.hidden{color:var(--dim)}
 .tl-card.inventions{--tone:#e7c27d}.tl-card.science{--tone:#7fd4a8}.tl-card.history{--tone:#e98a6b}.tl-card.france{--tone:#7f9ee8}.tl-card.pop{--tone:#e87fc4}.tl-card.flight{--tone:#7fc4e8}

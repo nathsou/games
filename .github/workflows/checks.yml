@@ -29,6 +29,18 @@ jobs:
       - name: Flip it tests
         run: npm test
         working-directory: flip-it
+      - name: Thrice tests
+        run: npm test
+        working-directory: thrice
+      - name: Yesteryear tests
+        run: npm test
+        working-directory: yesteryear
+      - name: Cover Story tests
+        run: npm test
+        working-directory: cover-story
+      - name: Ripples tests
+        run: npm test
+        working-directory: ripples
 
       - name: Nonocube install
         run: npm ci

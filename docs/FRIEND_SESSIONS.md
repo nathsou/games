@@ -14,7 +14,7 @@ Codes expire after 24 hours and admit one friend. Once the guest seat is claimed
 
 ## Room games
 
-Flip It, Cluance and Midnight Table are **room games**. Their rules run on the room's server, so both players always see the same table:
+Flip It, Cluance, Midnight Table, Thrice, Yesteryear, Cover Story and Ripples are **room games**. Their rules run on the room's server, so both players always see the same table:
 
 - When you're both there, it plays live: moves arrive within a moment over the room connection.
 - When one of you leaves, nothing pauses. Make your move and close the tab; your friend plays when they're back.
@@ -25,6 +25,10 @@ Start one from **Play**: choose a game, adjust its settings and **Start game**. 
 - **Flip It** supports two people against each other or as a team sharing one hand, plus up to four bots or AI players. The rules bot plays in the room, paced by whichever player's page is open. AI players use the game creator's provider settings and run only while the creator has that game open; their seat's view is sent only to the creator, and only while the AI is choosing. Between rounds both people confirm.
 - **Cluance**: one gives clues, the other guesses. The giver's secret and hand stay on the giver's side, and both players' reasoning stays sealed until the reveal.
 - **Midnight Table**: all three games as a duel or as a team against the dealer or an AI. Simultaneous choices stay hidden until both are locked.
+- **Thrice**: both people plus up to four rules bots. Each browser sees only its own hand; the bots play from the public reveal log, like anyone at the table.
+- **Yesteryear**: a race between both people and any bots, or a co-op streak where either of you plays from one shared hand.
+- **Cover Story**: Duo gives each partner their own side of the key. In Teams, play on one team (choose who gives clues) or as rival spymasters or operatives; the other roles are bots or the creator's AI, and only spymasters receive the key.
+- **Ripples**: solve one shared board together, or race on the same grid. In a race your rival sees only your progress, and the path stays hidden until your board is finished. Race moves don't conflict: each is checked against your own board.
 
 Inside a game, names replace "You/Friend", a note shows whether your friend is at the table, and the other player's moves play a sound.
 
@@ -58,7 +62,7 @@ Solo games keep their own checkpoints in the browser. Reloading a game resumes i
 
 ## Implementation and verification
 
-The outer page (`together/`) owns `FriendSession` (`shared/friend-session.js`): the live room link (`shared/room-client.js`), room chat, the list of room games, the current game's `TurnClient` and, while sharing, a `PeerLink`. `together/src/app.js` renders the window, invitations, requests and notifications (`shared/together-notify.js`). Game adapters register `startAsync(client)` to play a room game and `chooseAI` to choose for the creator's AI seats. `cloudflare/turn-games.js` runs the pure rule engines of all three games on the server.
+The outer page (`together/`) owns `FriendSession` (`shared/friend-session.js`): the live room link (`shared/room-client.js`), room chat, the list of room games, the current game's `TurnClient` and, while sharing, a `PeerLink`. `together/src/app.js` renders the window, invitations, requests and notifications (`shared/together-notify.js`). Game adapters register `startAsync(client)` to play a room game and `chooseAI` to choose for the creator's AI seats. `cloudflare/turn-games.js` runs each game's pure rules on the server through its engine (`<game>/src/room.js`): seat controllers, who may act, role-private views, moves and the rules bot. Room settings come from each game's `src/room-setup.js`.
 
 Run `npm run test:cloudflare` for live room presence, names, pushed role-private views, relays, ending games, room bots and AI seats, team play, Midnight's hidden choices, code authority, expiry, origin checks, claim races, seat recovery, stale/concurrent moves and chat. Run `npm run test:windows` for viewport bounds.
 
@@ -67,5 +71,6 @@ With Wrangler running (`npm run build:assets` then `npm run dev`):
 - `npm run test:windows:ui` covers mouse/touch/keyboard gestures, window persistence, focus, phone/landscape layouts, theme and optional storage.
 - `npm run test:cloudflare:ui` covers two separate browsers: room-code join with names, persistent request cards, pushed moves without refresh, hidden-tab alerts, closed-tab play, chat toasts/badges/drafts, room bots, postponed requests, notifications while browsing, phone layout, leaving, and shared cursors.
 - `npm run test:checkpoints:ui` covers solo checkpoints.
+- `npm run test:parlor:ui` plays Thrice, Yesteryear, Cover Story and Ripples between two browsers: private hands and keys, pushed moves, a room bot, a shared co-op hand and simultaneous race moves.
 
 Shared cursors use a deterministic RTC substitute in the audit; cross-network WebRTC still needs deployed relay/network verification.

@@ -15,7 +15,8 @@
     "test:checkpoints:ui": "node tools/checkpoint-audit.mjs",
     "test:review:ui": "node tools/review-regressions-audit.mjs",
     "test:windows": "node --test shared/tests/floating-windows.test.mjs",
-    "test:windows:ui": "node tools/floating-windows-audit.mjs"
+    "test:windows:ui": "node tools/floating-windows-audit.mjs",
+    "test:parlor:ui": "node tools/parlor-audit.mjs"
   },
   "devDependencies": {
     "miniflare": "^5.20261001.0-alpha",
