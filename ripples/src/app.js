@@ -111,9 +111,10 @@ function nextPuzzle(v) {
 }
 function renderGame() {
   const v = view(), marks = pebbles(v), puzzle = PUZZLE[v.puzzle];
+  const current = v.board.covered.length ? v.board.covered.at(-1).map(i => v.grid[i]) : puzzle.start;
   const cells = v.grid.map((word, i) => '<button type="button" class="' + cellClasses(v, i, marks) + '" data-action="cell" data-index="' + i + '"' + (canPlay() && !marks.has(i) && v.board.covered.length < v.steps ? '' : ' aria-disabled="true"') + '><span class="w">' + esc(word) + '</span>' + (marks.has(i) ? '<span class="pebble" aria-label="' + (fr() ? 'étape ' : 'step ') + marks.get(i) + '">' + marks.get(i) + '</span>' : '') + '</button>').join('');
   app.innerHTML = '<div class="table-head row"><p class="status" role="status">' + statusLine(v) + '</p><span class="spacer"></span><span class="tag">' + (v.assist === 'guided' ? (fr() ? 'Guidé' : 'Guided') : (fr() ? 'Classique' : 'Classic')) + (v.mode !== 'solo' ? ' · ' + (v.mode === 'race' ? (fr() ? 'course' : 'race') : (fr() ? 'ensemble' : 'together')) : '') + '</span><button class="btn ghost small" data-action="rules">' + (fr() ? 'Règles' : 'Rules') + '</button><button class="btn ghost small" data-action="menu">Menu</button></div>'
-    + '<div class="play">' + dialogue(v) + '<section class="board-area" aria-label="Grid"><div class="start"><span class="muted small">' + (fr() ? 'Départ' : 'Start') + '</span>' + puzzle.start.map(word => '<span class="start-word">' + esc(word) + '</span>').join('') + '</div><div class="grid">' + cells + '</div></section>'
+    + '<div class="play">' + dialogue(v) + '<section class="board-area" aria-label="Grid"><div class="start"><span class="muted small">' + (v.board.covered.length ? (fr() ? 'Liens actuels' : 'Current links') : (fr() ? 'Départ' : 'Start')) + '</span>' + current.map(word => '<span class="start-word">' + esc(word) + '</span>').join('') + (first !== null ? '<button class="btn ghost small" data-action="clear">' + (fr() ? 'Désélectionner' : 'Clear selection') + '</button>' : '') + '</div><div class="grid">' + cells + '</div></section>'
     + '<aside class="box side stack">' + sidePanel(v) + '</aside></div>';
   const input = app.querySelector('#answer');
   if (input) input.oninput = () => { draft = input.value; };
@@ -174,7 +175,9 @@ document.addEventListener('click', event => {
   if (action === 'cell') clickCell(Number(target.dataset.index));
   else if (action === 'hint') act({kind: 'hint'});
   else if (action === 'undo') act({kind: 'undo'});
-  else if (action === 'giveup') act({kind: 'giveup'});
+  else if (action === 'clear') { first = null; render(); }
+  else if (action === 'giveup') openDialog(fr() ? 'Révéler la solution ?' : 'Reveal the solution?', '<p>' + (fr() ? 'Cela termine cette énigme. Vous pouvez demander un indice pour continuer à chercher.' : 'This ends this puzzle and shows the answer. Try a hint if you’d like to keep solving.') + '</p><div class="row"><button class="btn" data-close>' + (fr() ? 'Continuer' : 'Keep solving') + '</button><button class="btn ghost" data-action="confirm-reveal" data-close>' + (fr() ? 'Révéler' : 'Reveal answer') + '</button></div>');
+  else if (action === 'confirm-reveal') act({kind:'giveup'});
   else if (action === 'lang') { prefs.lang = target.dataset.lang; prefs.puzzle = PUZZLES.find(p => p.lang === prefs.lang).id; savePrefs(KEY, prefs); render(); }
   else if (action === 'pick') { prefs.puzzle = target.dataset.puzzle; savePrefs(KEY, prefs); render(); }
   else if (action === 'start') startSolo();

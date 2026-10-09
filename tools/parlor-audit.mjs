@@ -1,7 +1,7 @@
 // Two-browser check of the parlor room games (Thrice, Yesteryear, Cover Story,
 // Ripples). Run after npm run build:assets and npm run dev.
 import assert from 'node:assert/strict';
-const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright');
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'../nonocube/node_modules/playwright/index.mjs');
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||undefined,args:['--enable-unsafe-swiftshader',...(process.env.CHROMIUM_NO_SANDBOX==='1'?['--no-sandbox']:[])]});
 const origin=process.env.GAMES_URL||'http://127.0.0.1:8787',errors=[];
 const globals={thrice:'__thrice',yesteryear:'__yesteryear','cover-story':'__coverStory',ripples:'__ripples'};
@@ -16,6 +16,7 @@ const view=(f,name)=>f.evaluate(name=>window[name].view,globals[name]);
 async function startGame(host,guest,name,fields={}){
   await showPanel(host,'play');await host.locator('.play-item[data-game="'+name+'"]').click();
   for(const [key,value] of Object.entries(fields))await host.locator('#game-setup-fields-'+key).selectOption(String(value));
+  if(name==='cover-story'&&fields.mode!=='teams') assert.equal(await host.locator('#game-setup-fields-others').isVisible(),false,'Human modes hide bot/AI options');
   await host.locator('#game-setup-start').click();
   const hf=await roomGame(host,name);
   const card=guest.locator('.request-card.shown').filter({hasText:'Ana'});await card.waitFor();
@@ -59,6 +60,16 @@ try{
   const cell=guesser.locator('.word:not([aria-disabled=true])').first();await cell.click();await cell.click();
   await giver.waitForFunction(()=>window.__coverStory.view.guesses>0||window.__coverStory.view.phase==='clue'&&window.__coverStory.view.round>0||window.__coverStory.view.phase==='over');
   console.log('Cover Story: duo keys stay private, clue and guess are pushed');
+
+  // Duel: only two humans, with a printed clue and alternating turns.
+  [hf,gf]=await startGame(host,guest,'cover-story',{mode:'duel',turns:7});
+  v=await view(hf,'cover-story');assert(!v.key&&!v.myKey);assert(v.clue.word);
+  const active=v.acting===0?hf:gf,other=active===hf?gf:hf;
+  await active.locator('[data-action=pass]').click();
+  await other.waitForFunction(()=>window.__coverStory.view.revision===1);
+  await other.locator('[data-action=pass]').click();
+  await active.waitForFunction(()=>window.__coverStory.view.round===1);
+  console.log('Cover Story: human-only Duel alternates and advances printed clues');
 
   // Ripples race: both play the same grid; a rival sees only progress.
   [hf,gf]=await startGame(host,guest,'ripples',{puzzle:'gang-1',mode:'race'});

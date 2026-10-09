@@ -55,3 +55,6 @@ h2.pick{margin:0}
 .chain{margin:0;line-height:1.5}
 @media (max-width:760px){.dialogue .scene-art{float:left;width:88px;height:88px;aspect-ratio:auto;margin:0 12px 10px 0}.dialogue dl{clear:both}}
 @media (max-width:520px){.grid{gap:4px;padding:5px}.cell{min-height:50px;font-size:8.5px;letter-spacing:0;border-radius:3px;padding:4px 1px}.cell .pebble{width:17px;height:17px;font-size:8.5px;top:2px;right:2px}}
+.cell.covered .w{opacity:.8;text-decoration:none}.cell.covered{padding-top:24px}.start{min-height:42px}.start .btn{min-height:40px;font-size:12px}.cell .w{font-family:system-ui,sans-serif}.cell.first .w{font-weight:900}
+:root[data-color-theme=light] .eyebrow,:root[data-color-theme=light] .dialogue dt{color:#237a76}
+@media(max-width:520px){.cell{min-height:64px;font-size:11px;line-height:1.15}.cell.covered{padding-top:19px}.cell .pebble{width:16px;height:16px}.start-word{font-size:13px;padding:6px 10px}}

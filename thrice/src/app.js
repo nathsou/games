@@ -13,21 +13,24 @@ function soloSetup(value = prefs.solo || {}) {
   try { return {...validateSetup({...value, bots: Math.min(4, bots)}), bots}; }
   catch { return {...validateSetup({}), bots}; }
 }
+let presentation = null, presentationTimer = null, pendingViews = [], seenRevision = null;
+let activeSetup = null;
 let solo = soloSetup(), scene = 'menu', mode = 'solo', game = null, client = null, botTimer = null, lastSeen = null;
 
 const setup = () => mode === 'async' ? client.record.setup : solo;
 const view = () => mode === 'async' ? client.record.view : game ? playerView(game, 0, {memoryAid: solo.memoryAid}) : null;
 const mySeat = () => mode === 'async' ? client.record.seat : 0;
 const names = () => mode === 'async' ? seatNames(client.record, client) : [playerName(), ...Array.from({length: solo.bots}, (_, i) => 'Bot ' + (i + 1))];
-const myTurn = () => { const v = view(); return Boolean(v && v.phase === 'playing' && v.turn === mySeat() && !(mode === 'async' && client.busy)); };
+const tableView = () => presentation || view();
+const myTurn = () => { const v = view(); return Boolean(!presentationTimer && !pendingViews.length && v && v.phase === 'playing' && v.turn === mySeat() && !(mode === 'async' && client.busy)); };
 const roomSetup = () => { try { return validateSetup({...solo, bots: Math.max(0, Math.min(4, solo.bots - 1))}); } catch { return validateSetup({}); } };
 
 // Cards -------------------------------------------------------------------------
 function partners(value) { return [7 - value, value + 7, value - 7].filter(n => n >= 1 && n <= 12 && n !== value && linked(n, value)); }
 function card(value, {small = false, extra = ''} = {}) {
   const theme = setup().theme, spicy = setup().mode === 'spicy';
-  return '<span class="card face' + (small ? ' small' : '') + (value === 7 ? ' seven' : '') + ' ' + extra + '" style="--theme:' + THEMES[theme].accent + '" aria-label="' + value + '">'
-    + '<span class="art" style="' + artwork(theme, value) + '" aria-hidden="true"></span><b class="corner">' + value + '</b><b class="rank" aria-hidden="true">' + value + '</b>'
+  return '<span class="card face' + (small ? ' small' : '') + (value === 7 ? ' seven' : '') + ' ' + theme + ' ' + extra + '" style="--theme:' + THEMES[theme].accent + '" aria-label="' + value + '">'
+    + (theme === 'classic' ? '<span class="classic-mark" aria-hidden="true">' + value + '</span>' : '<span class="art" style="' + artwork(theme, value) + '" aria-hidden="true"></span>') + '<b class="corner">' + value + '</b><b class="rank" aria-hidden="true">' + value + '</b>'
     + (spicy && !small && value !== 7 ? '<span class="links" aria-hidden="true">' + partners(value).map(n => '<i>' + n + '</i>').join('') + '</span>' : '') + '</span>';
 }
 const back = (label = '', action = '', attrs = '') => action
@@ -72,12 +75,12 @@ function seatPanel(v, seat, list) {
     hand = v.hand.map((value, i) => {
       const end = i === 0 ? 'low' : i === v.hand.length - 1 ? 'high' : null;
       if (!end || (end === 'high' && v.hand.length < 2)) return card(value);
-      return '<button type="button" class="card-button" data-action="hand" data-seat="' + seat + '" data-end="' + end + '"' + (myTurn() ? '' : ' disabled') + ' aria-label="Reveal your ' + (end === 'low' ? 'lowest' : 'highest') + ' card, ' + value + '">' + card(value) + '</button>';
+      return '<button type="button" class="card-button" data-action="hand" data-seat="' + seat + '" data-end="' + end + '"' + (myTurn() ? '' : ' disabled') + ' aria-label="Reveal your ' + (end === 'low' ? 'lowest' : 'highest') + ' card, ' + value + '">' + card(value) + '<span class="end-label">' + (end === 'low' ? 'Lowest' : 'Highest') + '</span></button>';
     }).join('');
   } else {
-    hand = count ? back('Ask ' + list[seat] + ' for their lowest card', 'hand', 'data-seat="' + seat + '" data-end="low"')
-      + Array.from({length: Math.max(0, count - 2)}, () => back()).join('')
-      + (count > 1 ? back('Ask ' + list[seat] + ' for their highest card', 'hand', 'data-seat="' + seat + '" data-end="high"') : '') : '<span class="muted small">No cards left</span>';
+    hand = count ? '<div class="hand-ends">' + back('Ask ' + list[seat] + ' for their lowest card', 'hand', 'data-seat="' + seat + '" data-end="low"')
+      + '<span class="hand-count">' + count + '<small>cards</small></span>'
+      + back('Ask ' + list[seat] + ' for their highest card', 'hand', 'data-seat="' + seat + '" data-end="high"') + '</div>' : '<span class="muted small">No cards left</span>';
   }
   return '<section class="seat' + (turn ? ' active' : '') + (mine ? ' mine' : '') + '" aria-label="' + esc(list[seat]) + '"><header><strong>' + esc(list[seat]) + (mine ? ' <span class="tag">you</span>' : '') + '</strong>'
     + (turn ? '<span class="turn-dot">turn</span>' : '') + '<span class="muted small">' + count + ' card' + (count === 1 ? '' : 's') + '</span></header>'
@@ -86,24 +89,25 @@ function seatPanel(v, seat, list) {
     + '<div class="trios" aria-label="Trios">' + trios(v.trios[seat]) + '</div></section>';
 }
 function statusLine(v, list) {
+  if (v.settling) return v.last.result === 'trio' ? 'Three ' + v.last.cards[0].value + 's — trio collected!' : 'No match. Take a moment to remember these cards.';
   if (v.phase === 'over') return v.winner === mySeat() ? 'You win!' : esc(list[v.winner]) + ' wins.';
   if (mode === 'async' && client.busy) return 'Sending…';
   if (v.turn === mySeat()) return v.reveal.length ? 'Keep going: find another ' + v.reveal[0].value + (v.reveal.length === 2 ? ' for the trio.' : '.') : 'Your turn. Reveal a card.';
   return esc(list[v.turn]) + (v.reveal.length ? ' is chasing ' + v.reveal[0].value + 's…' : ' is choosing…');
 }
 function renderGame() {
-  const v = view(), list = names(), seats = Array.from({length: v.seats}, (_, i) => i).filter(i => i !== mySeat());
+  const v = tableView(), list = names(), seats = Array.from({length: v.seats}, (_, i) => i).filter(i => i !== mySeat());
   const middle = v.middle.map((m, index) => m === null ? '<span class="card gone" aria-hidden="true"></span>' : m.up ? card(m.value, {extra: 'revealed'}) : back('Flip middle card ' + (index + 1), 'middle', 'data-index="' + index + '"')).join('');
-  const reveal = v.reveal.length ? v.reveal.map(r => '<figure>' + card(r.value) + '<figcaption>' + esc(describeSource(r, list)) + '</figcaption></figure>').join('') : '<p class="muted small">Revealed cards appear here.</p>';
+  const reveal = Array.from({length: 3}, (_, i) => v.reveal[i] ? '<figure>' + card(v.reveal[i].value, {extra: i === v.reveal.length - 1 ? 'revealed' : ''}) + '<figcaption>' + esc(describeSource(v.reveal[i], list)) + '</figcaption></figure>' : '<figure><span class="card reveal-slot">' + (i + 1) + '</span><figcaption>' + ['Reveal', 'Match', 'Collect'][i] + '</figcaption></figure>').join('');
   const last = v.last ? '<div class="last box"><p class="eyebrow">Last turn · ' + esc(list[v.last.seat]) + ' · ' + (v.last.result === 'trio' ? 'trio!' : 'no match') + '</p><div class="row">' + v.last.cards.map(r => '<figure>' + card(r.value, {small: true}) + '<figcaption>' + esc(describeSource(r, list)) + '</figcaption></figure>').join('') + '</div></div>' : '';
   const history = v.history ? '<details class="box history"><summary>Memory aid · ' + v.history.length + ' reveals</summary><ol>' + v.history.slice().reverse().map(h => '<li>' + h.value + ' · ' + esc(describeSource(h, list)) + (h.from === 'middle' ? ' #' + (h.index + 1) : '') + ' <span class="muted">by ' + esc(list[h.by]) + '</span></li>').join('') + '</ol></details>' : '';
   const note = mode === 'async' ? '<span class="tag">' + (client.friendHere ? 'With ' + esc(client.names.friend) : esc(client.names.friend) + ' is away') + '</span>' : '<span class="tag">' + MODES[v.mode] + ' · ' + DIFFICULTIES[solo.difficulty] + ' bots</span>';
   app.innerHTML = '<div class="table-head row"><p class="status" role="status">' + statusLine(v, list) + '</p>' + note + '<span class="spacer"></span><button class="btn ghost small" data-action="rules">Rules</button><button class="btn ghost small" data-action="menu">Menu</button></div>'
     + '<div class="opponents">' + seats.map(seat => seatPanel(v, seat, list)).join('') + '</div>'
-    + '<div class="center"><section class="box middle-area" aria-label="Middle cards"><p class="eyebrow">Middle</p><div class="middle">' + middle + '</div></section>'
-    + '<section class="box reveal-area" aria-label="This turn"><p class="eyebrow">This turn</p><div class="reveal row">' + reveal + '</div></section>' + last + '</div>'
+    + '<div class="center"><section class="box middle-area" aria-label="Middle cards"><p class="eyebrow">The middle</p><p class="muted small table-tip">Flip any face-down card</p><div class="middle">' + middle + '</div></section>'
+    + '<section class="box reveal-area" aria-label="This turn"><p class="eyebrow">Find three of a kind</p><div class="reveal row">' + reveal + '</div></section>' + last + '</div>'
     + seatPanel(v, mySeat(), list) + history;
-  if (v.phase === 'over') showResult(v, list);
+  if (v.phase === 'over' && !presentationTimer) showResult(v, list);
 }
 function showResult(v, list) {
   if (document.querySelector('#parlor-dialog')?.open) return;
@@ -131,27 +135,58 @@ function announce(v) {
   else if (v.last?.result === 'trio') playSound('good');
   else if (v.last) playSound(v.turn === mySeat() ? 'turn' : 'bad');
 }
+function resetPresentation() {
+  clearTimeout(presentationTimer); presentationTimer = null; presentation = null; pendingViews = []; seenRevision = null;
+}
+function present(next) {
+  if (seenRevision === next.revision) { if (!presentationTimer) render(); return; }
+  const initial = seenRevision === null;
+  seenRevision = next.revision;
+  if (initial) { presentation = next; render(); return; }
+  pendingViews.push(next);
+  if (!presentationTimer) advancePresentation();
+}
+function advancePresentation() {
+  const next = pendingViews.shift();
+  if (!next) { presentationTimer = null; render(); scheduleBots(); return; }
+  const previous = presentation;
+  const finishedTurn = next.last && previous && next.round > previous.round;
+  presentation = finishedTurn ? {
+    ...previous, phase: 'playing', settling: true, last: next.last, reveal: next.last.cards,
+    middle: previous.middle.map((m, index) => {
+      const shown = next.last.cards.find(c => c.from === 'middle' && c.index === index);
+      return shown ? {up: true, value: shown.value} : m;
+    }),
+  } : next;
+  presentationTimer = setTimeout(() => {
+    presentation = next; presentationTimer = null;
+    if (pendingViews.length) advancePresentation(); else { render(); scheduleBots(); }
+  }, finishedTurn ? 1900 : 450);
+  announce(next); render();
+}
 function startSolo() {
-  clearTimeout(botTimer); mode = 'solo'; client = null; lastSeen = null;
+  activeSetup = {...solo};
+  resetPresentation(); clearTimeout(botTimer); mode = 'solo'; client = null; lastSeen = null;
   game = createGame({seats: solo.bots + 1, mode: solo.mode}, crypto.getRandomValues(new Uint32Array(1))[0]);
-  scene = 'game'; render(); scheduleBots();
+  scene = 'game'; present(view()); scheduleBots();
 }
 function scheduleBots() {
   clearTimeout(botTimer);
-  if (mode !== 'solo' || !game || game.phase !== 'playing' || game.turn === 0) return;
+  if (scene !== 'game' || document.hidden || document.querySelector('#parlor-dialog')?.open || presentationTimer || mode !== 'solo' || !game || game.phase !== 'playing' || game.turn === 0) return;
   botTimer = setTimeout(() => {
     if (mode !== 'solo' || !game || game.turn === 0) return;
     game = applyAction(game, game.turn, botAction(game, game.turn, {difficulty: solo.difficulty}));
-    announce(view()); render(); scheduleBots();
-  }, game.reveal.length ? 850 : 1400);
+    present(view());
+  }, game.reveal.length ? 1100 : 1600);
 }
 async function act(action) {
   if (!myTurn()) return;
   if (mode === 'async') { try { await client.move(action); } catch (error) { toast(error.message); } return; }
   game = applyAction(game, 0, action);
-  announce(view()); render(); scheduleBots();
+  present(view());
 }
 function showRules() {
+  clearTimeout(botTimer);
   openDialog('How to play Thrice', '<ol><li>The 36 cards are numbered 1–12, three of each. Every hand is sorted from lowest to highest; the rest lie face down in the middle.</li>'
     + '<li>On your turn, reveal cards one at a time. Ask any player, yourself included, for their <strong>lowest</strong> or <strong>highest</strong> card, or flip a <strong>middle</strong> card.</li>'
     + '<li>As long as the cards match, keep going. Revealed hand cards wait in front of their owner, so asking the same end again shows the next card.</li>'
@@ -166,30 +201,32 @@ document.addEventListener('click', event => {
   if (action === 'hand') act({kind: 'reveal', from: 'hand', seat: Number(target.dataset.seat), end: target.dataset.end});
   else if (action === 'middle') act({kind: 'reveal', from: 'middle', index: Number(target.dataset.index)});
   else if (action === 'start') startSolo();
-  else if (action === 'resume') { scene = 'game'; render(); scheduleBots(); }
-  else if (action === 'menu') { clearTimeout(botTimer); if (mode === 'async') { mode = 'solo'; client = null; game = null; friendSession()?.leaveRoomGame?.(); } scene = 'menu'; render(); }
+  else if (action === 'resume') { solo = activeSetup || solo; scene = 'game'; present(view()); scheduleBots(); }
+  else if (action === 'menu') { resetPresentation(); clearTimeout(botTimer); if (mode === 'async') { mode = 'solo'; client = null; game = null; friendSession()?.leaveRoomGame?.(); } scene = 'menu'; render(); }
   else if (action === 'again') { if (mode === 'async') friendSession()?.openGameSetup('thrice', client.record.setup); else startSolo(); }
   else if (action === 'rules') showRules();
   else if (action === 'host') inviteFriendGame('thrice', roomSetup());
   else if (action === 'join') joinFriendRoom('thrice');
 });
 
+document.addEventListener('visibilitychange', scheduleBots);
+document.addEventListener('close', scheduleBots, true);
 installTopbar(KEY);
 registerCheckpoint('thrice', {
-  capture: () => mode === 'solo' && game ? {setup: solo, state: game} : null,
+  capture: () => mode === 'solo' && game ? {setup: activeSetup || solo, state: game} : null,
   restore(data) {
     if (!data?.state) throw new Error('Invalid saved table.');
     const setup = soloSetup(data.setup);
     if (data.state.seats !== setup.bots + 1 || !Object.hasOwn(DEAL, data.state.seats)) throw new Error('Invalid saved table.');
     validateView(playerView(data.state, 0));
-    solo = setup; game = data.state; mode = 'solo'; scene = 'game'; render(); scheduleBots();
+    resetPresentation(); activeSetup = {...setup}; solo = setup; game = data.state; mode = 'solo'; scene = 'game'; present(view()); scheduleBots();
   },
 });
 registerFriendGame('thrice', {
   setup: roomSetup,
   startAsync(next) {
-    clearTimeout(botTimer); client = next; mode = 'async'; scene = 'game'; lastSeen = null;
-    const unsubscribe = next.subscribe(record => { if (mode !== 'async' || client !== next) return; announce(record.view); render(); });
+    resetPresentation(); clearTimeout(botTimer); client = next; mode = 'async'; scene = 'game'; lastSeen = null;
+    const unsubscribe = next.subscribe(record => { if (mode !== 'async' || client !== next) return; present(record.view); });
     window.addEventListener('pagehide', unsubscribe, {once: true});
   },
 });

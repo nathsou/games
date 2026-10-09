@@ -11,7 +11,7 @@ The 36 cards are numbered 1–12, three of each. Every hand is kept sorted; the 
 
 Two seats is a house duel variant with ten cards each. Hands are 9, 7, 6 and 5 cards at three to six seats.
 
-**Card themes** change only the art: Classic, Bakery, Deep Sea, Night Sky, Garden Bugs and Robots. Each has twelve original pixel illustrations, delivered as a compact WebP atlas. Numbers and Spicy links stay accessible HTML; face-down cards share one pattern per theme. See [artwork prompts](assets/PROMPTS.md). The optional **memory aid** lists every card revealed so far.
+**Card themes** change only the art: Classic, Bakery, Deep Sea, Night Sky, Garden Bugs and Robots. The five illustrated themes each have twelve original painted images in a compact WebP atlas; Classic uses large, clean numbers. Numbers and Spicy links stay accessible HTML; face-down cards share one pattern per theme. See [artwork prompts](assets/PROMPTS.md). The optional **memory aid** lists every card revealed so far.
 
 ## Bots
 
@@ -24,3 +24,7 @@ Both people plus up to four bots play in the room (`src/room.js`). Each browser 
 ## Checks
 
 `npm test` plays 300 seeded games at every table size and both win rules, checking card conservation, sorted hands, legal winners, hidden information in views and that the bot's first choice never depends on hidden cards.
+
+## Table and artwork
+
+Five original painted decks and a typography-only Classic deck use consistent 5:7 cards. Artwork cells remain square. Low/high controls stay reachable on small screens. Reveals animate individually; mismatches and completed trios remain visible for 1.9 seconds before the next turn. Reduced-motion settings remove movement while retaining reading time. Local bots pause in menus, rules and hidden tabs.

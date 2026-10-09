@@ -20,3 +20,7 @@ Bots (**Casual**, **Buff**, **Historian**) guess each year with a personal error
 ## Checks
 
 `npm test` checks the decks, plays 200 seeded races at two to six seats (timeline order, card conservation, fair final round), streak lives and redacted views.
+
+## Placing cards
+
+Drag a card with a mouse, pen or touch into a timeline gap. The timeline scrolls at its edges during a drag; Escape, pointer cancellation or dropping outside a gap leaves the game unchanged. Alternatively, select a card and activate a gap with a click or keyboard. Dates reveal for 1.8 seconds before the next move, with feedback explaining the correct chronological position. The continuous horizontal timeline preserves scroll position across updates. Reduced-motion preferences remove animation while preserving reading time.
