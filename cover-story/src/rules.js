@@ -1,3 +1,4 @@
+import {createDuel, applyDuel, duelView} from './duel.js';
 import {WORDS, PACKS, LANGS, fold} from './words.js';
 
 // Cover Story: pure, seeded rules for both ways to play.
@@ -6,7 +7,7 @@ import {WORDS, PACKS, LANGS, fold} from './words.js';
 // spymaster, 3 blue operative. Find all your agents; avoid the assassin.
 // Duo: two partners, each holding one side of a shared key. Seats 0 and 1 take
 // turns giving clues to each other to find all 15 agents before time runs out.
-export const MODES = {duo: 'Duo', teams: 'Teams'};
+export const MODES = {duo: 'Duo', duel: 'Duel', teams: 'Teams'};
 export const TEAMS = ['red', 'blue'];
 export const SPY = [0, 2], OPERATIVE = [1, 3];
 export const teamOf = seat => seat < 2 ? 'red' : 'blue';
@@ -38,6 +39,7 @@ export function createGame({mode = 'teams', lang = 'en', pack = 'all', turns = 9
   assert(Number.isInteger(seed), 'Invalid game seed.');
   const state = {mode, lang, pack, seed: seed >>> 0, rng: seed >>> 0, revision: 0, round: 0, phase: 'clue', words: [], revealed: Array(25).fill(null), clue: null, guesses: 0, log: [], winner: null, result: null};
   state.words = shuffle(state, WORDS[lang][pack]).slice(0, 25);
+  if (mode === 'duel') return createDuel(state, turns, shuffle);
   if (mode === 'teams') {
     const first = random(state) < .5 ? 'red' : 'blue', second = first === 'red' ? 'blue' : 'red';
     state.key = shuffle(state, [...Array(9).fill(first), ...Array(8).fill(second), ...Array(7).fill('neutral'), 'assassin']);
@@ -55,6 +57,7 @@ export function createGame({mode = 'teams', lang = 'en', pack = 'all', turns = 9
 // Who acts now: a spymaster or giver during 'clue', an operative or guesser during 'guess'.
 export function actingSeat(state) {
   if (state.phase === 'over') return null;
+  if (state.mode === 'duel') return state.duelTurn;
   if (state.mode === 'teams') return (state.team === 'red' ? 0 : 2) + (state.phase === 'guess' ? 1 : 0);
   return state.phase === 'clue' ? state.giver : 1 - state.giver;
 }
@@ -81,6 +84,7 @@ export function applyAction(state, seat, action) {
   assert(state.phase !== 'over', 'This game is over.');
   assert(seat === actingSeat(state), state.phase === 'clue' ? 'Wait for the clue.' : 'Wait for your turn.');
   const next = structuredClone(state);
+  if (state.mode === 'duel') { applyDuel(next, seat, action, shuffle); next.revision++; return next; }
   if (state.phase === 'clue') {
     assert(action?.kind === 'clue', 'Give a clue.');
     const problem = clueProblem(state, action.word);
@@ -140,6 +144,7 @@ export function playerView(state, seat) {
   const view = {mode: state.mode, lang: state.lang, pack: state.pack, revision: state.revision, round: state.round, phase: state.phase, seat,
     words: state.words.slice(), revealed: state.revealed.slice(), clue: state.clue && {...state.clue}, guesses: state.guesses, log: structuredClone(state.log),
     acting: actingSeat(state), winner: state.winner, result: state.result};
+  if (state.mode === 'duel') return {...view, ...duelView(state)};
   if (state.mode === 'teams') {
     view.team = state.team;
     view.left = {red: remaining(state, 'red'), blue: remaining(state, 'blue')};

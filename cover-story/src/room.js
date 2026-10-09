@@ -6,7 +6,7 @@ import {botAction} from './bot.js';
 // together (one team, host's role chosen at setup), rival spymasters, or rival
 // operatives. setup.role is the host's role in the 'together' lineup.
 export function lineup(setup) {
-  if (setup.mode === 'duo') return ['host', 'guest'];
+  if (setup.mode !== 'teams') return ['host', 'guest'];
   const ai = setup.others;
   if (setup.lineup === 'spymasters') return ['host', ai, 'guest', ai];
   if (setup.lineup === 'operatives') return [ai, 'host', ai, 'guest'];
