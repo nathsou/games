@@ -1,0 +1,9 @@
+{
+  "name": "yesteryear",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "verify": "node tools/verify-years.mjs"
+  }
+}

@@ -2,6 +2,7 @@ import flipIt from '../flip-it/src/room.js';
 import cluance from '../cluance/src/room.js';
 import midnight from '../midnight/src/room.js';
 import thrice from '../thrice/src/room.js';
+import yesteryear from '../yesteryear/src/room.js';
 import {validateGameSetup} from '../shared/friend-setup.js';
 import {REACTIONS} from '../shared/friend-chat.js';
 
@@ -9,7 +10,7 @@ import {REACTIONS} from '../shared/friend-chat.js';
 // controlled by a person ('host', 'guest', or 'team' for both), a rules bot
 // ('dealer') or the creator's AI provider ('model'), which never runs here.
 // Each game supplies an engine: its pure rules seen through numbered seats.
-export const ENGINES=Object.freeze({'flip-it':flipIt,cluance,midnight,thrice});
+export const ENGINES=Object.freeze({'flip-it':flipIt,cluance,midnight,thrice,yesteryear});
 export const ROOM_GAMES=Object.keys(ENGINES);
 const AI=['dealer','model'];
 const roleIndex=role=>role==='host'?0:1;

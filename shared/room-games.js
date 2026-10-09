@@ -6,6 +6,7 @@ export const ROOM_GAME_INFO = Object.freeze({
   cluance: {title: 'Cluance', about: 'Co-op clues · one gives, one guesses'},
   midnight: {title: 'Midnight Table', about: 'Three quick card games'},
   thrice: {title: 'Thrice', about: 'Memory card game · bots fill the table'},
+  yesteryear: {title: 'Yesteryear', about: 'Timeline trivia · race or co-op streak'},
 });
 export const ROOM_GAMES = Object.freeze(Object.fromEntries(Object.entries(ROOM_GAME_INFO).map(([id, info]) => [id, info.title])));
 export const isRoomGame = game => Object.hasOwn(ROOM_GAME_INFO, game);

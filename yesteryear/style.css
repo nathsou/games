@@ -1,0 +1,39 @@
+:root{--accent:#e7c27d;--accent-2:#7fc4e8}
+h1 em{font-style:normal;color:var(--accent)}
+hr{border:0;border-top:1px solid var(--line);width:100%}
+.theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.theme-tile{display:grid;gap:2px;text-align:left;padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--card);cursor:pointer}
+.theme-tile span{font-size:26px}
+.theme-tile small{color:var(--dim)}
+.theme-tile.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 45%,transparent)}
+.table-head .status{margin:0;font-size:18px}
+.spacer{flex:1}
+.players{margin:8px 0}
+.tag.on{border-color:var(--accent);color:var(--text);font-weight:700}
+.tag.out{opacity:.45;text-decoration:line-through}
+.last{padding:10px 14px;border-radius:12px;margin:8px 0;border:1px solid var(--line)}
+.last.good{background:color-mix(in srgb,var(--ok) 16%,transparent)}
+.last.bad{background:color-mix(in srgb,var(--danger) 16%,transparent)}
+.timeline,.hand,.discards{margin-top:12px}
+.tl{display:flex;flex-wrap:wrap;align-items:stretch;gap:4px}
+.tl-card{--tone:#7fc4e8;display:grid;grid-template-rows:auto 1fr auto;gap:4px;width:132px;min-height:150px;padding:10px;border-radius:14px;background:linear-gradient(170deg,color-mix(in srgb,var(--tone) 22%,var(--card)),var(--card));border:2px solid color-mix(in srgb,var(--tone) 60%,transparent);text-align:left;color:var(--text);box-shadow:0 3px 0 var(--shadow)}
+.tl-card .icon{font-size:20px}
+.tl-card .title{font-size:14px;font-weight:650;line-height:1.25}
+.tl-card .year{font-size:22px;font-weight:850;color:var(--tone);letter-spacing:.01em}
+.tl-card .year.hidden{color:var(--dim)}
+.tl-card.inventions{--tone:#e7c27d}.tl-card.science{--tone:#7fd4a8}.tl-card.history{--tone:#e98a6b}.tl-card.france{--tone:#7f9ee8}.tl-card.pop{--tone:#e87fc4}.tl-card.flight{--tone:#7fc4e8}
+:root[data-color-theme=light] .tl-card .year{filter:brightness(.6)}
+button.tl-card{cursor:pointer;font:inherit}
+button.tl-card:not(:disabled):hover{transform:translateY(-3px)}
+button.tl-card:disabled{cursor:default;opacity:.85}
+.tl-card.picked{outline:3px solid var(--accent);transform:translateY(-6px)}
+.tl-card.fresh{animation:pop .5s ease}
+.tl-card.small{width:110px;min-height:110px}
+@keyframes pop{from{transform:scale(.85)}to{transform:none}}
+.slot{width:26px;border:2px dashed transparent;border-radius:10px;background:transparent;color:var(--dim);cursor:pointer;display:grid;place-items:center;font-weight:800;padding:0}
+.slot:not(:disabled){border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.slot:not(:disabled):hover{background:color-mix(in srgb,var(--accent) 30%,transparent)}
+.slot:disabled span{opacity:.15}
+.slot:disabled{cursor:default}
+.cards{display:flex;flex-wrap:wrap;gap:10px}
+@media (max-width:480px){.tl-card{width:104px;min-height:130px;padding:8px}.tl-card .title{font-size:12.5px}.tl-card .year{font-size:18px}.slot{width:22px}}

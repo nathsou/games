@@ -109,3 +109,16 @@ test('Thrice seats both people and room bots, hides hands and plays to a winner'
   assert(Number.isInteger(record.state.winner));
   assert.throws(()=>createTurnGame('thrice',{bots:5},'host'),/Thrice/);
 });
+
+test('Yesteryear races with bots and plays a co-op streak from one shared hand',()=>{
+  const choose=view=>({kind:'place',card:view.hand[0],slot:view.revision%(view.timeline.length+1)});
+  const race=createTurnGame('yesteryear',{mode:'race',decks:'mix',lang:'fr',bots:1,difficulty:'hard'},'host');
+  assert.deepEqual(turnSummary(race,'guest').controllers,['host','guest','dealer']);
+  assert(!('hands' in turnView(race,'guest').view));
+  playOut(race,choose);
+  const streak=createTurnGame('yesteryear',{mode:'streak',decks:'france',lang:'en'},'guest');
+  assert.deepEqual(turnSummary(streak,'host').controllers,['team']);
+  assert.deepEqual(turnView(streak,'host').view.hand,turnView(streak,'guest').view.hand);
+  assert(turnSummary(streak,'host').myTurn&&turnSummary(streak,'guest').myTurn,'Either person can play the shared hand');
+  playOut(streak,choose);
+});
