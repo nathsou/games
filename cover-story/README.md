@@ -2,6 +2,8 @@
 
 A word-association spy game, inspired by *Codenames*, in English and French. Vanilla HTML, CSS and ES modules.
 
+Cards use original pixel-art dossiers and agent portraits, with paper word labels and explicit role names. Unrevealed operative cards all share the same dossier; artwork follows only the role information already available in the seat's view. See [artwork provenance and prompt](assets/PROMPTS.md).
+
 ## Play
 
 25 words. A clue is one word and a number; it can't be a word still in play, or contain one, or sit inside one (accents and case are ignored).

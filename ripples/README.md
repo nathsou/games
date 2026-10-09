@@ -2,6 +2,8 @@
 
 Co-op word-chain puzzles, inspired by *Ricochet* (Flip Flap). Vanilla HTML, CSS and ES modules.
 
+Original pixel illustrations introduce the heist, haunted house and kitchen campaigns. The word grid uses printed paper tiles, teal covered tiles and golden numbered pebbles; words and numbers stay HTML. See [artwork provenance and prompt](assets/PROMPTS.md).
+
 ## Play
 
 Each puzzle is a short scene whose last line is missing. Two **start** words outside the grid each lead to a grid word; those two words must share a row or a column, and you cover them with pebble 1. Each covered word then leads to the next word of its chain (a synonym, a compound word, a saying, a category…), and each new pair must also share a row or column. When every chain word is covered, three or five words are left. Read aloud in grid order, they sound out the missing line: WARE · OAR · EWE, “Where are you?”; ÎLE · LAIT · TAON, « Il est temps ».

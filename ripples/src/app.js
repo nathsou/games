@@ -18,6 +18,10 @@ const busy = () => mode === 'async' && client.busy;
 const canPlay = () => { const v = view(); return Boolean(v && v.phase === 'playing' && !v.board.solved && !v.board.gaveUp && !busy()); };
 const fr = () => PUZZLE[view()?.puzzle || prefs.puzzle].lang === 'fr';
 const roomSetup = () => validateSetup({puzzle: prefs.puzzle, mode: 'together', assist: prefs.assist});
+const sceneArt = campaign => {
+  const index = {heist: 0, gang: 0, manor: 1, chateau: 1, kitchen: 2, cuisine: 2}[campaign];
+  return '<span class="scene-art" aria-hidden="true" style="background-position:' + index * 50 + '% 0%"></span>';
+};
 
 // Menu -----------------------------------------------------------------------------
 function renderMenu() {
@@ -26,7 +30,7 @@ function renderMenu() {
   app.innerHTML = '<section class="menu"><div><p class="eyebrow">Co-op word puzzles · English & French</p><h1>Make <em>ripples.</em></h1>'
     + '<p class="lede">Each puzzle is a little scene whose last line is missing. Starting from two clues, follow two chains of associations across the grid, covering a pair of words at each step. The pair must share a row or a column. The words left uncovered, read aloud, sound out the missing line.</p>'
     + '<div class="row lang" role="tablist">' + [['en', 'English'], ['fr', 'Français']].map(([id, name]) => '<button type="button" class="chip' + (prefs.lang === id ? ' on' : '') + '" role="tab" aria-selected="' + (prefs.lang === id) + '" data-action="lang" data-lang="' + id + '">' + name + '</button>').join('') + '</div>'
-    + campaigns.map(([id, c]) => '<section class="campaign box"><h2>' + esc(c.title) + '</h2><p class="muted">' + esc(c.blurb) + '</p><div class="puzzles">'
+    + campaigns.map(([id, c]) => '<section class="campaign box">' + sceneArt(id) + '<h2>' + esc(c.title) + '</h2><p class="muted">' + esc(c.blurb) + '</p><div class="puzzles">'
       + PUZZLES.filter(p => p.campaign === id).map((p, i) => '<button type="button" class="puzzle' + (prefs.puzzle === p.id ? ' on' : '') + '" data-action="pick" data-puzzle="' + p.id + '"><span class="num">' + (i + 1) + '</span><span>' + esc(p.title) + '</span>' + (done.has(p.id) ? '<span class="done" aria-label="solved">✓</span>' : '') + '</button>').join('') + '</div></section>').join('')
     + '</div><aside class="box stack" aria-label="Play options"><p class="eyebrow">' + esc(CAMPAIGNS[PUZZLE[prefs.puzzle].campaign].title) + '</p><h2 class="pick">' + esc(PUZZLE[prefs.puzzle].title) + '</h2>'
     + '<label class="field">Checking<select id="assist">' + Object.entries(ASSISTS).map(([id, label]) => '<option value="' + id + '"' + (prefs.assist === id ? ' selected' : '') + '>' + esc(label) + '</option>').join('') + '</select></label>'
@@ -58,7 +62,7 @@ function cellClasses(v, i, marks) {
 function dialogue(v) {
   const puzzle = PUZZLE[v.puzzle], lines = puzzle.dialogue, finished = Boolean(v.answer);
   const last = lines.at(-1)[1].startsWith('(') ? lines.length - 1 : -1;
-  return '<section class="box dialogue" aria-label="Scene"><p class="eyebrow">' + esc(CAMPAIGNS[puzzle.campaign].title) + '</p><h2>' + esc(puzzle.title) + '</h2><dl>'
+  return '<section class="box dialogue" aria-label="Scene">' + sceneArt(puzzle.campaign) + '<p class="eyebrow">' + esc(CAMPAIGNS[puzzle.campaign].title) + '</p><h2>' + esc(puzzle.title) + '</h2><dl>'
     + lines.map(([who, line], i) => '<dt>' + esc(who) + '</dt><dd>' + (i === last ? '<i>' + esc(line) + '</i>' : esc(line)) + '</dd>').join('')
     + '<dt>' + esc(puzzle.speaker) + '</dt><dd class="missing">' + (finished ? '<strong>' + esc(v.answer) + '</strong>' : '<span aria-label="Missing line">? ? ?</span>') + '</dd></dl></section>';
 }

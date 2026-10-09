@@ -82,6 +82,10 @@ function cardClass(v, i) {
   if (picked === i) classes.push('picked');
   return classes.join(' ');
 }
+function roleLabel(v, i) {
+  const role = v.revealed[i] || v.key?.[i] || v.myKey?.[i];
+  return ({red: 'Red agent', blue: 'Blue agent', agent: 'Agent', neutral: 'Bystander', assassin: 'Assassin'})[role] || '';
+}
 function marks(v, i) {
   if (v.mode !== 'duo') return '';
   const me = mySeat(), out = [];
@@ -133,7 +137,7 @@ function history(v) {
 function renderGame() {
   const v = view();
   if (picked !== null && !canGuess(v, picked)) picked = null;
-  const board = v.words.map((word, i) => '<button type="button" class="' + cardClass(v, i) + '" data-action="card" data-index="' + i + '"' + (canGuess(v, i) ? '' : ' aria-disabled="true"') + '><span>' + esc(word) + '</span>' + marks(v, i) + '</button>').join('');
+  const board = v.words.map((word, i) => '<button type="button" class="' + cardClass(v, i) + '" data-action="card" data-index="' + i + '"' + (canGuess(v, i) ? '' : ' aria-disabled="true"') + '><span class="word-art" aria-hidden="true"></span><span class="word-label">' + esc(word) + '</span><span class="role-label">' + roleLabel(v, i) + '</span>' + marks(v, i) + '</button>').join('');
   const clue = v.clue ? '<div class="clue-banner"><span class="muted small">Clue</span><strong>' + esc(v.clue.word.toUpperCase()) + '</strong><b>' + v.clue.number + '</b><span class="muted small">' + v.guesses + ' guessed</span></div>' : '';
   app.innerHTML = '<div class="table-head row"><p class="status" role="status">' + statusLine(v) + '</p><span class="spacer"></span>'
     + (mode === 'async' ? '<span class="tag">' + (client.friendHere ? 'With ' + esc(client.names.friend) : esc(client.names.friend) + ' is away') + '</span>' : '')
