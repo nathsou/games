@@ -91,3 +91,21 @@ test('saved games from before room bots keep two human seats',()=>{
   assert.deepEqual(turnSummary(record,'guest').controllers,['host','guest']);assert.equal(turnSummary(record,'guest').creator,'host');
   move(record,record.state.turn===0?'host':'guest',{action:{kind:'flip',lane:0}});
 });
+
+// A person's legal choice from a Thrice view: any hand end or face-down middle card.
+function thriceChoice(view){
+  const options=[];
+  view.counts.forEach((count,seat)=>{const left=seat===view.seat?view.hand.length:count;if(left)options.push({kind:'reveal',from:'hand',seat,end:'low'});if(left>1)options.push({kind:'reveal',from:'hand',seat,end:'high'});});
+  view.middle.forEach((card,index)=>{if(card&&!card.up)options.push({kind:'reveal',from:'middle',index});});
+  return options[(view.revision*7+view.round)%options.length];
+}
+test('Thrice seats both people and room bots, hides hands and plays to a winner',()=>{
+  const record=createTurnGame('thrice',{mode:'simple',bots:2,difficulty:'normal',memoryAid:false,theme:'bakery'},'guest');
+  assert.deepEqual(turnSummary(record,'host').controllers,['host','guest','dealer','dealer']);
+  const view=turnView(record,'host');
+  assert.equal(view.seat,0);assert(!('hands' in view.view));assert.deepEqual(view.view.hand,record.state.hands[0]);
+  assert(!JSON.stringify(turnView(record,'guest').view.middle).includes('value'));
+  playOut(record,thriceChoice);
+  assert(Number.isInteger(record.state.winner));
+  assert.throws(()=>createTurnGame('thrice',{bots:5},'host'),/Thrice/);
+});
