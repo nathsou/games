@@ -91,3 +91,81 @@ test('saved games from before room bots keep two human seats',()=>{
   assert.deepEqual(turnSummary(record,'guest').controllers,['host','guest']);assert.equal(turnSummary(record,'guest').creator,'host');
   move(record,record.state.turn===0?'host':'guest',{action:{kind:'flip',lane:0}});
 });
+
+// A person's legal choice from a Thrice view: any hand end or face-down middle card.
+function thriceChoice(view){
+  const options=[];
+  view.counts.forEach((count,seat)=>{const left=seat===view.seat?view.hand.length:count;if(left)options.push({kind:'reveal',from:'hand',seat,end:'low'});if(left>1)options.push({kind:'reveal',from:'hand',seat,end:'high'});});
+  view.middle.forEach((card,index)=>{if(card&&!card.up)options.push({kind:'reveal',from:'middle',index});});
+  return options[(view.revision*7+view.round)%options.length];
+}
+test('Thrice seats both people and room bots, hides hands and plays to a winner',()=>{
+  const record=createTurnGame('thrice',{mode:'simple',bots:2,difficulty:'normal',memoryAid:false,theme:'bakery'},'guest');
+  assert.deepEqual(turnSummary(record,'host').controllers,['host','guest','dealer','dealer']);
+  const view=turnView(record,'host');
+  assert.equal(view.seat,0);assert(!('hands' in view.view));assert.deepEqual(view.view.hand,record.state.hands[0]);
+  assert(!JSON.stringify(turnView(record,'guest').view.middle).includes('value'));
+  playOut(record,thriceChoice);
+  assert(Number.isInteger(record.state.winner));
+  assert.throws(()=>createTurnGame('thrice',{bots:5},'host'),/Thrice/);
+});
+
+test('Yesteryear races with bots and plays a co-op streak from one shared hand',()=>{
+  const choose=view=>({kind:'place',card:view.hand[0],slot:view.revision%(view.timeline.length+1)});
+  const race=createTurnGame('yesteryear',{mode:'race',decks:'mix',lang:'fr',bots:1,difficulty:'hard'},'host');
+  assert.deepEqual(turnSummary(race,'guest').controllers,['host','guest','dealer']);
+  assert(!('hands' in turnView(race,'guest').view));
+  playOut(race,choose);
+  const streak=createTurnGame('yesteryear',{mode:'streak',decks:'france',lang:'en'},'guest');
+  assert.deepEqual(turnSummary(streak,'host').controllers,['team']);
+  assert.deepEqual(turnView(streak,'host').view.hand,turnView(streak,'guest').view.hand);
+  assert(turnSummary(streak,'host').myTurn&&turnSummary(streak,'guest').myTurn,'Either person can play the shared hand');
+  playOut(streak,choose);
+});
+
+test('Cover Story keeps keys from operatives, runs room bots and lets the creator play AI seats',()=>{
+  const guess=view=>view.phase==='clue'?{kind:'clue',word:'zzzzq',number:1}:{kind:'guess',index:view.revealed.findIndex((r,i)=>r===null&&!(view.mode==='duo'&&view.bystanders[view.giver][i]))};
+  const duo=createTurnGame('cover-story',{mode:'duo',lang:'fr',pack:'all',turns:9},'host');
+  assert.deepEqual(turnSummary(duo,'host').controllers,['host','guest']);
+  assert.deepEqual(turnView(duo,'host').view.myKey,duo.state.keys[0]);
+  assert(!JSON.stringify(turnView(duo,'guest').view).includes('"keys"'));
+  playOut(duo,guess);
+  const together=createTurnGame('cover-story',{mode:'teams',lang:'en',pack:'all',lineup:'together',role:'op',others:'dealer'},'guest');
+  assert.deepEqual(turnSummary(together,'host').controllers,['host','guest','dealer','dealer'],'The guest creator guesses; the host gives clues');
+  assert(turnView(together,'host').view.key);assert(!turnView(together,'guest').view.key);
+  playOut(together,guess);
+  const rivals=createTurnGame('cover-story',{mode:'teams',lang:'en',pack:'all',lineup:'operatives',others:'model'},'host');
+  const ai=turnView(rivals,'host').aiTurn;
+  assert(ai&&ai.view.key,'The creator plays the AI spymaster with its key');
+  assert(!turnView(rivals,'guest').aiTurn);
+  playOut(rivals,guess);
+});
+
+test('Ripples shares one board together and races on two boards',()=>{
+  const together=createTurnGame('ripples',{puzzle:'manor-3',mode:'together',assist:'guided'},'guest');
+  assert.deepEqual(turnSummary(together,'host').controllers,['team']);
+  assert(turnSummary(together,'host').myTurn&&turnSummary(together,'guest').myTurn);
+  assert(!('solution' in turnView(together,'host').view));
+  advanceTurn(together,'host',{revision:together.state.revision,action:{kind:'hint'}});
+  assert.equal(turnView(together,'guest').view.board.hints,1,'Both people see the shared board');
+  advanceTurn(together,'guest',{revision:together.state.revision,action:{kind:'giveup'}});
+  assert(turnSummary(together,'host').finished);
+  const race=createTurnGame('ripples',{puzzle:'gang-2',mode:'race',assist:'classic'},'host');
+  advanceTurn(race,'host',{revision:race.state.revision,action:{kind:'giveup'}});
+  assert(!turnSummary(race,'host').finished&&!turnSummary(race,'host').myTurn&&turnSummary(race,'guest').myTurn);
+  assert(turnView(race,'host').view.solution&&!turnView(race,'guest').view.solution,'Only the finished player sees the path');
+  advanceTurn(race,'guest',{revision:race.state.revision,action:{kind:'giveup'}});
+  assert(turnSummary(race,'guest').finished);
+});
+
+test('a Ripples race accepts each player’s move while the other keeps playing',()=>{
+  const race=createTurnGame('ripples',{puzzle:'kitchen-2',mode:'race',assist:'guided'},'host');
+  const seen=race.state.revision;
+  advanceTurn(race,'host',{revision:seen,action:{kind:'hint'}});
+  assert.equal(advanceTurn(race,'guest',{revision:seen,action:{kind:'hint'}}),'move','The guest’s board did not change, so their move is current');
+  assert.throws(()=>advanceTurn(race,'host',{revision:seen,action:{kind:'hint'}}),/changed/,'A stale move on your own board is still refused');
+  const together=createTurnGame('ripples',{puzzle:'kitchen-2',mode:'together',assist:'guided'},'host');
+  const shared=together.state.revision;
+  advanceTurn(together,'host',{revision:shared,action:{kind:'hint'}});
+  assert.throws(()=>advanceTurn(together,'guest',{revision:shared,action:{kind:'hint'}}),/changed/,'One shared board keeps the strict check');
+});

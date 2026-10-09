@@ -1,0 +1,10 @@
+# Original Cover Story artwork
+
+Generated with the built-in image generation tool on 9 October 2026 from text alone. No Cluance images, other game assets or reference images were used. The six original cells are a closed dossier, red agent, blue agent, green agent, bystander and assassin, in row-major order on a 3 × 2 atlas. The browser shows role portraits only for roles available in the seat's view; hidden roles all use the same closed dossier. Word labels and role names are HTML, and role names accompany colors.
+
+The production WebP is 960 × 640 at quality 92. Original PNGs stay outside Git.
+
+```text
+Create one original production pixel-art atlas for COVER STORY, a browser word-association spy game. ONE LANDSCAPE image, width 1.5 times its height, EXACTLY THREE equal columns and TWO equal rows, six separate square cells in strict row-major order. No gutters, outer margins, lettering, numbers, logos, watermark, labels, or UI. Original 1960s espionage noir aesthetic: chunky crisp pixel clusters, dramatic rim light, subtle dithering, petrol shadows, warm parchment and saturated team colors. Cell 1 top left: a closed cream manila dossier with a brass clasp, two crossed fountain pens and a circular wax seal, on a dark desk; no clues to its contents. Cell 2 top middle: a confident woman agent, short dark hair, red coat, red lit city behind her. Cell 3 top right: a male agent with curly hair, blue coat, blue lit railway station behind him. Cell 4 bottom left: a calm agent with dark skin, round glasses, green jacket and green-lit botanical conservatory behind them. Cell 5 bottom middle: a friendly civilian newspaper seller in a beige cap with a warm neutral ochre cafe behind him; all paper completely blank. Cell 6 bottom right: a sinister hooded silhouette with eyes hidden in shadow, violet rim light and nearly black background. Chest-up portraits, centrally framed, upper two thirds occupied by face and costume; leave lower part simple. Each cell completely separate and readable at 80 pixels. Entirely original characters, no reference images or recognizable commercial characters.
+```
+

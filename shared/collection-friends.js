@@ -1,6 +1,6 @@
 import {friendSession} from './friend-context.js';
+import {ROOM_GAMES as GAMES} from './room-games.js';
 // The collection's "play with a friend" strip mirrors the outer room.
-const GAMES={'flip-it':'Flip It',cluance:'Cluance',midnight:'Midnight Table'};
 export function installCollectionFriends(container){
   const session=friendSession();
   if(!session){container.hidden=true;return;}

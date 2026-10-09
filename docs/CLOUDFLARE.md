@@ -53,7 +53,7 @@ Each open page keeps one WebSocket to its room's `SignalRoom` Durable Object, us
 
 Invitations come from the Play together window: the room is created first, then shared as an eight-character code or link. Codes expire after 24 hours, admit only the unclaimed guest seat and are origin-scoped; lookups are limited to 30 attempts per hour per IP. The expiring code registry uses the existing InviteLimiter namespace. An unclaimed room initially expires after 15 minutes. Claiming a private browser seat extends retention to 90 days after the most recent authenticated visit.
 
-Flip It, Cluance and Midnight Table run on the server (`cloudflare/turn-games.js`), so either browser can be offline. Every move is validated and responses contain only that player's allowed view. Rules bots play in the room; AI players are chosen in the creator's browser. Chat's latest 60 entries are also kept in the room. No new bindings, migrations or secrets are required. See [playing with a friend](FRIEND_SESSIONS.md).
+Flip It, Cluance, Midnight Table, Thrice, Yesteryear, Cover Story and Ripples run on the server (`cloudflare/turn-games.js`), so either browser can be offline. Every move is validated and responses contain only that player's allowed view. Rules bots play in the room; AI players are chosen in the creator's browser. Chat's latest 60 entries are also kept in the room. No new bindings, migrations or secrets are required. See [playing with a friend](FRIEND_SESSIONS.md).
 
 Shared cursors are offered to the friend through the room and then use a direct WebRTC connection, signaled through the same Durable Object, for game state and input. Clearing browser storage loses that seat's private resume credential.
 
