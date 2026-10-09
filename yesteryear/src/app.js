@@ -1,3 +1,4 @@
+import {installCardDrag} from './drag.js';
 import {registerCheckpoint} from '../../shared/game-checkpoint.js';
 import {friendSession, registerFriendGame, inviteFriendGame, joinFriendRoom} from '../../shared/friend-context.js';
 import {esc, loadPrefs, savePrefs, toast, openDialog, playSound, installTopbar, seatNames, playerName} from '../../shared/parlor.js';
@@ -14,14 +15,16 @@ function soloSetup(value = prefs.solo || {}) {
   try { return {...validateSetup({...value, bots: Math.min(4, bots)}), bots}; }
   catch { return {...validateSetup({}), bots}; }
 }
+let presented = null, feedbackTimer = null, pendingViews = [], seenRevision = null;
 let solo = soloSetup(), scene = 'menu', mode = 'solo', game = null, client = null, botTimer = null, selected = null, lastSeen = null;
 
 const setup = () => mode === 'async' ? client.record.setup : solo;
 const lang = () => setup().lang;
 const view = () => mode === 'async' ? client.record.view : game ? playerView(game, 0) : null;
+const tableView = () => presented || view();
 const mySeat = () => mode === 'async' ? client.record.seat : 0;
 const names = () => mode === 'async' ? seatNames(client.record, client) : solo.mode === 'streak' ? [playerName()] : [playerName(), ...Array.from({length: solo.bots}, (_, i) => 'Bot ' + (i + 1))];
-const myTurn = () => { const v = view(); return Boolean(v && v.phase === 'playing' && v.turn === mySeat() && !(mode === 'async' && client.busy)); };
+const myTurn = () => { const v = view(); return Boolean(!feedbackTimer && !pendingViews.length && v && v.phase === 'playing' && v.turn === mySeat() && !(mode === 'async' && client.busy)); };
 const roomSetup = () => { try { return validateSetup({...solo, bots: Math.max(0, Math.min(4, solo.bots - 1))}); } catch { return validateSetup({}); } };
 const title = id => CARDS[id][lang()];
 const years = id => formatYear(CARDS[id].year, lang());
@@ -59,26 +62,30 @@ function renderMenu() {
 
 // Table -------------------------------------------------------------------------------
 function statusLine(v, list) {
+  if (feedbackTimer && v.last) return v.last.correct ? 'A place in history! ' + years(v.last.card) + '.' : 'Not quite — ' + years(v.last.card) + '. See where it belongs.';
   if (v.phase === 'over') {
     if (v.mode === 'streak') return 'Streak over: ' + score({timeline: v.timeline}) + ' cards placed.';
     return v.winners.includes(mySeat()) ? (v.winners.length > 1 ? 'A shared win!' : 'You win!') : v.winners.map(i => esc(list[i])).join(' & ') + ' wins.';
   }
   if (mode === 'async' && client.busy) return 'Placing…';
   const tail = v.ending ? ' Last round!' : v.out.length ? ' Tie-break!' : '';
-  if (v.turn === mySeat()) return (selected ? 'Now choose a gap in the timeline.' : 'Your turn. Pick a card from your hand.') + tail;
+  if (v.turn === mySeat()) return (selected ? 'Drop into a gap, or tap + to place.' : 'Your turn. Drag a card, or select one and tap a gap.') + tail;
   return esc(list[v.turn]) + ' is thinking…' + tail;
 }
 function lastLine(v, list) {
   if (!v.last) return '';
   const who = v.mode === 'streak' ? (mode === 'async' ? 'Your team' : 'You') : v.last.seat === mySeat() ? 'You' : list[v.last.seat];
-  return '<div class="last ' + (v.last.correct ? 'good' : 'bad') + '" role="status"><strong>' + esc(who) + '</strong> placed “' + esc(title(v.last.card)) + '”: ' + (v.last.correct ? 'right, ' : 'wrong, it was ') + '<strong>' + years(v.last.card) + '</strong>.</div>';
+  const at = v.last.at, before = v.timeline[at + (v.last.correct ? 1 : 0)], after = v.timeline[at - 1];
+  const position = after && before ? 'Between ' + years(after) + ' and ' + years(before) : after ? 'After ' + years(after) : before ? 'Before ' + years(before) : 'The start of the timeline';
+  return '<div class="last ' + (v.last.correct ? 'good' : 'bad') + (feedbackTimer ? ' resolving' : '') + '" role="status"><span class="result-mark" aria-hidden="true">' + (v.last.correct ? '✓' : '↔') + '</span><div><strong>' + esc(who) + (v.last.correct ? ' placed it correctly' : ' missed this one') + '</strong><p>“' + esc(title(v.last.card)) + '” · <strong>' + years(v.last.card) + '</strong><span class="placement-note">' + position + '</span></p></div></div>';
 }
 function renderGame() {
-  const v = view(), list = names(), turn = myTurn();
+  const v = tableView(), list = names(), turn = myTurn();
   if (selected && !v.hand.includes(selected)) selected = null;
-  const slot = i => '<button type="button" class="slot" data-action="slot" data-slot="' + i + '"' + (turn && selected ? '' : ' disabled') + ' aria-label="Place ' + (selected ? esc(title(selected)) + ' ' : '') + (i === 0 ? 'before ' + esc(title(v.timeline[0])) : 'after ' + esc(title(v.timeline[i - 1]))) + '"><span>+</span></button>';
-  const flash = v.last?.correct ? v.last.card : null;
-  const timeline = slot(0) + v.timeline.map((id, i) => card(id, {open: true, extra: id === flash ? 'fresh' : ''}) + slot(i + 1)).join('');
+  const slot = i => '<button type="button" class="slot" data-action="slot" data-slot="' + i + '"' + (turn && selected ? '' : ' disabled') + ' aria-label="Place ' + (selected ? esc(title(selected)) + ' ' : '') + (!v.timeline.length ? 'at the start' : i === 0 ? 'before ' + esc(title(v.timeline[0])) : i === v.timeline.length ? 'after ' + esc(title(v.timeline[i - 1])) : 'between ' + esc(title(v.timeline[i - 1])) + ' and ' + esc(title(v.timeline[i]))) + '"><span>+</span></button>'
+    + (feedbackTimer && v.last && !v.last.correct && v.last.slot === i ? card(v.last.card, {open:true, extra:'misplaced fresh'}) : '');
+  const flash = feedbackTimer && v.last?.correct ? v.last.card : null;
+  const timeline = slot(0) + v.timeline.map((id, i) => card(id, {open: true, extra: id === flash ? 'fresh' : '', attrs:'data-timeline-card="' + id + '"'}) + slot(i + 1)).join('');
   const players = v.mode === 'streak'
     ? '<span class="tag">Lives ' + '♥'.repeat(v.lives) + '♡'.repeat(LIVES - v.lives) + '</span><span class="tag">Score ' + score({timeline: v.timeline}) + '</span>'
     : list.map((name, i) => '<span class="tag' + (i === v.turn && v.phase === 'playing' ? ' on' : '') + (v.out.includes(i) ? ' out' : '') + '">' + esc(name) + ' · ' + v.counts[i] + '</span>').join('');
@@ -86,10 +93,10 @@ function renderGame() {
   app.innerHTML = '<div class="table-head row"><p class="status" role="status">' + statusLine(v, list) + '</p><span class="spacer"></span><span class="tag">' + v.deck + ' in the deck</span><button class="btn ghost small" data-action="rules">Rules</button><button class="btn ghost small" data-action="menu">Menu</button></div>'
     + '<div class="row players">' + players + (mode === 'async' ? '<span class="tag">' + (client.friendHere ? 'With ' + esc(client.names.friend) : esc(client.names.friend) + ' is away') + '</span>' : '') + '</div>'
     + lastLine(v, list)
-    + '<section class="timeline box" aria-label="Timeline, earliest first"><p class="eyebrow">Timeline · earliest first</p><div class="tl">' + timeline + '</div></section>'
-    + '<section class="hand box" aria-label="Your hand"><p class="eyebrow">' + (v.mode === 'streak' && mode === 'async' ? 'Your shared hand' : 'Your hand') + '</p><div class="cards">' + (hand || '<span class="muted">No cards left.</span>') + '</div></section>'
+    + '<section class="timeline box" aria-label="Timeline, earliest first"><div class="timeline-heading row"><p class="eyebrow">Earlier → Later</p><span class="muted small">Scroll to explore</span></div><div class="tl" tabindex="0" aria-label="Scrollable timeline, earliest to latest">' + timeline + '</div></section>'
+    + '<section class="hand box" aria-label="Your hand"><p class="eyebrow">' + (v.mode === 'streak' && mode === 'async' ? 'Your shared hand' : 'Your hand') + '</p><p class="muted small hand-help" id="hand-help">Drag to the timeline, or select a card and choose a + gap. Escape cancels a drag.</p><div class="cards">' + (hand || '<span class="muted">No cards left.</span>') + '</div></section>'
     + (v.discards.length ? '<details class="box discards"><summary>Discarded · ' + v.discards.length + '</summary><div class="cards">' + v.discards.map(id => card(id, {open: true, extra: 'small'})).join('') + '</div></details>' : '');
-  if (v.phase === 'over') showResult(v, list);
+  if (v.phase === 'over' && !feedbackTimer) showResult(v, list);
 }
 function showResult(v, list) {
   if (document.querySelector('#parlor-dialog')?.open) return;
@@ -103,8 +110,11 @@ function showResult(v, list) {
     + '<div class="row" style="margin-top:14px"><button class="btn" data-action="again" data-close>' + (mode === 'async' ? 'Rematch' : 'Play again') + '</button><button class="btn ghost" data-action="menu" data-close>Menu</button></div>', 'Yesteryear');
 }
 function render() {
+  const scroll = app.querySelector('.tl')?.scrollLeft || 0, handScroll = app.querySelector('.hand .cards')?.scrollLeft || 0;
   const focus = document.activeElement?.dataset?.action ? {...document.activeElement.dataset} : null;
   if (scene === 'menu' || !view()) renderMenu(); else renderGame();
+  const rail = app.querySelector('.tl'); if (rail) rail.scrollLeft = scroll;
+  const handRail = app.querySelector('.hand .cards'); if (handRail) handRail.scrollLeft = handScroll;
   if (focus) {
     const match = [...app.querySelectorAll('[data-action="' + focus.action + '"]')].find(el => el.dataset.card === focus.card && el.dataset.slot === focus.slot && el.dataset.deck === focus.deck);
     if (match && !match.disabled) match.focus({preventScroll: true});
@@ -118,27 +128,46 @@ function announce(v) {
   lastSeen = key;
   playSound(v.phase === 'over' ? 'win' : v.last?.correct ? 'good' : 'bad');
 }
+function resetFeedback() {
+  clearTimeout(feedbackTimer); feedbackTimer = null; presented = null; pendingViews = []; seenRevision = null; cancelDrag();
+}
+function present(next) {
+  if (next.revision === seenRevision) { if (!feedbackTimer) render(); return; }
+  const initial = seenRevision === null; seenRevision = next.revision;
+  if (initial) { presented = next; render(); return; }
+  pendingViews.push(next); if (!feedbackTimer) advanceFeedback();
+}
+function advanceFeedback() {
+  const next = pendingViews.shift();
+  if (!next) return;
+  cancelDrag(); presented = next; selected = null;
+  feedbackTimer = setTimeout(() => {
+    feedbackTimer = null;
+    if (pendingViews.length) advanceFeedback(); else { render(); scheduleBots(); }
+  }, 1800);
+  announce(next); render();
+  app.querySelector('.tl .fresh')?.scrollIntoView({block:'nearest', inline:'center', behavior:matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'});
+}
 function startSolo() {
-  clearTimeout(botTimer); mode = 'solo'; client = null; selected = null; lastSeen = null;
+  resetFeedback(); clearTimeout(botTimer); mode = 'solo'; client = null; selected = null; lastSeen = null;
   game = createGame({seats: solo.mode === 'streak' ? 1 : solo.bots + 1, mode: solo.mode, decks: solo.decks}, crypto.getRandomValues(new Uint32Array(1))[0]);
-  scene = 'game'; render(); scheduleBots();
+  scene = 'game'; present(view()); scheduleBots();
 }
 function scheduleBots() {
   clearTimeout(botTimer);
-  if (mode !== 'solo' || !game || game.phase !== 'playing' || game.turn === 0) return;
+  if (scene !== 'game' || document.hidden || document.querySelector('#parlor-dialog')?.open || feedbackTimer || mode !== 'solo' || !game || game.phase !== 'playing' || game.turn === 0) return;
   botTimer = setTimeout(() => {
     if (mode !== 'solo' || !game || game.turn === 0 || game.phase !== 'playing') return;
     game = applyAction(game, game.turn, botAction(game, game.turn, {difficulty: solo.difficulty}));
-    announce(view()); render(); scheduleBots();
+    present(view());
   }, 1500);
 }
 async function place(slot) {
   if (!myTurn() || !selected) return;
   const action = {kind: 'place', card: selected, slot};
-  selected = null;
-  if (mode === 'async') { try { await client.move(action); } catch (error) { toast(error.message); render(); } return; }
+  if (mode === 'async') { try { await client.move(action); } catch (error) { selected = view().hand.includes(action.card) ? action.card : null; toast(error.message); render(); } return; }
   game = applyAction(game, 0, action);
-  announce(view()); render(); scheduleBots();
+  present(view());
 }
 function showRules() {
   openDialog('How to play Yesteryear', '<ol><li>The timeline starts with one card, year showing. Your hand’s years are hidden.</li>'
@@ -157,13 +186,19 @@ document.addEventListener('click', event => {
   else if (action === 'deck') { solo = soloSetup({...solo, decks: target.dataset.deck}); prefs.solo = solo; savePrefs(KEY, prefs); render(); }
   else if (action === 'start') startSolo();
   else if (action === 'resume') { scene = 'game'; render(); scheduleBots(); }
-  else if (action === 'menu') { clearTimeout(botTimer); if (mode === 'async') { mode = 'solo'; client = null; game = null; friendSession()?.leaveRoomGame?.(); } scene = 'menu'; render(); }
+  else if (action === 'menu') { resetFeedback(); clearTimeout(botTimer); if (mode === 'async') { mode = 'solo'; client = null; game = null; friendSession()?.leaveRoomGame?.(); } scene = 'menu'; render(); }
   else if (action === 'again') { if (mode === 'async') friendSession()?.openGameSetup('yesteryear', client.record.setup); else startSolo(); }
   else if (action === 'rules') showRules();
   else if (action === 'host') inviteFriendGame('yesteryear', roomSetup());
   else if (action === 'join') joinFriendRoom('yesteryear');
 });
 
+const cancelDrag = installCardDrag(app, {
+  canDrag: id => scene === 'game' && myTurn() && view().hand.includes(id),
+  select: id => { selected = id; render(); }, drop: place,
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden) cancelDrag(); scheduleBots(); });
+document.addEventListener('close', scheduleBots, true);
 installTopbar(KEY);
 registerCheckpoint('yesteryear', {
   capture: () => mode === 'solo' && game ? {setup: solo, state: game} : null,
@@ -171,14 +206,14 @@ registerCheckpoint('yesteryear', {
     if (!data?.state) throw new Error('Invalid saved table.');
     const setup = soloSetup(data.setup);
     validateView(playerView(data.state, 0));
-    solo = setup; game = data.state; mode = 'solo'; scene = 'game'; render(); scheduleBots();
+    resetFeedback(); solo = setup; game = data.state; mode = 'solo'; scene = 'game'; present(view()); scheduleBots();
   },
 });
 registerFriendGame('yesteryear', {
   setup: roomSetup,
   startAsync(next) {
-    clearTimeout(botTimer); client = next; mode = 'async'; scene = 'game'; selected = null; lastSeen = null;
-    const unsubscribe = next.subscribe(record => { if (mode !== 'async' || client !== next) return; announce(record.view); render(); });
+    resetFeedback(); clearTimeout(botTimer); client = next; mode = 'async'; scene = 'game'; selected = null; lastSeen = null;
+    const unsubscribe = next.subscribe(record => { if (mode !== 'async' || client !== next) return; present(record.view); });
     window.addEventListener('pagehide', unsubscribe, {once: true});
   },
 });
