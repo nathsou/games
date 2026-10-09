@@ -14,15 +14,17 @@ hr{border:0;border-top:1px solid var(--line);width:100%}
 @media (max-width:900px){.play{grid-template-columns:1fr}}
 .board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
 .word{position:relative;display:flex;flex-direction:column;justify-content:flex-end;min-height:132px;padding:3px;border-radius:5px;border:2px solid #c9b98f;background:#efe7d6;color:#2b2333;font:700 clamp(11px,1.6vw,17px)/1.1 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.02em;cursor:pointer;box-shadow:0 3px 0 #0003;overflow-wrap:anywhere;text-align:center;overflow:hidden;--portrait-x:0%;--portrait-y:0%}
-.word-art{display:block;width:100%;flex:1;min-height:80px;background:url(assets/roles.webp) var(--portrait-x) var(--portrait-y)/300% 200% no-repeat;image-rendering:pixelated}
+.word-art{display:block;width:100%;flex:none;aspect-ratio:4/3;background:url(assets/roles.webp) var(--portrait-x) var(--portrait-y)/300% auto no-repeat;image-rendering:pixelated}
 .word-label{position:relative;display:grid;place-items:center;width:100%;min-height:32px;padding:5px 1px;background:#efe7d6;color:#203331;flex:none}
 .role-label{position:absolute;top:5px;left:5px;right:5px;padding:3px 2px;background:#102b2be8;color:#fff1d2;font:700 9px/1.2 ui-monospace,monospace;letter-spacing:.04em;border-radius:2px;text-transform:uppercase}
 .role-label:empty{display:none}
 .word.key-red,.word.shown.red{--portrait-x:50%;--portrait-y:0%}
 .word.key-blue,.word.shown.blue{--portrait-x:100%;--portrait-y:0%}
-.word.key-agent,.word.shown.agent{--portrait-x:0%;--portrait-y:100%}
-.word.key-neutral,.word.shown.neutral{--portrait-x:50%;--portrait-y:100%}
-.word.key-assassin,.word.shown.assassin{--portrait-x:100%;--portrait-y:100%}
+/* Crop the top three quarters of each square tile without stretching it.
+   The second row starts at 80% of the image's available vertical travel. */
+.word.key-agent,.word.shown.agent{--portrait-x:0%;--portrait-y:80%}
+.word.key-neutral,.word.shown.neutral{--portrait-x:50%;--portrait-y:80%}
+.word.key-assassin,.word.shown.assassin{--portrait-x:100%;--portrait-y:80%}
 .word.key-red .role-label,.word.shown.red .role-label{background:#98242b}
 .word.key-blue .role-label,.word.shown.blue .role-label{background:#184b91}
 .word.key-agent .role-label,.word.shown.agent .role-label{background:#146040}
@@ -70,4 +72,4 @@ hr{border:0;border-top:1px solid var(--line);width:100%}
 .log strong.red{color:var(--red)}.log strong.blue{color:var(--blue)}
 .g{display:inline-block;padding:0 6px;border-radius:6px;margin:1px;font-size:13px;background:var(--bg-2)}
 .g.red{background:var(--red);color:#fff}.g.blue{background:var(--blue);color:#fff}.g.agent{background:var(--agent);color:#fff}.g.assassin{background:#000;color:#fff}.g.neutral{background:var(--neutral);color:#3b3324}
-@media (max-width:520px){.board{gap:4px}.word{min-height:92px;border-radius:4px;font-size:10px;padding:2px;letter-spacing:0}.word-art{min-height:52px}.word-label{min-height:30px}.role-label{top:3px;left:3px;right:3px;font-size:7px;padding:2px 0;letter-spacing:0}.word.long{font-size:8.5px}.word.longer{font-size:7.5px}.word.mini{min-height:0;padding:6px 8px}}
+@media (max-width:520px){.board{gap:4px}.word{min-height:0;border-radius:4px;font-size:10px;padding:2px;letter-spacing:0}.word-label{min-height:30px}.role-label{top:3px;left:3px;right:3px;font-size:7px;padding:2px 0;letter-spacing:0}.word.long{font-size:8.5px}.word.longer{font-size:7.5px}.word.mini{min-height:0;padding:6px 8px}}
