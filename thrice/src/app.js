@@ -3,7 +3,7 @@ import {friendSession, registerFriendGame, inviteFriendGame, joinFriendRoom} fro
 import {esc, loadPrefs, savePrefs, toast, openDialog, playSound, installTopbar, seatNames, playerName} from '../../shared/parlor.js';
 import {createGame, applyAction, playerView, validateView, MODES, DEAL, linked} from './rules.js';
 import {botAction, DIFFICULTIES} from './bot.js';
-import {THEMES, icon} from './themes.js';
+import {THEMES, artwork} from './themes.js';
 import {validateSetup} from './room-setup.js';
 
 const KEY = 'thrice.preferences', app = document.querySelector('#app');
@@ -25,9 +25,9 @@ const roomSetup = () => { try { return validateSetup({...solo, bots: Math.max(0,
 // Cards -------------------------------------------------------------------------
 function partners(value) { return [7 - value, value + 7, value - 7].filter(n => n >= 1 && n <= 12 && n !== value && linked(n, value)); }
 function card(value, {small = false, extra = ''} = {}) {
-  const theme = setup().theme, art = icon(theme, value), spicy = setup().mode === 'spicy';
-  return '<span class="card face' + (small ? ' small' : '') + (value === 7 ? ' seven' : '') + (art ? '' : ' plain') + ' ' + extra + '" style="--theme:' + THEMES[theme].accent + '" aria-label="' + value + '">'
-    + '<b class="corner">' + value + '</b>' + (art ? '<span class="art" aria-hidden="true">' + art + '</span>' : '<span class="art big" aria-hidden="true">' + value + '</span>')
+  const theme = setup().theme, spicy = setup().mode === 'spicy';
+  return '<span class="card face' + (small ? ' small' : '') + (value === 7 ? ' seven' : '') + ' ' + extra + '" style="--theme:' + THEMES[theme].accent + '" aria-label="' + value + '">'
+    + '<span class="art" style="' + artwork(theme, value) + '" aria-hidden="true"></span><b class="corner">' + value + '</b><b class="rank" aria-hidden="true">' + value + '</b>'
     + (spicy && !small && value !== 7 ? '<span class="links" aria-hidden="true">' + partners(value).map(n => '<i>' + n + '</i>').join('') + '</span>' : '') + '</span>';
 }
 const back = (label = '', action = '', attrs = '') => action

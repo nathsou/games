@@ -1,6 +1,6 @@
 # Thrice
 
-A memory card game for two to six players, inspired by *Trio* (originally *Nana*). Vanilla HTML, CSS and ES modules; no packages, images or build step.
+A memory card game for two to six players, inspired by *Trio* (originally *Nana*). Vanilla HTML, CSS and ES modules; no packages or build step.
 
 ## Play
 
@@ -11,7 +11,7 @@ The 36 cards are numbered 1–12, three of each. Every hand is kept sorted; the 
 
 Two seats is a house duel variant with ten cards each. Hands are 9, 7, 6 and 5 cards at three to six seats.
 
-**Card themes** change only the art: Classic numerals, Bakery, Deep Sea, Night Sky, Garden Bugs and Robots. Icons are system emoji, so the game ships no image files. The optional **memory aid** lists every card revealed so far.
+**Card themes** change only the art: Classic, Bakery, Deep Sea, Night Sky, Garden Bugs and Robots. Each has twelve original pixel illustrations, delivered as a compact WebP atlas. Numbers and Spicy links stay accessible HTML; face-down cards share one pattern per theme. See [artwork prompts](assets/PROMPTS.md). The optional **memory aid** lists every card revealed so far.
 
 ## Bots
 

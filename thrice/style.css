@@ -1,20 +1,23 @@
-:root{--accent:#f2b84b;--accent-2:#62c4b6;--card-w:58px}
+:root{--accent:#f2b84b;--accent-2:#62c4b6;--card-w:68px}
 h1 em{font-style:normal;color:var(--accent)}
 hr{border:0;border-top:1px solid var(--line);width:100%}
 .preview{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
 .card{position:relative;display:inline-grid;place-items:center;width:var(--card-w);aspect-ratio:2/3;border-radius:10px;flex:none;user-select:none}
-.card.face{background:linear-gradient(160deg,#fffdf6,#f1e9d6);color:#231d2e;border:2px solid var(--theme,var(--accent));box-shadow:0 3px 0 #0003}
-.card.face .corner{position:absolute;top:3px;left:6px;font-size:15px;font-weight:800}
-.card.face .art{font-size:calc(var(--card-w) * .48);line-height:1}
-.card.face .art.big{font-size:calc(var(--card-w) * .5);font-weight:900;color:#2d3a6b}
-.card.face .links{position:absolute;bottom:3px;right:4px;display:flex;gap:2px}
-.card.face .links i{font-style:normal;font-size:9px;font-weight:800;background:#231d2e;color:#fff;border-radius:6px;padding:0 3px}
-.card.seven{background:linear-gradient(160deg,#fff6d4,#f7d77c);border-color:#d79b1e;box-shadow:0 0 0 2px #f2b84b55,0 3px 0 #0003}
-.card.small{--card-w:34px;border-radius:7px}
-.card.small .corner{font-size:11px;top:1px;left:3px}
+.card.face{overflow:hidden;background:#eddfbd;color:#203331;border:2px solid #eddfbd;box-shadow:0 3px 0 #0005,0 5px 12px #0003;border-radius:5px}
+.card.face .corner{position:absolute;top:3px;left:3px;min-width:20px;padding:0 3px;background:#eddfbd;color:#203331;border-radius:2px;font:800 16px/1.25 monospace;text-align:center;box-shadow:0 1px 3px #0005}
+.card.face .art{position:absolute;inset:0 0 20%;background-size:400% 300%;background-repeat:no-repeat;image-rendering:pixelated}
+.card.face .rank{position:absolute;bottom:1px;left:6px;font:800 15px/1.25 monospace}
+.card.face .links{position:absolute;bottom:3px;right:3px;display:flex;gap:2px}
+.card.face .links i{font-style:normal;font-size:9px;font-weight:800;background:#203331;color:#eddfbd;border-radius:2px;padding:0 3px}
+.card.seven{background:#f4d892;border-color:#e7b955;box-shadow:0 0 0 2px #f2b84b55,0 3px 0 #0003}
+.card.small{--card-w:38px;border-radius:4px}
+.card.small .corner{font-size:11px;top:1px;left:1px;min-width:14px;padding:0 2px}
+.card.small .art{bottom:0}
+.card.small .rank{display:none}
 .card.revealed{animation:flip .35s ease}
 @keyframes flip{from{transform:rotateY(90deg)}to{transform:none}}
-.card.back{border:2px solid #ffffff30;background:repeating-linear-gradient(45deg,#ffffff14 0 6px,transparent 6px 12px),var(--back,#2d3a6b);padding:0;box-shadow:0 3px 0 #0004}
+.card.back{border:2px solid #cdbb91;background:repeating-linear-gradient(45deg,#eddfbd18 0 2px,transparent 2px 8px),var(--back,#2d3a6b);padding:0;box-shadow:inset 0 0 0 3px var(--back,#2d3a6b),inset 0 0 0 4px #cdbb9180,0 3px 0 #0004;border-radius:5px}
+.card.back::before{content:'✦';color:#eddfbd;position:absolute;inset:0;display:grid;place-items:center;font-size:calc(var(--card-w) * .55);text-shadow:0 2px #0005}
 button.card.back{cursor:pointer}
 button.card.back:not(:disabled):hover{transform:translateY(-4px);border-color:var(--accent)}
 button.card.back:disabled{cursor:default}
@@ -47,4 +50,4 @@ button.card.back[data-end]::after{content:attr(data-end);position:absolute;botto
 .reveal figcaption,.last figcaption{font-size:11px;color:var(--dim);max-width:90px;text-align:center}
 .history{margin-top:12px}
 .history ol{max-height:220px;overflow:auto;font-size:14px}
-@media (max-width:480px){:root{--card-w:46px}}
+@media (max-width:480px){:root{--card-w:52px}.card.face .rank{font-size:12px;left:3px}.card.face .links{right:1px;bottom:1px;gap:1px}.card.face .links i{font-size:8px;padding:0 2px}}
