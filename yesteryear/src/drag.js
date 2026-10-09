@@ -50,7 +50,7 @@ export function installCardDrag(root, {canDrag, select, drop}) {
   root.addEventListener('pointercancel', cleanup);
   root.addEventListener('lostpointercapture', () => { if (drag) cleanup(); });
   root.addEventListener('dragstart', event => { if (event.target.closest('[data-action="pick"]')) event.preventDefault(); });
-  root.addEventListener('click', event => { if (performance.now() < suppressUntil) {event.preventDefault(); event.stopImmediatePropagation();} }, true);
+  root.addEventListener('click', event => { if (event.detail !== 0 && performance.now() < suppressUntil) {event.preventDefault(); event.stopImmediatePropagation();} }, true);
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && drag) {suppressUntil = performance.now() + 400; cleanup();} });
   return cleanup;
 }

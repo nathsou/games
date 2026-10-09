@@ -14,6 +14,7 @@ function soloSetup(value = prefs.solo || {}) {
   catch { return {...validateSetup({}), bots}; }
 }
 let presentation = null, presentationTimer = null, pendingViews = [], seenRevision = null;
+let activeSetup = null;
 let solo = soloSetup(), scene = 'menu', mode = 'solo', game = null, client = null, botTimer = null, lastSeen = null;
 
 const setup = () => mode === 'async' ? client.record.setup : solo;
@@ -164,6 +165,7 @@ function advancePresentation() {
   announce(next); render();
 }
 function startSolo() {
+  activeSetup = {...solo};
   resetPresentation(); clearTimeout(botTimer); mode = 'solo'; client = null; lastSeen = null;
   game = createGame({seats: solo.bots + 1, mode: solo.mode}, crypto.getRandomValues(new Uint32Array(1))[0]);
   scene = 'game'; present(view()); scheduleBots();
@@ -184,6 +186,7 @@ async function act(action) {
   present(view());
 }
 function showRules() {
+  clearTimeout(botTimer);
   openDialog('How to play Thrice', '<ol><li>The 36 cards are numbered 1–12, three of each. Every hand is sorted from lowest to highest; the rest lie face down in the middle.</li>'
     + '<li>On your turn, reveal cards one at a time. Ask any player, yourself included, for their <strong>lowest</strong> or <strong>highest</strong> card, or flip a <strong>middle</strong> card.</li>'
     + '<li>As long as the cards match, keep going. Revealed hand cards wait in front of their owner, so asking the same end again shows the next card.</li>'
@@ -198,7 +201,7 @@ document.addEventListener('click', event => {
   if (action === 'hand') act({kind: 'reveal', from: 'hand', seat: Number(target.dataset.seat), end: target.dataset.end});
   else if (action === 'middle') act({kind: 'reveal', from: 'middle', index: Number(target.dataset.index)});
   else if (action === 'start') startSolo();
-  else if (action === 'resume') { scene = 'game'; render(); scheduleBots(); }
+  else if (action === 'resume') { solo = activeSetup || solo; scene = 'game'; present(view()); scheduleBots(); }
   else if (action === 'menu') { resetPresentation(); clearTimeout(botTimer); if (mode === 'async') { mode = 'solo'; client = null; game = null; friendSession()?.leaveRoomGame?.(); } scene = 'menu'; render(); }
   else if (action === 'again') { if (mode === 'async') friendSession()?.openGameSetup('thrice', client.record.setup); else startSolo(); }
   else if (action === 'rules') showRules();
@@ -210,13 +213,13 @@ document.addEventListener('visibilitychange', scheduleBots);
 document.addEventListener('close', scheduleBots, true);
 installTopbar(KEY);
 registerCheckpoint('thrice', {
-  capture: () => mode === 'solo' && game ? {setup: solo, state: game} : null,
+  capture: () => mode === 'solo' && game ? {setup: activeSetup || solo, state: game} : null,
   restore(data) {
     if (!data?.state) throw new Error('Invalid saved table.');
     const setup = soloSetup(data.setup);
     if (data.state.seats !== setup.bots + 1 || !Object.hasOwn(DEAL, data.state.seats)) throw new Error('Invalid saved table.');
     validateView(playerView(data.state, 0));
-    resetPresentation(); solo = setup; game = data.state; mode = 'solo'; scene = 'game'; present(view()); scheduleBots();
+    resetPresentation(); activeSetup = {...setup}; solo = setup; game = data.state; mode = 'solo'; scene = 'game'; present(view()); scheduleBots();
   },
 });
 registerFriendGame('thrice', {

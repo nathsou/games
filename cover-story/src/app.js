@@ -17,6 +17,7 @@ function soloSetup(value = prefs.solo || {}) {
   if (!['dealer', 'model'].includes(base.opponents) || !['dealer', 'model'].includes(base.partner)) return soloSetup({});
   return {playWith: base.playWith === 'practice' ? 'practice' : 'human', mode: base.mode, lang: base.lang, pack: base.pack, turns: Number(base.turns), role: base.role, partner: base.partner, opponents: base.opponents};
 }
+let activeSetup = null;
 let solo = soloSetup(), scene = 'menu', mode = 'solo', game = null, client = null, picked = null, timer = null, lastSeen = null;
 let localSeat = 0, handoff = false;
 const localHumans = () => mode === 'solo' && (solo.mode === 'duel' || solo.mode === 'duo' && solo.playWith === 'human');
@@ -53,7 +54,7 @@ function renderMenu() {
   const sample = WORDS[solo.lang][solo.pack].slice(0, 10).map(word => '<span class="word mini">' + esc(word) + '</span>').join('');
   const usesAI = !localHumans() && (solo.partner === 'model' || solo.mode === 'teams' && solo.opponents === 'model');
   app.innerHTML = '<section class="menu"><div><p class="eyebrow">Word association · co-op or teams · English & French</p><h1>Keep your <em>cover.</em></h1>'
-    + '<p class="lede">Twenty-five words. A spymaster knows which ones are friendly agents and gives a single-word clue with a number. Their partner guesses. Hit the assassin and it’s over.</p>'
+    + '<p class="lede">' + (solo.mode === 'duel' ? 'Two people. Twenty-five words. One printed clue at a time. Take turns finding its matches, earn points and outscore your opponent.' : 'Twenty-five words. A spymaster knows which ones are friendly agents and gives a single-word clue with a number. Their partner guesses. Hit the assassin and it’s over.') + '</p>'
     + '<div class="mode-cards"><button type="button" class="box mode' + (solo.mode === 'duo' ? ' on' : '') + '" data-action="mode" data-mode="duo"><strong>Duo</strong><span>Co-op. Each partner holds half of the key and gives clues for the other. Find 15 agents before time runs out.</span></button>'
     + '<button type="button" class="box mode' + (solo.mode === 'duel' ? ' on' : '') + '" data-action="mode" data-mode="duel"><strong>Duel</strong><span>Two people, head to head. Take turns claiming words that match printed clues. No bots or AI.</span></button>'
     + '<button type="button" class="box mode' + (solo.mode === 'teams' ? ' on' : '') + '" data-action="mode" data-mode="teams"><strong>Teams</strong><span>Red against Blue. One spymaster and one operative per team; first to find all their agents wins.</span></button></div>'
@@ -80,7 +81,7 @@ function renderMenu() {
 // Board ------------------------------------------------------------------------------
 function cardClass(v, i) {
   const classes = ['word'], length = v.words[i].length;
-  if (length >= 11) classes.push('longer'); else if (length >= 9) classes.push('long');
+  if (length >= 10) classes.push('longer'); else if (length >= 7) classes.push('long');
   const shown = v.revealed[i];
   if (shown) classes.push('shown', shown);
   else if (v.key) classes.push('key-' + v.key[i]);
@@ -112,6 +113,7 @@ function statusLine(v) {
   }
   if (mode === 'async' && client.busy) return 'Sending…';
   if (aiBusy) return seatLabel(v.acting) + ' is thinking…';
+  if (myTurn() && localHumans() && v.mode === 'duel') return seatLabel(v.acting) + ': guess ' + esc(v.clue.word.toUpperCase()) + ' · ' + v.duelLeft + ' left.';
   if (myTurn()) return v.phase === 'clue' ? 'Your clue.' : 'Your guess: ' + esc(v.clue.word.toUpperCase()) + ' · ' + v.clue.number + '.';
   return seatLabel(v.acting) + (v.phase === 'clue' ? ' is choosing a clue…' : ' is guessing…');
 }
@@ -154,12 +156,14 @@ function renderGame() {
   }
   if (picked !== null && !canGuess(v, picked)) picked = null;
   const board = v.words.map((word, i) => '<button type="button" class="' + cardClass(v, i) + '" data-action="card" data-index="' + i + '"' + (canGuess(v, i) ? '' : ' aria-disabled="true"') + '><span class="word-art" aria-hidden="true"></span><span class="word-label">' + esc(word) + '</span><span class="role-label">' + roleLabel(v, i) + '</span>' + marks(v, i) + '</button>').join('');
+  const lastGuess = v.mode === 'duel' ? v.log.flatMap(entry => entry.guesses).at(-1) : null;
+  const outcome = lastGuess ? '<p class="duel-outcome" role="status">' + esc(seatLabel(lastGuess.seat)) + ': ' + esc(v.words[lastGuess.index].toUpperCase()) + (lastGuess.correct ? ' matched (+1)' : ' missed (−1)') + '</p>' : '';
   const clue = v.clue ? '<div class="clue-banner"><span class="muted small">Clue</span><strong>' + esc(v.clue.word.toUpperCase()) + '</strong><b>' + v.clue.number + '</b><span class="muted small">' + v.guesses + ' guessed</span></div>' : '';
   app.innerHTML = '<div class="table-head row"><p class="status" role="status">' + statusLine(v) + '</p><span class="spacer"></span>'
     + (mode === 'async' ? '<span class="tag">' + (client.friendHere ? 'With ' + esc(client.names.friend) : esc(client.names.friend) + ' is away') + '</span>' : '')
     + '<span class="tag">' + LANGS[v.lang] + ' · ' + esc(PACKS[v.pack][v.lang]) + '</span><button class="btn ghost small" data-action="rules">Rules</button><button class="btn ghost small" data-action="menu">Menu</button></div>'
     + '<div class="play"><section class="board' + (v.key || v.myKey ? ' spy' : '') + '" aria-label="Board">' + board + '</section>'
-    + '<aside class="box side stack">' + scoreboard(v) + clue + controls(v) + '</aside></div>' + history(v);
+    + '<aside class="box side stack">' + scoreboard(v) + clue + outcome + controls(v) + '</aside></div>' + history(v);
   const input = app.querySelector('#clue-word');
   if (input) {
     input.oninput = () => { draft.word = input.value.trim(); const problem = draft.word ? clueProblem(v, draft.word) : null; app.querySelector('#clue-problem').textContent = problem || ''; app.querySelector('.clue-form button').disabled = !draft.word || Boolean(problem); };
@@ -183,6 +187,7 @@ function announce(v) {
   else if (last) playSound(last.color === 'assassin' || last.kind === 'assassin' ? 'bad' : (last.color === teamOf(mySeat()) || last.kind === 'agent') ? 'good' : 'flip');
 }
 function startSolo() {
+  activeSetup = {...solo};
   stopAI(); mode = 'solo'; client = null; picked = null; lastSeen = null; plans.clear(); draft = {word: '', number: 2};
   game = createGame({mode: solo.mode, lang: solo.lang, pack: solo.pack, turns: solo.turns}, crypto.getRandomValues(new Uint32Array(1))[0]);
   game.id = crypto.randomUUID();
@@ -246,6 +251,7 @@ async function chooseRoomAI({view: seatView, record}, {signal}) {
   return {kind: 'clue', word: plan.word, number: plan.number};
 }
 function showRules() {
+  clearTimeout(timer);
   openDialog('How to play Cover Story', '<p><strong>Clues.</strong> A clue is one word plus a number: how many board words it points to. It can’t be a word still on the board, or contain one, or sit inside one. Accents and capitals don’t matter.</p>'
     + '<p><strong>Duo.</strong> You and your partner each see one side of the key: green agents your partner must find, black assassins. Take turns giving clues. The guesser keeps going while they find agents on the giver’s side, and may stop after one. A bystander ends the turn and is marked for that side; an assassin ends the game. Find all 15 agents before the turns run out. If one side has no agents left to give, the other gives every remaining clue.</p>'
     + '<p><strong>Duel (two humans).</strong> Both players guess from printed clues drawn from the authored word bank. Take turns choosing one matching word: +1 point for a match, −1 for a miss. Claimed words belong to that player. A missed word cannot be tried again for this clue. Either player may pass; two consecutive passes or finding all matches draws the next clue. The starting player alternates each clue. Highest score after the chosen number of clues wins; equal scores draw. There are no private keys, assassins, bots or AI in this variant.</p>'
@@ -272,7 +278,7 @@ document.addEventListener('click', event => {
   else if (action === 'pass') act({kind: 'pass'});
   else if (action === 'mode') { solo = soloSetup({...solo, mode: target.dataset.mode}); prefs.solo = solo; savePrefs(KEY, prefs); render(); }
   else if (action === 'start') startSolo();
-  else if (action === 'resume') { handoff = localHumans() && game?.mode === 'duo'; scene = 'game'; render(); schedule(); }
+  else if (action === 'resume') { solo = activeSetup || solo; handoff = localHumans() && game?.mode === 'duo'; scene = 'game'; render(); schedule(); }
   else if (action === 'menu') { stopAI(); if (mode === 'async') { mode = 'solo'; client = null; game = null; friendSession()?.leaveRoomGame?.(); } scene = 'menu'; render(); }
   else if (action === 'again') { if (mode === 'async') friendSession()?.openGameSetup('cover-story', client.record.setup); else startSolo(); }
   else if (action === 'retry-ai') { aiError = ''; render(); schedule(); }
@@ -290,13 +296,13 @@ document.addEventListener('visibilitychange', () => {
 document.addEventListener('close', schedule, true);
 installTopbar(KEY);
 registerCheckpoint('cover-story', {
-  capture: () => mode === 'solo' && game ? {setup: solo, state: game} : null,
+  capture: () => mode === 'solo' && game ? {setup: activeSetup || solo, state: game} : null,
   restore(data) {
     if (!data?.state) throw new Error('Invalid saved board.');
     const setup = soloSetup(data.setup);
     if (data.state.mode !== setup.mode) throw new Error('Invalid saved board.');
     validateView(playerView(data.state, 0));
-    stopAI(); solo = setup; game = data.state; mode = 'solo'; scene = 'game'; localSeat = actingSeat(game) ?? 0; handoff = localHumans() && game.mode === 'duo' && game.phase !== 'over'; render(); schedule();
+    stopAI(); activeSetup = {...setup}; solo = setup; game = data.state; mode = 'solo'; scene = 'game'; localSeat = actingSeat(game) ?? 0; handoff = localHumans() && game.mode === 'duo' && game.phase !== 'over'; render(); schedule();
   },
 });
 registerFriendGame('cover-story', {

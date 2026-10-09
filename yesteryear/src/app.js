@@ -16,6 +16,7 @@ function soloSetup(value = prefs.solo || {}) {
   catch { return {...validateSetup({}), bots}; }
 }
 let presented = null, feedbackTimer = null, pendingViews = [], seenRevision = null;
+let activeSetup = null;
 let solo = soloSetup(), scene = 'menu', mode = 'solo', game = null, client = null, botTimer = null, selected = null, lastSeen = null;
 
 const setup = () => mode === 'async' ? client.record.setup : solo;
@@ -149,6 +150,7 @@ function advanceFeedback() {
   app.querySelector('.tl .fresh')?.scrollIntoView({block:'nearest', inline:'center', behavior:matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'});
 }
 function startSolo() {
+  activeSetup = {...solo};
   resetFeedback(); clearTimeout(botTimer); mode = 'solo'; client = null; selected = null; lastSeen = null;
   game = createGame({seats: solo.mode === 'streak' ? 1 : solo.bots + 1, mode: solo.mode, decks: solo.decks}, crypto.getRandomValues(new Uint32Array(1))[0]);
   scene = 'game'; present(view()); scheduleBots();
@@ -170,6 +172,7 @@ async function place(slot) {
   present(view());
 }
 function showRules() {
+  clearTimeout(botTimer);
   openDialog('How to play Yesteryear', '<ol><li>The timeline starts with one card, year showing. Your hand’s years are hidden.</li>'
     + '<li>On your turn, pick a card and a gap: before, between or after the cards already placed. Equal years can go on either side.</li>'
     + '<li>Right: it stays and shows its year. Wrong: it is discarded, its year is revealed, and you draw a new card.</li>'
@@ -185,7 +188,7 @@ document.addEventListener('click', event => {
   else if (action === 'slot') place(Number(target.dataset.slot));
   else if (action === 'deck') { solo = soloSetup({...solo, decks: target.dataset.deck}); prefs.solo = solo; savePrefs(KEY, prefs); render(); }
   else if (action === 'start') startSolo();
-  else if (action === 'resume') { scene = 'game'; render(); scheduleBots(); }
+  else if (action === 'resume') { solo = activeSetup || solo; scene = 'game'; present(view()); scheduleBots(); }
   else if (action === 'menu') { resetFeedback(); clearTimeout(botTimer); if (mode === 'async') { mode = 'solo'; client = null; game = null; friendSession()?.leaveRoomGame?.(); } scene = 'menu'; render(); }
   else if (action === 'again') { if (mode === 'async') friendSession()?.openGameSetup('yesteryear', client.record.setup); else startSolo(); }
   else if (action === 'rules') showRules();
@@ -201,12 +204,12 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) cance
 document.addEventListener('close', scheduleBots, true);
 installTopbar(KEY);
 registerCheckpoint('yesteryear', {
-  capture: () => mode === 'solo' && game ? {setup: solo, state: game} : null,
+  capture: () => mode === 'solo' && game ? {setup: activeSetup || solo, state: game} : null,
   restore(data) {
     if (!data?.state) throw new Error('Invalid saved table.');
     const setup = soloSetup(data.setup);
     validateView(playerView(data.state, 0));
-    resetFeedback(); solo = setup; game = data.state; mode = 'solo'; scene = 'game'; present(view()); scheduleBots();
+    resetFeedback(); activeSetup = {...setup}; solo = setup; game = data.state; mode = 'solo'; scene = 'game'; present(view()); scheduleBots();
   },
 });
 registerFriendGame('yesteryear', {

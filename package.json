@@ -17,6 +17,7 @@
     "test:rendering:ui": "node tools/rendering-audit.mjs",
     "test:windows": "node --test shared/tests/floating-windows.test.mjs",
     "test:windows:ui": "node tools/floating-windows-audit.mjs",
+    "test:gameplay:ui": "node tools/gameplay-ux-audit.mjs",
     "test:parlor:ui": "node tools/parlor-audit.mjs",
     "test:performance:ui": "node tools/performance-audit.mjs",
     "test:startup:ui": "node tools/startup-audit.mjs"

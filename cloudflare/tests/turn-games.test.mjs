@@ -169,3 +169,15 @@ test('a Ripples race accepts each player’s move while the other keeps playing'
   advanceTurn(together,'host',{revision:shared,action:{kind:'hint'}});
   assert.throws(()=>advanceTurn(together,'guest',{revision:shared,action:{kind:'hint'}}),/changed/,'One shared board keeps the strict check');
 });
+
+test('Cover Story Duel has only human seats and ends without AI or bot calls',()=>{
+  const record=createTurnGame('cover-story',{mode:'duel',turns:7,lang:'fr'},'guest');
+  for(let i=0;i<14;i++){
+    const host=turnView(record,'host'),guest=turnView(record,'guest');
+    assert.deepEqual(host.controllers,['host','guest']);assert.deepEqual(host.waiting,[]);assert(!host.aiTurn&&!guest.aiTurn);
+    assert(!('key' in host.view)&&!('myKey' in guest.view));
+    assert.throws(()=>move(record,'host',{bot:true}),/No bot/);
+    const role=host.myTurn?'host':'guest';move(record,role,{action:{kind:'pass'}});
+  }
+  assert(turnSummary(record,'host').finished);assert.equal(record.state.winner,null);
+});
