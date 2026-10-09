@@ -6,6 +6,8 @@ Timeline trivia, inspired by *Timeline*. Place inventions, discoveries and turni
 
 305 cards in six decks, each with an English and a French title: **Inventions**, **Science & Discoveries**, **World History**, **History of France**, **Pop Culture** and **Space & Flight**, or everything mixed. The card language is a setting; the interface stays in English.
 
+Each card has an original pixel illustration keyed by its stable ID, delivered in thirteen compact WebP atlases. Paper captions keep titles and revealed years separate from the artwork. Illustrations are stylized interpretations, not documentary reconstructions. See [artwork prompts and provenance](assets/PROMPTS.md).
+
 Every card names its English Wikipedia article. `npm run verify` checks each year against Wikidata; cards whose item has no matching date were checked by hand and record the exact event in `tools/reviewed.mjs`. See [SOURCES.md](SOURCES.md).
 
 ## Play

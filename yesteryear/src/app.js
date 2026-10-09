@@ -2,6 +2,7 @@ import {registerCheckpoint} from '../../shared/game-checkpoint.js';
 import {friendSession, registerFriendGame, inviteFriendGame, joinFriendRoom} from '../../shared/friend-context.js';
 import {esc, loadPrefs, savePrefs, toast, openDialog, playSound, installTopbar, seatNames, playerName} from '../../shared/parlor.js';
 import {CARDS, THEMES, formatYear} from './cards.js';
+import {illustration} from './artwork.js';
 import {createGame, applyAction, playerView, validateView, score, LIVES} from './rules.js';
 import {botAction, DIFFICULTIES} from './bot.js';
 import {validateSetup} from './room-setup.js';
@@ -27,8 +28,8 @@ const years = id => formatYear(CARDS[id].year, lang());
 
 function card(id, {open = false, extra = '', attrs = '', tag = 'div'} = {}) {
   const c = CARDS[id];
-  return '<' + tag + ' class="tl-card ' + c.theme + ' ' + extra + '" lang="' + lang() + '" ' + attrs + '><span class="icon" aria-hidden="true">' + THEMES[c.theme].icon + '</span><span class="title">' + esc(title(id)) + '</span>'
-    + (open ? '<span class="year">' + years(id) + '</span>' : '<span class="year hidden" aria-hidden="true">?</span>') + '</' + tag + '>';
+  return '<' + tag + ' class="tl-card ' + c.theme + ' ' + extra + '" lang="' + lang() + '" ' + attrs + '>' + illustration(id) + '<span class="caption"><span class="title">' + esc(title(id)) + '</span>'
+    + (open ? '<span class="year">' + years(id) + '</span>' : '<span class="year hidden" aria-label="Year hidden">?</span>') + '</span></' + tag + '>';
 }
 
 // Menu ---------------------------------------------------------------------------
@@ -39,7 +40,7 @@ function renderMenu() {
   const best = prefs.best?.[solo.decks];
   app.innerHTML = '<section class="menu"><div><p class="eyebrow">Timeline trivia · 1–6 players</p><h1>Before or <em>after?</em></h1>'
     + '<p class="lede">Every card is an invention, a discovery or a moment in history, with its year on the back. Slide yours into the timeline: right, and it stays; wrong, and you draw another. Empty your hand first.</p>'
-    + '<div class="theme-grid">' + Object.entries(THEMES).map(([id, t]) => '<button type="button" class="theme-tile' + (solo.decks === id ? ' on' : '') + '" data-action="deck" data-deck="' + id + '"><span aria-hidden="true">' + t.icon + '</span><strong>' + esc(t.en) + '</strong><small>' + esc(t.fr) + '</small></button>').join('') + '</div></div>'
+    + '<div class="theme-grid">' + Object.entries(THEMES).map(([id, t]) => '<button type="button" class="theme-tile' + (solo.decks === id ? ' on' : '') + '" data-action="deck" data-deck="' + id + '">' + illustration(Object.values(CARDS).find(c => c.theme === id).id) + '<strong>' + esc(t.en) + '</strong><small>' + esc(t.fr) + '</small></button>').join('') + '</div></div>'
     + '<aside class="box stack" aria-label="Play options"><p class="eyebrow">Take a seat</p>'
     + '<label class="field">Game<select id="mode">' + option({race: 'Race the bots', streak: 'Solo streak · three lives'}, solo.mode) + '</select></label>'
     + (solo.mode === 'race' ? '<label class="field">Bots<select id="bots">' + option({1: '1 bot', 2: '2 bots', 3: '3 bots', 4: '4 bots', 5: '5 bots'}, solo.bots) + '</select></label><label class="field">Bot knowledge<select id="difficulty">' + option(DIFFICULTIES, solo.difficulty) + '</select></label>' : '')
