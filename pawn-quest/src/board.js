@@ -37,8 +37,10 @@ function tick(t) {
   let active = false;
   for (const b of boards) {
     if (!b.canvas.isConnected) { b.destroy(); continue; }
-    if (b.dirty || b.isAnimating(t)) b.frame(t);
-    active ||= b.dirty || b.isAnimating(t);
+    // Paint the first settled frame too, so a timed shake cannot leave its offset behind.
+    if (b.dirty || b.wasAnimating || b.isAnimating(t)) b.frame(t);
+    b.wasAnimating = b.isAnimating(t);
+    active ||= b.dirty || b.wasAnimating;
   }
   if (active) schedule();
 }

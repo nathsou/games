@@ -20,6 +20,9 @@ function patch(node, next) {
     if (node.nodeValue !== next.nodeValue) node.nodeValue = next.nodeValue;
     return;
   }
+  // Native subtree comparison skips unchanged scoreboards, rivals and card faces.
+  // Form controls still synchronize their live properties below.
+  if (!['INPUT', 'SELECT', 'TEXTAREA'].includes(node.tagName) && node.isEqualNode(next)) return;
   const valueChanged = node.getAttribute('value') !== next.getAttribute('value');
   for (const attr of [...node.attributes]) if (!next.hasAttribute(attr.name)) node.removeAttribute(attr.name);
   for (const attr of next.attributes) if (node.getAttribute(attr.name) !== attr.value) node.setAttribute(attr.name, attr.value);

@@ -25,14 +25,16 @@ try {
     const move = board.pos.moveFromUci('e2e4');
     await board.animateMove(move); board.pos.make(move); board.setPosition(board.pos);
     await wait(150); paints = 0; await wait(250); const settled = paints;
-    const result = {idle, afterMark, flipped, settled, density: board.dpr, baseReused: base === board.baseLayer, moved: board.pos.toFEN().includes('4P3')};
+    board.shake(20, 110); await wait(300);
+    const shakeSettled = board.time >= board.shakeUntil && board.ctx.getTransform().e === 0 && board.ctx.getTransform().f === 0;
+    const result = {idle, afterMark, flipped, settled, shakeSettled, density: board.dpr, baseReused: base === board.baseLayer, moved: board.pos.toFEN().includes('4P3')};
     board.destroy(); container.remove(); return result;
   });
   assert.equal(pawn.idle, 0);
   assert.ok(pawn.afterMark > 0);
   assert.equal(pawn.settled, 0);
   assert.equal(pawn.density, 2);
-  assert.ok(pawn.flipped && pawn.baseReused && pawn.moved);
+  assert.ok(pawn.flipped && pawn.baseReused && pawn.moved && pawn.shakeSettled);
   console.log('Pawn Quest sleeps when idle, wakes for annotations and moves, and caps density:', pawn);
   await page.goto(origin + '/flip-it/#solo');
   await page.waitForFunction(() => window.__gameCheckpoint && window.__flipit);
@@ -40,6 +42,8 @@ try {
     const {createMatch} = await import('/flip-it/src/rules.js');
     const {writeCheckpoint} = await import('/shared/game-checkpoint.js');
     const state = createMatch({compactDeck: false}, 42, 0, 5);
+    // Stress a crowded five-player hand while conserving all forty cards.
+    for (let seat = 0; seat < 5; seat++) if (seat !== state.turn) state.hands[state.turn].push(...state.hands[seat].splice(1));
     writeCheckpoint('flip-it', {mode: 'solo', seat: state.turn, state, controllers: ['human', 'human', 'human', 'human', 'human']});
     window.__gameCheckpoint.restore();
     const app = document.querySelector('#app');
@@ -69,9 +73,9 @@ try {
     const selectionMs = performance.now() - start;
     await Promise.resolve(); observer.disconnect();
     const detachedCards = mutations.flatMap(r => [...r.removedNodes]).filter(n => n.nodeType === 1 && (n.matches('[data-visual-card], .hand-card, [data-score-seat]') || n.querySelector('[data-visual-card]'))).length;
-    return {players: scores.length, retained, focusKept, selected, preview, labelsValid, measurements, detachedCards, selectionMs};
+    return {players: scores.length, handSize: cards.length, retained, focusKept, selected, preview, labelsValid, measurements, detachedCards, selectionMs};
   });
-  assert.equal(flip.players, 5);
+  assert.equal(flip.players, 5); assert.equal(flip.handSize, 36);
   assert.ok(flip.retained && flip.focusKept && flip.selected && flip.preview && flip.labelsValid);
   assert.equal(flip.measurements, 0); assert.equal(flip.detachedCards, 0);
   console.log('Flip it preserves five-player hands, scores, focus and card identity; selection avoids animation capture:', flip);
