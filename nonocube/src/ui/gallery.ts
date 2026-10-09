@@ -278,6 +278,13 @@ export class GalleryScreen implements Screen {
     this.app.canvas.style.cursor = '';
   }
 
+  isAnimating(): boolean {
+    const cam = this.app.camera;
+    return !store.settings.reducedMotion || !!this.drag || !!this.fresh || this.particles.list.length > 0 ||
+      Math.abs(this.focus - this.scroll) > 0.001 || Math.abs(cam.yaw - 0.3) > 0.001 || Math.abs(cam.pitch - 0.2) > 0.001 ||
+      this.items.some(e => Math.abs(Math.round((e.yaw - 0.55) / (Math.PI * 2)) * Math.PI * 2 + 0.55 - e.yaw) > 0.001);
+  }
+
   update(dt: number, time: number): void {
     this.time = time;
     if (!this.drag) this.scroll += (this.focus - this.scroll) * damp(9, dt);
@@ -309,6 +316,8 @@ export class GalleryScreen implements Screen {
       if (f.t >= 1.2) {
         modelScene(e.scene, e.puzzle);
         e.solved = true;
+        this.fresh = null;
+        this.renderPlaque();
       }
     }
     this.particles.update(dt);
