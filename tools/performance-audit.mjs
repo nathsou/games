@@ -34,6 +34,47 @@ try {
   assert.equal(pawn.density, 2);
   assert.ok(pawn.flipped && pawn.baseReused && pawn.moved);
   console.log('Pawn Quest sleeps when idle, wakes for annotations and moves, and caps density:', pawn);
+  await page.goto(origin + '/flip-it/#solo');
+  await page.waitForFunction(() => window.__gameCheckpoint && window.__flipit);
+  const flip = await page.evaluate(async () => {
+    const {createMatch} = await import('/flip-it/src/rules.js');
+    const {writeCheckpoint} = await import('/shared/game-checkpoint.js');
+    const state = createMatch({compactDeck: false}, 42, 0, 5);
+    writeCheckpoint('flip-it', {mode: 'solo', seat: state.turn, state, controllers: ['human', 'human', 'human', 'human', 'human']});
+    window.__gameCheckpoint.restore();
+    const app = document.querySelector('#app');
+    const hands = [...app.querySelectorAll('[data-hand-seat]')];
+    const scores = [...app.querySelectorAll('[data-score-seat]')];
+    const cards = [...app.querySelectorAll('.hand [data-visual-card]')];
+    const byID = new Map(cards.map(el => [el.dataset.visualCard, el]));
+    // Selection should not measure/clone every card as a turn animation would.
+    let measurements = 0;
+    for (const card of cards) {
+      const measure = card.getBoundingClientRect.bind(card);
+      card.getBoundingClientRect = () => { measurements++; return measure(); };
+    }
+    cards[0].focus(); cards[0].click();
+    const focusKept = document.activeElement === cards[0];
+    const selected = cards[0].getAttribute('aria-pressed') === 'true';
+    app.querySelector('[data-action="preview"]').click();
+    const preview = [...app.querySelectorAll('.hand [data-visual-card]')].every(el => el === byID.get(el.dataset.visualCard) && el.disabled && el.classList.contains('preview'));
+    app.querySelector('[data-action="preview"]').click();
+    const retained = [...hands, ...scores, ...cards].every(el => el.isConnected);
+    const labelsValid = cards.every(el => el.getAttribute('aria-label').includes('Rank ' + el.querySelector('.card-rank').textContent));
+    const mutations = [];
+    const observer = new MutationObserver(records => mutations.push(...records));
+    observer.observe(app, {subtree: true, childList: true});
+    const start = performance.now();
+    for (let i = 0; i < 20; i++) cards[0].click();
+    const selectionMs = performance.now() - start;
+    await Promise.resolve(); observer.disconnect();
+    const detachedCards = mutations.flatMap(r => [...r.removedNodes]).filter(n => n.nodeType === 1 && (n.matches('[data-visual-card], .hand-card, [data-score-seat]') || n.querySelector('[data-visual-card]'))).length;
+    return {players: scores.length, retained, focusKept, selected, preview, labelsValid, measurements, detachedCards, selectionMs};
+  });
+  assert.equal(flip.players, 5);
+  assert.ok(flip.retained && flip.focusKept && flip.selected && flip.preview && flip.labelsValid);
+  assert.equal(flip.measurements, 0); assert.equal(flip.detachedCards, 0);
+  console.log('Flip it preserves five-player hands, scores, focus and card identity; selection avoids animation capture:', flip);
   const nonocubeOrigin = process.env.NONOCUBE_URL || 'http://127.0.0.1:5173';
   await page.route(nonocubeOrigin + '/performance-test', route => route.fulfill({contentType: 'text/html', body: '<html data-theme="light"><head></head><body><canvas id="gl" style="width:600px;height:500px"></canvas><div id="ui"></div></body></html>'}));
   await page.goto(nonocubeOrigin + '/performance-test');
