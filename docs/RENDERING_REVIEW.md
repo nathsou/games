@@ -1,9 +1,9 @@
-# Rendering and loading review — 8 October 2026
+# Rendering and loading review — 9 October 2026
 
 The games already use native browser APIs. Cluance, Flip it, Midnight Table,
 Spacegolf and Pawn Quest have no framework or runtime bundle. Nonocube uses
 TypeScript and Vite, with a native WebGL renderer; its main game chunk builds to
-about 151 KB (51 KB gzip). A framework rewrite would not address the issues found.
+about 153 KB (51 KB gzip). A framework rewrite would not address the issues found.
 
 ## Changes implemented
 
@@ -49,15 +49,20 @@ High adds a cheap upscale pass so the expensive nebula shader runs on one quarte
 of the scene pixels. A 30 FPS cap further halves the target rendering frequency
 relative to 60 FPS. Actual gains depend on device, resolution and level.
 
-## Suggested next improvements
+## Follow-up improvements implemented
 
-| Game | Evidence | Suggested work |
+| Game | Change | Evidence |
 | --- | --- | --- |
-| Nonocube | `src/app.ts` draws every animation frame; the renderer uses antialiasing and up to 2× pixel density. | Add render-on-change while the camera and puzzle are idle, plus pixel-density/antialiasing options. Cache static gallery geometry and ambient-occlusion calculations between changes. |
-| Pawn Quest | `src/board.js` redraws every connected board every animation frame; board pixel density is uncapped. The background already runs at about 11 FPS. | Redraw idle boards only after input/state changes, keeping animation frames for active effects. Cap board density on high-DPI phones and cache the static board layer. Preserve the existing AI worker. |
-| Midnight Table | `assets/sprites.png` is about 1.5 MB and used as a CSS sprite atlas. | Compare lossless WebP delivery against PNG, preserving exact atlas dimensions and pixel-art edges. Preload only if cold-load profiling shows it delays visible cards. |
-| Flip it | Small texture assets and event-driven rendering already keep idle work low. `render()` replaces the whole app, and card motion captures/clones all visible cards. | Preserve unchanged hand/score DOM during turn updates; profile large five-player hands before changing the animation code. Keep the current reduced-motion support. |
-| Collection / shared shell | Direct card-game URLs route through the outer room page before loading the game iframe. | Consider build-generated initial shell HTML and earlier routing if slow-network traces still show an intermediate-page flash. Keep room reconnection and saved-game routing intact. |
+| Nonocube | Renders on input/state changes while idle; keeps continuous frames for camera motion, reveals, hover effects and particles. Hidden tabs stop scheduling. A lightweight idle clock preserves puzzle time. Graphics settings offer Auto/1×/1.5×/2× resolution and live antialiasing, including local preferences in shared views. | Browser check: zero idle puzzle draws while the timer advances by one second; zoom finishes and returns to zero draws; density and multisample targets change without WebGL errors. |
+| Nonocube geometry | Finished home exhibits retain geometry; gallery reveals release their animation state on completion. Ambient occlusion is reused when occupancy and instance positions stay unchanged. | AO regression checks cover changed occupancy, dimensions, instance order/count and animated positions. Camera checks cover zoom and panel framing settling. |
+| Pawn Quest | Boards wake on state/input/annotation changes and sleep after effects end. Density is capped at 2× and the board background is cached. The sky uses an 11 FPS timer, pauses when hidden and becomes static with reduced motion. | Browser check: zero idle/settled board draws, annotations and moves wake the board, and the first settled shake frame removes its offset. The existing chess worker is unchanged. |
+| Midnight Table | Lossless WebP replaces the PNG sprite atlas; CSS coordinates and pixel edges are unchanged. | 1,566,261 → 1,232,298 bytes (21.3% smaller); decoded 1254 × 1254 RGBA pixels match exactly. |
+| Flip it | Keyed DOM updates preserve cards, hand containers, scores and focus. Unchanged subtrees are skipped; animation snapshots are captured only for moves. | Five-player stress fixture with a 36-card hand: selection and peek preserve node identity, accessibility state and focus; selection performs zero card measurements and removes zero card nodes. Existing mouse/touch animations and replay scrubbing pass. |
+| Collection / shared shell | Build-generated initial shell markup hydrates in place. Direct card-game links redirect in the document head before game styles paint; explicit solo links and invitation fragments retain their routes. | Delayed-script audit sees the shell and saved theme before JavaScript, confirms that the iframe waits for its parent session, and verifies the iframe is retained during hydration. Save/restore and shared-play regressions pass. |
+
+These changes keep the native browser architecture. No framework migration or
+new runtime dependency was needed. Workload counts describe the tested scenes;
+they are not device FPS or battery-life measurements.
 
 ## Verification
 
@@ -65,8 +70,14 @@ relative to 60 FPS. Actual gains depend on device, resolution and level.
   physics, generator and checkpoints), shared code/AI, Flip it and Midnight
   Table passed. Added frame-limit checks at 60/120/144 Hz and graphics-preset
   checks.
-- Nonocube type-check, solver/persistence tests and production build passed;
-  the collection asset build completed.
+- Nonocube type-check, solver/persistence/rendering tests and production build passed;
+  the collection asset build and Cloudflare deployment dry run completed.
+- All 20 Cloudflare worker tests passed. Existing browser regressions covered
+  shared-play input safety, custom/Endless golf saves, Nonocube puzzle identity
+  and editor clue masks, and Pawn Quest/Nonocube resume from the room panel.
+- Flip it’s UI audit passed 60 responsive table configurations and 75 dialogs,
+  mouse and touch drags, per-card move animations, replay scrubbing, and a
+  populated five-player table across up to 12 player turns with no browser errors.
 - `tools/rendering-audit.mjs` checks Cluance's first paint with application code
   delayed, selective artwork requests, artwork failure/retry, and populated AI
   images without making provider calls. It exercises Spacegolf's real pointer
@@ -82,3 +93,10 @@ Run `npm run test:rendering:ui` against a static server on port 8080, or set
 `GAMES_URL`. `PLAYWRIGHT_MODULE`, `CHROMIUM_PATH` and `CHROMIUM_NO_SANDBOX=1` can
 select an existing browser installation. The audit also runs in the existing CI
 browser job against Wrangler.
+
+Run `npm run test:performance:ui` with the static/built site at `GAMES_URL`
+(default port 8080) and Nonocube’s Vite server at `NONOCUBE_URL` (default port
+5173). It checks Pawn Quest idle rendering, large Flip it hands, and Nonocube
+idle timekeeping and live graphics settings. `npm run test:startup:ui` uses the
+built site at `GAMES_URL` (default port 8787) to verify initial shell HTML and
+routing. Both audits also run in CI.

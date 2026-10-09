@@ -1,7 +1,7 @@
 # Original sprite atlas
 
-The production file is **sprites.webp**. The unmodified transparent 1280 × 1280
-PNG is consumed as four quadrants by CSS background positions: playing-card
+The production file is **sprites.webp**. The transparent 1254 × 1254
+atlas is consumed as four quadrants by CSS background positions: playing-card
 back, auction clock, loot vault, prize medal.
 
 Generated with the **built-in image_gen tool**, not the API/CLI fallback.
